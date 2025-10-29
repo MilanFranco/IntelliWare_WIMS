@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dashboard – Staff</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare – Staff</span>
+		</div>
+		<nav class="nav">
+			<a class="active" href="#">Home</a>
+			<a href="#">Inventory</a>
+			<a href="#">Reports</a>
+			<a href="#">Alerts</a>
+			<a href="#">Settings</a>
+		</nav>
+	</header>
+	<main class="container">
+		<section class="kpis">
+			<div class="card"><h3>Total Stock</h3><strong>12,430</strong></div>
+			<div class="card"><h3>Active Alerts</h3><strong>7</strong></div>
+			<div class="card"><h3>Classifications</h3><strong>A: 120 • B: 560 • C: 980</strong></div>
+		</section>
+		<section class="grid-2">
+			<div class="card"><h3>Stock Movements</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+			<div class="card"><h3>Quick Actions</h3>
+				<div style="display:flex; gap:10px; flex-wrap:wrap;">
+					<button class="button">Record Incoming</button>
+					<button class="button">Record Outgoing</button>
+					<button class="button secondary">Adjust Quantity</button>
+				</div>
+			</div>
+		</section>
+	</main>
+</body>
+</html>

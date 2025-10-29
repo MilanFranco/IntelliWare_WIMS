@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Login – IntelliWare</title>
+	<link rel="stylesheet" href="styles.css">
+	<style>
+		.login-wrap { max-width: 420px; margin: 8vh auto; }
+	</style>
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare</span>
+		</div>
+		<nav class="nav"><a href="index.html">Mockups</a></nav>
+	</header>
+	<main class="container">
+		<div class="card login-wrap">
+			<h2>Sign in</h2>
+			<div class="form-grid">
+				<label class="full">Username
+					<input class="input" type="text" placeholder="Enter username">
+				</label>
+				<label class="full">Password
+					<input class="input" type="password" placeholder="Enter password">
+				</label>
+				<div class="full" style="display:flex; gap:10px;">
+					<button class="button">Login</button>
+					<button class="button secondary" type="button">Clear</button>
+				</div>
+				<div class="full alert red" style="display:none;">Invalid credentials</div>
+			</div>
+		</div>
+	</main>
+</body>
+</html>

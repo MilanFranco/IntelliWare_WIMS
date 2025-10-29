@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dashboard – Admin</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare – Admin</span>
+		</div>
+		<nav class="nav">
+			<a class="active" href="#">Home</a>
+			<a href="#">Inventory</a>
+			<a href="#">Reports</a>
+			<a href="#">Alerts</a>
+			<a href="#">Settings</a>
+		</nav>
+	</header>
+	<main class="container">
+		<section class="kpis">
+			<div class="card"><h3>Users</h3><strong>38</strong></div>
+			<div class="card"><h3>Active Sessions</h3><strong>12</strong></div>
+			<div class="card"><h3>Pending Rules</h3><strong>3</strong></div>
+		</section>
+		<section class="grid-2">
+			<div class="card"><h3>Activity Log</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+			<div class="card"><h3>Rule Management</h3>
+				<div style="display:flex; gap:10px; flex-wrap:wrap;">
+					<button class="button">Add Rule</button>
+					<button class="button secondary">Edit Thresholds</button>
+				</div>
+			</div>
+		</section>
+	</main>
+</body>
+</html>

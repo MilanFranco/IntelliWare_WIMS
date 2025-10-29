@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Reports & Analytics</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare – Reports</span>
+		</div>
+		<nav class="nav">
+			<a href="dashboard_manager.html">Home</a>
+			<a href="inventory.html">Inventory</a>
+			<a class="active" href="#">Reports</a>
+			<a href="#">Alerts</a>
+			<a href="#">Settings</a>
+		</nav>
+	</header>
+	<main class="container">
+		<div class="card" style="margin-bottom:16px;">
+			<div style="display:flex; gap:10px; flex-wrap:wrap;">
+				<label>Date From
+					<input class="input" type="date">
+				</label>
+				<label>Date To
+					<input class="input" type="date">
+				</label>
+				<label>Type
+					<select>
+						<option>Daily</option>
+						<option>Weekly</option>
+						<option>Monthly</option>
+					</select>
+				</label>
+				<button class="button">Generate</button>
+				<button class="button secondary">Print / PDF</button>
+			</div>
+		</div>
+		<section class="grid-2">
+			<div class="card"><h3>Stock Turnover</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+			<div class="card"><h3>Category Distribution</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+		</section>
+		<section class="card" style="margin-top:16px;">
+			<h3>Summary Table</h3>
+			<table class="table">
+				<thead><tr><th>Metric</th><th>Value</th><th>Notes</th></tr></thead>
+				<tbody>
+					<tr><td>Turnover</td><td>4.2</td><td>Monthly</td></tr>
+					<tr><td>Demand Peak</td><td>Wed</td><td>Weekly trend</td></tr>
+				</tbody>
+			</table>
+		</section>
+	</main>
+</body>
+</html>

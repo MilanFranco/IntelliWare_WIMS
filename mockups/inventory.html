@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Inventory Management</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare – Inventory</span>
+		</div>
+		<nav class="nav">
+			<a href="dashboard_staff.html">Home</a>
+			<a class="active" href="#">Inventory</a>
+			<a href="#">Reports</a>
+			<a href="#">Alerts</a>
+			<a href="#">Settings</a>
+		</nav>
+	</header>
+	<main class="container">
+		<div class="card">
+			<div style="display:flex; gap:10px; margin-bottom:12px;">
+				<input class="input" placeholder="Search items...">
+				<select>
+					<option>All Categories</option>
+					<option>Electronics</option>
+					<option>Packaging</option>
+				</select>
+				<button class="button">Add Item</button>
+			</div>
+			<table class="table">
+				<thead><tr><th>ID</th><th>Name</th><th>Category</th><th>Qty</th><th>Status</th><th>Last Update</th><th>Actions</th></tr></thead>
+				<tbody>
+					<tr><td>1001</td><td>Widget A</td><td>Electronics</td><td>120</td><td>Available</td><td>2025-10-08</td><td><a href="stock_entry.html">Edit</a> · <a href="#">Delete</a></td></tr>
+					<tr><td>1002</td><td>Widget B</td><td>Packaging</td><td>12</td><td>Low Stock</td><td>2025-10-09</td><td><a href="stock_entry.html">Edit</a> · <a href="#">Delete</a></td></tr>
+				</tbody>
+			</table>
+		</div>
+	</main>
+</body>
+</html>

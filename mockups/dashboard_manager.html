@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dashboard – Manager</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<header class="header">
+		<div class="brand">
+			<img src="../img/logo.svg" alt="Logo" height="28">
+			<span>IntelliWare – Manager</span>
+		</div>
+		<nav class="nav">
+			<a class="active" href="#">Home</a>
+			<a href="#">Inventory</a>
+			<a href="#">Reports</a>
+			<a href="#">Alerts</a>
+			<a href="#">Settings</a>
+		</nav>
+	</header>
+	<main class="container">
+		<section class="kpis">
+			<div class="card"><h3>Turnover Rate</h3><strong>4.2/mo</strong></div>
+			<div class="card"><h3>Demand Index</h3><strong>Moderate</strong></div>
+			<div class="card"><h3>Forecast Accuracy</h3><strong>92%</strong></div>
+		</section>
+		<section class="grid-2">
+			<div class="card"><h3>Demand Frequency</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+			<div class="card"><h3>Category Distribution</h3><div style="height:220px;background:var(--gray-100);"></div></div>
+		</section>
+		<section class="card" style="margin-top:16px;">
+			<h3>Summary Reports</h3>
+			<table class="table">
+				<thead><tr><th>Report</th><th>Period</th><th>Status</th></tr></thead>
+				<tbody>
+					<tr><td>Monthly Performance</td><td>Sep</td><td>Ready</td></tr>
+					<tr><td>Stock Turnover</td><td>Q3</td><td>Ready</td></tr>
+				</tbody>
+			</table>
+		</section>
+	</main>
+</body>
+</html>
