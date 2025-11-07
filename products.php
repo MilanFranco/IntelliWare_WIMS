@@ -59,6 +59,8 @@ require_once 'src/layout.php';
 renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 ?>
 
+
+
 <style>
 .card { background:#1D387B; border:1px solid #2A4484; border-radius:10px; padding:14px; box-shadow: 0 0 20px 2px #304374; }
 .btn { background:#51D55A; color:#fff; border-radius:6px; padding:8px 10px; font-size:12px; text-decoration:none; border:1px solid transparent; cursor:pointer; }
@@ -73,6 +75,8 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 .badge.low { background:#ef4444; color:#fff; }
 .badge.normal { background:#10b981; color:#fff; }
 </style>
+
+
 
 <div class="card">
     <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📦 Add New Product</div>
@@ -90,7 +94,7 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
     </form>
 </div>
 
-<div class="card" style="margin-top:16px;">
+<div class="card" style="  margin-top:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px;">📋 Product Inventory</div>
         <form method="GET" style="display:flex; gap:8px;">

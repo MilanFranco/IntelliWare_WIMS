@@ -1,4 +1,4 @@
-CREATE DATABASE warehouse_system;
+
 
 USE warehouse_system;
 

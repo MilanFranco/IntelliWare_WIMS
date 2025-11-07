@@ -88,6 +88,9 @@ function renderHeader($pageTitle, $userRole, $username) {
     echo '</div>';
     echo '</div>';
     echo '</div>';
+
+    // close header wrapper
+    echo '</div>'; 
 }
 
 function renderLayoutStart($pageTitle, $userRole, $username) {
