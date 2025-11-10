@@ -12,9 +12,10 @@ class MLForecastManager {
         global $conn;
         $this->conn = $conn;
         
-        
-        Set $customPath = "C:\\YourPythonPath\\python.exe";
-        $customPath = "C:\\YourPythonPath\\python.exe";
+        // Auto-detect Python path, or set a custom path if you know it.
+        // Example: $customPath = "C:\\Python311\\python.exe";
+        $customPath = null;
+        try {
             $this->python_path = PythonHelper::getPythonPath($customPath);
         } catch (Exception $e) {
             // If Python is not found, we'll handle it when it's actually needed
