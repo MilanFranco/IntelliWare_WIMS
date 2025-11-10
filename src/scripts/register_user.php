@@ -13,19 +13,18 @@ $confirm  = trim($_POST['confirm_password'] ?? '');
 $first    = trim($_POST['first_name'] ?? '');
 $last     = trim($_POST['last_name'] ?? '');
 $email    = trim($_POST['email'] ?? '');
+$username = trim($_POST['username'] ?? '');
 $fullName = $first . ' ' . $last; // Auto-generate full name from first + last
 $role = trim($_POST['role'] ?? '');
 $employeeId = trim($_POST['employee_id'] ?? '');
 
-if ($password === '' || $confirm === '' || $first === '' || $last === '' || $email === '' || $role === '' || $employeeId === '') {
+if ($password === '' || $confirm === '' || $first === '' || $last === '' || $email === '' || $role === '' || $employeeId === '' || $username === '') {
 	redirect_with_error('Please complete all fields.');
 }
 
 if ($password !== $confirm) {
 	redirect_with_error('Passwords do not match.');
 }
-
-// Username will be auto-generated, no need to check manual username
 
 $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
@@ -35,35 +34,28 @@ if (!in_array($role, $allowedRoles, true)) {
     redirect_with_error('Please select a valid role.');
 }
 
-// Generate automatic username based on role and name
-function generateUsername($role, $firstName, $lastName) {
-    $firstInitial = strtolower(substr($firstName, 0, 1));
-    $lastNameLower = strtolower($lastName);
-    $baseUsername = $role . '.' . $firstInitial . $lastNameLower;
-    
-    return $baseUsername;
+// Use username provided by the user (must be unique and valid)
+$username = strtolower($username);
+// basic validation: allowed characters and length
+if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) {
+    redirect_with_error('Username invalid. Use 3-30 chars: letters, numbers, dot, underscore or hyphen.');
 }
 
-$autoUsername = generateUsername($role, $first, $last);
-
-// Check if auto-generated username is unique, if not, add a number
-$finalUsername = $autoUsername;
-$counter = 1;
-while (true) {
-    $checkUsername = $conn->prepare('SELECT user_id FROM users WHERE username = ?');
-    $checkUsername->bind_param('s', $finalUsername);
-    $checkUsername->execute();
-    $result = $checkUsername->get_result();
-    
-    if ($result->num_rows === 0) {
-        $checkUsername->close();
-        break;
-    }
-    
+// Check uniqueness
+$checkUsername = $conn->prepare('SELECT user_id FROM users WHERE username = ?');
+if (!$checkUsername) {
+    redirect_with_error('Database error checking username.');
+}
+$checkUsername->bind_param('s', $username);
+$checkUsername->execute();
+$result = $checkUsername->get_result();
+if ($result->num_rows > 0) {
     $checkUsername->close();
-    $finalUsername = $autoUsername . $counter;
-    $counter++;
+    redirect_with_error('Username already taken. Please choose another.');
 }
+$checkUsername->close();
+
+$finalUsername = $username;
 
 $stmt = $conn->prepare('INSERT INTO users (username, password, role, full_name, employee_id, email) VALUES (?,?,?,?,?,?)');
 if (!$stmt) {

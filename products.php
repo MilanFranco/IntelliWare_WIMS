@@ -118,41 +118,44 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                 </tr>
             </thead>
             <tbody>
-                <?php foreach($items as $it): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($it['sku']); ?></td>
-                    <td><?php echo htmlspecialchars($it['name']); ?></td>
-                    <td><?php echo htmlspecialchars($it['category']); ?></td>
-                    <td><?php echo (int)$it['qty']; ?></td>
-                    <td><?php echo htmlspecialchars($it['uom']); ?></td>
-                    <td><?php echo htmlspecialchars($it['location']); ?></td>
-                    <td>
-                        <span class="badge <?php echo (int)$it['qty'] < 50 ? 'low' : 'normal'; ?>">
-                            <?php echo (int)$it['qty'] < 50 ? 'Low Stock' : 'In Stock'; ?>
-                        </span>
-                    </td>
-                    <td>
-                        <form method="POST" style="display:inline-block;">
-                            <input type="hidden" name="action" value="edit" />
-                            <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
-                            <input type="hidden" name="sku" value="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>" />
-                            <input type="hidden" name="name" value="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>" />
-                            <input type="hidden" name="category" value="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>" />
-                            <input type="hidden" name="qty" value="<?php echo (int)$it['qty']; ?>" />
-                            <input type="hidden" name="uom" value="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>" />
-                            <input type="hidden" name="location" value="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>" />
-                            <button class="btn btn-outline" onclick="return editInline(this.form);">✏️ Edit</button>
-                        </form>
-                        <form method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Delete this product?');">
-                            <input type="hidden" name="action" value="delete" />
-                            <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
-                            <button class="btn btn-outline" type="submit">🗑️ Delete</button>
-                        </form>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
                 <?php if (empty($items)): ?>
-                <tr><td colspan="8" style="color:#9aa6d1; text-align:center; padding:20px;">No products found. Add your first product above.</td></tr>
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:20px;">No products found. Add your first product above.</td>
+                </tr>
+                <?php else: ?>
+                    <?php foreach($items as $it): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($it['sku']); ?></td>
+                        <td><?php echo htmlspecialchars($it['name']); ?></td>
+                        <td><?php echo htmlspecialchars($it['category']); ?></td>
+                        <td><?php echo (int)$it['qty']; ?></td>
+                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
+                        <td><?php echo htmlspecialchars($it['location']); ?></td>
+                        <td>
+                            <span class="badge <?php echo (int)$it['qty'] < 50 ? 'low' : 'normal'; ?>">
+                                <?php echo (int)$it['qty'] < 50 ? 'Low Stock' : 'In Stock'; ?>
+                            </span>
+                        </td>
+                        <td>
+                            <form method="POST" style="display:inline-block;">
+                                <input type="hidden" name="action" value="edit" />
+                                <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
+                                <input type="hidden" name="sku" value="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>" />
+                                <input type="hidden" name="name" value="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>" />
+                                <input type="hidden" name="category" value="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>" />
+                                <input type="hidden" name="qty" value="<?php echo (int)$it['qty']; ?>" />
+                                <input type="hidden" name="uom" value="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>" />
+                                <input type="hidden" name="location" value="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>" />
+                                <button class="btn btn-outline" onclick="return editInline(this.form);">✏️ Edit</button>
+                            </form>
+                            <form method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Delete this product?');">
+                                <input type="hidden" name="action" value="delete" />
+                                <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
+                                <button class="btn btn-outline" type="submit">🗑️ Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>

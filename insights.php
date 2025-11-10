@@ -5,6 +5,21 @@ $role = $_SESSION['Role'] ?? 'staff';
 if (!in_array($role, ['admin','manager'])) { header('Location: dash_staff.php'); exit(); }
 
 require_once 'config/db.php';
+require_once 'src/ml/ProductRecommendationManager.php';
+require_once 'src/ml/MLForecastManager.php';
+
+// Initialize our ML managers
+$recommendationManager = new ProductRecommendationManager();
+$forecastManager = new MLForecastManager();
+
+// Get current month's recommendations and forecasts
+$monthlyRecommendations = $recommendationManager->getCurrentMonthRecommendations();
+$restockRecommendations = $recommendationManager->getRestockRecommendations();
+$recentForecasts = $forecastManager->getLatestForecasts(null, 10);
+$recentAnomalies = $forecastManager->getRecentAnomalies(7);
+
+// Get last forecast run status
+$lastRunStatus = $forecastManager->getLastRunStatus();
 
 // Include the data mining engine
 require_once 'data_mining_engine.php';
@@ -18,7 +33,8 @@ $classificationSummary = $miner->getAnalysisSummary();
 // Get additional insights
 $insights = [
     'total_products' => count($detailedAnalysis),
-    'fast_moving' => $classificationSummary['fast_moving'] ?? 0,
+    'high_demand' => $classificationSummary['high_demand'] ?? 0,
+    'low_demand' => $classificationSummary['low_demand'] ?? 0,
     'low_stock' => $classificationSummary['low_stock'] ?? 0,
     'overstocked' => $classificationSummary['overstocked'] ?? 0,
     'inactive' => $classificationSummary['inactive'] ?? 0,
@@ -27,16 +43,16 @@ $insights = [
     'anomalies' => []
 ];
 
-// Calculate urgent reorders (low stock + fast moving)
-$insights['urgent_reorders'] = $insights['low_stock'] + $insights['fast_moving'];
+// Calculate urgent reorders (low stock + high demand)
+$insights['urgent_reorders'] = $insights['low_stock'] + $insights['high_demand'];
 
 // Detect anomalies (items that need attention)
 foreach ($detailedAnalysis as $item) {
     if ($item['classification'] === 'low_stock' || 
-        ($item['classification'] === 'fast_moving' && $item['days_since_restock'] > 30)) {
+        ($item['classification'] === 'high_demand' && $item['days_since_restock'] > 30)) {
         $insights['anomalies'][] = [
             'product' => $item['product_name'],
-            'issue' => $item['classification'] === 'low_stock' ? 'Low Stock Alert' : 'Fast Moving - Needs Restock',
+            'issue' => $item['classification'] === 'low_stock' ? 'Low Stock Alert' : 'High Demand - Needs Restock',
             'severity' => 'high',
             'days_since_restock' => $item['days_since_restock']
         ];
@@ -61,6 +77,8 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 .badge { padding:4px 10px; border-radius:12px; background:#13275B; color:#E3E3E3; font-size:11px; font-weight:500; }
 .badge.fast-moving { background:#10b981; color:#fff; }
 .badge.low-stock { background:#ef4444; color:#fff; }
+.badge.high-demand { background:#10b981; color:#fff; }
+.badge.low-demand { background:#ef4444; color:#fff; }
 .badge.overstocked { background:#f59e0b; color:#fff; }
 .badge.inactive { background:#6b7280; color:#fff; }
 .badge.normal { background:#3b82f6; color:#fff; }
@@ -80,8 +98,8 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Total Products</div>
         </div>
         <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
-            <div style="color:#10b981; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['fast_moving']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Fast Moving</div>
+            <div style="color:#10b981; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['high_demand']; ?></div>
+            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">High Demand</div>
         </div>
         <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
             <div style="color:#ef4444; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['low_stock']; ?></div>
@@ -202,17 +220,108 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     </div>
 </div>
 
+<div class="card" style="margin-bottom:24px;">
+    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🤖 AI Recommendations</div>
+    <div style="display:grid; grid-template-columns: repeat(1, 1fr); gap:20px;">
+        <?php if (!empty($monthlyRecommendations)): ?>
+            <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
+                <div style="color:#51D55A; font-weight:600; font-size:16px; margin-bottom:12px;">📈 Top Products for <?php echo date('F'); ?></div>
+                <div style="overflow:auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Current Stock</th>
+                                <th>Avg. Monthly Demand</th>
+                                <th>Recommended Stock</th>
+                                <th>Action Required</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($monthlyRecommendations as $rec): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($rec['product_name']); ?></td>
+                                <td><?php echo htmlspecialchars($rec['category']); ?></td>
+                                <td><?php echo number_format($rec['current_stock']); ?> <?php echo htmlspecialchars($rec['uom']); ?></td>
+                                <td><?php echo number_format($rec['avg_monthly_demand'], 1); ?></td>
+                                <td><?php echo number_format($rec['recommended_stock']); ?></td>
+                                <td>
+                                    <?php if ($rec['restock_recommended']): ?>
+                                        <span class="badge high">Restock Needed</span>
+                                    <?php else: ?>
+                                        <span class="badge normal">Stock OK</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($recentAnomalies)): ?>
+            <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
+                <div style="color:#ef4444; font-weight:600; font-size:16px; margin-bottom:12px;">⚠️ AI Detected Anomalies</div>
+                <div style="overflow:auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Date</th>
+                                <th>Anomaly Score</th>
+                                <th>Severity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentAnomalies as $anomaly): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($anomaly['product_name']); ?></td>
+                                <td><?php echo date('Y-m-d', strtotime($anomaly['detection_date'])); ?></td>
+                                <td><?php echo number_format($anomaly['anomaly_score'], 3); ?></td>
+                                <td>
+                                    <span class="badge <?php echo $anomaly['anomaly_score'] < -0.8 ? 'high' : ($anomaly['anomaly_score'] < -0.5 ? 'medium' : 'normal'); ?>">
+                                        <?php echo $anomaly['anomaly_score'] < -0.8 ? 'High' : ($anomaly['anomaly_score'] < -0.5 ? 'Medium' : 'Low'); ?>
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
 <div class="card">
     <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
         <button class="btn" onclick="refreshAnalysis()">🔄 Refresh Analysis</button>
+        <button class="btn" onclick="runAIForecast()">🤖 Run AI Forecast</button>
         <button class="btn btn-secondary" onclick="exportData()">📊 Export Data</button>
         <button class="btn btn-secondary" onclick="generateReport()">📋 Generate Report</button>
         <button class="btn btn-secondary" onclick="scheduleAnalysis()">⏰ Schedule Analysis</button>
     </div>
     <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
-        💡 <strong>Pro Tip:</strong> Run analysis daily for optimal inventory management. Set up automated alerts for urgent reorders.
+        💡 <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
     </div>
+
+    <?php if ($lastRunStatus && isset($lastRunStatus['status'])): ?>
+    <div style="margin-top:12px; color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
+        Last AI forecast run: <?php 
+            $timestamp = !empty($lastRunStatus['finished_at']) ? $lastRunStatus['finished_at'] : (!empty($lastRunStatus['started_at']) ? $lastRunStatus['started_at'] : date('Y-m-d H:i:s'));
+            echo date('Y-m-d H:i:s', strtotime($timestamp)); 
+        ?> - 
+        Status: <span style="color: <?php 
+            $status = $lastRunStatus['status'] ?? 'unknown';
+            echo ($status === 'completed') ? '#10b981' : (($status === 'running') ? '#f59e0b' : '#ef4444'); 
+        ?>; font-weight:600;">
+            <?php echo ucfirst($status); ?>
+        </span>
+    </div>
+    <?php endif; ?>
 </div>
 
 <script>
@@ -243,6 +352,56 @@ function generateReport() {
 
 function scheduleAnalysis() {
     alert('Automated scheduling feature coming soon! Set up daily/weekly analysis runs.');
+}
+
+async function runAIForecast() {
+    const btn = document.querySelector('button[onclick="runAIForecast()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Running AI Forecast...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('src/ml/run_forecast.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'run_forecast'
+            })
+        });
+        
+        // Get response text first to see what we're dealing with
+        const responseText = await response.text();
+        console.log('Response status:', response.status);
+        console.log('Response text:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            console.error('Response was:', responseText);
+            throw new Error('Invalid response from server. The server may have encountered an error. Check browser console for details.');
+        }
+        
+        if (!response.ok) {
+            throw new Error(data.message || `Server error (${response.status}): ${responseText.substring(0, 200)}`);
+        }
+        
+        if (data.success) {
+            alert('AI forecast completed successfully! Refreshing page to show latest predictions...');
+            location.reload();
+        } else {
+            throw new Error(data.message || 'Failed to run forecast');
+        }
+    } catch (error) {
+        console.error('Error details:', error);
+        alert('Failed to run AI forecast: ' + error.message + '\n\nCheck the browser console (F12) for more details.');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 </script>
 
