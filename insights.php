@@ -84,36 +84,43 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 .badge.normal { background:#3b82f6; color:#fff; }
 .badge.high { background:#ef4444; color:#fff; }
 .badge.medium { background:#f59e0b; color:#fff; }
+.metric-card { cursor: pointer; transition: all 0.3s ease; }
+.metric-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); border-color: #51D55A; }
+.metric-card.active { border-color: #51D55A; background: linear-gradient(135deg, #13275B 0%, #1D387B 100%); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
+.filter-tag { display: inline-block; background: #51D55A; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
+.filter-tag .close { margin-left: 8px; cursor: pointer; font-weight: bold; }
 </style>
 
 <div class="card" style="margin-bottom:24px;">
     <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:18px; margin-bottom:12px;">📊 Data Mining Insights Dashboard</div>
     <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:20px; opacity:0.8;">
-        Advanced analytics powered by rule-based classification algorithms to optimize your inventory management.
+        Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. Click on any metric to filter products.
     </div>
     
     <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:20px;">
-        <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
+        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('all')" data-filter="all">
             <div style="color:#51D55A; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['total_products']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Total Products</div>
         </div>
-        <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
+        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('high_demand')" data-filter="high_demand">
             <div style="color:#10b981; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['high_demand']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">High Demand</div>
         </div>
-        <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
+        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('low_stock')" data-filter="low_stock">
             <div style="color:#ef4444; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['low_stock']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Low Stock</div>
         </div>
-        <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
+        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('overstocked')" data-filter="overstocked">
             <div style="color:#f59e0b; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['overstocked']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Overstocked</div>
         </div>
-        <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484; text-align:center;">
+        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('urgent')" data-filter="urgent">
             <div style="color:#ef4444; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['urgent_reorders']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Urgent Actions</div>
         </div>
     </div>
+    
+    <div id="filterDisplay" style="margin-top:16px; min-height:24px;"></div>
 </div>
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
@@ -127,7 +134,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                     <div style="font-size:12px; margin-top:8px; opacity:0.7;">Add products to see classifications</div>
                 </div>
             <?php else: ?>
-                <table class="table">
+                <table class="table" id="inventoryTable">
                     <thead>
                         <tr>
                             <th>Product</th>
@@ -138,9 +145,9 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                             <th>Days Since Restock</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="inventoryTableBody">
                         <?php foreach ($detailedAnalysis as $item): ?>
-                        <tr>
+                        <tr data-classification="<?php echo $item['classification']; ?>">
                             <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                             <td><?php echo htmlspecialchars($item['category']); ?></td>
                             <td><?php echo $item['quantity']; ?></td>
@@ -178,7 +185,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                             <th>Days Since Restock</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="anomalyTableBody">
                         <?php foreach ($insights['anomalies'] as $anomaly): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($anomaly['product']); ?></td>
@@ -298,11 +305,11 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 <div class="card">
     <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
-        <button class="btn" onclick="refreshAnalysis()">🔄 Refresh Analysis</button>
-        <button class="btn" onclick="runAIForecast()">🤖 Run AI Forecast</button>
-        <button class="btn btn-secondary" onclick="exportData()">📊 Export Data</button>
-        <button class="btn btn-secondary" onclick="generateReport()">📋 Generate Report</button>
-        <button class="btn btn-secondary" onclick="scheduleAnalysis()">⏰ Schedule Analysis</button>
+        <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
+        <button class="btn" onclick="runAIForecast()">Run AI Forecast</button>
+        <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
+        <button class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
+        <button class="btn btn-secondary" onclick="scheduleAnalysis()">Schedule Analysis</button>
     </div>
     <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
         💡 <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
@@ -325,23 +332,139 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <script>
+let currentFilter = 'all';
+
+function filterProducts(filterType) {
+    currentFilter = filterType;
+    const tableBody = document.getElementById('inventoryTableBody');
+    const rows = tableBody.getElementsByTagName('tr');
+    const metricCards = document.querySelectorAll('.metric-card');
+    const filterDisplay = document.getElementById('filterDisplay');
+    
+    // Remove active class from all cards
+    metricCards.forEach(card => card.classList.remove('active'));
+    
+    // Add active class to clicked card
+    const activeCard = document.querySelector(`.metric-card[data-filter="${filterType}"]`);
+    if (activeCard) {
+        activeCard.classList.add('active');
+    }
+    
+    // Update filter display
+    let filterText = '';
+    let filterLabel = '';
+    
+    switch(filterType) {
+        case 'all':
+            filterLabel = 'Showing All Products';
+            break;
+        case 'high_demand':
+            filterLabel = 'High Demand Products';
+            break;
+        case 'low_stock':
+            filterLabel = 'Low Stock Products';
+            break;
+        case 'overstocked':
+            filterLabel = 'Overstocked Products';
+            break;
+        case 'urgent':
+            filterLabel = 'Urgent Action Required';
+            break;
+    }
+    
+    if (filterType !== 'all') {
+        filterDisplay.innerHTML = `<span class="filter-tag">${filterLabel} <span class="close" onclick="filterProducts('all')">✕</span></span>`;
+    } else {
+        filterDisplay.innerHTML = '';
+    }
+    
+    let visibleCount = 0;
+    
+    // Filter table rows
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const classification = row.getAttribute('data-classification');
+        
+        if (filterType === 'all') {
+            row.style.display = '';
+            visibleCount++;
+        } else if (filterType === 'urgent') {
+            // Show both high_demand and low_stock for urgent
+            if (classification === 'high_demand' || classification === 'low_stock') {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        } else if (classification === filterType) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    }
+    
+    // Show message if no products match filter
+    if (visibleCount === 0 && filterType !== 'all') {
+        const emptyRow = document.createElement('tr');
+        emptyRow.id = 'emptyFilterRow';
+        emptyRow.innerHTML = `
+            <td colspan="6" style="text-align:center; padding:40px; color:#9aa6d1;">
+                <div style="font-size:48px; margin-bottom:16px;">🔍</div>
+                <div>No products found for this filter</div>
+                <div style="font-size:12px; margin-top:8px; opacity:0.7;">Try a different classification</div>
+            </td>
+        `;
+        
+        // Remove existing empty row if present
+        const existingEmpty = document.getElementById('emptyFilterRow');
+        if (existingEmpty) existingEmpty.remove();
+        
+        tableBody.appendChild(emptyRow);
+    } else {
+        const existingEmpty = document.getElementById('emptyFilterRow');
+        if (existingEmpty) existingEmpty.remove();
+    }
+    
+    // Scroll to inventory table
+    document.getElementById('inventoryTable').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 function refreshAnalysis() {
     location.reload();
 }
 
 function exportData() {
-    // Create CSV data
+    const filterSuffix = currentFilter !== 'all' ? `_${currentFilter}` : '';
     let csv = 'Product,Category,Stock,Sold,Classification,Days Since Restock,Sold Percentage\n';
     
-    <?php foreach ($detailedAnalysis as $item): ?>
-    csv += '<?php echo addslashes($item['product_name']); ?>,<?php echo addslashes($item['category']); ?>,<?php echo $item['quantity']; ?>,<?php echo $item['sold_quantity']; ?>,<?php echo $item['classification']; ?>,<?php echo $item['days_since_restock']; ?>,<?php echo $item['sold_percentage']; ?>%\n';
-    <?php endforeach; ?>
+    const tableBody = document.getElementById('inventoryTableBody');
+    const rows = tableBody.getElementsByTagName('tr');
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.style.display !== 'none' && row.id !== 'emptyFilterRow') {
+            const cells = row.getElementsByTagName('td');
+            if (cells.length > 0) {
+                const rowData = [];
+                for (let j = 0; j < cells.length; j++) {
+                    let cellText = cells[j].textContent.trim();
+                    // Remove badge styling from classification column
+                    if (j === 4) {
+                        cellText = cellText.replace(/\s+/g, ' ');
+                    }
+                    rowData.push(`"${cellText}"`);
+                }
+                csv += rowData.join(',') + '\n';
+            }
+        }
+    }
     
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'inventory_analysis_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.download = `inventory_analysis${filterSuffix}_` + new Date().toISOString().split('T')[0] + '.csv';
     a.click();
     window.URL.revokeObjectURL(url);
 }
@@ -371,7 +494,6 @@ async function runAIForecast() {
             })
         });
         
-        // Get response text first to see what we're dealing with
         const responseText = await response.text();
         console.log('Response status:', response.status);
         console.log('Response text:', responseText);
