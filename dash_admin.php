@@ -582,7 +582,6 @@ $conn->close();
       <div class="p-2 flex flex-col gap-[8px]">
         <a class="premium-menu-item" href="dash_admin.php">Dashboard</a>
         <a class="premium-menu-item" href="products.php">Inventory</a>
-        <a class="premium-menu-item" href="reorder.php">Set Reorder Point</a>
         <a class="premium-menu-item" href="transactions.php">Stock Transactions</a>
         <a class="premium-menu-item" href="transaction_logs.php">Transaction Logs</a>
         <a class="premium-menu-item" href="insights.php">Data Mining Insights</a>
