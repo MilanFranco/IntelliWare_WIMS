@@ -209,19 +209,19 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📈 Classification Rules Applied</div>
     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">🚀 Fast Moving</div>
+            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">Last Moving</div>
             <div style="color:#E3E3E3; font-size:12px;">Sold ≥ 80% of stock</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;">📉 Low Stock</div>
+            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;"> Low Stock</div>
             <div style="color:#E3E3E3; font-size:12px;">Stock < 10 units</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;">📦 Overstocked</div>
+            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;"> Overstocked</div>
             <div style="color:#E3E3E3; font-size:12px;">Stock > 200 units</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#6b7280; font-weight:600; font-size:14px; margin-bottom:8px;">😴 Inactive</div>
+            <div style="color:#6b7280; font-weight:600; font-size:14px; margin-bottom:8px;">Inactive</div>
             <div style="color:#E3E3E3; font-size:12px;">Days since restock > 90</div>
         </div>
     </div>
@@ -232,7 +232,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     <div style="display:grid; grid-template-columns: repeat(1, 1fr); gap:20px;">
         <?php if (!empty($monthlyRecommendations)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
-                <div style="color:#51D55A; font-weight:600; font-size:16px; margin-bottom:12px;">📈 Top Products for <?php echo date('F'); ?></div>
+                <div style="color:#51D55A; font-weight:600; font-size:16px; margin-bottom:12px;"> Top Products for <?php echo date('F'); ?></div>
                 <div style="overflow:auto;">
                     <table class="table">
                         <thead>
@@ -270,7 +270,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
         <?php if (!empty($recentAnomalies)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
-                <div style="color:#ef4444; font-weight:600; font-size:16px; margin-bottom:12px;">⚠️ AI Detected Anomalies</div>
+                <div style="color:#ef4444; font-weight:600; font-size:16px; margin-bottom:12px;"> AI Detected Anomalies</div>
                 <div style="overflow:auto;">
                     <table class="table">
                         <thead>
@@ -312,7 +312,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
         <button class="btn btn-secondary" onclick="scheduleAnalysis()">Schedule Analysis</button>
     </div>
     <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
-        💡 <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
+         <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
     </div>
 
     <?php if ($lastRunStatus && isset($lastRunStatus['status'])): ?>

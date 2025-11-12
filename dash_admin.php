@@ -247,7 +247,7 @@ $conn->close();
     
     /* Improved Color Scheme */
     .premium-admin-header {
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      background: linear-gradient(135deg, #1D387B );
       box-shadow: 
         0 4px 20px rgba(0, 0, 0, 0.1),
         0 1px 0 rgba(255, 255, 255, 0.8);
@@ -256,6 +256,8 @@ $conn->close();
       position: relative;
       z-index: 100000;
     }
+
+    
     
     .premium-sidebar {
       background: linear-gradient(180deg, #1D387B 0%, #13275B 100%);
@@ -268,7 +270,7 @@ $conn->close();
     
     .premium-menu-item {
       border: 1px solid rgba(42, 68, 132, 0.6);
-      color: #E3E3E3;
+      color: #ffffffff;
       border-radius: 12px;
       padding: 14px 18px;
       display: block;
@@ -593,7 +595,7 @@ $conn->close();
     </div>
     <div class="flex-1 flex flex-col">
       <div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">
-        <div class="font-onest text-[20px] font-semibold text-gray-800">Admin Dashboard</div>
+        <div class="font-onest text-[20px] font-semibold text-white">Admin Dashboard</div>
         <div class="admin-user-section">
           <div class="notification-container">
             <!-- Notification Bell -->

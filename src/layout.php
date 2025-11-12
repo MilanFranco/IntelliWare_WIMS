@@ -8,7 +8,7 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_admin.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'reorder.php', 'label' => 'Set Reorder Point', 'icon' => 'reorder'],
+
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
             ['href' => 'insights.php', 'label' => 'Data Mining Insights', 'icon' => 'insights'],
@@ -70,7 +70,7 @@ function renderSidebar($currentPage, $userRole) {
 
 function renderHeader($pageTitle, $userRole, $username) {
     echo '<div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">';
-    echo '<div class="font-onest text-[20px] font-semibold text-gray-800">' . htmlspecialchars($pageTitle) . '</div>';
+    echo '<div class="font-onest text-[20px] font-semibold text-white">' . htmlspecialchars($pageTitle) . '</div>';
     echo '<div class="admin-user-section">';
     echo '<div class="user-profile" onclick="toggleUserDropdown()">';
     echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($username) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
@@ -111,7 +111,7 @@ function renderLayoutStart($pageTitle, $userRole, $username) {
     echo '.premium-menu-item.active { background: linear-gradient(135deg, rgba(81, 213, 90, 0.2) 0%, rgba(75, 192, 82, 0.1) 100%); border-color: rgba(81, 213, 90, 0.4); }';
     echo '.premium-button { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-decoration: none; display: inline-block; }';
     echo '.premium-button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
-    echo '.premium-admin-header { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.8); border-bottom: 1px solid rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px); position: relative; z-index: 100000; }';
+    echo '.premium-admin-header { background: linear-gradient(135deg, #1D387B); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(255, 255, 255, 0.8); border-bottom: 1px solid rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px); position: relative; z-index: 100000; }';
     echo '.admin-user-section { display: flex; align-items: center; gap: 16px; position: relative; z-index: 100000; }';
     echo '.user-profile { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: rgba(81, 213, 90, 0.1); border-radius: 12px; backdrop-filter: blur(10px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(81, 213, 90, 0.2); cursor: pointer; position: relative; }';
     echo '.user-profile:hover { background: rgba(81, 213, 90, 0.15); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.2); }';

@@ -108,7 +108,7 @@ $conn->close();
     
     /* Premium Reports Styles */
     .premium-reports-header {
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      background: linear-gradient(135deg, #1D387B);
       box-shadow: 
         0 4px 20px rgba(0, 0, 0, 0.1),
         0 1px 0 rgba(255, 255, 255, 0.8);
@@ -598,7 +598,7 @@ $conn->close();
     </div>
     <div class="flex-1 flex flex-col">
       <div class="premium-reports-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">
-        <div class="font-onest text-[20px] font-semibold text-gray-800">Reports</div>
+        <div class="font-onest text-[20px] font-semibold text-white">Reports</div>
         <div class="reports-user-section">
           <div class="user-profile" onclick="toggleUserDropdown()">
             <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['Username']); ?>&background=51D55A&color=fff&size=40&bold=true" 
