@@ -6,25 +6,27 @@ if (($_SESSION['Role'] ?? '') !== 'admin') { header('Location: dash_staff.php');
 // Include database connection
 require_once 'config/db.php';
 
-// Get products from database
+// 1. Get products from database, NOW including 'reorder_point'
 $items = [];
-$productQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, 'A1' as location FROM products";
+$productQuery = "SELECT 
+                    product_id as id, 
+                    CONCAT('P-', LPAD(product_id, 4, '0')) as sku, 
+                    product_name as name, 
+                    category, 
+                    quantity as qty, 
+                    unit as uom, 
+                    reorder_point  -- <-- ADDED THIS
+                 FROM products";
 $productResult = $conn->query($productQuery);
 
 if ($productResult && $productResult->num_rows > 0) {
     while ($row = $productResult->fetch_assoc()) {
         $items[] = $row;
     }
-} else {
-    // If no products in database, use session data as fallback
-    $items = $_SESSION['items'] ?? [
-        [ 'id' => 1, 'sku' => 'W-0001', 'name' => 'Wood Pallet', 'category' => 'Packaging', 'qty' => 120, 'uom' => 'pcs', 'location' => 'A1' ],
-        [ 'id' => 2, 'sku' => 'B-0042', 'name' => 'Bolt M8x40', 'category' => 'Hardware', 'qty' => 860, 'uom' => 'pcs', 'location' => 'B3' ],
-        [ 'id' => 3, 'sku' => 'T-0100', 'name' => 'Thermal Label 4x6', 'category' => 'Labels', 'qty' => 540, 'uom' => 'roll', 'location' => 'C2' ],
-    ];
 }
+// 2. We no longer use fallback data. If the DB is empty, metrics will be 0.
 
-// Get user info from database
+// 3. Get user info from database
 $userQuery = "SELECT username, role, full_name FROM users WHERE username = ?";
 $userStmt = $conn->prepare($userQuery);
 $userStmt->bind_param("s", $_SESSION['Username']);
@@ -33,7 +35,41 @@ $userResult = $userStmt->get_result();
 $userInfo = $userResult->fetch_assoc();
 $userStmt->close();
 
-$conn->close();
+// --- 4. CALCULATE ALL METRICS AND NOTIFICATIONS ---
+
+// Rule-Based Classification: Find all low stock items based on DB reorder_point
+$lowStockItems = array_filter($items, function($i){ 
+    return (int)$i['qty'] <= (int)($i['reorder_point'] ?? 10); 
+});
+$lowStockCount = count($lowStockItems);
+
+// Calculate other metrics
+$totalSKUs = count($items);
+$totalQty = array_sum(array_map(function($i){return (int)$i['qty'];}, $items));
+$totalCategories = count(array_unique(array_map(function($i){return $i['category'];}, $items)));
+
+// 5. NEW: Get Recent Transactions (Last 5)
+$recentTransactions = [];
+$transQuery = "SELECT 
+                    t.transaction_type, 
+                    t.quantity, 
+                    t.transaction_date, 
+                    p.product_name, 
+                    u.username
+                FROM transactions t
+                JOIN products p ON t.product_id = p.product_id
+                JOIN users u ON t.user_id = u.user_id
+                ORDER BY t.transaction_date DESC
+                LIMIT 5";
+$transResult = $conn->query($transQuery);
+if ($transResult && $transResult->num_rows > 0) {
+    while ($row = $transResult->fetch_assoc()) {
+        $recentTransactions[] = $row;
+    }
+}
+
+$conn->close(); // Close DB connection after all data is fetched
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,6 +81,7 @@ $conn->close();
   <link href="styles.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;500;600;700&display=swap" rel="stylesheet">
   <title>Admin Dashboard | IntelliWare</title>
+  
   <style>
     body { font-family: 'Inter', sans-serif; }
     .card { background:#1D387B; border:1px solid #2A4484; border-radius:10px; padding:14px; box-shadow: 0 0 20px 2px #304374; }
@@ -56,12 +93,14 @@ $conn->close();
     
     /* Premium Admin Styles */
     .premium-admin-header {
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      background: linear-gradient(135deg, #1D387B );
       box-shadow: 
         0 4px 20px rgba(0, 0, 0, 0.1),
         0 1px 0 rgba(255, 255, 255, 0.8);
       border-bottom: 1px solid rgba(0, 0, 0, 0.05);
       backdrop-filter: blur(10px);
+      position: relative;
+      z-index: 100000;
     }
     
     .admin-user-section {
@@ -244,21 +283,7 @@ $conn->close();
     .dropdown-item:hover svg {
       color: #51D55A;
     }
-    
-    /* Improved Color Scheme */
-    .premium-admin-header {
-      background: linear-gradient(135deg, #1D387B );
-      box-shadow: 
-        0 4px 20px rgba(0, 0, 0, 0.1),
-        0 1px 0 rgba(255, 255, 255, 0.8);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-      backdrop-filter: blur(10px);
-      position: relative;
-      z-index: 100000;
-    }
-
-    
-    
+        
     .premium-sidebar {
       background: linear-gradient(180deg, #1D387B 0%, #13275B 100%);
       border-right: 1px solid rgba(42, 68, 132, 0.6);
@@ -573,178 +598,289 @@ $conn->close();
       opacity: 1;
       visibility: visible;
     }
+
+    /* --- NEW STYLES ADDED HERE --- */
+
+    /* Simple Table for Recent Activity */
+    .activity-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .activity-table td {
+        padding: 10px 4px;
+        border-bottom: 1px solid #2A4484;
+        color: #E3E3E3;
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        vertical-align: middle; /* Align content vertically */
+    }
+    .activity-table tr:last-child td {
+        border-bottom: none;
+    }
+    .activity-table .badge {
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block; /* Ensure badge respects padding */
+    }
+    .activity-table .badge-in {
+        background: rgba(16, 185, 129, 0.2);
+        color: #6ee7b7;
+    }
+    .activity-table .badge-out {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fcd34d;
+    }
+
+    /* List for Low Stock Items */
+    .low-stock-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 300px; /* Add max-height for long lists */
+        overflow-y: auto; /* Add scrollbar if needed */
+        padding-right: 5px; /* Space for scrollbar */
+    }
+    .low-stock-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #13275B;
+        border: 1px solid #2A4484;
+        padding: 10px 12px;
+        border-radius: 8px;
+    }
+    .low-stock-name {
+        color: #E3E3E3;
+        font-family: 'Onest', sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 10px;
+    }
+    .low-stock-qty {
+        color: #ef4444; /* Red */
+        font-family: 'Overpass', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        flex-shrink: 0; /* Prevent quantity from shrinking */
+    }
+    
+    /* Scrollbar styles for the low stock list */
+    .low-stock-list::-webkit-scrollbar {
+        width: 6px;
+    }
+    .low-stock-list::-webkit-scrollbar-track {
+        background: rgba(19, 39, 91, 0.3);
+        border-radius: 3px;
+    }
+    .low-stock-list::-webkit-scrollbar-thumb {
+        background: #2A4484;
+        border-radius: 3px;
+    }
+    .low-stock-list::-webkit-scrollbar-thumb:hover {
+        background: #3e5fac;
+    }
+
   </style>
 </head>
 <body class="w-full h-screen bg-[#020A27] px-3 pt-3 flex items-start justify-center">
   <div class="w-full h-full flex flex-row rounded-t-[15px] overflow-hidden bg-gray-200 shadow-lg">
-    <div class="premium-sidebar w-[290px] text-white p-3 pt-5 flex flex-col">
-      <div class="ml-2 mb-4">
-        <img src="img/logo.svg" alt="IntelliWare" class="w-[220px]" />
-      </div>
-      <div class="p-2 flex flex-col gap-[8px]">
-        <a class="premium-menu-item" href="dash_admin.php">Dashboard</a>
-        <a class="premium-menu-item" href="products.php">Inventory</a>
-        <a class="premium-menu-item" href="transactions.php">Stock Transactions</a>
-        <a class="premium-menu-item" href="transaction_logs.php">Transaction Logs</a>
-        <a class="premium-menu-item" href="insights.php">Data Mining Insights</a>
-        <a class="premium-menu-item" href="reports.php">Reports</a>
-        <a class="premium-menu-item" href="users.php">User Management</a>
-        <a class="premium-menu-item" href="settings.php">Settings</a>
-      </div>
-      <div class="mt-auto p-2"><a class="premium-button" href="logout.php">Logout</a></div>
-    </div>
+    
+    <?php include 'src/layout/sidebar.php'; ?>
+    
     <div class="flex-1 flex flex-col">
       <div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">
         <div class="font-onest text-[20px] font-semibold text-white">Admin Dashboard</div>
         <div class="admin-user-section">
           <div class="notification-container">
-            <!-- Notification Bell -->
             <div class="notification-bell" onclick="toggleNotificationDropdown()">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
               </svg>
-              <div class="notification-badge" id="notificationBadge">3</div>
+              <?php if ($lowStockCount > 0): ?>
+                <div class="notification-badge" id="notificationBadge"><?php echo $lowStockCount; ?></div>
+              <?php endif; ?>
             </div>
             
-            <!-- Notification Dropdown -->
             <div class="notification-dropdown" id="notificationDropdown">
               <div class="notification-header">
                 <div class="notification-title">Notifications</div>
                 <button class="notification-clear" onclick="clearAllNotifications()">Clear All</button>
               </div>
               <div class="notification-list" id="notificationList">
-                <!-- Low Stock Notification -->
-                <div class="notification-item">
-                  <div class="notification-icon low-stock">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                    </svg>
-                  </div>
-                  <div class="notification-content">
-                    <div class="notification-message">Low stock alert: 5 items are running low on inventory</div>
-                    <div class="notification-time">2 minutes ago</div>
-                  </div>
-                </div>
                 
-                <!-- High Stock Notification -->
-                <div class="notification-item">
-                  <div class="notification-icon high-stock">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+                <?php if ($lowStockCount > 0): ?>
+                  <?php foreach (array_slice($lowStockItems, 0, 5) as $item): // Show first 5 ?>
+                  <div class="notification-item">
+                    <div class="notification-icon low-stock">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                      </svg>
+                    </div>
+                    <div class="notification-content">
+                      <div class="notification-message">
+                        <strong><?php echo htmlspecialchars($item['name']); ?></strong> is low (<?php echo (int)$item['qty']; ?> left).
+                      </div>
+                      <div class="notification-time">Reorder point: <?php echo (int)($item['reorder_point'] ?? 10); ?></div>
+                    </div>
                   </div>
-                  <div class="notification-content">
-                    <div class="notification-message">High stock alert: 3 items have exceeded maximum capacity</div>
-                    <div class="notification-time">15 minutes ago</div>
+                  <?php endforeach; ?>
+                  
+                  <?php if ($lowStockCount > 5): ?>
+                  <div class="notification-item" style="justify-content: center; font-size: 13px; color: #374151;">
+                    ...and <?php echo $lowStockCount - 5; ?> more items.
                   </div>
-                </div>
+                  <?php endif; ?>
+
+                <?php else: ?>
+                  <div class="notification-empty">No notifications</div>
+                <?php endif; ?>
                 
-                <!-- New Item Notification -->
-                <div class="notification-item">
-                  <div class="notification-icon new-item">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                  </div>
-                  <div class="notification-content">
-                    <div class="notification-message">New item added: "Premium Wireless Headphones" has been added to inventory</div>
-                    <div class="notification-time">1 hour ago</div>
-                  </div>
-                </div>
-                
-                <!-- System Notification -->
-                <div class="notification-item">
-                  <div class="notification-icon system">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                  </div>
-                  <div class="notification-content">
-                    <div class="notification-message">System update: Database backup completed successfully</div>
-                    <div class="notification-time">3 hours ago</div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
           
-          <!-- User Profile -->
           <div class="user-profile" onclick="toggleUserDropdown()">
             <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($_SESSION['Username']); ?>&background=51D55A&color=fff&size=40&bold=true" 
                  alt="User Avatar" class="user-avatar" />
             <div class="user-details">
-              <div class="user-name"><?php echo htmlspecialchars($_SESSION['Username']); ?></div>
-              <div class="user-role">Administrator</div>
+              <div class="user-name"><?php echo htmlspecialchars($userInfo['full_name'] ?? $_SESSION['Username']); ?></div>
+              <div class="user-role"><?php echo htmlspecialchars(strtoupper($userInfo['role'] ?? 'ADMIN')); ?></div>
             </div>
             <div class="user-dropdown" id="userDropdown">
               <a href="settings.php" class="dropdown-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Settings
               </a>
               <a href="users.php" class="dropdown-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                </svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path></svg>
                 User Management
               </a>
               <a href="reports.php" class="dropdown-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 Reports
               </a>
               <a href="logout.php" class="dropdown-item">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                </svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                 Logout
               </a>
             </div>
           </div>
         </div>
       </div>
+      
       <div class="p-6 premium-scrollbar" style="background:#0b1438; flex:1; overflow:auto; position:relative; z-index:1;">
+        
+        <!-- Metric Cards -->
         <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
           <div class="premium-metric-card premium-metric">
             <div>Total SKUs</div>
-            <div class="num"><?php echo count($items); ?></div>
+            <div class="num"><?php echo $totalSKUs; ?></div>
           </div>
           <div class="premium-metric-card premium-metric">
             <div>Total Qty</div>
-            <div class="num"><?php echo array_sum(array_map(function($i){return (int)$i['qty'];}, $items)); ?></div>
+            <div class="num"><?php echo number_format($totalQty); ?></div>
           </div>
           <div class="premium-metric-card premium-metric">
-            <div>Low Stock</div>
-            <div class="num"><?php echo count(array_filter($items,function($i){return (int)$i['qty']<50;})); ?></div>
+            <div>Low Stock Items</div>
+            <div class="num"><?php echo $lowStockCount; ?></div>
           </div>
           <div class="premium-metric-card premium-metric">
             <div>Categories</div>
-            <div class="num"><?php echo count(array_unique(array_map(function($i){return $i['category'];}, $items))); ?></div>
+            <div class="num"><?php echo $totalCategories; ?></div>
           </div>
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:16px;">
-          <div class="premium-card">
-            <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Quick Links</div>
-            <div style="display:flex; gap:12px; flex-wrap:wrap;">
-              <a class="premium-button" href="products.php">Manage Products</a>
-              <a class="premium-button" href="transactions.php">Stock In/Out</a>
-              <a class="premium-button" href="reports.php">View Reports</a>
-            </div>
+        
+        <!-- === UPDATED CONTENT LAYOUT === -->
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-top:16px;">
+    
+          <!-- Column 1: Recent Activity & Chart -->
+          <div style="display:flex; flex-direction:column; gap:16px;">
+              
+              <!-- Recent Transactions Card -->
+              <div class="premium-metric-card"> <!-- Re-using metric-card style for consistency -->
+                  <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Recent Transactions</div>
+                  <table class="activity-table">
+                      <?php if (empty($recentTransactions)): ?>
+                          <tr><td style="text-align:center; color:#9aa6d1; padding:20px;">No transactions recorded yet.</td></tr>
+                      <?php else: ?>
+                          <?php foreach($recentTransactions as $tx): ?>
+                              <tr>
+                                  <td>
+                                      <?php if($tx['transaction_type'] === 'stock_in'): ?>
+                                          <span class="badge badge-in">IN</span>
+                                      <?php else: ?>
+                                          <span class="badge badge-out">OUT</span>
+                                      <?php endif; ?>
+                                  </td>
+                                  <td>
+                                      <strong><?php echo htmlspecialchars($tx['product_name']); ?></strong>
+                                  </td>
+                                  <td>
+                                      Qty: <strong><?php echo (int)$tx['quantity']; ?></strong>
+                                  </td>
+                                  <td style="color:#9aa6d1;"><?php echo htmlspecialchars($tx['username']); ?></td>
+                                  <td style="color:#9aa6d1; text-align:right;"><?php echo date('M j, g:ia', strtotime($tx['transaction_date'])); ?></td>
+                              </tr>
+                          <?php endforeach; ?>
+                      <?php endif; ?>
+                  </table>
+              </div>
+
+              <!-- Chart Card -->
+              <div class="premium-metric-card">
+                  <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Inventory Overview (by SKU Count)</div>
+                  <canvas id="overviewChart" height="120"></canvas>
+              </div>
           </div>
-          <div class="premium-card">
-            <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Inventory Overview</div>
-            <canvas id="overviewChart" height="120"></canvas>
+      
+          <!-- Column 2: Low Stock & Quick Links -->
+          <div style="display:flex; flex-direction:column; gap:16px;">
+              
+              <!-- Actionable Low Stock Card -->
+              <div class="premium-metric-card">
+                  <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Actionable Low Stock</div>
+                  <div class="low-stock-list">
+                      <?php if (empty($lowStockItems)): ?>
+                          <div style="text-align:center; color:#9aa6d1; padding:20px 0;">All items are well-stocked!</div>
+                      <?php else: ?>
+                          <!-- Show the first 5 low stock items -->
+                          <?php foreach(array_slice($lowStockItems, 0, 5) as $item): ?>
+                              <div class="low-stock-item">
+                                  <span class="low-stock-name"><?php echo htmlspecialchars($item['name']); ?></span>
+                                  <span class="low-stock-qty"><?php echo (int)$item['qty']; ?> left</span>
+                              </div>
+                          <?php endforeach; ?>
+                          <?php if ($lowStockCount > 5): ?>
+                              <div style="color:#9aa6d1; font-size: 13px; text-align: center; margin-top: 5px;">
+                                  ...and <?php echo $lowStockCount - 5; ?> more.
+                              </div>
+                          <?php endif; ?>
+                      <?php endif; ?>
+                  </div>
+              </div>
+
+              <!-- Quick Links Card -->
+              <div class="premium-metric-card">
+                  <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Quick Links</div>
+                  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                      <a class="premium-button" href="products.php">Manage Products</a>
+                      <a class="premium-button" href="transactions.php">Stock In/Out</a>
+                      <a class="premium-button" href="reports.php">View Reports</a>
+                  </div>
+              </div>
           </div>
         </div>
+        <!-- === END OF UPDATED LAYOUT === -->
+
       </div>
-    </div>
+      </div>
   </div>
   
-  <!-- Dropdown Backdrop -->
   <div class="dropdown-backdrop" id="dropdownBackdrop"></div>
   
 <script>
@@ -754,18 +890,13 @@ $conn->close();
     const notificationDropdown = document.getElementById('notificationDropdown');
     const backdrop = document.getElementById('dropdownBackdrop');
     
-    console.log('Toggling user dropdown');
     dropdown.classList.toggle('show');
-    // Close notification dropdown when opening user dropdown
     notificationDropdown.classList.remove('show');
     
-    // Show/hide backdrop
     if (dropdown.classList.contains('show')) {
       backdrop.classList.add('show');
-      console.log('User dropdown should be visible');
     } else {
       backdrop.classList.remove('show');
-      console.log('User dropdown should be hidden');
     }
   }
 
@@ -776,10 +907,8 @@ $conn->close();
     const backdrop = document.getElementById('dropdownBackdrop');
     
     dropdown.classList.toggle('show');
-    // Close user dropdown when opening notification dropdown
     userDropdown.classList.remove('show');
     
-    // Show/hide backdrop
     if (dropdown.classList.contains('show')) {
       backdrop.classList.add('show');
     } else {
@@ -793,9 +922,11 @@ $conn->close();
     const notificationBadge = document.getElementById('notificationBadge');
     
     notificationList.innerHTML = '<div class="notification-empty">No notifications</div>';
-    notificationBadge.style.display = 'none';
     
-    // Close dropdown after clearing
+    if(notificationBadge) {
+      notificationBadge.style.display = 'none';
+    }
+    
     document.getElementById('notificationDropdown').classList.remove('show');
   }
 
@@ -807,99 +938,55 @@ $conn->close();
     const notificationBell = document.querySelector('.notification-bell');
     const backdrop = document.getElementById('dropdownBackdrop');
     
-    if (!userProfile.contains(event.target)) {
+    if (userProfile && !userProfile.contains(event.target)) {
       userDropdown.classList.remove('show');
     }
     
-    if (!notificationBell.contains(event.target)) {
+    if (notificationBell && !notificationBell.contains(event.target)) {
       notificationDropdown.classList.remove('show');
     }
     
-    // Hide backdrop if no dropdowns are open
-    if (!userDropdown.classList.contains('show') && !notificationDropdown.classList.contains('show')) {
+    if ((!userDropdown.classList.contains('show') && !notificationDropdown.classList.contains('show'))) {
       backdrop.classList.remove('show');
     }
   });
 
   // Close dropdowns when clicking on backdrop
   document.getElementById('dropdownBackdrop').addEventListener('click', function() {
-    const userDropdown = document.getElementById('userDropdown');
-    const notificationDropdown = document.getElementById('notificationDropdown');
-    const backdrop = document.getElementById('dropdownBackdrop');
-    
-    userDropdown.classList.remove('show');
-    notificationDropdown.classList.remove('show');
-    backdrop.classList.remove('show');
+    document.getElementById('userDropdown').classList.remove('show');
+    document.getElementById('notificationDropdown').classList.remove('show');
+    this.classList.remove('show');
   });
 
-  // Simulate real-time notifications
-  function addNotification(type, message, time) {
-    const notificationList = document.getElementById('notificationList');
-    const notificationBadge = document.getElementById('notificationBadge');
-    
-    // Remove empty state if it exists
-    const emptyState = notificationList.querySelector('.notification-empty');
-    if (emptyState) {
-      emptyState.remove();
-    }
-    
-    const notificationItem = document.createElement('div');
-    notificationItem.className = 'notification-item';
-    
-    const iconClass = type === 'low-stock' ? 'low-stock' : 
-                     type === 'high-stock' ? 'high-stock' : 
-                     type === 'new-item' ? 'new-item' : 'system';
-    
-    const iconSvg = type === 'low-stock' ? 
-      '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path>' :
-      type === 'high-stock' ?
-      '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' :
-      type === 'new-item' ?
-      '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>' :
-      '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>';
-    
-    notificationItem.innerHTML = `
-      <div class="notification-icon ${iconClass}">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          ${iconSvg}
-        </svg>
-      </div>
-      <div class="notification-content">
-        <div class="notification-message">${message}</div>
-        <div class="notification-time">${time}</div>
-      </div>
-    `;
-    
-    notificationList.insertBefore(notificationItem, notificationList.firstChild);
-    
-    // Update badge count
-    const currentCount = parseInt(notificationBadge.textContent) || 0;
-    notificationBadge.textContent = currentCount + 1;
-    notificationBadge.style.display = 'flex';
-  }
-
-  // Simulate periodic notifications (for demo purposes)
-  setInterval(function() {
-    const notifications = [
-      { type: 'low-stock', message: 'Low stock alert: Product XYZ is running low', time: 'Just now' },
-      { type: 'high-stock', message: 'High stock alert: Product ABC has exceeded capacity', time: 'Just now' },
-      { type: 'new-item', message: 'New item added to inventory', time: 'Just now' },
-      { type: 'system', message: 'System maintenance completed', time: 'Just now' }
-    ];
-    
-    const randomNotification = notifications[Math.floor(Math.random() * notifications.length)];
-    addNotification(randomNotification.type, randomNotification.message, randomNotification.time);
-  }, 30000); // Add notification every 30 seconds for demo
-
-  // Chart initialization
+  // DYNAMIC CHART INITIALIZATION
   (function(){
     const items = <?php echo json_encode($items); ?>;
-    const low = items.filter(i => parseInt(i.qty||0,10) < 50).length;
-    const ok = items.filter(i => { const q = parseInt(i.qty||0,10); return q >= 50 && q < 200; }).length;
-    const high = items.filter(i => parseInt(i.qty||0,10) >= 200).length;
+    
+    // Use the database reorder_point for chart logic
+    const low = items.filter(i => {
+        const qty = parseInt(i.qty || 0, 10);
+        const reorder = parseInt(i.reorder_point || 10, 10);
+        return qty <= reorder; // LOW = at or below reorder point
+    }).length;
+    
+    const ok = items.filter(i => {
+        const qty = parseInt(i.qty || 0, 10);
+        const reorder = parseInt(i.reorder_point || 10, 10);
+        // NORMAL = above reorder, but less than 5x reorder
+        return qty > reorder && qty < (reorder * 5); 
+    }).length;
+    
+    const high = items.filter(i => {
+        const qty = parseInt(i.qty || 0, 10);
+        const reorder = parseInt(i.reorder_point || 10, 10);
+        // HIGH = 5x reorder point or more
+        return qty >= (reorder * 5);
+    }).length;
+
     const ctx = document.getElementById('overviewChart');
     if(ctx){
-      new Chart(ctx, {
+      // Store chart instance in a variable
+      const myChart = new Chart(ctx, {
         type: 'bar',
         data: {
           labels: ['Low','Normal','High'],
@@ -914,14 +1001,36 @@ $conn->close();
           }]
         },
         options: { 
+          // NEW: Add onClick handler
+          onClick: (e) => {
+              const points = myChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+              if (points.length) {
+                  const firstPoint = points[0];
+                  const label = myChart.data.labels[firstPoint.index];
+                  let statusFilter = '';
+                  
+                  if (label === 'Low') statusFilter = 'low';
+                  if (label === 'Normal') statusFilter = 'normal';
+                  if (label === 'High') statusFilter = 'high';
+                  
+                  if (statusFilter) {
+                      // Redirect to products page with the filter
+                      window.location.href = `products.php?status=${statusFilter}`;
+                  }
+              }
+          },
+          
+          // NEW: Add onHover handler to change cursor to a pointer
+          onHover: (event, chartElement) => {
+              const canvas = event.native.target;
+              canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
+          },
+
           plugins:{ 
             legend:{ 
               labels:{ 
                 color:'#E3E3E3',
-                font: {
-                  family: 'Onest',
-                  size: 12
-                }
+                font: { family: 'Onest', size: 12 }
               } 
             } 
           }, 
@@ -929,10 +1038,7 @@ $conn->close();
             x:{ 
               ticks:{ 
                 color:'#E3E3E3',
-                font: {
-                  family: 'Onest',
-                  size: 11
-                }
+                font: { family: 'Onest', size: 11 }
               }, 
               grid:{ 
                 color:'rgba(255,255,255,0.1)',
@@ -942,10 +1048,7 @@ $conn->close();
             y:{ 
               ticks:{ 
                 color:'#E3E3E3',
-                font: {
-                  family: 'Onest',
-                  size: 11
-                }
+                font: { family: 'Onest', size: 11 }
               }, 
               grid:{ 
                 color:'rgba(255,255,255,0.1)',
@@ -964,5 +1067,3 @@ $conn->close();
 </script>
 </body>
 </html>
-
-
