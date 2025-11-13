@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-R">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IntelliWare</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,7 +29,16 @@
             width: 100%;
         }
         .auth-wrapper .header { margin-top: 24px; margin-bottom: 12px; }
-        .signin-logo { width: clamp(350px, 35vw, 450px); height: auto; display: block; margin-left: auto; margin-right: auto; }
+        
+        /* --- THIS RULE WAS UPDATED TO BE MORE SPECIFIC AND LARGER --- */
+        .header .signin-logo { 
+            width: clamp(450px, 40vw, 550px); 
+            height: auto; 
+            display: block; 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        
         .auth-container { max-width: 560px; width: 92vw; margin-left: auto; margin-right: auto; }
         .auth-container .signinbox { width: 100%; }
 
@@ -119,8 +128,8 @@
 
 
                     <div class="g-recaptcha" data-sitekey="6LdTgDQrAAAAAHokkaDM8gCwd4ZjgYAJh-H4o4Zg" data-theme="dark" style="margin: 14px 0; border-radius: 7px; width: 100%; transform: scale(0.9); transform-origin: left top;"></div>
-                 
-                  
+                
+                
 
                     <button class="btnlogin" type="submit" style="margin-bottom: 20px;">Login</button>
                     <br>

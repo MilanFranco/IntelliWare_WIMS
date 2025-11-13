@@ -11,6 +11,7 @@ $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 $items = [];
 
 // 2. HANDLE ALL FORM SUBMISSIONS (CRUD)
+// This PHP logic is already correct and does not need to change.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -34,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- C-R-U-D: UPDATE ---
     if ($action === 'edit') {
-        // Get data from the 'editInline' prompt
+        // Get data from the 'edit' form (now populated by our new JavaScript)
         $id = (int)($_POST['id'] ?? 0);
         $product_name = trim($_POST['name'] ?? '');
         $category = trim($_POST['category'] ?? '');
@@ -125,10 +126,52 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 .btn:hover { background:#3d9743; }
 .btn-outline { background:transparent; border:1px solid #2A4484; color:#E3E3E3; }
 .btn-outline:hover { background:#1D387B; }
+
+/* Added new button styles for save, cancel, delete */
+.btn-save { background:#3b82f6; color:#fff; } /* Blue for save */
+.btn-save:hover { background:#2563eb; }
+.btn-cancel { background:#6b7280; color:#fff; } /* Gray for cancel */
+.btn-cancel:hover { background:#4b5563; }
+.btn-delete { background:#ef4444; color:#fff; } /* Red for delete */
+.btn-delete:hover { background:#dc2626; }
+
+
 .input { background:#13275B; color:#fff; border:1px solid #304374; padding:8px; border-radius:6px; width:100%; }
 .label { color:#E3E3E3; font-family:'Onest'; font-size:12px; margin-bottom:6px; display:block; }
 .table { width:100%; border-collapse:collapse; }
-.table th, .table td { padding:10px; border-bottom:1px solid #2A4484; color:#E3E3E3; font-family:'Onest'; font-size:12px; }
+
+.table td { 
+    padding:10px; 
+    border-bottom:1px solid #2A4484; 
+    color:#E3E3E3; 
+    font-family:'Onest'; 
+    font-size:12px;
+    text-align: left; /* Align data cells left */
+    vertical-align: top; /* Align top for edit mode */
+}
+.table th {
+    padding:10px; 
+    border-bottom:1px solid #2A4484; 
+    color:#E3E3E3; 
+    font-family:'Onest'; 
+    font-size:12px; 
+    text-align: left; /* Align header cells left */
+    font-weight: bold; /* Make headers bold */
+}
+
+/* Style for the inline edit inputs */
+.table .edit-input {
+    background: #0f1f4b;
+    color: #fff;
+    border: 1px solid #51D55A; /* Highlight active edit */
+    padding: 6px;
+    border-radius: 4px;
+    width: 95%;
+    font-family: 'Onest';
+    font-size: 12px;
+}
+
+
 .badge { padding:2px 8px; border-radius:999px; background:#13275B; color:#E3E3E3; font-size:11px; }
 .badge.low { background:#ef4444; color:#fff; }
 .badge.normal { background:#10b981; color:#fff; }
@@ -137,7 +180,7 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 
 
 <div class="card">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📦 Add New Product</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📦 Add New Product</div>
     
     <form method="POST" style="margin-top:8px;">
         <input type="hidden" name="action" value="add" />
@@ -158,7 +201,7 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 
 <div class="card" style="  margin-top:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px;">📋 Product Inventory</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px;">📋 Product Inventory</div>
         <form method="GET" style="display:flex; gap:8px;">
             <input class="input" name="q" placeholder="Search products..." value="<?php echo htmlspecialchars($q); ?>" style="width:280px;" />
             <button class="btn" type="submit">🔍 Search</button>
@@ -189,14 +232,30 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                 </tr>
                 <?php else: ?>
                     <?php foreach($items as $it): ?>
-                    <tr>
+                    <tr id="row-<?php echo $it['id']; ?>">
                         <td><?php echo htmlspecialchars($it['sku']); ?></td>
-                        <td><?php echo htmlspecialchars($it['name']); ?></td>
-                        <td><?php echo htmlspecialchars($it['category']); ?></td>
-                        <td><?php echo htmlspecialchars($it['supplier'] ?? 'N/A'); ?></td>
-                        <td><?php echo (int)$it['qty']; ?></td>
-                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
-                        <td><?php echo (int)$it['reorder_point']; ?></td>
+                        
+                        <!-- Editable Fields: Wrap text in a span with a unique ID -->
+                        <td data-field="name">
+                            <span id="display-name-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['name']); ?></span>
+                        </td>
+                        <td data-field="category">
+                            <span id="display-category-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['category']); ?></span>
+                        </td>
+                        <td data-field="supplier">
+                            <span id="display-supplier-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['supplier'] ?? 'N/A'); ?></span>
+                        </td>
+                        <td data-field="qty">
+                            <span id="display-qty-<?php echo $it['id']; ?>"><?php echo (int)$it['qty']; ?></span>
+                        </td>
+                        <td data-field="uom">
+                            <span id="display-uom-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['uom']); ?></span>
+                        </td>
+                        <td data-field="reorder_point">
+                            <span id="display-reorder_point-<?php echo $it['id']; ?>"><?php echo (int)$it['reorder_point']; ?></span>
+                        </td>
+                        
+                        <!-- Status (Not editable) -->
                         <td>
                             <?php 
                                 $isLowStock = (int)$it['qty'] <= (int)$it['reorder_point'];
@@ -205,8 +264,11 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                                 <?php echo $isLowStock ? 'Low Stock' : 'In Stock'; ?>
                             </span>
                         </td>
+
+                        <!-- Actions Cell: Updated with new buttons -->
                         <td>
-                            <form method="POST" style="display:inline-block;">
+                            <!-- Hidden Edit Form -->
+                            <form method="POST" style="display:none;" id="edit-form-<?php echo $it['id']; ?>">
                                 <input type="hidden" name="action" value="edit" />
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
                                 
@@ -216,14 +278,34 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                                 <input type="hidden" name="qty" value="<?php echo (int)$it['qty']; ?>" />
                                 <input type="hidden" name="reorder_point" value="<?php echo (int)$it['reorder_point']; ?>" />
                                 <input type="hidden" name="uom" value="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>" />
-
-                                <button class="btn btn-outline" onclick="return editInline(this.form);">✏️ Edit</button>
                             </form>
-                            <form method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Delete this product?');">
+                            
+                            <!-- Hidden Delete Form -->
+                            <form method="POST" style="display:none;" id="delete-form-<?php echo $it['id']; ?>">
                                 <input type="hidden" name="action" value="delete" />
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
-                                <button class="btn btn-outline" type="submit">🗑️ Delete</button>
                             </form>
+                            
+                            <!-- Action Buttons Container -->
+                            <div id="actions-default-<?php echo $it['id']; ?>" style="display:flex; gap:6px;">
+                                <button type="button" class="btn btn-outline" onclick="toggleEdit('<?php echo $it['id']; ?>')">✏️ Edit</button>
+                                <button type="button" class="btn btn-outline" onclick="showDeleteConfirm('<?php echo $it['id']; ?>')">🗑️ Delete</button>
+                            </div>
+
+                            <!-- Edit Mode Buttons (Hidden by default) -->
+                            <div id="actions-edit-<?php echo $it['id']; ?>" style="display:none; gap:6px;">
+                                <button type="button" class="btn btn-save" onclick="saveEdit('<?php echo $it['id']; ?>')">💾 Save</button>
+                                <button type="button" class="btn btn-cancel" onclick="cancelEdit('<?php echo $it['id']; ?>')">❌ Cancel</button>
+                            </div>
+
+                            <!-- Delete Confirm Buttons (Hidden by default) -->
+                            <div id="actions-delete-<?php echo $it['id']; ?>" style="display:none; text-align:left;">
+                                <div style="color:#ef4444; font-size:11px; margin-bottom: 5px;">Are you sure?</div>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" class="btn btn-delete" onclick="document.getElementById('delete-form-<?php echo $it['id']; ?>').submit();">Yes</button>
+                                    <button type="button" class="btn btn-cancel" onclick="hideDeleteConfirm('<?php echo $it['id']; ?>')">No</button>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -234,22 +316,108 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 </div>
 
 <script>
-function editInline(form){
-    // Updated fields to match your database schema
-    const fields = ['name', 'category', 'supplier', 'qty', 'reorder_point', 'uom'];
-    
-    for(const f of fields){
-        let label = f.replace('_', ' ').toUpperCase();
-        let value = form.elements[f].value;
+// --- NEW INLINE EDIT JAVASCRIPT ---
+
+// Defines which fields in the row are editable
+const editableFields = ['name', 'category', 'supplier', 'qty', 'reorder_point', 'uom'];
+
+/**
+ * Toggles a row into "edit mode"
+ * @param {string} id - The product ID
+ */
+function toggleEdit(id) {
+    // Hide default buttons, show edit buttons
+    document.getElementById(`actions-default-${id}`).style.display = 'none';
+    document.getElementById(`actions-edit-${id}`).style.display = 'flex';
+
+    const form = document.getElementById(`edit-form-${id}`);
+
+    for (const field of editableFields) {
+        const displaySpan = document.getElementById(`display-${field}-${id}`);
+        const currentValue = form.elements[field].value;
+        const inputType = (field === 'qty' || field === 'reorder_point') ? 'number' : 'text';
+
+        // Hide the text span
+        displaySpan.style.display = 'none';
         
-        const v = prompt('Edit ' + label, value);
+        // Create and insert an input field
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.id = `input-${field}-${id}`; // Give it an ID so we can find it
+        input.className = 'edit-input';
+        input.value = currentValue;
         
-        if (v === null) return false; // User clicked 'Cancel'
-        form.elements[f].value = v;
+        // For number inputs, set min value
+        if (inputType === 'number') {
+            input.min = '0';
+        }
+        
+        // Add the input field right after the hidden span
+        displaySpan.parentElement.appendChild(input);
     }
-    form.submit();
-    return false;
 }
+
+/**
+ * Cancels edit mode, discarding changes
+ * @param {string} id - The product ID
+ */
+function cancelEdit(id) {
+    // Show default buttons, hide edit buttons
+    document.getElementById(`actions-default-${id}`).style.display = 'flex';
+    document.getElementById(`actions-edit-${id}`).style.display = 'none';
+
+    for (const field of editableFields) {
+        const displaySpan = document.getElementById(`display-${field}-${id}`);
+        const inputField = document.getElementById(`input-${field}-${id}`);
+        
+        // Remove the input field
+        if (inputField) {
+            inputField.remove();
+        }
+        
+        // Show the original text span
+        displaySpan.style.display = '';
+    }
+}
+
+/**
+ * Saves the edited data by updating and submitting the hidden form
+ * @param {string} id - The product ID
+ */
+function saveEdit(id) {
+    const form = document.getElementById(`edit-form-${id}`);
+    
+    for (const field of editableFields) {
+        const inputField = document.getElementById(`input-${field}-${id}`);
+        
+        // Update the hidden form's value from the visible input
+        if (inputField) {
+            form.elements[field].value = inputField.value;
+        }
+    }
+    
+    // Submit the hidden form
+    form.submit();
+}
+
+/**
+ * Shows the inline delete confirmation
+ * @param {string} id - The product ID
+ */
+function showDeleteConfirm(id) {
+    document.getElementById(`actions-default-${id}`).style.display = 'none';
+    document.getElementById(`actions-delete-${id}`).style.display = 'block';
+}
+
+/**
+ * Hides the inline delete confirmation
+ * @param {string} id - The product ID
+ */
+function hideDeleteConfirm(id) {
+    document.getElementById(`actions-default-${id}`).style.display = 'flex';
+    document.getElementById(`actions-delete-${id}`).style.display = 'none';
+}
+
 </script>
 
 <?php

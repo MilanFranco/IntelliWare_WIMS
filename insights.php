@@ -72,8 +72,31 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 .btn-secondary { background:#13275B; color:#E3E3E3; border:1px solid #2A4484; }
 .btn-secondary:hover { background:#1D387B; }
 .table { width:100%; border-collapse:collapse; }
-.table th, .table td { padding:12px; border-bottom:1px solid #2A4484; color:#E3E3E3; font-family:'Onest'; font-size:13px; }
-.table th { background:#13275B; font-weight:600; }
+
+/* --- MODIFIED CSS FOR TABLES --- */
+.table th, .table td { 
+    padding:12px; 
+    border-bottom:1px solid #2A4484; 
+    color:#E3E3E3; 
+    font-family:'Onest'; 
+    font-size:13px;
+    text-align: left; /* Justify left */
+    font-weight: 700;   /* Bold */
+}
+.table th { 
+    background:#13275B; 
+    /* font-weight:600; <- Now handled above */
+}
+.badge {
+  display: inline-block; /* Ensures padding and layout are consistent */
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: #13275B;
+  color: #E3E3E3;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap; /* This is the fix: prevents text from wrapping */
+}
 .badge { padding:4px 10px; border-radius:12px; background:#13275B; color:#E3E3E3; font-size:11px; font-weight:500; }
 .badge.fast-moving { background:#10b981; color:#fff; }
 .badge.low-stock { background:#ef4444; color:#fff; }
@@ -92,7 +115,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </style>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:18px; margin-bottom:12px;">📊 Data Mining Insights Dashboard</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:18px; margin-bottom:12px;">📊 Data Mining Insights Dashboard</div>
     <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:20px; opacity:0.8;">
         Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. Click on any metric to filter products.
     </div>
@@ -125,7 +148,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🏷️ Inventory Classifications</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🏷️ Inventory Classifications</div>
         <div style="overflow:auto; max-height:420px;">
             <?php if (empty($detailedAnalysis)): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:40px; font-size:14px;">
@@ -167,7 +190,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     </div>
 
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">⚠️ Anomaly Detection</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">⚠️ Anomaly Detection</div>
         <div style="overflow:auto; max-height:420px;">
             <?php if (empty($insights['anomalies'])): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:40px; font-size:14px;">
@@ -206,11 +229,13 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📈 Classification Rules Applied</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📈 Classification Rules Applied</div>
     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">Last Moving</div>
+            
+            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">High Demand</div>
             <div style="color:#E3E3E3; font-size:12px;">Sold ≥ 80% of stock</div>
+            
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
             <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;"> Low Stock</div>
@@ -228,7 +253,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🤖 AI Recommendations</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🤖 AI Recommendations</div>
     <div style="display:grid; grid-template-columns: repeat(1, 1fr); gap:20px;">
         <?php if (!empty($monthlyRecommendations)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
@@ -303,7 +328,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
         <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
         <button class="btn" onclick="runAIForecast()">Run AI Forecast</button>
@@ -312,7 +337,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
         <button class="btn btn-secondary" onclick="scheduleAnalysis()">Schedule Analysis</button>
     </div>
     <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
-         <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
+        <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
     </div>
 
     <?php if ($lastRunStatus && isset($lastRunStatus['status'])): ?>

@@ -75,7 +75,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📋 System Activity Logs</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📋 System Activity Logs</div>
         <div style="overflow:auto; max-height:400px;">
             <?php if (empty($logs)): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:20px;">No activity logs found</div>
@@ -105,7 +105,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
     </div>
 
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📦 Recent Transactions</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📦 Recent Transactions</div>
         <div style="overflow:auto; max-height:400px;">
             <?php if (empty($transactions)): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:20px;">No transactions found</div>
@@ -142,7 +142,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-top:16px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📊 Transaction History</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📊 Transaction History</div>
     <div style="overflow:auto;">
         <table class="table">
             <thead>

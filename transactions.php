@@ -105,14 +105,21 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 .input { background:#13275B; color:#fff; border:1px solid #304374; padding:8px; border-radius:6px; width:100%; }
 .label { color:#E3E3E3; font-family:'Onest'; font-size:12px; margin-bottom:6px; display:block; }
 .table { width:100%; border-collapse:collapse; }
-.table th, .table td { padding:10px; border-bottom:1px solid #2A4484; color:#E3E3E3; font-family:'Onest'; font-size:12px; }
+.table th, .table td { 
+    padding:10px; 
+    border-bottom:1px solid #2A4484; 
+    color:#E3E3E3; 
+    font-family:'Onest'; 
+    font-size:12px; 
+    text-align: left; /* <-- This line ensures text is aligned left */
+}
 .badge { padding:2px 8px; border-radius:999px; background:#13275B; color:#E3E3E3; font-size:11px; }
 .badge.low { background:#ef4444; color:#fff; }
 .badge.normal { background:#10b981; color:#fff; }
 </style>
 
 <div class="card">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📦 Create Stock Transaction</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📦 Create Stock Transaction</div>
     <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:16px;">
         Record stock movements (in/out) for inventory tracking and management.
     </div>
@@ -155,7 +162,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-top:16px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📋 Current Inventory Status</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📋 Current Inventory Status</div>
     <div style="overflow:auto;">
         <table class="table">
             <thead>
@@ -171,7 +178,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 <?php foreach($items as $it): ?>
                 <tr>
                     <td><?php echo htmlspecialchars($it['sku']); ?></td>
-                    <td><?Gg; echo htmlspecialchars($it['name']); ?></td>
+                    <td><?php echo htmlspecialchars($it['name']); ?></td>
                     <td><?php echo (int)$it['qty']; ?></td>
                     <td><?php echo htmlspecialchars($it['uom']); ?></td>
                     <td>
