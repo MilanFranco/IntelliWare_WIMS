@@ -23,6 +23,9 @@ class InventoryDataMiner {
      */
     public function performDataMining() {
         $this->detailed = [];
+        // Reset summary counters at the beginning of each run
+        $this->summary = array_fill_keys(array_keys($this->summary), 0);
+        
         // Get current month/year
         $year = (int)date('Y');
         $month = (int)date('m');
@@ -56,26 +59,59 @@ class InventoryDataMiner {
 
             $soldPercentage = $stock > 0 ? ($soldThisMonth / $stock) * 100 : ($soldThisMonth > 0 ? 100 : 0);
 
-            // Classification rules per your spec
-            if ($soldPercentage >= 80) {
-                $classification = 'high_demand';
-                $this->summary['high_demand']++;
-            } elseif ($soldPercentage < 20 && $soldThisMonth > 0) {
-                $classification = 'low_demand';
-                $this->summary['low_demand']++;
-            } elseif ($stock < 10) {
+            // --- START ENHANCED CLASSIFICATION ---
+
+            // 1. Define all classification rules
+            // Rule 1: High Demand
+            $isHighDemand = $soldPercentage >= 80;
+
+            // Rule 2: Low Demand
+            $isLowDemand = $soldPercentage < 20 && $soldThisMonth > 0;
+
+            // Rule 3: Low Stock (Use DB reorder_point, fallback to 10)
+            // This is smarter than the original hardcoded '10'
+            $reorderPoint = (int)$p['reorder_point'] > 0 ? (int)$p['reorder_point'] : 10;
+            $isLowStock = $stock < $reorderPoint;
+
+            // Rule 4: Overstocked
+            $isOverstocked = $stock > 200; // Your original rule
+
+            // Rule 5: Inactive (No restock AND no sales for 90+ days)
+            $isInactive = $daysSinceRestock > 90 && $soldThisMonth == 0;
+
+
+            // 2. Update Summary Counters (for Metric Cards)
+            // This is the fix: check each condition independently.
+            // A product can be in multiple summary categories (e.g., Low Stock AND High Demand)
+            if ($isHighDemand)  $this->summary['high_demand']++;
+            if ($isLowDemand)   $this->summary['low_demand']++;
+            if ($isLowStock)    $this->summary['low_stock']++;
+            if ($isOverstocked) $this->summary['overstocked']++;
+            if ($isInactive)    $this->summary['inactive']++;
+
+            
+            // 3. Assign a *single* Primary Classification (for Table Display)
+            // We use a priority list. Low stock is the most critical alert.
+            $classification = 'normal'; // Default
+            
+            if ($isLowStock) {
                 $classification = 'low_stock';
-                $this->summary['low_stock']++;
-            } elseif ($stock > 200) {
+            } elseif ($isHighDemand) {
+                $classification = 'high_demand';
+            } elseif ($isOverstocked) {
                 $classification = 'overstocked';
-                $this->summary['overstocked']++;
-            } elseif ($daysSinceRestock > 90) {
+            } elseif ($isInactive) {
                 $classification = 'inactive';
-                $this->summary['inactive']++;
-            } else {
-                $classification = 'normal';
+            } elseif ($isLowDemand) {
+                $classification = 'low_demand';
+            }
+
+            // Only increment 'normal' if no other classification was met
+            if ($classification === 'normal') {
                 $this->summary['normal']++;
             }
+            
+            // --- END ENHANCED CLASSIFICATION ---
 
             $this->detailed[] = [
                 'product_id' => $pid,
@@ -134,5 +170,3 @@ class InventoryDataMiner {
 }
 
 ?>
-
-

@@ -10,7 +10,7 @@ function renderSidebar($currentPage, $userRole) {
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
-            ['href' => 'insights.php', 'label' => 'Data Mining Insights', 'icon' => 'insights'],
+            ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
             ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
             ['href' => 'users.php', 'label' => 'User Management', 'icon' => 'users'],
             ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
@@ -20,7 +20,7 @@ function renderSidebar($currentPage, $userRole) {
             ['href' => 'dash_manager.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
-            ['href' => 'insights.php', 'label' => 'Data Mining Insights', 'icon' => 'insights'],
+            ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
             ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
             ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
         ];

@@ -28,17 +28,22 @@ require_once 'data_mining_engine.php';
 $miner = new InventoryDataMiner($conn);
 $miningResults = $miner->performDataMining();
 $detailedAnalysis = $miner->getDetailedAnalysis();
-$classificationSummary = $miner->getAnalysisSummary();
+
+// --- FIX: Recalculate summary counts directly from the detailed analysis ---
+// This ensures the metric cards ALWAYS match the table data.
+$all_classifications = array_column($detailedAnalysis, 'classification');
+$classificationSummary = array_count_values($all_classifications);
+// --- End of Fix ---
 
 // Get additional insights
 $insights = [
     'total_products' => count($detailedAnalysis),
-    'high_demand' => $classificationSummary['high_demand'] ?? 0,
-    'low_demand' => $classificationSummary['low_demand'] ?? 0,
-    'low_stock' => $classificationSummary['low_stock'] ?? 0,
-    'overstocked' => $classificationSummary['overstocked'] ?? 0,
-    'inactive' => $classificationSummary['inactive'] ?? 0,
-    'normal' => $classificationSummary['normal'] ?? 0,
+    'high_demand' => $classificationSummary['high_demand'] ?? 0, // Now correct
+    'low_demand' => $classificationSummary['low_demand'] ?? 0,   // Now correct
+    'low_stock' => $classificationSummary['low_stock'] ?? 0,     // Now correct
+    'overstocked' => $classificationSummary['overstocked'] ?? 0, // Now correct
+    'inactive' => $classificationSummary['inactive'] ?? 0,       // Now correct
+    'normal' => $classificationSummary['normal'] ?? 0,         // Now correct
     'urgent_reorders' => 0,
     'anomalies' => []
 ];
@@ -465,7 +470,7 @@ function exportData() {
     
     const tableBody = document.getElementById('inventoryTableBody');
     const rows = tableBody.getElementsByTagName('tr');
-    
+
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (row.style.display !== 'none' && row.id !== 'emptyFilterRow') {
