@@ -4,7 +4,6 @@ if (!isset($_SESSION['Username'])) {
     header('Location: signin.php');
     exit();
 }
-
 // Handle CRUD actions (session-based)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
