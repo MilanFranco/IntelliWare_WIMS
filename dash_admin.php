@@ -64,6 +64,60 @@ if ($transResult && $transResult->num_rows > 0) {
     }
 }
 
+// --- NEW: Data for Transaction Volume Chart (Last 7 Days) ---
+$chartData = [
+    'labels' => [],
+    'stock_in' => [],
+    'stock_out' => []
+];
+$tempData = [];
+
+// 1. Get dates for the last 7 days (today = day 0, 6 days ago = day 6)
+for ($i = 6; $i >= 0; $i--) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    $shortLabel = date('M j', strtotime("-$i days")); // e.g., "Nov 14"
+    $chartData['labels'][] = $shortLabel;
+    $tempData[$date] = ['stock_in' => 0, 'stock_out' => 0];
+}
+
+// 2. Query the database for transactions in this period
+$sevenDaysAgo = date('Y-m-d', strtotime('-6 days')); // Including today
+$chartQuery = $conn->prepare("
+    SELECT 
+        DATE(transaction_date) as tx_date,
+        transaction_type,
+        COALESCE(SUM(quantity), 0) as total_quantity
+    FROM transactions
+    WHERE transaction_date >= ?
+    GROUP BY tx_date, transaction_type
+    ORDER BY tx_date
+");
+$chartQuery->bind_param("s", $sevenDaysAgo);
+$chartQuery->execute();
+$chartResult = $chartQuery->get_result();
+
+// 3. Populate the temp data array
+if ($chartResult) {
+    while ($row = $chartResult->fetch_assoc()) {
+        if (isset($tempData[$row['tx_date']])) {
+            // Use htmlspecialchars on keys just in case, though 'stock_in'/'stock_out' are safe
+            $type = htmlspecialchars($row['transaction_type']);
+            if (array_key_exists($type, $tempData[$row['tx_date']])) {
+                 $tempData[$row['tx_date']][$type] = (int)$row['total_quantity'];
+            }
+        }
+    }
+}
+$chartQuery->close();
+
+// 4. Finalize the chart data arrays, ensuring order
+foreach ($tempData as $dateData) {
+    $chartData['stock_in'][] = $dateData['stock_in'];
+    $chartData['stock_out'][] = $dateData['stock_out'];
+}
+// --- END NEW CHART DATA ---
+
+
 $conn->close();
 
 // Start layout with notification count
@@ -77,7 +131,7 @@ renderLayoutStart('Admin Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
     <div class="num"><?php echo $totalSKUs; ?></div>
   </div>
   <div class="premium-metric-card premium-metric">
-    <div>Total Quantiy</div>
+    <div>Total Quantity</div>
     <div class="num"><?php echo number_format($totalQty); ?></div>
   </div>
   <div class="premium-metric-card premium-metric">
@@ -126,9 +180,9 @@ renderLayoutStart('Admin Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
           </table>
       </div>
 
-      <!-- Chart Card -->
+      <!-- Chart Card (ENHANCED) -->
       <div class="premium-metric-card">
-          <div class="card-title">Inventory Overview (by SKU Count)</div>
+          <div class="card-title">Daily Transaction Volume (Last 7 Days)</div>
           <canvas id="overviewChart" height="120"></canvas>
       </div>
   </div>
@@ -172,104 +226,81 @@ renderLayoutStart('Admin Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-// Chart initialization
+// Chart initialization (ENHANCED)
 (function(){
-  const items = <?php echo json_encode($items); ?>;
-  
-  const low = items.filter(i => {
-      const qty = parseInt(i.qty || 0, 10);
-      const reorder = parseInt(i.reorder_point || 10, 10);
-      return qty <= reorder;
-  }).length;
-  
-  const ok = items.filter(i => {
-      const qty = parseInt(i.qty || 0, 10);
-      const reorder = parseInt(i.reorder_point || 10, 10);
-      return qty > reorder && qty < (reorder * 5); 
-  }).length;
-  
-  const high = items.filter(i => {
-      const qty = parseInt(i.qty || 0, 10);
-      const reorder = parseInt(i.reorder_point || 10, 10);
-      return qty >= (reorder * 5);
-  }).length;
+    // NEW: Get data from PHP
+    const chartData = <?php echo json_encode($chartData); ?>;
 
-  const ctx = document.getElementById('overviewChart');
-  if(ctx){
-    const myChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['Low','Normal','High'],
-        datasets: [{ 
-          label:'SKU Count', 
-          data:[low, ok, high], 
-          backgroundColor:['#f87171','#60a5fa','#34d399'],
-          borderColor: ['#ef4444', '#3b82f6', '#10b981'],
-          borderWidth: 2,
-          borderRadius: 8,
-          borderSkipped: false,
-        }]
-      },
-      options: { 
-        onClick: (e) => {
-            const points = myChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
-            if (points.length) {
-                const firstPoint = points[0];
-                const label = myChart.data.labels[firstPoint.index];
-                let statusFilter = '';
-                
-                if (label === 'Low') statusFilter = 'low';
-                if (label === 'Normal') statusFilter = 'normal';
-                if (label === 'High') statusFilter = 'high';
-                
-                if (statusFilter) {
-                    window.location.href = `products.php?status=${statusFilter}`;
+    const ctx = document.getElementById('overviewChart');
+    if(ctx){
+        const myChart = new Chart(ctx, {
+            type: 'bar', // Using a bar chart for clear daily comparison
+            data: {
+                labels: chartData.labels, // e.g., ['Nov 8', 'Nov 9', ...]
+                datasets: [
+                    { 
+                        label: 'Stock In', 
+                        data: chartData.stock_in, 
+                        backgroundColor: 'rgba(52, 211, 153, 0.7)', // Green
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false
+                    },
+                    { 
+                        label: 'Stock Out', 
+                        data: chartData.stock_out, 
+                        backgroundColor: 'rgba(248, 113, 113, 0.7)', // Red
+                        borderColor: '#ef4444',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }
+                ]
+            },
+            options: { 
+                onHover: (event, chartElement) => {
+                    const canvas = event.native.target;
+                    canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
+                plugins:{ 
+                    legend:{ 
+                        labels:{ 
+                            color:'#E3E3E3',
+                            font: { family: 'Onest', size: 12 }
+                        } 
+                    } 
+                }, 
+                scales:{ 
+                    x:{ 
+                        ticks:{ 
+                            color:'#E3E3E3',
+                            font: { family: 'Onest', size: 11 }
+                        }, 
+                        grid:{ 
+                            color:'rgba(255,255,255,0.1)',
+                            drawBorder: false
+                        } 
+                    }, 
+                    y:{ 
+                        beginAtZero: true, // Ensure Y-axis starts at 0
+                        ticks:{ 
+                            color:'#E3E3E3',
+                            font: { family: 'Onest', size: 11 }
+                        }, 
+                        grid:{ 
+                            color:'rgba(255,255,255,0.1)',
+                            drawBorder: false
+                        } 
+                    } 
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeInOutQuart'
                 }
             }
-        },
-        
-        onHover: (event, chartElement) => {
-            const canvas = event.native.target;
-            canvas.style.cursor = chartElement[0] ? 'pointer' : 'default';
-        },
-
-        plugins:{ 
-          legend:{ 
-            labels:{ 
-              color:'#E3E3E3',
-              font: { family: 'Onest', size: 12 }
-            } 
-          } 
-        }, 
-        scales:{ 
-          x:{ 
-            ticks:{ 
-              color:'#E3E3E3',
-              font: { family: 'Onest', size: 11 }
-            }, 
-            grid:{ 
-              color:'rgba(255,255,255,0.1)',
-              drawBorder: false
-            } 
-          }, 
-          y:{ 
-            ticks:{ 
-              color:'#E3E3E3',
-              font: { family: 'Onest', size: 11 }
-            }, 
-            grid:{ 
-              color:'rgba(255,255,255,0.1)',
-              drawBorder: false
-            } 
-          } 
-        },
-        animation: {
-          duration: 2000,
-          easing: 'easeInOutQuart'
-        }
-      }
-    });
-  }
+        });
+    }
 })();
 </script>
 

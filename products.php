@@ -10,8 +10,32 @@ require_once 'config/db.php'; // Your database connection file
 $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 $items = [];
 
+// --- NEW PHP: Fetch Dropdown Options ---
+// Fetch distinct categories
+$categories = [];
+$sql_cat = "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category";
+$result_cat = $conn->query($sql_cat);
+if ($result_cat) {
+    while ($row = $result_cat->fetch_assoc()) {
+        $categories[] = $row['category'];
+    }
+}
+$categories = array_filter(array_unique($categories)); // Ensure unique and filter empty ones
+
+// Fetch distinct Units of Measure (UoM)
+$uoms = [];
+$sql_uom = "SELECT DISTINCT unit FROM products WHERE unit IS NOT NULL AND unit != '' ORDER BY unit";
+$result_uom = $conn->query($sql_uom);
+if ($result_uom) {
+    while ($row = $result_uom->fetch_assoc()) {
+        $uoms[] = $row['unit'];
+    }
+}
+$uoms = array_filter(array_unique($uoms)); // Ensure unique and filter empty ones
+// --- END NEW PHP ---
+
+
 // 2. HANDLE ALL FORM SUBMISSIONS (CRUD)
-// This PHP logic is already correct and does not need to change.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -19,11 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
         // Get data from the 'Add New Product' form
         $product_name = trim($_POST['product_name'] ?? '');
-        $category = trim($_POST['category'] ?? '');
+        $category = trim($_POST['category'] ?? ''); 
         $supplier = trim($_POST['supplier'] ?? '');
         $quantity = (int)($_POST['quantity'] ?? 0);
         $reorder_point = (int)($_POST['reorder_point'] ?? 10);
-        $unit = trim($_POST['unit'] ?? '');
+        $unit = trim($_POST['unit'] ?? ''); 
         $expiry_date = empty($_POST['expiry_date']) ? null : $_POST['expiry_date'];
         
         $sql = "INSERT INTO products (product_name, category, supplier, quantity, reorder_point, unit, expiry_date) 
@@ -38,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Get data from the 'edit' form (now populated by our new JavaScript)
         $id = (int)($_POST['id'] ?? 0);
         $product_name = trim($_POST['name'] ?? '');
-        $category = trim($_POST['category'] ?? '');
+        $category = trim($_POST['category'] ?? ''); 
         $supplier = trim($_POST['supplier'] ?? '');
         $quantity = (int)($_POST['qty'] ?? 0);
         $reorder_point = (int)($_POST['reorder_point'] ?? 10);
-        $unit = trim($_POST['uom'] ?? '');
+        $unit = trim($_POST['uom'] ?? ''); 
 
         $sql = "UPDATE products SET 
                     product_name = ?, 
@@ -72,7 +96,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // 3. READ DATA FROM DATABASE (FOR DISPLAYING)
-// This runs *after* any POST actions, ensuring the table is up-to-date.
+// Re-connect to database since it was closed above after fetching categories/uom
+require_once 'config/db.php'; 
+
 $sql = "SELECT 
             product_id as id, 
             CONCAT('P-', LPAD(product_id, 4, '0')) as sku, 
@@ -118,7 +144,6 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 ?>
 
 
-
 <style>
 /* Your existing styles are good! */
 .card { background:#1D387B; border:1px solid #2A4484; border-radius:10px; padding:14px; box-shadow: 0 0 20px 2px #304374; }
@@ -136,7 +161,14 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 .btn-delete:hover { background:#dc2626; }
 
 
-.input { background:#13275B; color:#fff; border:1px solid #304374; padding:8px; border-radius:6px; width:100%; }
+.input, .select { /* ADDED .select CLASS */
+    background:#13275B; 
+    color:#fff; 
+    border:1px solid #304374; 
+    padding:8px; 
+    border-radius:6px; 
+    width:100%; 
+}
 .label { color:#E3E3E3; font-family:'Onest'; font-size:12px; margin-bottom:6px; display:block; }
 .table { width:100%; border-collapse:collapse; }
 
@@ -159,8 +191,9 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
     font-weight: bold; /* Make headers bold */
 }
 
-/* Style for the inline edit inputs */
-.table .edit-input {
+/* Style for the inline edit inputs/selects */
+.table .edit-input, 
+.table .edit-select { /* ADDED .edit-select CLASS */
     background: #0f1f4b;
     color: #fff;
     border: 1px solid #51D55A; /* Highlight active edit */
@@ -184,22 +217,49 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
     
     <form method="POST" style="margin-top:8px;">
         <input type="hidden" name="action" value="add" />
+        
         <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:10px;">
             <div><label class="label">Name *</label><input class="input" name="product_name" required placeholder="Product Name" /></div>
-            <div><label class="label">Category</label><input class="input" name="category" placeholder="Category" /></div>
+            
+            <div>
+                <label class="label">Category</label>
+                <select class="select" name="category">
+                    <option value="">-- Select Category --</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?php echo htmlspecialchars($cat); ?>"><?php echo htmlspecialchars($cat); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <div><label class="label">Supplier</label><input class="input" name="supplier" placeholder="Supplier Name" /></div>
-            <div><label class="label">UoM</label><input class="input" name="unit" placeholder="pcs, box, roll" /></div>
+            
+            <div>
+                <label class="label">UoM</label>
+                <select class="select" name="unit">
+                    <option value="">-- Select UoM --</option>
+                    <?php foreach ($uoms as $uom): ?>
+                        <option value="<?php echo htmlspecialchars($uom); ?>"><?php echo htmlspecialchars($uom); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
+        
         <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:10px; margin-top:10px;">
+            
             <div><label class="label">Initial Qty *</label><input type="number" class="input" name="quantity" value="0" min="0" required /></div>
+            
             <div><label class="label">Reorder Point</label><input type="number" class="input" name="reorder_point" value="10" min="0" /></div>
+            
             <div><label class="label">Expiry Date</label><input type="date" class="input" name="expiry_date" /></div>
+            
+            <div style="display:flex; flex-direction:column; justify-content:flex-end;">
+                <button class="btn" type="submit" style="width:100%; height:34px; margin-bottom: 0;">➕ Add Product</button>
+            </div>
         </div>
-        <div style="margin-top:12px;"><button class="btn" type="submit">➕ Add Product</button></div>
+        
     </form>
 </div>
 
-<div class="card" style="  margin-top:16px;">
+<div class="card" style="  margin-top:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px;">📋 Product Inventory</div>
         <form method="GET" style="display:flex; gap:8px;">
@@ -235,12 +295,11 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                     <tr id="row-<?php echo $it['id']; ?>">
                         <td><?php echo htmlspecialchars($it['sku']); ?></td>
                         
-                        <!-- Editable Fields: Wrap text in a span with a unique ID -->
                         <td data-field="name">
                             <span id="display-name-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['name']); ?></span>
                         </td>
                         <td data-field="category">
-                            <span id="display-category-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['category']); ?></span>
+                            <span id="display-category-<?php echo $it['id']; ?>" data-current-value="<?php echo htmlspecialchars($it['category']); ?>"><?php echo htmlspecialchars($it['category']); ?></span>
                         </td>
                         <td data-field="supplier">
                             <span id="display-supplier-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['supplier'] ?? 'N/A'); ?></span>
@@ -249,13 +308,12 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                             <span id="display-qty-<?php echo $it['id']; ?>"><?php echo (int)$it['qty']; ?></span>
                         </td>
                         <td data-field="uom">
-                            <span id="display-uom-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['uom']); ?></span>
+                            <span id="display-uom-<?php echo $it['id']; ?>" data-current-value="<?php echo htmlspecialchars($it['uom']); ?>"><?php echo htmlspecialchars($it['uom']); ?></span>
                         </td>
                         <td data-field="reorder_point">
                             <span id="display-reorder_point-<?php echo $it['id']; ?>"><?php echo (int)$it['reorder_point']; ?></span>
                         </td>
                         
-                        <!-- Status (Not editable) -->
                         <td>
                             <?php 
                                 $isLowStock = (int)$it['qty'] <= (int)$it['reorder_point'];
@@ -265,9 +323,7 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                             </span>
                         </td>
 
-                        <!-- Actions Cell: Updated with new buttons -->
                         <td>
-                            <!-- Hidden Edit Form -->
                             <form method="POST" style="display:none;" id="edit-form-<?php echo $it['id']; ?>">
                                 <input type="hidden" name="action" value="edit" />
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
@@ -280,25 +336,21 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
                                 <input type="hidden" name="uom" value="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>" />
                             </form>
                             
-                            <!-- Hidden Delete Form -->
                             <form method="POST" style="display:none;" id="delete-form-<?php echo $it['id']; ?>">
                                 <input type="hidden" name="action" value="delete" />
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
                             </form>
                             
-                            <!-- Action Buttons Container -->
                             <div id="actions-default-<?php echo $it['id']; ?>" style="display:flex; gap:6px;">
                                 <button type="button" class="btn btn-outline" onclick="toggleEdit('<?php echo $it['id']; ?>')">✏️ Edit</button>
                                 <button type="button" class="btn btn-outline" onclick="showDeleteConfirm('<?php echo $it['id']; ?>')">🗑️ Delete</button>
                             </div>
 
-                            <!-- Edit Mode Buttons (Hidden by default) -->
                             <div id="actions-edit-<?php echo $it['id']; ?>" style="display:none; gap:6px;">
                                 <button type="button" class="btn btn-save" onclick="saveEdit('<?php echo $it['id']; ?>')">💾 Save</button>
                                 <button type="button" class="btn btn-cancel" onclick="cancelEdit('<?php echo $it['id']; ?>')">❌ Cancel</button>
                             </div>
 
-                            <!-- Delete Confirm Buttons (Hidden by default) -->
                             <div id="actions-delete-<?php echo $it['id']; ?>" style="display:none; text-align:left;">
                                 <div style="color:#ef4444; font-size:11px; margin-bottom: 5px;">Are you sure?</div>
                                 <div style="display:flex; gap:6px;">
@@ -321,6 +373,20 @@ renderLayoutStart('Inventory Management', $role, $_SESSION['Username']);
 // Defines which fields in the row are editable
 const editableFields = ['name', 'category', 'supplier', 'qty', 'reorder_point', 'uom'];
 
+// Pass PHP array values to JavaScript for dropdown options
+const categoryOptions = [
+    <?php foreach ($categories as $cat): ?>
+        { value: "<?php echo addslashes($cat); ?>", label: "<?php echo addslashes($cat); ?>" },
+    <?php endforeach; ?>
+];
+
+const uomOptions = [
+    <?php foreach ($uoms as $uom): ?>
+        { value: "<?php echo addslashes($uom); ?>", label: "<?php echo addslashes($uom); ?>" },
+    <?php endforeach; ?>
+];
+
+
 /**
  * Toggles a row into "edit mode"
  * @param {string} id - The product ID
@@ -335,25 +401,58 @@ function toggleEdit(id) {
     for (const field of editableFields) {
         const displaySpan = document.getElementById(`display-${field}-${id}`);
         const currentValue = form.elements[field].value;
-        const inputType = (field === 'qty' || field === 'reorder_point') ? 'number' : 'text';
-
+        
         // Hide the text span
         displaySpan.style.display = 'none';
-        
-        // Create and insert an input field
-        const input = document.createElement('input');
-        input.type = inputType;
-        input.id = `input-${field}-${id}`; // Give it an ID so we can find it
-        input.className = 'edit-input';
-        input.value = currentValue;
-        
-        // For number inputs, set min value
-        if (inputType === 'number') {
-            input.min = '0';
+
+        // Custom logic for Category and UoM dropdowns
+        if (field === 'category' || field === 'uom') {
+            const options = field === 'category' ? categoryOptions : uomOptions;
+            
+            // Create and insert a SELECT element
+            const select = document.createElement('select');
+            select.id = `input-${field}-${id}`; // Give it an ID so we can find it
+            select.className = 'edit-select'; // Use a different class for styling
+            
+            // Add a default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.text = field === 'category' ? '-- Select Category --' : '-- Select UoM --';
+            select.appendChild(defaultOption);
+
+            // Populate options
+            options.forEach(optionData => {
+                const option = document.createElement('option');
+                option.value = optionData.value;
+                option.text = optionData.label;
+                if (optionData.value === currentValue) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            // Add the select field
+            displaySpan.parentElement.appendChild(select);
+
+        } else {
+            // Logic for regular text/number inputs (name, supplier, qty, reorder_point)
+            const inputType = (field === 'qty' || field === 'reorder_point') ? 'number' : 'text';
+
+            // Create and insert an input field
+            const input = document.createElement('input');
+            input.type = inputType;
+            input.id = `input-${field}-${id}`; // Give it an ID so we can find it
+            input.className = 'edit-input';
+            input.value = currentValue;
+            
+            // For number inputs, set min value
+            if (inputType === 'number') {
+                input.min = '0';
+            }
+            
+            // Add the input field right after the hidden span
+            displaySpan.parentElement.appendChild(input);
         }
-        
-        // Add the input field right after the hidden span
-        displaySpan.parentElement.appendChild(input);
     }
 }
 
@@ -370,7 +469,7 @@ function cancelEdit(id) {
         const displaySpan = document.getElementById(`display-${field}-${id}`);
         const inputField = document.getElementById(`input-${field}-${id}`);
         
-        // Remove the input field
+        // Remove the input/select field
         if (inputField) {
             inputField.remove();
         }
@@ -390,7 +489,7 @@ function saveEdit(id) {
     for (const field of editableFields) {
         const inputField = document.getElementById(`input-${field}-${id}`);
         
-        // Update the hidden form's value from the visible input
+        // Update the hidden form's value from the visible input/select
         if (inputField) {
             form.elements[field].value = inputField.value;
         }

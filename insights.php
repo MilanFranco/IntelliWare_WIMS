@@ -29,8 +29,15 @@ $miner = new InventoryDataMiner($conn);
 $miningResults = $miner->performDataMining();
 $detailedAnalysis = $miner->getDetailedAnalysis();
 
-// --- FIX: Recalculate summary counts directly from the detailed analysis ---
-// This ensures the metric cards ALWAYS match the table data.
+// --- ENHANCEMENT: Add calculated fields to the analysis for better display ---
+foreach ($detailedAnalysis as &$item) {
+    // Calculate Sold Percentage
+    $total_available = $item['quantity'] + $item['sold_quantity'];
+    $item['sold_percentage'] = ($total_available > 0) ? round(($item['sold_quantity'] / $total_available) * 100, 1) : 0;
+}
+unset($item); // Break the reference
+
+// --- FIX & RECALCULATION: Ensure metric cards ALWAYS match the table data. ---
 $all_classifications = array_column($detailedAnalysis, 'classification');
 $classificationSummary = array_count_values($all_classifications);
 // --- End of Fix ---
@@ -38,31 +45,35 @@ $classificationSummary = array_count_values($all_classifications);
 // Get additional insights
 $insights = [
     'total_products' => count($detailedAnalysis),
-    'high_demand' => $classificationSummary['high_demand'] ?? 0, // Now correct
-    'low_demand' => $classificationSummary['low_demand'] ?? 0,   // Now correct
-    'low_stock' => $classificationSummary['low_stock'] ?? 0,     // Now correct
-    'overstocked' => $classificationSummary['overstocked'] ?? 0, // Now correct
-    'inactive' => $classificationSummary['inactive'] ?? 0,       // Now correct
-    'normal' => $classificationSummary['normal'] ?? 0,         // Now correct
+    'high_demand' => $classificationSummary['high_demand'] ?? 0,
+    'low_demand' => $classificationSummary['low_demand'] ?? 0,
+    'low_stock' => $classificationSummary['low_stock'] ?? 0,
+    'overstocked' => $classificationSummary['overstocked'] ?? 0,
+    'inactive' => $classificationSummary['inactive'] ?? 0,
+    'normal' => $classificationSummary['normal'] ?? 0,
     'urgent_reorders' => 0,
     'anomalies' => []
 ];
 
-// Calculate urgent reorders (low stock + high demand)
-$insights['urgent_reorders'] = $insights['low_stock'] + $insights['high_demand'];
-
-// Detect anomalies (items that need attention)
+// --- ENHANCEMENT: Urgent Reorders = Items that are Low Stock OR High Demand AND Low Stock ---
+$insights['urgent_reorders'] = 0;
 foreach ($detailedAnalysis as $item) {
+    if ($item['classification'] === 'low_stock' || $item['classification'] === 'high_demand') {
+        $insights['urgent_reorders']++;
+    }
+    
+    // Detect anomalies (items that need attention) - Updated logic to be more specific
     if ($item['classification'] === 'low_stock' || 
-        ($item['classification'] === 'high_demand' && $item['days_since_restock'] > 30)) {
+        ($item['classification'] === 'high_demand' && $item['quantity'] < 20)) { // High Demand + Low Quantity (Threshold changed to 20 for better actionability)
         $insights['anomalies'][] = [
             'product' => $item['product_name'],
-            'issue' => $item['classification'] === 'low_stock' ? 'Low Stock Alert' : 'High Demand - Needs Restock',
+            'issue' => $item['classification'] === 'low_stock' ? 'Critical Stock Alert' : 'High Demand - Low Supply',
             'severity' => 'high',
             'days_since_restock' => $item['days_since_restock']
         ];
     }
 }
+
 
 $conn->close();
 
@@ -71,58 +82,83 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 ?>
 
 <style>
+/* Base Styles - Kept mostly same */
 .card { background:#1D387B; border:1px solid #2A4484; border-radius:12px; padding:20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); margin-bottom:20px; }
 .btn { background:#51D55A; color:#fff; border-radius:8px; padding:10px 16px; font-size:13px; text-decoration:none; border:1px solid transparent; cursor:pointer; font-weight:500; transition:all 0.2s ease; }
 .btn:hover { background:#3d9743; transform:translateY(-1px); }
 .btn-secondary { background:#13275B; color:#E3E3E3; border:1px solid #2A4484; }
 .btn-secondary:hover { background:#1D387B; }
 .table { width:100%; border-collapse:collapse; }
-
-/* --- MODIFIED CSS FOR TABLES --- */
 .table th, .table td { 
     padding:12px; 
     border-bottom:1px solid #2A4484; 
     color:#E3E3E3; 
     font-family:'Onest'; 
     font-size:13px;
-    text-align: left; /* Justify left */
-    font-weight: 700;   /* Bold */
+    text-align: left;
+    font-weight: 500; /* Adjusted for better readability */
 }
 .table th { 
     background:#13275B; 
-    /* font-weight:600; <- Now handled above */
+    font-weight: 700;
 }
-.badge {
-  display: inline-block; /* Ensures padding and layout are consistent */
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: #13275B;
-  color: #E3E3E3;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap; /* This is the fix: prevents text from wrapping */
+/* ENHANCEMENT: Add sortable style */
+.table th.sortable {
+    cursor: pointer;
+    position: relative;
 }
-.badge { padding:4px 10px; border-radius:12px; background:#13275B; color:#E3E3E3; font-size:11px; font-weight:500; }
-.badge.fast-moving { background:#10b981; color:#fff; }
-.badge.low-stock { background:#ef4444; color:#fff; }
-.badge.high-demand { background:#10b981; color:#fff; }
-.badge.low-demand { background:#ef4444; color:#fff; }
-.badge.overstocked { background:#f59e0b; color:#fff; }
-.badge.inactive { background:#6b7280; color:#fff; }
-.badge.normal { background:#3b82f6; color:#fff; }
-.badge.high { background:#ef4444; color:#fff; }
-.badge.medium { background:#f59e0b; color:#fff; }
+.table th.sortable:hover {
+    background: #1a326b;
+}
+.table th.sortable::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    opacity: 0.4;
+}
+.table th.sortable.asc::after {
+    content: '▲'; /* Up arrow for ascending */
+    opacity: 1;
+    font-size: 10px;
+    color: #51D55A;
+}
+.table th.sortable.desc::after {
+    content: '▼'; /* Down arrow for descending */
+    opacity: 1;
+    font-size: 10px;
+    color: #51D55A;
+}
+
+
+/* Badge Styles - Kept same */
+.badge { display: inline-block; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:500; white-space: nowrap; }
+.badge.low-stock, .badge.high { background:#ef4444; color:#fff; } /* Red */
+.badge.high-demand, .badge.fast-moving { background:#10b981; color:#fff; } /* Green */
+.badge.overstocked, .badge.medium { background:#f59e0b; color:#fff; } /* Yellow/Orange */
+.badge.inactive { background:#6b7280; color:#fff; } /* Gray */
+.badge.normal { background:#3b82f6; color:#fff; } /* Blue */
+
+/* Metric Card Styles - Kept same */
 .metric-card { cursor: pointer; transition: all 0.3s ease; }
 .metric-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); border-color: #51D55A; }
 .metric-card.active { border-color: #51D55A; background: linear-gradient(135deg, #13275B 0%, #1D387B 100%); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
-.filter-tag { display: inline-block; background: #51D55A; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
-.filter-tag .close { margin-left: 8px; cursor: pointer; font-weight: bold; }
+
+/* ENHANCEMENT: Sold Percentage Bar */
+.sold-bar-container { width: 80px; height: 8px; background: #2A4484; border-radius: 4px; overflow: hidden; margin: auto; }
+.sold-bar { height: 100%; transition: width 0.3s ease-out; border-radius: 4px; }
+.sold-text { font-size: 11px; margin-top: 4px; font-weight: 700;}
 </style>
 
 <div class="card" style="margin-bottom:24px;">
     <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:18px; margin-bottom:12px;">📊 Data Mining Insights Dashboard</div>
     <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:20px; opacity:0.8;">
-        Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. Click on any metric to filter products.
+        Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. **Click on any metric to filter products.**
     </div>
     
     <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:20px;">
@@ -165,21 +201,36 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                 <table class="table" id="inventoryTable">
                     <thead>
                         <tr>
-                            <th>Product</th>
-                            <th>Category</th>
-                            <th>Stock</th>
-                            <th>Sold</th>
+                            <th class="sortable" data-sort-key="product_name">Product</th>
+                            <th class="sortable" data-sort-key="category">Category</th>
+                            <th class="sortable" data-sort-key="quantity">Stock</th>
+                            <th class="sortable" data-sort-key="sold_percentage" style="text-align:center;">Sold %</th>
                             <th>Classification</th>
-                            <th>Days Since Restock</th>
+                            <th class="sortable" data-sort-key="days_since_restock">Days Since Restock</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
                         <?php foreach ($detailedAnalysis as $item): ?>
-                        <tr data-classification="<?php echo $item['classification']; ?>">
+                        <tr data-classification="<?php echo $item['classification']; ?>" 
+                            data-product_name="<?php echo htmlspecialchars($item['product_name']); ?>"
+                            data-category="<?php echo htmlspecialchars($item['category']); ?>"
+                            data-quantity="<?php echo $item['quantity']; ?>"
+                            data-sold_percentage="<?php echo $item['sold_percentage']; ?>"
+                            data-days_since_restock="<?php echo $item['days_since_restock']; ?>">
+                            
                             <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                             <td><?php echo htmlspecialchars($item['category']); ?></td>
                             <td><?php echo $item['quantity']; ?></td>
-                            <td><?php echo $item['sold_quantity']; ?></td>
+                            <td style="text-align:center;">
+                                <div class="sold-bar-container">
+                                    <div class="sold-bar" style="width: <?php echo $item['sold_percentage']; ?>%; background: <?php 
+                                        if ($item['sold_percentage'] > 80) echo '#10b981'; // High
+                                        else if ($item['sold_percentage'] > 50) echo '#f59e0b'; // Medium
+                                        else echo '#3b82f6'; // Low
+                                    ?>;"></div>
+                                </div>
+                                <div class="sold-text"><?php echo number_format($item['sold_percentage'], 1); ?>%</div>
+                            </td>
                             <td>
                                 <span class="badge <?php echo str_replace('_', '-', $item['classification']); ?>">
                                     <?php echo ucfirst(str_replace('_', ' ', $item['classification'])); ?>
@@ -195,13 +246,13 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     </div>
 
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">⚠️ Anomaly Detection</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">⚠️ Rule-Based Anomalies (Action Required)</div>
         <div style="overflow:auto; max-height:420px;">
             <?php if (empty($insights['anomalies'])): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:40px; font-size:14px;">
                     <div style="font-size:48px; margin-bottom:16px;">✅</div>
-                    <div>No anomalies detected</div>
-                    <div style="font-size:12px; margin-top:8px; opacity:0.7;">All inventory levels appear normal</div>
+                    <div>No critical anomalies detected</div>
+                    <div style="font-size:12px; margin-top:8px; opacity:0.7;">Check inventory table for normal items.</div>
                 </div>
             <?php else: ?>
                 <table class="table">
@@ -234,35 +285,33 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📈 Classification Rules Applied</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📈 Data Mining Classification Rules</div>
     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            
-            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">High Demand</div>
-            <div style="color:#E3E3E3; font-size:12px;">Sold ≥ 80% of stock</div>
-            
+            <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">High Demand (Fast Moving)</div>
+            <div style="color:#E3E3E3; font-size:12px;">**Rule:** Sold $\ge$ **80%** of total availability.</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;"> Low Stock</div>
-            <div style="color:#E3E3E3; font-size:12px;">Stock < 10 units</div>
+            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;">Low Stock (Restock Alert)</div>
+            <div style="color:#E3E3E3; font-size:12px;">**Rule:** Current Stock $\lt$ **10** units.</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;"> Overstocked</div>
-            <div style="color:#E3E3E3; font-size:12px;">Stock > 200 units</div>
+            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;">Overstocked (Capital Tie-Up)</div>
+            <div style="color:#E3E3E3; font-size:12px;">**Rule:** Current Stock $\gt$ **200** units.</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#6b7280; font-weight:600; font-size:14px; margin-bottom:8px;">Inactive</div>
-            <div style="color:#E3E3E3; font-size:12px;">Days since restock > 90</div>
+            <div style="color:#6b7280; font-weight:600; font-size:14px; margin-bottom:8px;">Inactive (Review/Clearance)</div>
+            <div style="color:#E3E3E3; font-size:12px;">**Rule:** Days since last restock $\gt$ **90** days.</div>
         </div>
     </div>
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🤖 AI Recommendations</div>
-    <div style="display:grid; grid-template-columns: repeat(1, 1fr); gap:20px;">
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🤖 AI & ML Recommendations</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
         <?php if (!empty($monthlyRecommendations)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
-                <div style="color:#51D55A; font-weight:600; font-size:16px; margin-bottom:12px;"> Top Products for <?php echo date('F'); ?></div>
+                <div style="color:#51D55A; font-weight:600; font-size:16px; margin-bottom:12px;"> Top Products for <?php echo date('F'); ?> (Forecasted)</div>
                 <div style="overflow:auto;">
                     <table class="table">
                         <thead>
@@ -270,8 +319,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                                 <th>Product</th>
                                 <th>Category</th>
                                 <th>Current Stock</th>
-                                <th>Avg. Monthly Demand</th>
-                                <th>Recommended Stock</th>
+                                <th>Rec. Stock</th>
                                 <th>Action Required</th>
                             </tr>
                         </thead>
@@ -280,12 +328,11 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                             <tr>
                                 <td><?php echo htmlspecialchars($rec['product_name']); ?></td>
                                 <td><?php echo htmlspecialchars($rec['category']); ?></td>
-                                <td><?php echo number_format($rec['current_stock']); ?> <?php echo htmlspecialchars($rec['uom']); ?></td>
-                                <td><?php echo number_format($rec['avg_monthly_demand'], 1); ?></td>
+                                <td><?php echo number_format($rec['current_stock']); ?></td>
                                 <td><?php echo number_format($rec['recommended_stock']); ?></td>
                                 <td>
                                     <?php if ($rec['restock_recommended']): ?>
-                                        <span class="badge high">Restock Needed</span>
+                                        <span class="badge high">Restock: $\uparrow$ <?php echo number_format($rec['recommended_stock'] - $rec['current_stock']); ?></span>
                                     <?php else: ?>
                                         <span class="badge normal">Stock OK</span>
                                     <?php endif; ?>
@@ -300,7 +347,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
         <?php if (!empty($recentAnomalies)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
-                <div style="color:#ef4444; font-weight:600; font-size:16px; margin-bottom:12px;"> AI Detected Anomalies</div>
+                <div style="color:#ef4444; font-weight:600; font-size:16px; margin-bottom:12px;"> AI Time-Series Anomalies</div>
                 <div style="overflow:auto;">
                     <table class="table">
                         <thead>
@@ -318,8 +365,20 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                                 <td><?php echo date('Y-m-d', strtotime($anomaly['detection_date'])); ?></td>
                                 <td><?php echo number_format($anomaly['anomaly_score'], 3); ?></td>
                                 <td>
-                                    <span class="badge <?php echo $anomaly['anomaly_score'] < -0.8 ? 'high' : ($anomaly['anomaly_score'] < -0.5 ? 'medium' : 'normal'); ?>">
-                                        <?php echo $anomaly['anomaly_score'] < -0.8 ? 'High' : ($anomaly['anomaly_score'] < -0.5 ? 'Medium' : 'Low'); ?>
+                                    <span class="badge <?php 
+                                        $score = $anomaly['anomaly_score'];
+                                        if ($score < -0.8 || $score > 0.8) echo 'high';
+                                        else if ($score < -0.5 || $score > 0.5) echo 'medium';
+                                        else echo 'normal';
+                                    ?>">
+                                        <?php 
+                                        $score = $anomaly['anomaly_score'];
+                                        if ($score < -0.8) echo 'Critically Low'; 
+                                        else if ($score > 0.8) echo 'Critically High';
+                                        else if ($score < -0.5) echo 'Medium Low';
+                                        else if ($score > 0.5) echo 'Medium High';
+                                        else echo 'Low';
+                                        ?>
                                     </span>
                                 </td>
                             </tr>
@@ -335,14 +394,14 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 <div class="card">
     <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
-        <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
+        <button class="btn" onclick="refreshAnalysis()">Refresh Data</button>
         <button class="btn" onclick="runAIForecast()">Run AI Forecast</button>
-        <button class="btn btn-secondary" onclick="exportData()">Export Data</button>
-        <button class="btn btn-secondary" onclick="generateReport()">Generate Report</button>
+        <button class="btn btn-secondary" onclick="exportData()">Export Filtered Data</button>
+        <button class="btn btn-secondary" onclick="generateReport()">Generate PDF Report</button>
         <button class="btn btn-secondary" onclick="scheduleAnalysis()">Schedule Analysis</button>
     </div>
     <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; padding:12px; background:#13275B; border-radius:8px; border:1px solid #2A4484;">
-        <strong>Pro Tip:</strong> Run AI forecasting daily for the most accurate predictions. The system learns from historical data to provide better recommendations.
+        <strong>Pro Tip:</strong> **Run AI forecasting daily** for the most accurate predictions. The time-series model provides forward-looking insights beyond simple rule-based classification.
     </div>
 
     <?php if ($lastRunStatus && isset($lastRunStatus['status'])): ?>
@@ -380,34 +439,6 @@ function filterProducts(filterType) {
         activeCard.classList.add('active');
     }
     
-    // Update filter display
-    let filterText = '';
-    let filterLabel = '';
-    
-    switch(filterType) {
-        case 'all':
-            filterLabel = 'Showing All Products';
-            break;
-        case 'high_demand':
-            filterLabel = 'High Demand Products';
-            break;
-        case 'low_stock':
-            filterLabel = 'Low Stock Products';
-            break;
-        case 'overstocked':
-            filterLabel = 'Overstocked Products';
-            break;
-        case 'urgent':
-            filterLabel = 'Urgent Action Required';
-            break;
-    }
-    
-    if (filterType !== 'all') {
-        filterDisplay.innerHTML = `<span class="filter-tag">${filterLabel} <span class="close" onclick="filterProducts('all')">✕</span></span>`;
-    } else {
-        filterDisplay.innerHTML = '';
-    }
-    
     let visibleCount = 0;
     
     // Filter table rows
@@ -419,7 +450,7 @@ function filterProducts(filterType) {
             row.style.display = '';
             visibleCount++;
         } else if (filterType === 'urgent') {
-            // Show both high_demand and low_stock for urgent
+            // Show Low Stock AND High Demand for urgent
             if (classification === 'high_demand' || classification === 'low_stock') {
                 row.style.display = '';
                 visibleCount++;
@@ -435,25 +466,21 @@ function filterProducts(filterType) {
     }
     
     // Show message if no products match filter
-    if (visibleCount === 0 && filterType !== 'all') {
+    const existingEmpty = document.getElementById('emptyFilterRow');
+    if (existingEmpty) existingEmpty.remove();
+
+    if (visibleCount === 0 && rows.length > 0) { // Only show if there is data but it's filtered out
         const emptyRow = document.createElement('tr');
         emptyRow.id = 'emptyFilterRow';
         emptyRow.innerHTML = `
             <td colspan="6" style="text-align:center; padding:40px; color:#9aa6d1;">
                 <div style="font-size:48px; margin-bottom:16px;">🔍</div>
-                <div>No products found for this filter</div>
-                <div style="font-size:12px; margin-top:8px; opacity:0.7;">Try a different classification</div>
+                <div>No products found for this classification</div>
+                <div style="font-size:12px; margin-top:8px; opacity:0.7;">Try selecting another metric or 'Total Products'</div>
             </td>
         `;
         
-        // Remove existing empty row if present
-        const existingEmpty = document.getElementById('emptyFilterRow');
-        if (existingEmpty) existingEmpty.remove();
-        
         tableBody.appendChild(emptyRow);
-    } else {
-        const existingEmpty = document.getElementById('emptyFilterRow');
-        if (existingEmpty) existingEmpty.remove();
     }
     
     // Scroll to inventory table
@@ -475,18 +502,27 @@ function exportData() {
         const row = rows[i];
         if (row.style.display !== 'none' && row.id !== 'emptyFilterRow') {
             const cells = row.getElementsByTagName('td');
-            if (cells.length > 0) {
-                const rowData = [];
-                for (let j = 0; j < cells.length; j++) {
-                    let cellText = cells[j].textContent.trim();
-                    // Remove badge styling from classification column
-                    if (j === 4) {
-                        cellText = cellText.replace(/\s+/g, ' ');
-                    }
-                    rowData.push(`"${cellText}"`);
-                }
-                csv += rowData.join(',') + '\n';
-            }
+            // Extract data attributes for accurate export
+            const productName = row.getAttribute('data-product_name') || cells[0].textContent.trim();
+            const category = row.getAttribute('data-category') || cells[1].textContent.trim();
+            const quantity = row.getAttribute('data-quantity') || cells[2].textContent.trim();
+            const classification = row.getAttribute('data-classification');
+            const daysSinceRestock = row.getAttribute('data-days_since_restock');
+            const soldPercentage = row.getAttribute('data-sold_percentage');
+            
+            // Note: The original sold_quantity column was removed in favor of sold_percentage, 
+            // so we'll export the calculated percentage instead.
+            
+            const rowData = [
+                `"${productName}"`,
+                `"${category}"`,
+                quantity,
+                classification,
+                daysSinceRestock,
+                soldPercentage + '%'
+            ];
+            
+            csv += rowData.join(',') + '\n';
         }
     }
     
@@ -498,6 +534,54 @@ function exportData() {
     a.click();
     window.URL.revokeObjectURL(url);
 }
+
+// ENHANCEMENT: Add Table Sorting Logic
+function sortTable(columnIndex) {
+    const table = document.getElementById('inventoryTable');
+    const tbody = document.getElementById('inventoryTableBody');
+    const rows = Array.from(tbody.querySelectorAll('tr:not(#emptyFilterRow)'));
+    const header = table.querySelectorAll('th.sortable')[columnIndex];
+    const key = header.getAttribute('data-sort-key');
+
+    let direction = header.classList.contains('asc') ? 'desc' : 'asc';
+
+    // Clear previous sorting classes
+    table.querySelectorAll('th.sortable').forEach(th => {
+        th.classList.remove('asc', 'desc');
+    });
+
+    // Add current sorting class
+    header.classList.add(direction);
+
+    rows.sort((a, b) => {
+        let aVal = a.getAttribute(`data-${key}`);
+        let bVal = b.getAttribute(`data-${key}`);
+
+        // Handle numeric and string keys
+        let comparison = 0;
+        if (!isNaN(parseFloat(aVal)) && isFinite(aVal)) {
+            comparison = parseFloat(aVal) - parseFloat(bVal);
+        } else {
+            comparison = aVal.localeCompare(bVal);
+        }
+
+        return direction === 'asc' ? comparison : -comparison;
+    });
+
+    // Reappend sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Attach event listeners to sortable headers
+document.addEventListener('DOMContentLoaded', () => {
+    const sortableHeaders = document.querySelectorAll('#inventoryTable th.sortable');
+    sortableHeaders.forEach((header, index) => {
+        header.addEventListener('click', () => {
+            sortTable(index);
+        });
+    });
+});
+// End of Table Sorting Logic
 
 function generateReport() {
     alert('Report generation feature coming soon! This will create a comprehensive PDF report with charts and recommendations.');
