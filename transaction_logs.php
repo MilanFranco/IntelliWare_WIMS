@@ -6,9 +6,11 @@ if (!in_array($role, ['admin','manager'])) { header('Location: dash_staff.php');
 
 require_once 'config/db.php';
 
-// Get transaction logs from database
+// --- SYSTEM EVENTS (LOGS) ---
+// Optimization Note: Ensure 'timestamp' column in 'logs' table is INDEXED for speed.
 $logs = [];
-$logQuery = "SELECT l.*, u.username, u.full_name FROM logs l 
+$logQuery = "SELECT l.log_id, l.action, l.timestamp, u.username 
+             FROM logs l 
              LEFT JOIN users u ON l.user_id = u.user_id 
              ORDER BY l.timestamp DESC LIMIT 100";
 $logResult = $conn->query($logQuery);
@@ -19,12 +21,14 @@ if ($logResult && $logResult->num_rows > 0) {
     }
 }
 
-// Get transaction history
+// --- STOCK MOVEMENTS (TRANSACTIONS) ---
+// Optimization Note: Ensure 'transaction_date' in 'transactions' table is INDEXED.
 $transactions = [];
-$transactionQuery = "SELECT t.*, p.product_name, p.category, u.username FROM transactions t 
-                    LEFT JOIN products p ON t.product_id = p.product_id 
-                    LEFT JOIN users u ON t.user_id = u.user_id 
-                    ORDER BY t.transaction_date DESC LIMIT 100";
+$transactionQuery = "SELECT t.*, p.product_name, p.category, u.username 
+                     FROM transactions t 
+                     LEFT JOIN products p ON t.product_id = p.product_id 
+                     LEFT JOIN users u ON t.user_id = u.user_id 
+                     ORDER BY t.transaction_date DESC LIMIT 100";
 $transactionResult = $conn->query($transactionQuery);
 
 if ($transactionResult && $transactionResult->num_rows > 0) {
@@ -39,63 +43,103 @@ require_once 'src/layout.php';
 renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 ?>
 
-<style>
-.card { background:#1D387B; border:1px solid #2A4484; border-radius:10px; padding:14px; box-shadow: 0 0 20px 2px #304374; }
-.btn { background:#51D55A; color:#fff; border-radius:6px; padding:8px 10px; font-size:12px; text-decoration:none; border:1px solid transparent; cursor:pointer; }
-.btn:hover { background:#3d9743; }
-.btn-secondary { background:#13275B; color:#E3E3E3; border:1px solid #2A4484; }
-.btn-secondary:hover { background:#1D387B; }
-.table { width:100%; border-collapse:collapse; }
-.table th, .table td { padding:10px; border-bottom:1px solid #2A4484; color:#E3E3E3; font-family:'Onest'; font-size:12px; }
-.badge { padding:2px 8px; border-radius:999px; background:#13275B; color:#E3E3E3; font-size:11px; }
-.badge.in { background:#10b981; color:#fff; }
-.badge.out { background:#ef4444; color:#fff; }
-.badge.login { background:#3b82f6; color:#fff; }
-.badge.action { background:#8b5cf6; color:#fff; }
-</style>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-[#51D55A]/50 transition-all cursor-default">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">System Events</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo count($logs); ?></span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        </div>
+    </div>
 
-<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:20px;">
-    <div class="card">
-        <div style="color:#51D55A; font-weight:600; font-size:24px;"><?php echo count($logs); ?></div>
-        <div style="color:#E3E3E3; font-size:12px;">Total Log Entries</div>
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-amber-500/50 transition-all cursor-default">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Movements</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo count($transactions); ?></span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34"></path><polygon points="18 2 22 6 12 16 8 16 8 12 18 2"></polygon></svg>
+        </div>
     </div>
-    <div class="card">
-        <div style="color:#f59e0b; font-weight:600; font-size:24px;"><?php echo count($transactions); ?></div>
-        <div style="color:#E3E3E3; font-size:12px;">Total Transactions</div>
+
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-red-500/50 transition-all cursor-default">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Stock Out</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    <?php echo count(array_filter($transactions, function($t) { return $t['transaction_type'] === 'stock_out'; })); ?>
+                </span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+        </div>
     </div>
-    <div class="card">
-        <div style="color:#ef4444; font-weight:600; font-size:24px;"><?php echo count(array_filter($transactions, function($t) { return $t['transaction_type'] === 'stock_out'; })); ?></div>
-        <div style="color:#E3E3E3; font-size:12px;">Stock Out</div>
-    </div>
-    <div class="card">
-        <div style="color:#10b981; font-weight:600; font-size:24px;"><?php echo count(array_filter($transactions, function($t) { return $t['transaction_type'] === 'stock_in'; })); ?></div>
-        <div style="color:#E3E3E3; font-size:12px;">Stock In</div>
+
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-emerald-500/50 transition-all cursor-default">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Stock In</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                    <?php echo count(array_filter($transactions, function($t) { return $t['transaction_type'] === 'stock_in'; })); ?>
+                </span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+        </div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-    <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📋 System Activity Logs</div>
-        <div style="overflow:auto; max-height:400px;">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    
+    <div class="premium-card flex flex-col h-[500px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                System Activity
+            </h3>
+            <span class="text-xs text-[#9aa6d1] font-onest bg-[#1D387B] px-3 py-1 rounded-full border border-[#2A4484]">Last 100 Events</span>
+        </div>
+        
+        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
             <?php if (empty($logs)): ?>
-                <div style="color:#9aa6d1; text-align:center; padding:20px;">No activity logs found</div>
+                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                    <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span>No logs found</span>
+                </div>
             <?php else: ?>
-                <table class="table">
-                    <thead>
+                <table class="w-full">
+                    <thead class="sticky top-0 bg-[#1D387B] z-10 text-xs text-[#9aa6d1] font-onest text-left">
                         <tr>
-                            <th>User</th>
-                            <th>Action</th>
-                            <th>Time</th>
+                            <th class="p-3">User</th>
+                            <th class="p-3">Action</th>
+                            <th class="p-3 text-right">Time</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach (array_slice($logs, 0, 20) as $log): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($log['username'] ?? 'Unknown'); ?></td>
-                            <td>
-                                <span class="badge action"><?php echo htmlspecialchars($log['action']); ?></span>
+                    <tbody class="text-sm">
+                        <?php foreach ($logs as $log): ?>
+                        <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors">
+                            <td class="p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
+                                        <?php echo strtoupper(substr($log['username'] ?? '?', 0, 1)); ?>
+                                    </div>
+                                    <span class="text-[#E3E3E3] font-medium"><?php echo htmlspecialchars($log['username'] ?? 'System'); ?></span>
+                                </div>
                             </td>
-                            <td><?php echo date('M j, H:i', strtotime($log['timestamp'])); ?></td>
+                            <td class="p-3">
+                                <span class="text-[#9aa6d1]"><?php echo htmlspecialchars($log['action']); ?></span>
+                            </td>
+                            <td class="p-3 text-right text-xs text-[#6b7280]">
+                                <?php echo date('M j, H:i', strtotime($log['timestamp'])); ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -104,34 +148,50 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
         </div>
     </div>
 
-    <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📦 Recent Transactions</div>
-        <div style="overflow:auto; max-height:400px;">
+    <div class="premium-card flex flex-col h-[500px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Recent Stock Moves
+            </h3>
+            <span class="text-xs text-[#9aa6d1] font-onest bg-[#1D387B] px-3 py-1 rounded-full border border-[#2A4484]">Realtime</span>
+        </div>
+
+        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
             <?php if (empty($transactions)): ?>
-                <div style="color:#9aa6d1; text-align:center; padding:20px;">No transactions found</div>
+                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                    <span>No transactions found</span>
+                </div>
             <?php else: ?>
-                <table class="table">
-                    <thead>
+                <table class="w-full">
+                    <thead class="sticky top-0 bg-[#1D387B] z-10 text-xs text-[#9aa6d1] font-onest text-left">
                         <tr>
-                            <th>Product</th>
-                            <th>Type</th>
-                            <th>Qty</th>
-                            <th>User</th>
-                            <th>Date</th>
+                            <th class="p-3">Product</th>
+                            <th class="p-3 text-center">Type</th>
+                            <th class="p-3 text-center">Qty</th>
+                            <th class="p-3 text-right">Time</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php foreach (array_slice($transactions, 0, 20) as $trans): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
-                            <td>
-                                <span class="badge <?php echo $trans['transaction_type']; ?>">
-                                    <?php echo $trans['transaction_type'] === 'stock_in' ? '📥 In' : '📤 Out'; ?>
-                                </span>
+                    <tbody class="text-sm">
+                        <?php foreach ($transactions as $trans): ?>
+                        <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors">
+                            <td class="p-3">
+                                <span class="text-[#E3E3E3] block"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></span>
+                                <span class="text-[10px] text-[#9aa6d1]"><?php echo htmlspecialchars($trans['category'] ?? ''); ?></span>
                             </td>
-                            <td><?php echo $trans['quantity']; ?></td>
-                            <td><?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?></td>
-                            <td><?php echo date('M j, H:i', strtotime($trans['transaction_date'])); ?></td>
+                            <td class="p-3 text-center">
+                                <?php if($trans['transaction_type'] === 'stock_in'): ?>
+                                    <span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IN</span>
+                                <?php else: ?>
+                                    <span class="px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">OUT</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="p-3 text-center font-mono text-[#E3E3E3]">
+                                <?php echo $trans['quantity']; ?>
+                            </td>
+                            <td class="p-3 text-right text-xs text-[#6b7280]">
+                                <?php echo date('H:i', strtotime($trans['transaction_date'])); ?>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -141,17 +201,36 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
     </div>
 </div>
 
-<div class="card" style="margin-top:16px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📊 Transaction History</div>
-    <div style="overflow:auto;">
-        <table class="table">
+<div class="premium-card mb-8">
+    <div class="p-5 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#13275B]/30">
+        <div>
+            <h3 class="font-onest font-semibold text-lg text-white">Full Transaction History</h3>
+            <p class="text-xs text-[#9aa6d1] mt-1">Detailed breakdown of all inventory movements</p>
+        </div>
+        
+        <div class="flex gap-2 w-full md:w-auto">
+            <div class="relative w-full md:w-64">
+                <input type="text" id="logSearch" onkeyup="filterTable()" placeholder="Search logs..." 
+                    class="w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                <svg class="absolute left-3 top-2.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            
+            <button onclick="exportLogs()" class="premium-button text-xs py-2 px-4 whitespace-nowrap flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="premium-table w-full text-left" id="mainLogTable">
             <thead>
                 <tr>
-                    <th>Transaction ID</th>
+                    <th>ID</th>
                     <th>Product</th>
                     <th>Category</th>
                     <th>Type</th>
-                    <th>Quantity</th>
+                    <th>Qty</th>
                     <th>User</th>
                     <th>Date</th>
                     <th>Remarks</th>
@@ -159,19 +238,32 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
             </thead>
             <tbody>
                 <?php foreach ($transactions as $trans): ?>
-                <tr>
-                    <td>#<?php echo $trans['transaction_id']; ?></td>
-                    <td><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
-                    <td><?php echo htmlspecialchars($trans['category'] ?? 'N/A'); ?></td>
+                <tr class="hover:bg-[#1D387B]/50 transition-colors">
+                    <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo $trans['transaction_id']; ?></td>
+                    <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
+                    <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($trans['category'] ?? '-'); ?></td>
                     <td>
-                        <span class="badge <?php echo $trans['transaction_type']; ?>">
-                            <?php echo $trans['transaction_type'] === 'stock_in' ? '📥 Stock In' : '📤 Stock Out'; ?>
-                        </span>
+                        <?php if($trans['transaction_type'] === 'stock_in'): ?>
+                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                STOCK IN
+                            </span>
+                        <?php else: ?>
+                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                STOCK OUT
+                            </span>
+                        <?php endif; ?>
                     </td>
-                    <td><?php echo $trans['quantity']; ?></td>
-                    <td><?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?></td>
-                    <td><?php echo date('M j, Y H:i', strtotime($trans['transaction_date'])); ?></td>
-                    <td><?php echo htmlspecialchars($trans['remarks'] ?? 'N/A'); ?></td>
+                    <td class="font-mono font-semibold text-[#E3E3E3]"><?php echo $trans['quantity']; ?></td>
+                    <td class="text-sm">
+                        <div class="flex items-center gap-2">
+                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($trans['username'] ?? 'U'); ?>&background=1D387B&color=fff&size=20" class="rounded-full w-5 h-5 border border-[#2A4484]">
+                            <?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?>
+                        </div>
+                    </td>
+                    <td class="text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo date('M j, Y H:i', strtotime($trans['transaction_date'])); ?></td>
+                    <td class="text-sm text-[#9aa6d1] italic max-w-[200px] truncate"><?php echo htmlspecialchars($trans['remarks'] ?? '-'); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -179,26 +271,34 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
     </div>
 </div>
 
-<div class="card" style="margin-top:16px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">🔧 Log Management</div>
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <button class="btn" onclick="refreshLogs()">🔄 Refresh Logs</button>
-        <button class="btn btn-secondary" onclick="exportLogs()">📊 Export Logs</button>
-        <button class="btn btn-secondary" onclick="clearOldLogs()">🗑️ Clear Old Logs</button>
-        <button class="btn btn-secondary" onclick="generateReport()">📋 Generate Report</button>
-    </div>
-    <div style="color:#9aa6d1; font-family:'Onest'; font-size:12px; margin-top:12px;">
-        💡 <strong>Pro Tip:</strong> Logs are automatically generated for all system activities. Use filters to find specific events.
-    </div>
-</div>
-
 <script>
-function refreshLogs() {
-    location.reload();
+// Simple Filter Function for the Table
+function filterTable() {
+    var input, filter, table, tr, td, i, txtValue;
+    input = document.getElementById("logSearch");
+    filter = input.value.toUpperCase();
+    table = document.getElementById("mainLogTable");
+    tr = table.getElementsByTagName("tr");
+
+    for (i = 1; i < tr.length; i++) { // Start at 1 to skip header
+        // Search Product Name (Column 1) and Remarks (Column 7)
+        var tdProduct = tr[i].getElementsByTagName("td")[1];
+        var tdRemarks = tr[i].getElementsByTagName("td")[7];
+        
+        if (tdProduct || tdRemarks) {
+            var txtProduct = tdProduct.textContent || tdProduct.innerText;
+            var txtRemarks = tdRemarks.textContent || tdRemarks.innerText;
+            
+            if (txtProduct.toUpperCase().indexOf(filter) > -1 || txtRemarks.toUpperCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }       
+    }
 }
 
 function exportLogs() {
-    // Create CSV data
     let csv = 'Transaction ID,Product,Category,Type,Quantity,User,Date,Remarks\n';
     
     <?php foreach ($transactions as $trans): ?>
@@ -212,16 +312,6 @@ function exportLogs() {
     a.download = 'transaction_logs_' + new Date().toISOString().split('T')[0] + '.csv';
     a.click();
     window.URL.revokeObjectURL(url);
-}
-
-function clearOldLogs() {
-    if (confirm('Are you sure you want to clear logs older than 30 days?')) {
-        alert('This feature will be implemented in the next update.');
-    }
-}
-
-function generateReport() {
-    alert('Report generation feature coming soon! This will create a comprehensive PDF report.');
 }
 </script>
 

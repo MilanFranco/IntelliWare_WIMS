@@ -1,5 +1,6 @@
 <?php
-// Shared layout component for consistent design
+// File: src/layout.php
+
 function renderSidebar($currentPage, $userRole) {
     $menuItems = [];
     
@@ -41,12 +42,13 @@ function renderSidebar($currentPage, $userRole) {
         'insights' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />',
         'reports' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />',
         'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372m-10.002-.372a9.338 9.338 0 0 0-2.625.372M12 21a9.338 9.338 0 0 0 9 0a9.338 9.338 0 0 0-18 0M12 2.25v12.75a4.5 4.5 0 0 0 0 8.25a4.5 4.5 0 0 0 0-8.25V2.25Z" />',
-        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5c0-1.23-.323-2.38-.87-3.39l.035-.02a.75.75 0 0 1 .64 1.14l-.036.021a3.73 3.73 0 0 1-.869 3.39.75.75 0 0 1-1.14-.64l.021-.035a3.73 3.73 0 0 0 0-4.78.75.75 0 0 1 .64-1.14l.035.02a3.73 3.73 0 0 0 .869-3.39.75.75 0 0 1 1.14.64l-.02.035c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.02.035a.75.75 0 0 1-.64 1.14l-.035-.02c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.035.02a.75.75 0 0 1-.64-1.14l-.035-.021a3.73 3.73 0 0 1 .869-3.39.75.75 0 0 1 1.14.64l-.021.035c.548-1.01.87-2.16.87-3.39Zm-15 0c0-1.23.323-2.38.87-3.39l-.035-.02a.75.75 0 0 0-.64 1.14l.036.021a3.73 3.73 0 0 0 .869 3.39.75.75 0 0 0 1.14-.64l-.021-.035a3.73 3.73 0 0 1 0-4.78.75.75 0 0 0-.64-1.14l-.035.02a3.73 3.73 0 0 1-.869-3.39.75.75 0 0 0-1.14.64l.02.035C4.823 6.62 4.5 7.77 4.5 9s.323 2.38.87 3.39l-.02.035a.75.75 0 0 0 .64 1.14l.035-.02c-.548 1.01-.87 2.16-.87 3.39s.323 2.38.87 3.39l-.035.02a.75.75 0 0 0 .64-1.14l.035-.021a3.73 3.73 0 0 0-.869-3.39.75.75 0 0 0-1.14.64l.021.035c-.548-1.01-.87-2.16-.87-3.39Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />'
+        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5c0-1.23-.323-2.38-.87-3.39l.035-.02a.75.75 0 0 1 .64 1.14l-.036.021a3.73 3.73 0 0 1-.869 3.39.75.75 0 0 1-1.14-.64l.021-.035a3.73 3.73 0 0 0 0-4.78.75.75 0 0 1 .64-1.14l.035.02a3.73 3.73 0 0 0 .869-3.39.75.75 0 0 1 1.14.64l-.02.035c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.02.035a.75.75 0 0 1-.64 1.14l-.035-.02c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.035.02a.75.75 0 0 1-.64 1.14l-.035-.021a3.73 3.73 0 0 1 .869-3.39.75.75 0 0 1 1.14.64l-.021.035c.548-1.01.87-2.16.87-3.39Zm-15 0c0-1.23.323-2.38.87-3.39l-.035-.02a.75.75 0 0 0-.64 1.14l.036.021a3.73 3.73 0 0 0 .869 3.39.75.75 0 0 0 1.14-.64l-.021-.035a3.73 3.73 0 0 1 0-4.78.75.75 0 0 0-.64-1.14l-.035.02a3.73 3.73 0 0 1-.869-3.39.75.75 0 0 0-1.14.64l.02.035C4.823 6.62 4.5 7.77 4.5 9s.323 2.38.87 3.39l-.02.035a.75.75 0 0 0 .64 1.14l.035-.02c-.548 1.01-.87 2.16-.87 3.39s.323 2.38.87 3.39l-.035.02a.75.75 0 0 0 .64-1.14l.035-.021a3.73 3.73 0 0 0-.869-3.39.75.75 0 0 0-1.14.64l.021.035c-.548-1.01-.87-2.16-.87-3.39Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />'
     ];
     
-    echo '<div class="premium-sidebar w-[290px] text-white p-3 pt-5 flex flex-col">';
+    // UPDATED: Added ID and transition classes for toggling
+    echo '<div id="main-sidebar" class="premium-sidebar w-[290px] text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out">';
     echo '<div class="ml-2 mb-4">';
-    echo '<img src="img/logo.svg" alt="IntelliWare" class="w-[220px]" />';
+    echo '<img src="img/logo01.png" alt="IntelliWare" class="w-[220px]" />';
     echo '</div>';
     echo '<div class="p-2 flex flex-col gap-[8px]">';
     
@@ -63,7 +65,6 @@ function renderSidebar($currentPage, $userRole) {
     
     echo '</div>';
     
-    // --- UPDATED LOGOUT BUTTON ---
     echo '<div class="mt-auto p-2">';
     echo '<a class="premium-menu-item premium-menu-item-logout" href="logout.php" style="justify-content: center;">';
     echo '<svg class="sidebar-icon w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">';
@@ -72,42 +73,49 @@ function renderSidebar($currentPage, $userRole) {
     echo '<span class="sidebar-text">Logout</span>';
     echo '</a>';
     echo '</div>';
-    // --- END OF UPDATE ---
     
     echo '</div>';
 }
 
-// --- UPDATED renderHeader to accept $lowStockCount ---
-// --- AND TO INCLUDE THE "REPORTS" DROPDOWN ITEM ---
-function renderHeader($pageTitle, $userRole, $username, $lowStockCount = 0) {
+function renderHeader($pageTitle, $userRole, $username) {
     echo '<div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">';
-    echo '<div class="font-onest text-[20px] font-semibold text-white">' . htmlspecialchars($pageTitle) . '</div>';
+    
+    // UPDATED: Added Flex container for Toggle Button + Page Title
+    echo '<div class="flex items-center gap-4">';
+        // HAMBURGER TOGGLE BUTTON
+        echo '<button onclick="toggleSidebar()" class="text-white/80 hover:text-white transition-colors focus:outline-none">';
+        echo '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>';
+        echo '</button>';
+
+        echo '<div class="font-onest text-[20px] font-semibold text-white">' . htmlspecialchars($pageTitle) . '</div>';
+    echo '</div>';
+
     echo '<div class="admin-user-section">';
 
-    // --- MOVED NOTIFICATION BELL LOGIC HERE ---
     if ($userRole === 'admin') {
         echo '<div class="notification-container">';
-        echo '<div class="notification-bell" onclick="toggleNotificationDropdown()">';
+        
+        // Bell Icon
+        echo '<div class="notification-bell" id="bellBtn" onclick="toggleNotificationDropdown(event)">';
         echo '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>';
-        if ($lowStockCount > 0) {
-            echo '<div class="notification-badge" id="notificationBadge">' . $lowStockCount . '</div>';
-        }
+        // Badge (Starts hidden)
+        echo '<div class="notification-badge" id="notificationBadge" style="display:none;">0</div>';
         echo '</div>';
         
-        echo '<div class="notification-dropdown" id="notificationDropdown">';
+        // Dropdown
+        echo '<div class="notification-dropdown" id="notificationDropdown" onclick="event.stopPropagation()">';
         echo '<div class="notification-header">';
         echo '<div class="notification-title">Notifications</div>';
-        echo '<button class="notification-clear" onclick="clearAllNotifications()">Clear All</button>';
+        echo '<button class="notification-clear" onclick="fetchNotifications()">Refresh</button>';
         echo '</div>';
         echo '<div class="notification-list" id="notificationList">';
-        echo '<div class="notification-empty">Loading...</div>'; // Will be populated by JS
+        echo '<div class="notification-empty">Loading...</div>'; 
         echo '</div>';
         echo '</div>';
-        echo '</div>'; // end .notification-container
+        echo '</div>';
     }
-    // --- END MOVED NOTIFICATION LOGIC ---
 
-    echo '<div class="user-profile" onclick="toggleUserDropdown()">';
+    echo '<div class="user-profile" onclick="toggleUserDropdown(event)">';
     echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($username) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
     echo '<div class="user-details">';
     echo '<div class="user-name">' . htmlspecialchars($username) . '</div>';
@@ -115,13 +123,9 @@ function renderHeader($pageTitle, $userRole, $username, $lowStockCount = 0) {
     echo '</div>';
     echo '<div class="user-dropdown" id="userDropdown">';
 
-    // Conditionally add "Reports" link for admin and manager
     if ($userRole === 'admin' || $userRole === 'manager') {
         echo '<a href="reports.php" class="dropdown-item">';
-        // SVG Icon for Reports (copied from your $icons array)
-        echo '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">';
-        echo '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />';
-        echo '</svg>';
+        echo '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>';
         echo 'Reports</a>';
     }
 
@@ -134,12 +138,9 @@ function renderHeader($pageTitle, $userRole, $username, $lowStockCount = 0) {
     echo '</div>';
     echo '</div>';
     echo '</div>';
-
-    // close header wrapper
-    echo '</div>'; 
+    echo '</div>'; // close header wrapper
 }
 
-// --- UPDATED renderLayoutStart to accept $lowStockCount ---
 function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0) {
     echo '<!DOCTYPE html>';
     echo '<html lang="en">';
@@ -149,7 +150,6 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<script src="https://cdn.tailwindcss.com"></script>';
     echo '<link href="styles.css" rel="stylesheet" />';
 
-    // --- CONDITIONALLY ADD DASHBOARD CSS ---
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
         echo '<link href="admin_dashboard.css" rel="stylesheet">';
     }
@@ -161,25 +161,14 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.premium-sidebar { background: linear-gradient(180deg, #1D387B 0%, #13275B 100%); border-right: 1px solid rgba(42, 68, 132, 0.6); box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3), inset -1px 0 0 rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); }';
     echo '.premium-menu-item { border: 1px solid rgba(42, 68, 132, 0.6); color: #E3E3E3; border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; text-decoration: none; font-family: \'Onest\', sans-serif; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }';
     echo '.premium-menu-item:hover { background: linear-gradient(135deg, rgba(19, 39, 91, 0.8) 0%, rgba(29, 56, 123, 0.6) 100%); border-color: rgba(81, 213, 90, 0.3); transform: translateX(4px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }';
-    
-    // --- ADDED LOGOUT BUTTON STYLE ---
-    echo '.premium-menu-item-logout:hover { 
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.3) 100%); 
-        border-color: rgba(239, 68, 68, 0.4); 
-        color: #fca5a5;
-    }';
+    echo '.premium-menu-item-logout:hover { background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.3) 100%); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }';
     echo '.premium-menu-item-logout:hover svg { color: #fca5a5; }';
-    // --- END OF ADDED STYLE ---
-
     echo '.premium-menu-item.active { background: linear-gradient(135deg, rgba(81, 213, 90, 0.2) 0%, rgba(75, 192, 82, 0.1) 100%); border-color: rgba(81, 213, 90, 0.4); }';
     echo '.sidebar-icon { width: 20px; height: 20px; margin-right: 12px; flex-shrink: 0; }';
     echo '.sidebar-text { font-size: 14px; }';
     echo '.premium-button { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-decoration: none; display: inline-block; }';
     echo '.premium-button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
-    
-    // --- THIS IS THE MODIFIED LINE ---
     echo '.premium-admin-header { background: linear-gradient(135deg, #1D387B); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px); position: relative; z-index: 100000; }';
-    
     echo '.admin-user-section { display: flex; align-items: center; gap: 16px; position: relative; z-index: 100000; }';
     echo '.user-profile { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: rgba(81, 213, 90, 0.1); border-radius: 12px; backdrop-filter: blur(10px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(81, 213, 90, 0.2); cursor: pointer; position: relative; }';
     echo '.user-profile:hover { background: rgba(81, 213, 90, 0.15); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.2); }';
@@ -195,7 +184,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.dropdown-item svg { width: 16px; height: 16px; color: #6b7280; }';
     echo '.dropdown-item:hover svg { color: #51D55A; }';
     
-    // --- NOTIFICATION STYLES (MOVED FROM DASHBOARD) ---
+    // NOTIFICATION STYLES
     echo '.notification-container { position: relative; display: flex; align-items: center; gap: 16px; z-index: 100000; }';
     echo '.notification-bell { position: relative; width: 40px; height: 40px; background: rgba(81, 213, 90, 0.1); border: 1px solid rgba(81, 213, 90, 0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(10px); }';
     echo '.notification-bell:hover { background: rgba(81, 213, 90, 0.15); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.2); }';
@@ -230,93 +219,146 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     renderSidebar($pageTitle, $userRole);
     
     echo '<div class="flex-1 flex flex-col">';
-    // --- PASS $lowStockCount to renderHeader ---
-    renderHeader($pageTitle, $userRole, $username, $lowStockCount);
+    renderHeader($pageTitle, $userRole, $username);
     echo '<div class="p-6 premium-scrollbar" style="background:#0b1438; flex:1; overflow-y:auto; overflow-x:hidden; position:relative; z-index:1; padding:24px 32px;">';
 }
 
+/** Close the scrollable page content area. Output modals AFTER this so fixed overlays are not clipped. */
+function renderLayoutContentEnd() {
+    echo '</div>'; // Close content scroll area
+}
+
 function renderLayoutEnd() {
-    echo '</div>'; // Close content area
-    echo '</div>'; // Close main content
+    echo '</div>'; // Close flex-1 flex-col (main column)
     echo '</div>'; // Close main container
     
     echo '';
     echo '<div class="dropdown-backdrop" id="dropdownBackdrop"></div>';
     
     echo '<script>';
-    // --- MOVED ALL JAVASCRIPT to renderLayoutEnd ---
-    echo 'function toggleUserDropdown() {';
-    echo 'const dropdown = document.getElementById(\'userDropdown\');';
-    echo 'const notificationDropdown = document.getElementById(\'notificationDropdown\');';
-    echo 'const backdrop = document.getElementById(\'dropdownBackdrop\');';
-    echo 'dropdown.classList.toggle(\'show\');';
-    echo 'if (notificationDropdown) notificationDropdown.classList.remove(\'show\');';
-    echo 'if (dropdown.classList.contains(\'show\')) { backdrop.classList.add(\'show\'); } else { backdrop.classList.remove(\'show\'); }';
-    echo '}';
+    ?>
     
-    echo 'function toggleNotificationDropdown() {';
-    echo 'const dropdown = document.getElementById(\'notificationDropdown\');';
-    echo 'const userDropdown = document.getElementById(\'userDropdown\');';
-    echo 'const backdrop = document.getElementById(\'dropdownBackdrop\');';
-    echo 'if (!dropdown) return;';
-    echo 'dropdown.classList.toggle(\'show\');';
-    echo 'if (userDropdown) userDropdown.classList.remove(\'show\');';
-    echo 'if (dropdown.classList.contains(\'show\')) { backdrop.classList.add(\'show\'); fetchNotifications(); } else { backdrop.classList.remove(\'show\'); }';
-    echo '}';
+    function toggleSidebar() {
+        const sidebar = document.getElementById("main-sidebar");
+        sidebar.classList.toggle("sidebar-hidden");
+        // Save preference
+        const isHidden = sidebar.classList.contains("sidebar-hidden");
+        localStorage.setItem("sidebarHidden", isHidden ? "true" : "false");
+    }
+    
+    // Load sidebar state on start
+    document.addEventListener("DOMContentLoaded", function() {
+        const sidebar = document.getElementById("main-sidebar");
+        const isHidden = localStorage.getItem("sidebarHidden");
+        if (isHidden === "true") {
+            sidebar.classList.add("sidebar-hidden");
+        }
+    });
 
-    echo 'function fetchNotifications() {';
-    echo 'const notificationList = document.getElementById(\'notificationList\');';
-    echo 'if (!notificationList) return;';
-    echo 'notificationList.innerHTML = \'<div class="notification-empty">Loading...</div>\';';
-    // This is a placeholder. You would replace this with a real fetch call
-    // to a PHP file (e.g., 'api/get_notifications.php')
-    echo 'setTimeout(() => {';
-    echo 'const badge = document.getElementById(\'notificationBadge\');';
-    echo 'if (badge && parseInt(badge.textContent, 10) > 0) {';
-    echo 'notificationList.innerHTML = \'<div class="notification-item"><div class="notification-icon low-stock"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg></div><div class="notification-content"><div class="notification-message">You have \' + badge.textContent + \' items running low on stock.</div><div class="notification-time">Just now</div></div></div>\';';
-    echo '} else {';
-    echo 'notificationList.innerHTML = \'<div class="notification-empty">No new notifications</div>\';';
-    echo '}';
-    echo '}, 500);'; // Simulate network delay
-    echo '}';
+    // --------------------------------------------------------
+    // REALTIME NOTIFICATION & DROPDOWN LOGIC
+    // --------------------------------------------------------
 
-    echo 'function clearAllNotifications() {';
-    echo 'const notificationList = document.getElementById(\'notificationList\');';
-    echo 'const notificationBadge = document.getElementById(\'notificationBadge\');';
-    echo 'if (notificationList) notificationList.innerHTML = \'<div class="notification-empty">No notifications</div>\';';
-    echo 'if (notificationBadge) notificationBadge.style.display = \'none\';';
-    echo 'if (document.getElementById(\'notificationDropdown\')) document.getElementById(\'notificationDropdown\').classList.remove(\'show\');';
-    echo '}';
+    const notifDropdown = document.getElementById('notificationDropdown');
+    const userDropdown = document.getElementById('userDropdown');
+    const backdrop = document.getElementById('dropdownBackdrop');
+    const notifList = document.getElementById('notificationList');
+    const notifBadge = document.getElementById('notificationBadge');
 
-    echo 'document.addEventListener(\'click\', function(event) {';
-    echo 'const userDropdown = document.getElementById(\'userDropdown\');';
-    echo 'const notificationDropdown = document.getElementById(\'notificationDropdown\');';
-    echo 'const userProfile = document.querySelector(\'.user-profile\');';
-    echo 'const notificationBell = document.querySelector(\'.notification-bell\');';
-    echo 'const backdrop = document.getElementById(\'dropdownBackdrop\');';
-    
-    echo 'if (userProfile && !userProfile.contains(event.target) && userDropdown) {';
-    echo 'userDropdown.classList.remove(\'show\');';
-    echo '}';
-    
-    echo 'if (notificationBell && !notificationBell.contains(event.target) && notificationDropdown) {';
-    echo 'notificationDropdown.classList.remove(\'show\');';
-    echo '}';
-    
-    echo 'if (backdrop && (!userDropdown || !userDropdown.classList.contains(\'show\')) && (!notificationDropdown || !notificationDropdown.classList.contains(\'show\'))) {';
-    echo 'backdrop.classList.remove(\'show\');';
-    echo '}';
-    echo '});';
-    
-    echo 'const backdrop = document.getElementById(\'dropdownBackdrop\');';
-    echo 'if (backdrop) {';
-    echo 'backdrop.addEventListener(\'click\', function() {';
-    echo 'if (document.getElementById(\'userDropdown\')) document.getElementById(\'userDropdown\').classList.remove(\'show\');';
-    echo 'if (document.getElementById(\'notificationDropdown\')) document.getElementById(\'notificationDropdown\').classList.remove(\'show\');';
-    echo 'this.classList.remove(\'show\');';
-    echo '});';
-    echo '}';
+    // 1. Toggle User Dropdown
+    function toggleUserDropdown(e) {
+        e.stopPropagation(); 
+        if (notifDropdown) notifDropdown.classList.remove('show');
+        if (userDropdown) {
+            userDropdown.classList.toggle('show');
+            toggleBackdrop(userDropdown.classList.contains('show'));
+        }
+    }
 
+    // 2. Toggle Notification Dropdown
+    function toggleNotificationDropdown(e) {
+        e.stopPropagation(); 
+        if (userDropdown) userDropdown.classList.remove('show');
+        
+        if (notifDropdown) {
+            notifDropdown.classList.toggle('show');
+            toggleBackdrop(notifDropdown.classList.contains('show'));
+            
+            // Fetch data immediately when opening
+            if(notifDropdown.classList.contains('show')) {
+                fetchNotifications();
+            }
+        }
+    }
+
+    function toggleBackdrop(show) {
+        if (show) backdrop.classList.add('show');
+        else backdrop.classList.remove('show');
+    }
+
+    // 3. FETCH NOTIFICATIONS (REALTIME AJAX)
+    async function fetchNotifications() {
+        try {
+            // Call the PHP API
+            const response = await fetch('api/get_notifications.php');
+            const data = await response.json();
+            
+            // A. Update Badge
+            if (notifBadge) {
+                if (data.count > 0) {
+                    notifBadge.innerText = data.count;
+                    notifBadge.style.display = 'flex';
+                } else {
+                    notifBadge.style.display = 'none';
+                }
+            }
+
+            // B. Update List
+            if (notifList) {
+                if (data.count === 0) {
+                    notifList.innerHTML = '<div class="notification-empty">Stock levels are healthy.</div>';
+                } else {
+                    let html = '';
+                    data.items.forEach(item => {
+                        // CLICKABLE: Redirect to inventory filtered by product name
+                        const searchUrl = 'products.php?search=' + encodeURIComponent(item.product);
+                        
+                        html += `
+                        <div class="notification-item" onclick="window.location.href='${searchUrl}'" style="cursor:pointer;">
+                            <div class="notification-icon low-stock">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                            </div>
+                            <div class="notification-content">
+                                <div class="notification-message">${item.message}</div>
+                                <div class="notification-time">${item.subtext}</div>
+                            </div>
+                        </div>`;
+                    });
+                    notifList.innerHTML = html;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching notifications:', error);
+            if(notifList) notifList.innerHTML = '<div class="notification-empty" style="color:#ef4444">Connection Error</div>';
+        }
+    }
+
+    // 4. Close dropdowns when clicking outside
+    if (backdrop) {
+        backdrop.addEventListener('click', function() {
+            if (userDropdown) userDropdown.classList.remove('show');
+            if (notifDropdown) notifDropdown.classList.remove('show');
+            toggleBackdrop(false);
+        });
+    }
+
+    // 5. AUTO-POLL: Check for notifications every 5 seconds
+    setInterval(fetchNotifications, 5000);
+    
+    // Initial fetch on page load
+    document.addEventListener('DOMContentLoaded', fetchNotifications);
+
+    <?php
     echo '</script>';
     echo '</body>';
     echo '</html>';

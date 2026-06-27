@@ -1,317 +1,170 @@
-import numpy as np
+#!/usr/bin/env python
+
+"""
+Warehouse Forecasting & Recommendation Engine
+Called by: run_forecast.php
+Connects to the database, analyzes transaction history, and populates
+the `product_recommendations` table with monthly demand stats.
+"""
+
+import sys
 import pandas as pd
-from prophet import Prophet
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
 import mysql.connector
-from mysql.connector import Error
-import joblib
-import os
-from datetime import datetime, timedelta
-import logging
 import json
-from dotenv import load_dotenv
+from datetime import datetime
 
-# Load environment variables
-load_dotenv()
+def get_db_connection(host, user, password, database):
+    """Establishes database connection."""
+    try:
+        conn = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            # Adding a timeout is good practice
+            connection_timeout=10 
+        )
+        return conn
+    except mysql.connector.Error as err:
+        # If connection fails, print error as JSON and exit
+        print(json.dumps({"success": False, "error": f"DB Connection Error: {err}"}))
+        sys.exit(1) # Exit with a non-zero code to signal failure to PHP
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-class ForecastEngine:
-    def __init__(self):
-        self.db_config = {
-            'host': os.getenv('DB_HOST', 'localhost'),
-            'user': os.getenv('DB_USER', 'root'),
-            'password': os.getenv('DB_PASSWORD', ''),
-            'database': os.getenv('DB_NAME', 'warehouse_system')
-        }
-        self.models = {}
-        self.anomaly_detectors = {}
-        
-    def connect_to_db(self):
-        try:
-            connection = mysql.connector.connect(**self.db_config)
-            return connection
-        except Error as e:
-            logger.error(f"Error connecting to database: {e}")
-            raise
-            
-    def get_historical_data(self):
-        query = """
-        SELECT 
-            t.transaction_date,
-            t.product_id,
-            p.product_name,
-            p.category,
-            t.quantity,
-            t.type
-        FROM transactions t
-        JOIN products p ON t.product_id = p.product_id
-        WHERE t.transaction_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR)
-        ORDER BY t.transaction_date
+def analyze_demand(conn):
+    """
+    Analyzes product demand and populates the product_recommendations table.
+    """
+    try:
+        # 1. Load all 'stock_out' transactions into a pandas DataFrame
+        sql_query = """
+        SELECT product_id, quantity, transaction_date
+        FROM transactions
+        WHERE transaction_type = 'stock_out'
         """
-        
-        try:
-            conn = self.connect_to_db()
-            df = pd.read_sql(query, conn)
-            conn.close()
-            return df
-        except Error as e:
-            logger.error(f"Error fetching historical data: {e}")
-            raise
+        # Using index_col and parse_dates is efficient
+        transactions_df = pd.read_sql(sql_query, conn, 
+                                      index_col='transaction_date', 
+                                      parse_dates=True)
 
-    def preprocess_data(self, df):
-        # Convert dates
-        df['transaction_date'] = pd.to_datetime(df['transaction_date'])
-        
-        # Calculate net quantity (inflow - outflow)
-        df['net_quantity'] = df.apply(
-            lambda x: x['quantity'] if x['type'] == 'in' else -x['quantity'], 
-            axis=1
-        )
-        
-        # Group by date and product
-        daily_data = df.groupby(
-            ['transaction_date', 'product_id', 'product_name', 'category']
-        )['net_quantity'].sum().reset_index()
-        
-        return daily_data
+        if transactions_df.empty:
+            return 0 # No data to process
 
-    def train_prophet_model(self, product_data):
-        """Train Facebook Prophet model for a specific product"""
-        # Prepare data for Prophet
-        df = product_data[['transaction_date', 'net_quantity']].copy()
-        df.columns = ['ds', 'y']
+        # 2. Get a list of all products
+        products_df = pd.read_sql("SELECT product_id, quantity, reorder_point FROM products", conn)
         
-        # Initialize and train Prophet model
-        model = Prophet(
-            yearly_seasonality=True,
-            weekly_seasonality=True,
-            daily_seasonality=False,
-            changepoint_prior_scale=0.05
-        )
-        model.fit(df)
+        all_recommendations = []
         
-        return model
+        # 3. Analyze each product
+        for product in products_df.itertuples():
+            product_id = product.product_id
+            current_stock = product.quantity
+            reorder_point = product.reorder_point
 
-    def train_anomaly_detector(self, product_data):
-        """Train isolation forest for anomaly detection"""
-        # Prepare features for anomaly detection
-        features = product_data[['net_quantity']].copy()
-        
-        # Scale the features
-        scaler = StandardScaler()
-        scaled_features = scaler.fit_transform(features)
-        
-        # Train isolation forest
-        iso_forest = IsolationForest(
-            contamination=0.1,
-            random_state=42
-        )
-        iso_forest.fit(scaled_features)
-        
-        return {'model': iso_forest, 'scaler': scaler}
+            # Filter transactions for this product
+            product_tx = transactions_df[transactions_df['product_id'] == product_id]
 
-    def generate_forecasts(self):
-        """Generate forecasts for all products"""
-        try:
-            # Get and preprocess historical data
-            df = self.get_historical_data()
-            daily_data = self.preprocess_data(df)
-            
-            # Track forecast results
-            forecasts = []
-            anomalies = []
-            
-            # Process each product
-            for product_id in daily_data['product_id'].unique():
-                product_data = daily_data[daily_data['product_id'] == product_id].copy()
-                
-                if len(product_data) < 30:  # Skip products with insufficient data
-                    continue
-                
-                # Train Prophet model
-                prophet_model = self.train_prophet_model(product_data)
-                
-                # Generate forecast for next 30 days
-                future_dates = prophet_model.make_future_dataframe(periods=30)
-                forecast = prophet_model.predict(future_dates)
-                
-                # Train anomaly detector
-                anomaly_detector = self.train_anomaly_detector(product_data)
-                
-                # Save models
-                self.models[product_id] = prophet_model
-                self.anomaly_detectors[product_id] = anomaly_detector
-                
-                # Get product details
-                product_info = product_data.iloc[0]
-                
-                # Store forecast results
-                for _, row in forecast.tail(30).iterrows():
-                    forecasts.append({
-                        'product_id': product_id,
-                        'product_name': product_info['product_name'],
-                        'category': product_info['category'],
-                        'forecast_date': row['ds'].strftime('%Y-%m-%d'),
-                        'predicted_quantity': round(row['yhat'], 2),
-                        'lower_bound': round(row['yhat_lower'], 2),
-                        'upper_bound': round(row['yhat_upper'], 2)
-                    })
-                
-                # Check for anomalies in recent data
-                recent_data = product_data.tail(30)
-                scaled_data = anomaly_detector['scaler'].transform(
-                    recent_data[['net_quantity']].values.reshape(-1, 1)
-                )
-                anomaly_scores = anomaly_detector['model'].score_samples(scaled_data)
-                
-                # Flag anomalies
-                anomaly_threshold = np.percentile(anomaly_scores, 10)
-                anomaly_dates = recent_data[anomaly_scores < anomaly_threshold]
-                
-                for _, anomaly in anomaly_dates.iterrows():
-                    anomalies.append({
-                        'product_id': product_id,
-                        'product_name': product_info['product_name'],
-                        'category': product_info['category'],
-                        'date': anomaly['transaction_date'].strftime('%Y-%m-%d'),
-                        'quantity': anomaly['net_quantity'],
-                        'score': float(anomaly_scores[anomaly_dates.index.get_loc(anomaly.name)])
-                    })
-            
-            # Save forecasts to database
-            self.save_forecasts(forecasts)
-            self.save_anomalies(anomalies)
-            
-            # Save models for later use
-            self.save_models()
-            
-            return {
-                'status': 'success',
-                'forecasts_generated': len(forecasts),
-                'anomalies_detected': len(anomalies),
-                'timestamp': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in forecast generation: {e}")
-            return {
-                'status': 'error',
-                'message': str(e),
-                'timestamp': datetime.now().isoformat()
-            }
+            if product_tx.empty:
+                continue # No sales data for this product
 
-    def save_forecasts(self, forecasts):
-        """Save forecasts to database"""
-        if not forecasts:
-            return
+            # 4. Resample sales data to monthly totals
+            # 'M' groups by calendar month end
+            monthly_sales = product_tx['quantity'].resample('M').sum()
             
-        query = """
-        INSERT INTO forecast 
-        (product_id, forecast_date, predicted_quantity, lower_bound, upper_bound)
-        VALUES (%s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-        predicted_quantity = VALUES(predicted_quantity),
-        lower_bound = VALUES(lower_bound),
-        upper_bound = VALUES(upper_bound)
-        """
-        
-        try:
-            conn = self.connect_to_db()
+            # Remove months with zero sales to get a clean average
+            monthly_sales = monthly_sales[monthly_sales > 0]
+            
+            if monthly_sales.empty:
+                continue
+
+            # 5. Calculate key demand statistics
+            avg_monthly_demand = monthly_sales.mean()
+            demand_std = monthly_sales.std()
+            # Handle cases with only one month of data (std would be NaN)
+            if pd.isna(demand_std):
+                demand_std = 0
+
+            # 6. Generate 12 months of recommendations
+            current_month = datetime.now().month
+            
+            for i in range(12):
+                month = (current_month + i - 1) % 12 + 1 # 1=Jan, 2=Feb...
+                
+                # --- Simple Recommendation Logic ---
+                # A more advanced model (e.g., ARIMA) would go here.
+                # For now, we use a "Safety Stock" formula.
+                # Recommended Stock = Avg. Demand + (2 * Standard Deviation)
+                # This covers ~95% of demand variance.
+                recommended_stock = int(round(avg_monthly_demand + (2 * demand_std), 0))
+                
+                # Check if restock is needed
+                # We'll set a simple flag for now
+                restock_needed = 1 if current_stock < reorder_point else 0
+
+                all_recommendations.append((
+                    product_id,
+                    month,
+                    avg_monthly_demand,
+                    demand_std,
+                    0, # seasonal_strength (placeholder)
+                    recommended_stock,
+                    restock_needed
+                ))
+
+        # 7. Batch insert/update recommendations into the database
+        if all_recommendations:
             cursor = conn.cursor()
             
-            for forecast in forecasts:
-                cursor.execute(query, (
-                    forecast['product_id'],
-                    forecast['forecast_date'],
-                    forecast['predicted_quantity'],
-                    forecast['lower_bound'],
-                    forecast['upper_bound']
-                ))
-            
-            conn.commit()
+            # Clear old recommendations for the products we analyzed
+            processed_ids = tuple(products_df['product_id'].unique())
+            # Use a tuple for the IN clause, handling single-item case
+            if len(processed_ids) == 1:
+                cursor.execute(f"DELETE FROM product_recommendations WHERE product_id = {processed_ids[0]}")
+            else:
+                cursor.execute(f"DELETE FROM product_recommendations WHERE product_id IN {processed_ids}")
+
+            # Insert new recommendations
+            insert_sql = """
+            INSERT INTO product_recommendations 
+            (product_id, `month`, avg_monthly_demand, demand_std, seasonal_strength, recommended_stock, restock_recommended)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.executemany(insert_sql, all_recommendations)
+            conn.commit() # Commit the transaction
             cursor.close()
-            conn.close()
             
-        except Error as e:
-            logger.error(f"Error saving forecasts: {e}")
-            raise
+        return len(products_df)
 
-    def save_anomalies(self, anomalies):
-        """Save detected anomalies to database"""
-        if not anomalies:
-            return
-            
-        query = """
-        INSERT INTO anomalies 
-        (product_id, detection_date, quantity, anomaly_score)
-        VALUES (%s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-        quantity = VALUES(quantity),
-        anomaly_score = VALUES(anomaly_score)
-        """
-        
-        try:
-            conn = self.connect_to_db()
-            cursor = conn.cursor()
-            
-            for anomaly in anomalies:
-                cursor.execute(query, (
-                    anomaly['product_id'],
-                    anomaly['date'],
-                    anomaly['quantity'],
-                    anomaly['score']
-                ))
-            
-            conn.commit()
-            cursor.close()
-            conn.close()
-            
-        except Error as e:
-            logger.error(f"Error saving anomalies: {e}")
-            raise
+    except Exception as e:
+        # Print error as JSON and exit
+        print(json.dumps({"success": False, "error": f"Analysis Error: {e}"}))
+        sys.exit(1)
 
-    def save_models(self):
-        """Save trained models to disk"""
-        try:
-            # Save Prophet models
-            for product_id, model in self.models.items():
-                model.save(f'models/prophet_{product_id}.json')
-            
-            # Save anomaly detectors
-            for product_id, detector in self.anomaly_detectors.items():
-                joblib.dump(detector, f'models/anomaly_{product_id}.joblib')
-                
-        except Exception as e:
-            logger.error(f"Error saving models: {e}")
-            raise
 
-    def load_models(self):
-        """Load trained models from disk"""
-        try:
-            # Load Prophet models
-            for model_file in os.listdir('models'):
-                if model_file.startswith('prophet_'):
-                    product_id = int(model_file.split('_')[1].split('.')[0])
-                    self.models[product_id] = Prophet.load(f'models/{model_file}')
-            
-            # Load anomaly detectors
-            for model_file in os.listdir('models'):
-                if model_file.startswith('anomaly_'):
-                    product_id = int(model_file.split('_')[1].split('.')[0])
-                    self.anomaly_detectors[product_id] = joblib.load(f'models/{model_file}')
-                    
-        except Exception as e:
-            logger.error(f"Error loading models: {e}")
-            raise
+def main():
+    # 1. Get database credentials from PHP
+    if len(sys.argv) != 5:
+        print(json.dumps({"success": False, "error": "Invalid arguments. Expected 4, got " + str(len(sys.argv)-1)}))
+        sys.exit(1)
+    
+    host, user, password, database = sys.argv[1:]
+
+    # 2. Connect to the database
+    conn = get_db_connection(host, user, password, database)
+    
+    # 3. Run the analysis
+    products_processed = analyze_demand(conn)
+    
+    # 4. Close connection
+    conn.close()
+
+    # 5. Print a JSON success message for PHP to read
+    # This is the "output" that PHP's exec() will capture
+    print(json.dumps({
+        "success": True,
+        "products_processed": products_processed,
+        "anomalies_detected": 0 # Placeholder
+    }))
+    sys.exit(0) # Success!
 
 if __name__ == "__main__":
-    engine = ForecastEngine()
-    result = engine.generate_forecasts()
-    print(json.dumps(result, indent=2))
+    main()

@@ -682,6 +682,8 @@ input.match-border {
         4px 0 20px rgba(0, 0, 0, 0.3),
         inset -1px 0 0 rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
+    /* Updated to allow smooth toggling */
+    transition: margin-left 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
 
 .premium-menu-item {
@@ -843,3 +845,30 @@ input.match-border {
     background: linear-gradient(135deg, #4BC052 0%, #3EA147 100%);
 }
 
+/* --- Added sidebar hidden state --- */
+/* Handheld barcode scanner (HID keyboard wedge) — visually hidden capture input */
+.hid-barcode-capture {
+    position: fixed !important;
+    top: 0 !important;
+    left: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+.barcode-scan-hint {
+    font-size: 11px;
+    color: #9aa6d1;
+    margin-top: 6px;
+    font-family: 'Onest', sans-serif;
+}
+
+.sidebar-hidden {
+    margin-left: -290px !important;
+    opacity: 0;
+}

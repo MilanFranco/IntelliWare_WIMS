@@ -4,274 +4,368 @@ session_start();
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Register | IntelliWare</title>
-	<script src="https://cdn.tailwindcss.com"></script>
-	<link href="styles.css?v=1.0" rel="stylesheet">
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Onest&display=swap" rel="stylesheet">
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Overpass:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-	<style>
-	    .password-container {
-	        position: relative;
-	        width: 100%;
-	    }
-	    /* Center the whole sign-in area on this page only */
-	    .auth-wrapper {
-	        min-height: 100vh;
-	        display: flex;
-	        flex-direction: column;
-	        align-items: center;
-	        justify-content: center;
-	        width: 100%;
-	    }
-	    .auth-wrapper .header { margin-top: 24px; margin-bottom: 12px; }
-	    .signin-logo { width: clamp(350px, 35vw, 450px); height: auto; display: block; margin-left: auto; margin-right: auto; }
-	    .auth-container { max-width: 560px; width: 92vw; margin-left: auto; margin-right: auto; }
-	    .auth-container .signinbox { width: 100%; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliWare - Register</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&family=Overpass:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 1. GLOBAL SETTINGS & BACKGROUND (Exact match to Signin) --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-	    /* Make role select look identical to inputs */
-	    .role-select {
-	        box-shadow: inset 0 2px 2px 2px rgba(0, 0, 0, 0.2);
-	        color: #E3E3E3;
-	        background-color: #13275B;
-	        width: 100%;
-	        padding: 10px;
-	        border-radius: 5px;
-	        border: 1px solid #304374;
-	        font-family: 'Onest', sans-serif;
-	        box-sizing: border-box;
-	        appearance: none;
-	    }
-	    .role-select:focus {
-	        outline: none;
-	        box-shadow: 0 0 0 1px #51D55A;
-	    }
-	    
-	    .password-toggle {
-	        position: absolute;
-	        right: 10px;
-	        top: 50%;
-	        transform: translateY(-50%);
-	        cursor: pointer;
-	        color: #E3E3E3;
-	        font-size: 18px;
-	        opacity: 0.7;
-	        transition: opacity 0.3s ease;
-	    }
-	    
-	    .password-toggle:hover {
-	        opacity: 1;
-	    }
-	    
-	    .eye-closed { display: none; }
-	
-	    .signinbox hr { border: none; border-top: 0.2px solid #2f4b91; width: 100%; }
+        body {
+            font-family: "Onest", sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f0f23 75%, #1a1a2e 100%);
+            background-size: 400% 400%;
+            background-attachment: fixed;
+            animation: gradientShift 15s ease infinite;
+            color: #E3E3E3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            position: relative;
+        }
 
-	    .signinbox { text-align: center; text-shadow: 0 0 3px 3px #3d9743; }
+        /* The "Stars" / Glow Effect */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(81, 213, 90, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 60%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
 
-	    .footer hr { border: none; border-top: 0.2px solid #314f9b; margin: 10px auto; width: 80%; }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-	    .footer { position: fixed; bottom: 40px; text-align: center; font-family: "Overpass", sans-serif; font-weight: 200; font-size: 12px; color: rgb(168, 168, 168); padding: 10px 0; }
+        /* Wrapper */
+        .auth-wrapper {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding-bottom: 80px; /* Exact match to Signin */
+        }
 
-	    .footer a { color: rgb(168, 168, 168); margin: 0 5px; text-decoration: none; }
+        /* --- 2. HEADER (Exact Position Match) --- */
+        .header { 
+            margin-top: 24px; 
+            margin-bottom: 12px; 
+            text-align: center;
+        }
 
-	    .container img { width: clamp(380px, 20%, 20%); }
+        .header .signin-logo { 
+            width: clamp(300px, 40vw, 550px); 
+            height: auto; 
+            display: block; 
+            margin-left: auto; 
+            margin-right: auto; 
+            animation: fadeIn 1.5s ease;
+        }
 
-	    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* --- 3. MAIN CARD (Slim Design) --- */
+        .signinbox {
+            background-color: #1D387B;
+            border: 1px solid #3d74ff;
+            border-radius: 10px;
+            padding: 25px;
+            
+            /* SLIM WIDTH (Matches Login roughly, slightly wider for names) */
+            width: 320px; 
+            max-width: 90vw;
+            
+            box-shadow: 0 0 20px 2px #304374;
+            margin-bottom: 15px;
+            text-align: center;
+            position: relative;
+        }
 
-	    .signupbox2, .signinbox {
-	        box-shadow: 0 0 20px 2px #304374;
-	        padding-left: clamp(20px, 2vw, 10px);
-	        padding-right: clamp(20px, 2vw, 10px);
-	        border-radius: 10px;
-	        background-color: #1D387B;
-	        width: clamp(300px, 20vw, 300px);
-	        height: auto;
-	        border: 0.5px solid #3d74ff;
-	    }
+        .signinbox h3 {
+            font-family: "Overpass", sans-serif;
+            font-size: 20px;
+            color: #E3E3E3;
+            margin-bottom: 5px;
+            text-align: left;
+        }
 
-	    .signintitle { color: #E3E3E3; font-size: clamp(25px, 0.5vw, 0.5rem); font-family: "Overpass", sans-serif; position: fixed; transform: translate(0, -300px); font-weight: 600; width: 100%; }
+        .subtext {
+            font-family: "Onest", sans-serif;
+            font-size: 11px;
+            color: #67e78c;
+            margin-bottom: 10px;
+            text-align: left;
+            line-height: 1.3;
+        }
 
-	    .tfieldname { text-align: left; font-family: "Onest", sans-serif; font-weight: 500; color: #E3E3E3; margin-bottom: 5px; margin-top: 15px; font-size: clamp(12px, 1.5vw, 12px); width: auto; }
+        /* Separator inside box */
+        .signinbox hr {
+            border: none;
+            border-top: 0.2px solid #2f4b91; 
+            width: 100%;
+            margin-bottom: 15px;
+        }
 
-	    .new-user-line { display: flex; justify-content: center; align-items: center; gap: 5px; margin-top: 8px; font-family: "Onest", sans-serif; font-size: clamp(12px, 1.5vw, 12px); color: #E3E3E3; padding-bottom: 8px; }
+        /* --- 4. BOTTOM LINK BOX --- */
+        .link-box {
+            background-color: #1D387B;
+            border: 1px solid #3d74ff;
+            border-radius: 10px;
+            padding: 12px;
+            
+            /* Match main box width */
+            width: 320px; 
+            max-width: 90vw;
+            
+            box-shadow: 0 0 20px 2px #304374;
+            text-align: center;
+            font-size: 12px;
+            color: #E3E3E3;
+        }
 
-	    .tf { display: flex; justify-content: center; align-items: center; margin-top: 5px; flex-direction: column; }
+        .link-box a { color: #51D55A; text-decoration: none; font-weight: 500; }
+        .link-box a:hover { text-decoration: underline; }
 
-	    .tf input { box-shadow: inset 0 2px 2px 2px rgba(0, 0, 0, 0.2); color: white; background-color: #13275B; width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #304374; font-family: "Onest", sans-serif; box-sizing: border-box; }
+        /* --- 5. INPUTS & BUTTONS --- */
+        .tfieldname {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 500;
+            color: #E3E3E3;
+            margin-bottom: 4px;
+            margin-top: 10px;
+            display: block;
+        }
 
-	    .tf input:focus { outline: none; box-shadow: 0 0 0 1px #51D55A; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            background-color: #13275B !important;
+            border: 1px solid #304374;
+            border-radius: 5px;
+            color: white !important;
+            font-family: "Onest", sans-serif;
+            font-size: 13px;
+            box-shadow: inset 0 2px 2px 2px rgba(0, 0, 0, 0.2);
+            outline: none;
+            transition: all 0.3s ease;
+        }
 
-	    .btnlogin { border: 0.2px solid transparent; font-family: "Onest", sans-serif; font-size: 12px; font-weight: 500; color: white; border-radius: 5px; background-color: #51D55A; justify-content: center; align-items: center; width: 100%; padding: 10px; margin-bottom: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); transition: background-color 0.3s ease, transform 0.2s ease; }
+        input:focus, select:focus {
+            border-color: #51D55A;
+            box-shadow: 0 0 0 1px #51D55A;
+        }
 
-	    .btnlogin:hover { cursor: pointer; background-color: #3d9743; border: 0.2px solid #51D55A; transform: scale(1.02); }
+        .row-split { display: flex; gap: 10px; }
+        .row-split .input-wrapper { flex: 1; }
 
-	    .onest-regular { font-family: "Onest", sans-serif; font-optical-sizing: auto; font-weight: 400; font-style: normal; }
+        .btnlogin {
+            margin-top: 20px;
+            width: 100%;
+            padding: 10px;
+            background-color: #51D55A;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .btnlogin:hover { background-color: #3d9743; transform: scale(1.02); }
 
-	    .onest-medium { font-family: "Onest", sans-serif; font-optical-sizing: auto; font-weight: 500; font-style: normal; }
+        .btn-back {
+            background: transparent;
+            border: 1px solid #304374;
+            color: #E3E3E3;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            flex: 1;
+            transition: background-color 0.2s;
+        }
+        .btn-back:hover { background: #13275B; }
 
-	    .onest-light { font-family: "Onest", sans-serif; font-optical-sizing: auto; font-weight: 300; font-style: normal; }
+        .action-buttons { display: flex; gap: 8px; margin-top: 15px; }
 
-	    .overpass-semibold { font-family: "Overpass", sans-serif; font-optical-sizing: auto; font-weight: 600; font-style: normal; }
+        /* --- 6. FOOTER (Exact Match) --- */
+        .footer {
+            position: fixed;
+            bottom: 40px;
+            text-align: center;
+            font-family: "Overpass", sans-serif;
+            font-weight: 200;
+            font-size: 12px;
+            color: rgb(168, 168, 168);
+            padding: 10px 0;
+            width: 100%;
+            left: 0;
+        }
 
-	    .signupbox2 h3, .signinbox h3 { font-family: "Overpass", sans-serif; color: #E3E3E3; font-size: 20px; margin-bottom: 5px; }
+        .footer hr {
+            border: none;
+            border-top: 0.2px solid #314f9b; 
+            margin: 10px auto;
+            
+            /* WIDTH MATCH (320px) */
+            width: 320px; 
+            max-width: 90vw;
+        }
 
-	    .signupbox2 .subtext,  .signinbox .subtext { font-family: "Onest", sans-serif; font-size: clamp(12px, 1.2vw, 12px); color: #67e78c; margin-bottom: 10px; }
+        .footer a {
+            color: rgb(168, 168, 168);
+            margin: 0 5px; 
+            text-decoration: none;
+        }
+        .footer a:hover { text-decoration: underline; }
 
-	    .header { margin-top: 50px; position: relative; width: 100%; text-align: center; margin-bottom: 20px; }
-
-	    .header img { width: clamp(250px, 20%, 300px); animation: fadeIn 2s ease-in-out; }
-
-	    .container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 40px; padding-bottom: 80px; }
-
-	    .btnjoin { border: 0.2px solid transparent; font-family: "Onest", sans-serif; font-weight: 500; color: white; border-radius: 5px; background-color: #51D55A; padding: 10px 18px; cursor: pointer; font-size: clamp(12px, 1.5vw, 14px); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); transition: background-color 0.3s ease, transform 0.2s ease; }
-
-	    .btnjoin:hover { background-color: #4bc052; transform: scale(1.02); color: #1a3373; }
-
-	    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 15px 25px; color: #fff; border-radius: 10px; font-family: 'Onest', sans-serif; font-size: 14px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); z-index: 1000; animation: fadein 0.5s, fadeout 0.5s 3s; }
-
-	    .toast.success { background-color: #28a745; }
-
-	    .toast.error { background-color: #dc3545; }
-
-	    .tf input.error-border { border: 1px solid #dc3545 !important; box-shadow: 0 0 1px #dc3545 !important; transition: border-color 0.3s ease, box-shadow 0.3s ease; }
-
-	</style>
+        /* --- UTILITIES --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 1.5s ease; }
+        
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            padding: 12px 24px; border-radius: 8px; font-size: 14px; color: white;
+            z-index: 1000; animation: fadeIn 0.5s;
+        }
+    </style>
 </head>
 <body>
-	<div class="auth-wrapper">
-		<div class="header">
-			<img src="img/logo.svg" alt="IntelliWare" class="fade-in signin-logo" />
-		</div>
-	<div class="container">
-			<div class="signinbox">
-				<h3>Registration</h3>
-				<p class="subtext">Create your account with personal information.</p>
-				<hr>
-				
-                <form id="registerForm" method="POST" action="src/scripts/register_user.php">
-					<div class="form-step" data-step="1">
-						<div class="tfieldname" style="margin-top:8px;">Username</div>
-						<div class="tf"><input class="input" type="text" name="username" placeholder="choose a username (letters, numbers, ._- )" required></div>
 
-						<div style="display:flex; gap:12px; margin-top:8px;">
-							<div style="flex:1;">
-								<div class="tfieldname">First Name</div>
-								<div class="tf"><input class="input" type="text" name="first_name" required></div>
-							</div>
-							<div style="flex:1;">
-								<div class="tfieldname">Surname</div>
-								<div class="tf"><input class="input" type="text" name="last_name" required></div>
-							</div>
-						</div>
+    <div class="auth-wrapper">
+        
+        <div class="header">
+            <img src="img/logo.svg" alt="IntelliWare" class="fade-in signin-logo" />
+            <br>   
+        </div>
 
-						<div class="tfieldname" style="margin-top:12px;">Email Address</div>
-						<div class="tf"><input class="input" type="email" name="email" required></div>
+        <div class="signinbox fade-in">
+            <h3>Create Account</h3>
+            <p class="subtext">Join IntelliWare to manage your inventory.</p> 
+            <hr>
 
-						<div style="display:flex; gap:8px; margin-top:14px; justify-content:flex-end;">
-							<button type="button" class="btn-secondary" id="step1Next" style="padding:8px 12px;">Next ➜</button>
-						</div>
-					</div>
+            <form id="registerForm" method="POST" action="src/scripts/register_user.php">
+                
+                <div class="form-step" data-step="1">
+                    <label class="tfieldname">Username</label>
+                    <input type="text" name="username" placeholder="Choose a username" required>
 
-					<div class="form-step" data-step="2" style="display:none;">
-						<div class="tfieldname" style="margin-top:8px;">Role</div>
-						<div class="tf">
-							<select class="input role-select" name="role" required>
-								<option value="">Select Role</option>
-								<option value="admin">Admin</option>
-								<option value="manager">Manager</option>
-								<option value="staff">Staff</option>
-							</select>
-						</div>
+                    <div class="row-split">
+                        <div class="input-wrapper">
+                            <label class="tfieldname">First Name</label>
+                            <input type="text" name="first_name" required>
+                        </div>
+                        <div class="input-wrapper">
+                            <label class="tfieldname">Last Name</label>
+                            <input type="text" name="last_name" required>
+                        </div>
+                    </div>
 
-						<div class="tfieldname" style="margin-top:12px;">Employee ID</div>
-						<div class="tf"><input class="input" type="text" name="employee_id" placeholder="e.g. STF-001, MGR-002, ADM-003" required></div>
+                    <label class="tfieldname">Email Address</label>
+                    <input type="email" name="email" placeholder="name@company.com" required>
 
-						<div class="tfieldname" style="margin-top:12px;">Password</div>
-						<div class="tf"><div class="password-container"><input class="input" type="password" name="password" required id="regPassword"><span class="password-toggle" id="toggleRegPassword">👁️</span></div></div>
+                    <button type="button" class="btnlogin" id="step1Next">Next &nbsp; ➜</button>
+                </div>
 
-						<div class="tfieldname" style="margin-top:12px;">Confirm Password</div>
-						<div class="tf"><input class="input" type="password" name="confirm_password" required></div>
+                <div class="form-step" data-step="2" style="display:none;">
+                    <label class="tfieldname">Role</label>
+                    <select name="role" required>
+                        <option value="">Select Role</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="staff">Staff</option>
+                    </select>
 
-						<div style="display:flex; gap:8px; margin-top:14px;">
-							<button type="button" class="btn-secondary" id="step2Prev" style="padding:8px 12px;">← Back</button>
-							<button type="submit" class="btnlogin" id="finalSubmit">Create Account</button>
-						</div>
-					</div>
-				</form>
+                    <label class="tfieldname">Employee ID</label>
+                    <input type="text" name="employee_id" placeholder="e.g. STF-001" required>
 
-				<script>
-				// Multi-step form logic
-				(function(){
-				    const step1Next = document.getElementById('step1Next');
-				    const step2Prev = document.getElementById('step2Prev');
-				    const steps = document.querySelectorAll('.form-step');
-				    function showStep(n){
-				        steps.forEach((s,i)=> s.style.display = (i===n? 'block':'none'));
-				        // keep container height consistent by scrolling top
-				        window.scrollTo(0,0);
-				    }
+                    <label class="tfieldname">Password</label>
+                    <input type="password" name="password" required>
 
-				    function showToast(message, type='error'){
-				        const toast = document.createElement('div');
-				        toast.className = 'toast ' + (type || 'error');
-				        toast.innerText = message;
-				        document.body.appendChild(toast);
-				        setTimeout(()=> toast.remove(), 3000);
-				    }
+                    <label class="tfieldname">Confirm Password</label>
+                    <input type="password" name="confirm_password" required>
 
-				    step1Next.addEventListener('click', function(){
-				        // simple required check for visible inputs
-				        const step = steps[0];
-				        const inputs = step.querySelectorAll('input[required], select[required]');
-				        for(const inp of inputs){
-				            if(!inp.value.trim()){
-				                // show toast like signin page
-				                showToast('Please fill in all fields.');
-				                inp.classList.add('error-border');
-				                return;
-				            }
-				        }
-				        showStep(1);
-				    });
-				    step2Prev.addEventListener('click', function(){ showStep(0); });
-				    // password toggle
-				    const toggle = document.getElementById('toggleRegPassword');
-				    const pwd = document.getElementById('regPassword');
-				    if(toggle && pwd){ toggle.addEventListener('click', function(){ pwd.type = pwd.type === 'password' ? 'text' : 'password'; }); }
+                    <div class="action-buttons">
+                        <button type="button" class="btn-back" id="step2Prev">Back</button>
+                        <button type="submit" class="btnlogin" style="margin-top:0; flex: 2;">Register</button>
+                    </div>
+                </div>
 
-				    // show server-side error as toast if present in URL
-				    const urlParams = new URLSearchParams(window.location.search);
-				    if (urlParams.get('error')) {
-				        try {
-				            const msg = decodeURIComponent(urlParams.get('error'));
-				            showToast(msg, 'error');
-				        } catch(e){ showToast('An error occurred', 'error'); }
-				    }
-				})();
-				</script>
-			</div>
-			<br>
-			<div class="signinbox">
-				<div class="new-user-line">
-					<span class="newt">Already have an account?</span>
-					<span class="reglink"><a href="signin.php">Log In here.</a></span>
-				</div>
-			</div>
-			<div class="footer">
-				<hr><br>
-				© 2025 IntelliWare. All rights reserved.
-				<a href="#">About IntelliWare</a>
-				<a href="#">Contact our Support</a>
-			</div>
-		</div>
-	</div>
+            </form>
+        </div>
+
+        <div class="link-box fade-in">
+            Already have an account? <a href="signin.php">Log In here.</a>
+        </div>
+
+        <div class="footer">
+            <hr><br>
+            © 2025 IntelliWare. All rights reserved.
+            
+            <a href="#">About IntelliWare</a>
+            <a href="#">Contact our Support</a>
+        </div>
+
+    </div>
+
+    <script>
+        const step1Next = document.getElementById('step1Next');
+        const step2Prev = document.getElementById('step2Prev');
+        const steps = document.querySelectorAll('.form-step');
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.style.backgroundColor = '#dc3545';
+            t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        step1Next.addEventListener('click', function(){
+            const inputs = steps[0].querySelectorAll('input[required]');
+            let valid = true;
+            inputs.forEach(i => {
+                if(!i.value.trim()) { 
+                    i.style.borderColor = '#dc3545'; 
+                    valid = false; 
+                } else { 
+                    i.style.borderColor = '#304374'; 
+                }
+            });
+            
+            if(valid) {
+                steps[0].style.display = 'none';
+                steps[1].style.display = 'block';
+            } else {
+                showToast("Please fill in all fields.");
+            }
+        });
+
+        step2Prev.addEventListener('click', function(){
+            steps[1].style.display = 'none';
+            steps[0].style.display = 'block';
+        });
+
+        document.querySelectorAll('input').forEach(i => {
+            i.addEventListener('input', () => i.style.borderColor = '#304374');
+        });
+    </script>
 </body>
 </html>
-
-

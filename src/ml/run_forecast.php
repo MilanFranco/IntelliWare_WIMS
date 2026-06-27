@@ -1,140 +1,117 @@
 <?php
-// Set error reporting for development (disable for production)
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Don't display errors, we'll handle them
-
-// Start output buffering to catch any unexpected output
-ob_start();
-
+// Set a longer timeout for this script, as AI tasks can be slow.
+set_time_limit(300); // 300 seconds = 5 minutes
 header('Content-Type: application/json');
-session_start();
 
-// Function to send JSON error response
-function sendError($code, $message) {
-    http_response_code($code);
-    ob_clean();
-    echo json_encode(['success' => false, 'message' => $message]);
+// --- DB Connection ---
+$db_path = '../../config/db.php';
+if (!file_exists($db_path)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'AI forecast failed: Server configuration error. Missing file at: ' . $db_path]);
+    exit();
+}
+require_once $db_path; // $conn is now available
+
+// Check if the $conn variable exists and if the connection was successful
+if (!isset($conn) || $conn->connect_error) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'AI forecast failed: Database connection error.', 'details' => isset($conn) ? $conn->connect_error : 'Connection variable not found after including db.php.']);
     exit();
 }
 
-// Function to send JSON success response
-function sendSuccess($data) {
-    ob_clean();
-    echo json_encode(array_merge(['success' => true], $data));
-    exit();
-}
+$run_id = null;
+$error_message = null;
 
 try {
-    // Check if user is logged in and has appropriate role
-    if (!isset($_SESSION['Username'])) {
-        sendError(401, 'Unauthorized');
+    // 1. Log the START of the forecast run
+    $stmt_start = $conn->prepare("INSERT INTO forecast_runs (status) VALUES ('running')");
+    $stmt_start->execute();
+    $run_id = $conn->insert_id;
+    $stmt_start->close();
+
+    // 2. --- THIS IS WHERE WE CALL THE REAL AI LOGIC (PYTHON) ---
+    
+    // **IMPORTANT:** Update these paths to match your server setup!
+    // $pythonPath = '/usr/bin/python3'; // Example for Linux
+    $pythonPath = 'python'; // Assumes 'python' is in your server's PATH
+    $scriptPath = __DIR__ . '/forecast.py'; // Path to the new Python script
+
+    // Pass database credentials to the Python script as arguments
+    $dbHost = escapeshellarg($dbHost);
+    $dbUser = escapeshellarg($dbUser);
+    $dbPass = escapeshellarg($dbPass);
+    $dbName = escapeshellarg($dbName);
+
+    // Build the command to execute
+    $command = $pythonPath . ' ' . $scriptPath . ' ' . $dbHost . ' ' . $dbUser . ' ' . $dbPass . ' ' . $dbName;
+    
+    $output = null;
+    $return_code = null;
+    exec($command, $output, $return_code);
+
+    // Check if the Python script executed successfully
+    if ($return_code !== 0) {
+        // Python script failed
+        throw new Exception('Python script execution failed. Return code: ' . $return_code . '. Output: ' . implode(' ', $output));
     }
 
-    $role = $_SESSION['Role'] ?? 'staff';
-    if (!in_array($role, ['admin', 'manager'])) {
-        sendError(403, 'Access denied');
-    }
+    // --- PYTHON SCRIPT SUCCEEDED ---
+    // The Python script will have updated the 'product_recommendations' table.
+    // We can get some stats from its output if we want, but for now, we just
+    // parse its JSON output to get the number of products processed.
+    
+    $pyOutput = json_decode(implode('', $output), true);
+    $products_processed = $pyOutput['products_processed'] ?? 0;
+    $anomalies_detected = $pyOutput['anomalies_detected'] ?? 0; // Future use
 
-    // Check database connection file
-    $dbPath = __DIR__ . '/../../config/db.php';
-    if (!file_exists($dbPath)) {
-        sendError(500, 'Database configuration not found');
-    }
+    // 3. Log the COMPLETION of the forecast run
+    $stmt_finish = $conn->prepare("
+        UPDATE forecast_runs 
+        SET 
+            finished_at = NOW(), 
+            status = 'completed', 
+            products_processed = ?, 
+            forecasts_generated = ?, 
+            anomalies_detected = ?
+        WHERE run_id = ?
+    ");
+    // We use $products_processed from Python, others are static for now
+    $forecasts_generated = $products_processed * 12; // 12 months per product
+    $stmt_finish->bind_param("iiii", $products_processed, $forecasts_generated, $anomalies_detected, $run_id);
+    $stmt_finish->execute();
+    $stmt_finish->close();
+    
+    $conn->close();
 
-    require_once $dbPath;
-    require_once __DIR__ . '/MLForecastManager.php';
-    require_once __DIR__ . '/ProductRecommendationManager.php';
-
-    // Parse JSON input
-    $rawInput = file_get_contents('php://input');
-    $input = json_decode($rawInput, true);
-    
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        sendError(400, 'Invalid JSON input: ' . json_last_error_msg());
-    }
-    
-    if (!isset($input['action']) || $input['action'] !== 'run_forecast') {
-        sendError(400, 'Invalid request: action must be "run_forecast"');
-    }
-
-    // Initialize our ML managers
-    $forecastManager = new MLForecastManager();
-    $recommendationManager = new ProductRecommendationManager();
-    
-    // Start forecast run
-    $runId = null;
-    try {
-        $runId = $forecastManager->startForecastRun();
-    } catch (Exception $e) {
-        sendError(500, 'Failed to start forecast run: ' . $e->getMessage());
-    }
-    
-    // Run forecasts
-    $forecastResult = null;
-    try {
-        $forecastResult = $forecastManager->generateForecasts();
-    } catch (Exception $e) {
-        // Mark run as error
-        if ($runId) {
-            try {
-                $forecastManager->recordForecastError($runId, $e->getMessage());
-            } catch (Exception $e2) {
-                // Ignore errors in error handling
-            }
-        }
-        sendError(500, 'Forecast generation failed: ' . $e->getMessage());
-    }
-    
-    // Generate recommendations (optional, don't fail if this doesn't work)
-    $recommendationResult = null;
-    try {
-        $recommendationResult = $recommendationManager->generateRecommendations();
-    } catch (Exception $e) {
-        // Log but don't fail - recommendations are optional
-        error_log('Recommendation generation failed: ' . $e->getMessage());
-    }
-    
-    // Mark forecast run as completed with results
-    try {
-        if ($forecastResult && $forecastResult['success']) {
-            $forecastManager->completeForecastRun($runId, $forecastResult);
-        } else {
-            // Mark as error if forecast didn't succeed
-            $errorMsg = 'Forecast completed but result indicates failure';
-            if (isset($forecastResult['result']['error'])) {
-                $errorMsg = $forecastResult['result']['error'];
-            }
-            $forecastManager->recordForecastError($runId, $errorMsg);
-        }
-    } catch (Exception $e) {
-        error_log('Failed to complete forecast run: ' . $e->getMessage());
-        // Try to record error if completion fails
-        try {
-            $forecastManager->recordForecastError($runId, 'Failed to complete: ' . $e->getMessage());
-        } catch (Exception $e2) {
-            // Ignore
-        }
-    }
-    
-    sendSuccess([
-        'message' => 'Forecast completed successfully',
-        'runId' => $runId,
-        'forecast' => $forecastResult,
-        'recommendations' => $recommendationResult
+    // 4. Send a success response back to the JavaScript
+    echo json_encode([
+        'success' => true,
+        'message' => 'AI forecast completed successfully. Processed ' . $products_processed . ' products.',
+        'run_id' => $run_id,
+        'products' => $products_processed,
+        'forecasts' => $forecasts_generated
     ]);
 
 } catch (Exception $e) {
-    // Mark forecast run as error if runId exists
-    if (isset($runId) && isset($forecastManager)) {
-        try {
-            $forecastManager->recordForecastError($runId, $e->getMessage());
-        } catch (Exception $e2) {
-            // Ignore errors in error handling
-        }
+    $error_message = $e->getMessage();
+    
+    if ($run_id) {
+        $stmt_error = $conn->prepare("UPDATE forecast_runs SET finished_at = NOW(), status = 'error', error_message = ? WHERE run_id = ?");
+        $stmt_error->bind_param("si", $error_message, $run_id);
+        $stmt_error->execute();
+        $stmt_error->close();
     }
     
-    sendError(500, 'Failed to run forecast: ' . $e->getMessage());
-} catch (Error $e) {
-    // Handle PHP 7+ errors (TypeError, etc.)
-    sendError(500, 'Fatal error: ' . $e->getMessage());
+    $conn->close();
+
+    // Send an error response back to the JavaScript
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'AI forecast failed: ' . $error_message,
+        'run_id' => $run_id
+    ]);
 }
+
+exit();
+?>

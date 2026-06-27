@@ -1,61 +1,37 @@
 <?php
-session_start();
+// api/get_notifications.php
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['Username']) || $_SESSION['Role'] !== 'admin') {
-    echo json_encode(['error' => 'Unauthorized']);
-    exit();
-}
+// 1. Connect to Database (Adjust path if needed)
+require_once '../config/db.php'; 
 
-require_once '../config/db.php';
+// 2. Query for Low Stock Items
+// We check where quantity is less than or equal to reorder_point
+$sql = "SELECT product_name, quantity, reorder_point, unit 
+        FROM products 
+        WHERE quantity <= reorder_point 
+        ORDER BY quantity ASC";
 
-// Get low stock items
-$query = "SELECT 
-            product_id,
-            product_name,
-            quantity,
-            reorder_point,
-            TIMESTAMPDIFF(MINUTE, last_updated, NOW()) as minutes_ago
-          FROM products 
-          WHERE quantity <= reorder_point 
-          ORDER BY quantity ASC, last_updated DESC
-          LIMIT 10";
-
-$result = $conn->query($query);
+$result = $conn->query($sql);
 $notifications = [];
 
-if ($result && $result->num_rows > 0) {
+if ($result) {
     while ($row = $result->fetch_assoc()) {
-        $minutesAgo = (int)$row['minutes_ago'];
-        
-        // Format time
-        if ($minutesAgo < 1) {
-            $timeText = 'Just now';
-        } elseif ($minutesAgo < 60) {
-            $timeText = $minutesAgo . ' min ago';
-        } elseif ($minutesAgo < 1440) {
-            $hours = floor($minutesAgo / 60);
-            $timeText = $hours . ' hour' . ($hours > 1 ? 's' : '') . ' ago';
-        } else {
-            $days = floor($minutesAgo / 1440);
-            $timeText = $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
-        }
-        
         $notifications[] = [
             'type' => 'low_stock',
-            'product_name' => $row['product_name'],
-            'quantity' => (int)$row['quantity'],
-            'reorder_point' => (int)$row['reorder_point'],
-            'time' => $timeText
+            'product' => $row['product_name'],
+            'qty' => $row['quantity'],
+            'unit' => $row['unit'],
+            'message' => "Low stock: <strong>{$row['product_name']}</strong> ({$row['quantity']} {$row['unit']} left)",
+            'time' => 'Action needed' // You could add a timestamp if you track 'updated_at'
         ];
     }
 }
 
-$conn->close();
-
+// 3. Return JSON
 echo json_encode([
-    'success' => true,
     'count' => count($notifications),
-    'notifications' => $notifications
+    'items' => $notifications
 ]);
+exit;
 ?>

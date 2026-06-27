@@ -112,6 +112,7 @@ DROP TABLE IF EXISTS `products`;
 CREATE TABLE `products` (
   `product_id` int(11) NOT NULL AUTO_INCREMENT,
   `product_name` varchar(100) NOT NULL,
+  `barcode` varchar(50) DEFAULT NULL,
   `category` varchar(50) DEFAULT NULL,
   `supplier` varchar(100) DEFAULT NULL,
   `quantity` int(11) DEFAULT 0,
@@ -119,7 +120,8 @@ CREATE TABLE `products` (
   `unit` varchar(20) DEFAULT NULL,
   `expiry_date` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`product_id`)
+  PRIMARY KEY (`product_id`),
+  UNIQUE KEY `uq_products_barcode` (`barcode`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

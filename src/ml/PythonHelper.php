@@ -24,6 +24,22 @@ class PythonHelper {
      * @return string|null Path to Python executable or null if not found
      */
     public static function findPython() {
+        // Check for venv Python in project directory first
+        $projectRoot = dirname(__DIR__, 2); // Go up from src/ml to project root
+        $venvPaths = [
+            $projectRoot . '\\venv\\Scripts\\python.exe',
+            $projectRoot . '\\env\\Scripts\\python.exe',
+            $projectRoot . '\\virtualenv\\Scripts\\python.exe',
+            'C:\\venv\\Scripts\\python.exe',
+            'C:\\env\\Scripts\\python.exe',
+        ];
+        
+        foreach ($venvPaths as $venvPath) {
+            if (file_exists($venvPath)) {
+                return $venvPath;
+            }
+        }
+        
         // Check if Python is in PATH
         $output = [];
         $return_var = 0;
@@ -76,6 +92,15 @@ class PythonHelper {
      * @throws Exception If Python is not found
      */
     public static function getPythonPath($customPath = null) {
+        // Manual Python path - SET THIS TO YOUR VENV PYTHON PATH
+        // Example for venv: $manualPath = 'C:\\xampp\\htdocs\\IntelliWare\\venv\\Scripts\\python.exe';
+        // Example for system: $manualPath = 'C:\\Python311\\python.exe';
+        // Uncomment and set your path:
+        // $manualPath = 'C:\xampp\htdocs\IntelliWare\venv\Scripts\python.exe';
+        // if ($manualPath && file_exists($manualPath)) {
+        //     return $manualPath;
+        // }
+        
         // Check custom path first if provided
         if ($customPath && file_exists($customPath)) {
             return $customPath;
