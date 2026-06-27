@@ -147,11 +147,15 @@ CREATE TABLE `transactions` (
   `user_id` int(11) DEFAULT NULL,
   `transaction_type` enum('stock_in','stock_out') NOT NULL,
   `quantity` int(11) NOT NULL,
+  `previous_stock` int(11) DEFAULT NULL,
+  `new_stock` int(11) DEFAULT NULL,
+  `barcode` varchar(50) DEFAULT NULL,
   `transaction_date` timestamp NOT NULL DEFAULT current_timestamp(),
   `remarks` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`transaction_id`),
   KEY `product_id` (`product_id`),
   KEY `user_id` (`user_id`),
+  KEY `idx_transactions_date` (`transaction_date`),
   CONSTRAINT `transactions_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`),
   CONSTRAINT `transactions_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

@@ -9,6 +9,7 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_admin.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
+            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
             ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
@@ -20,6 +21,7 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_manager.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
+            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
             ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
@@ -29,6 +31,7 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_staff.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
+            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
             ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
         ];
@@ -38,6 +41,9 @@ function renderSidebar($currentPage, $userRole) {
         'dashboard' => '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />',
         'inventory' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />',
         'transactions' => '<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />',
+        'receive' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />',
+        'release' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />',
+        'history' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />',
         'logs' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 0 6.75 5.625v1.5c0 .621.504 1.125 1.125 1.125h.375m-1.5-3-3.75 3.75" />',
         'insights' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />',
         'reports' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />',

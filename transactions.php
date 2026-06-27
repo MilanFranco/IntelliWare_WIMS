@@ -13,6 +13,7 @@ if (!in_array($role, ['admin', 'manager', 'staff'])) {
 }
 
 require_once 'config/db.php';
+require_once 'src/services/StockMovementService.php';
 
 // capture 'action' from URL (e.g., ?action=in or ?action=out) to pre-select dropdown
 $action = $_GET['action'] ?? '';
@@ -46,72 +47,17 @@ function setFlashMessage($type, $message) {
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['smart_insight_referral']) && !isset($_POST['search_submit'])) {
-    // Retrieve form data
-    $type = $_POST['type'] ?? 'in'; // 'in' (restock) or 'out' (dispense)
+    $type = $_POST['type'] ?? 'in';
     $id = (int)($_POST['id'] ?? 0);
-    $qty = max(0, (int)($_POST['qty'] ?? 0));
-    $transactionType = $type === 'in' ? 'stock_in' : 'stock_out';
-    
-    // Start Database Transaction to ensure data integrity across tables
-    $conn->begin_transaction();
+    $qty = (int)($_POST['qty'] ?? 0);
+
     try {
-        // Validation: Ensure valid product ID and positive quantity
-        if ($id <= 0 || $qty <= 0) throw new Exception("Invalid product or quantity.");
-
-        // Get the User ID of the currently logged-in user for logging purposes
-        $userStmt = $conn->prepare("SELECT user_id FROM users WHERE username = ?");
-        $userStmt->bind_param("s", $_SESSION['Username']);
-        $userStmt->execute();
-        $userId = $userStmt->get_result()->fetch_assoc()['user_id'] ?? 1;
-        $userStmt->close();
-        
-        // Prepare Stock Update Logic
-        if ($type === 'in') {
-            // If Stock In: Add to quantity
-            $updateSql = "UPDATE products SET quantity = quantity + ? WHERE product_id = ?";
-        } else {
-            // If Stock Out: Check if enough stock exists first
-            $checkStmt = $conn->prepare("SELECT quantity FROM products WHERE product_id = ?");
-            $checkStmt->bind_param("i", $id);
-            $checkStmt->execute();
-            $curr = $checkStmt->get_result()->fetch_assoc();
-            $checkStmt->close();
-            
-            if (!$curr || $curr['quantity'] < $qty) throw new Exception("Insufficient stock.");
-            
-            // Subtract quantity, ensuring it doesn't drop below 0
-            $updateSql = "UPDATE products SET quantity = GREATEST(0, quantity - ?) WHERE product_id = ?";
-        }
-        
-        // Execute the Product Table Update
-        $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("ii", $qty, $id);
-        if (!$updateStmt->execute()) throw new Exception("Failed to update stock.");
-        $updateStmt->close();
-
-        // Record the Transaction History
-        $remarks = $type === 'in' ? 'Stock received' : 'Stock issued';
-        $transStmt = $conn->prepare("INSERT INTO transactions (product_id, user_id, transaction_type, quantity, remarks) VALUES (?, ?, ?, ?, ?)");
-        $transStmt->bind_param("iisis", $id, $userId, $transactionType, $qty, $remarks);
-        $transStmt->execute();
-        $transStmt->close();
-    
-        // Add Entry to General System Logs
-        $logStmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
-        $actionLog = "Processed $transactionType (Qty: $qty) for product ID $id";
-        $logStmt->bind_param("is", $userId, $actionLog);
-        $logStmt->execute();
-        $logStmt->close();
-
-        // Commit all changes if successful
-        $conn->commit();
+        StockMovementService::executeMovement($conn, $id, $qty, $type, $_SESSION['Username']);
         setFlashMessage('success', 'Transaction processed successfully!');
     } catch (Exception $e) {
-        // Rollback all changes if any error occurs
-        $conn->rollback();
         setFlashMessage('error', $e->getMessage());
     }
-    // Redirect to prevent form resubmission
+
     header('Location: transactions.php');
     exit();
 }
@@ -363,7 +309,6 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 </div>
             </div>
 
-            <p class="barcode-scan-hint mt-3 mb-0" id="txn-hid-focus-hint" style="cursor:pointer;" title="Click to activate handheld scanner">Handheld scanner: click here and scan — product is selected automatically.</p>
         </form>
     </div>
 </div>

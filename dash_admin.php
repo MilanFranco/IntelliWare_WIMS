@@ -196,6 +196,37 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
     <div class="premium-card flex flex-col h-[400px]">
         <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Quick Access
+            </h3>
+        </div>
+        <div class="flex-1 p-5 flex flex-col gap-4">
+            <a href="receive.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex-1">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-[#E3E3E3] text-base group-hover:text-emerald-400 transition-colors">Receive Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Add incoming stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+            <a href="release.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-red-500/40 hover:bg-red-500/5 transition-all flex-1">
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 border border-red-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12h-15"></path></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-[#E3E3E3] text-base group-hover:text-red-400 transition-colors">Release Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Record outgoing stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-red-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+        </div>
+    </div>
+
+    <div class="premium-card flex flex-col h-[350px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                 <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                 Critical Stock Levels
             </h3>
@@ -224,7 +255,6 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
                         </div>
                     </div>
                     <?php endforeach; ?>
-                    
                     <?php if ($lowStockCount > 7): ?>
                     <div class="text-center py-2 text-xs text-[#9aa6d1]">
                         ...and <?php echo $lowStockCount - 7; ?> more items
@@ -232,16 +262,6 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
-
-    <div class="premium-card flex flex-col h-[350px]">
-        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
-            <h3 class="font-onest font-semibold text-lg text-white">Movement Overview</h3>
-            <span class="text-xs text-[#9aa6d1]">Last 7 Days</span>
-        </div>
-        <div class="p-4 flex-1 relative">
-            <canvas id="overviewChart"></canvas>
         </div>
     </div>
 
@@ -265,50 +285,7 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 if (typeof Chart === 'undefined') {
     console.error("Chart.js missing.");
 } else {
-    // 1. Transaction Bar Chart
-    (function(){
-        const chartData = <?php echo json_encode($chartData); ?>;
-        const ctx = document.getElementById('overviewChart');
-        if(ctx){
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartData.labels,
-                    datasets: [
-                        { 
-                            label: 'Stock In', 
-                            data: chartData.stock_in, 
-                            backgroundColor: 'rgba(52, 211, 153, 0.8)', // Emerald
-                            hoverBackgroundColor: 'rgba(52, 211, 153, 1)',
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        },
-                        { 
-                            label: 'Stock Out', 
-                            data: chartData.stock_out, 
-                            backgroundColor: 'rgba(248, 113, 113, 0.8)', // Red
-                            hoverBackgroundColor: 'rgba(248, 113, 113, 1)',
-                            borderRadius: 4,
-                            barPercentage: 0.6
-                        }
-                    ]
-                },
-                options: { 
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins:{ 
-                        legend:{ labels:{ color:'#E3E3E3', font: { family: 'Onest' } } } 
-                    }, 
-                    scales:{ 
-                        x:{ ticks:{ color:'#9aa6d1' }, grid:{ display: false } }, 
-                        y:{ beginAtZero: true, ticks:{ color:'#9aa6d1' }, grid:{ color:'rgba(255,255,255,0.05)' } } 
-                    }
-                }
-            });
-        }
-    })();
-
-    // 2. Heatmap (Horizontal Bar)
+    // Top Demand Chart
     (function(){
         const heatData = <?php echo json_encode($heatmapData); ?>;
         if(heatData.labels.length === 0) return;
