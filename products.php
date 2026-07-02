@@ -472,12 +472,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input name="product_name" class="premium-input w-full" style="height:46px;" placeholder="e.g. Wireless Mouse" required>
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="form-label">Barcode</label>
+                    <label class="form-label">Manufacturer Barcode (Product Identifier)</label>
                     <div class="flex gap-2">
-                        <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan with handheld scanner or enter manually" autocomplete="off">
-                        <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan with camera">📷</button>
+                        <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan the barcode printed on product packaging or enter manually" autocomplete="off">
+                        <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan barcode with camera">📷</button>
                     </div>
-                    <p class="barcode-scan-hint">USB/Bluetooth scanners: focus this field and scan — no extra click needed.</p>
+                    <p class="barcode-scan-hint" style="font-size:13px; color:#9aa6d1; margin-top:8px;">
+                        <strong>How to scan:</strong> Use a USB/Bluetooth barcode scanner (just focus this field and scan), or click 📷 to scan with your webcam. The barcode uniquely identifies this product in the system.
+                    </p>
                 </div>
                 <div>
                     <label class="form-label">Category</label>

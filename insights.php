@@ -338,6 +338,21 @@ if (empty($forecastData)) {
     }
 }
 
+// --- ML Forecast Data (read-only; never trains on page load) ---
+require_once 'src/ml/ForecastDataService.php';
+require_once 'src/ml/MLForecastManager.php';
+
+$forecastService = new ForecastDataService($conn);
+$mlManager = new MLForecastManager();
+
+$hasMlModel = $forecastService->hasTrainedModel();
+$seasonalChartData = $forecastService->getSeasonalChartData();
+$accuracyTrend = $forecastService->getAccuracyTrend();
+$segmentAccuracy = $forecastService->getSegmentAccuracy();
+$salesForecastChart = $forecastService->getSalesForecastChartData($daysLookback);
+$heatmapForecast = $forecastService->getProductForecastDemand(8);
+$lastMlRun = $mlManager->getLastRunStatus();
+
 $conn->close();
 
 require_once 'src/layout.php';
@@ -377,9 +392,10 @@ body {
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+.grid-forecast-ml { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; margin-bottom: 24px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 24px; }
 @media(max-width: 1200px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
-@media(max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+@media(max-width: 768px) { .grid-2, .grid-3, .grid-4, .grid-forecast-ml { grid-template-columns: 1fr; } }
 
 /* UPDATED CARD STYLE TO MATCH OTHER PAGES */
 .card, .forecast-card {
@@ -554,6 +570,8 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
 }
 .tooltip-container:hover .tooltip-text { visibility: visible; opacity: 1; }
 .chart-container { position: relative; height: 300px; width: 100%; }
+.chart-container-lg { position: relative; height: 320px; width: 100%; }
+.chart-container-xl { position: relative; height: 280px; width: 100%; }
 
 .info-tooltip { display: none; }
 
@@ -938,35 +956,56 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
     </div>
 </div>
 
-<div class="grid-3" style="margin-bottom: 20px;">
+<div class="grid-forecast-ml" style="margin-bottom: 20px;">
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 14px;">📦 Seasonal Demand Patterns</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📦 Seasonal Demand Patterns</div>
             <div class="info-icon" data-tooltip="seasonal-tooltip">?</div>
         </div>
-        <div style="height: 200px;"><canvas id="seasonalChart"></canvas></div>
-    </div>
-    <div class="card">
-        <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 14px;">⚡ Demand Velocity</div>
-            <div class="info-icon" data-tooltip="velocity-tooltip">?</div>
+        <?php if (!$hasMlModel): ?>
+        <div id="seasonalNoModel" class="chart-container-lg" style="display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px;">
+            <p style="color: #9aa6d1; font-size: 13px; margin: 0;">No trained forecasting model available.<br>Please train the model from <a href="settings.php" style="color: #51D55A;">Settings</a>.</p>
         </div>
-        <div style="height: 200px;"><canvas id="velocityChart"></canvas></div>
+        <?php endif; ?>
+        <div class="chart-container-lg"<?php echo !$hasMlModel ? ' style="display:none;"' : ''; ?>><canvas id="seasonalChart"></canvas></div>
     </div>
     <div class="card">
-        <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 14px;">📍 Forecast Accuracy</div>
+        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📍 Forecast Accuracy</div>
             <div class="info-icon" data-tooltip="accuracy-tooltip">?</div>
         </div>
-        <div style="height: 200px;"><canvas id="accuracyChart"></canvas></div>
+        <?php if ($hasMlModel && $accuracyTrend['current'] !== null): ?>
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(81,213,90,0.1); border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: #51D55A;"><?php echo number_format($accuracyTrend['current'], 1); ?>%</div>
+                <div style="font-size: 10px; color: #9aa6d1;">Accuracy</div>
+            </div>
+            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(239,68,68,0.1); border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: #ef4444;"><?php echo number_format($accuracyTrend['error_rate'], 1); ?>%</div>
+                <div style="font-size: 10px; color: #9aa6d1;">Error Rate</div>
+            </div>
+            <?php if ($accuracyTrend['change'] !== null): ?>
+            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(59,130,246,0.1); border-radius: 6px; text-align: center;">
+                <div style="font-size: 18px; font-weight: 700; color: <?php echo $accuracyTrend['direction'] === 'improved' ? '#51D55A' : ($accuracyTrend['direction'] === 'declined' ? '#ef4444' : '#9aa6d1'); ?>;">
+                    <?php echo ($accuracyTrend['change'] >= 0 ? '+' : '') . number_format($accuracyTrend['change'], 1); ?>%
+                </div>
+                <div style="font-size: 10px; color: #9aa6d1;">vs Previous</div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php elseif (!$hasMlModel): ?>
+        <div id="accuracyNoModel" class="chart-container-lg" style="display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px;">
+            <p style="color: #9aa6d1; font-size: 13px; margin: 0;">No trained forecasting model available.<br>Please train the model from <a href="settings.php" style="color: #51D55A;">Settings</a>.</p>
+        </div>
+        <?php endif; ?>
+        <div class="chart-container-xl"<?php echo !$hasMlModel ? ' style="display:none;"' : ''; ?>><canvas id="accuracyChart"></canvas></div>
     </div>
 </div>
 
-<div class="info-tooltip" id="sales-forecast-tooltip"><strong><?php echo $daysLookback; ?>-Day Sales Forecast</strong><br><br>• <strong>Green Line:</strong> Historical sales data<br>• <strong>Orange Dashed Line:</strong> Predicted future sales<br>• Forecast = Historical average + 1-10 additional units<br>• Use to plan inventory orders and staffing</div>
+<div class="info-tooltip" id="sales-forecast-tooltip"><strong><?php echo $daysLookback; ?>-Day Sales Forecast</strong><br><br>• <strong>Green Line:</strong> Historical daily sales from transactions<br>• <strong>Orange Dashed Line:</strong> ML-predicted future demand<br>• Powered by Prophet or Random Forest model<br>• Train the model from Settings to enable predictions</div>
 <div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• Shows top products by forecasted demand<br>• <span style="color: #ef4444">🔴 High</span> = 50+ units (Priority restock)<br>• <span style="color: #f59e0b">🟠 Medium-High</span> = 25-50 units<br>• <span style="color: #3b82f6">🔵 Medium</span> = 10-25 units<br>• <span style="color: #10b981">🟢 Low</span> = Under 10 units</div>
-<div class="info-tooltip" id="seasonal-tooltip"><strong>Seasonal Demand Patterns</strong><br><br>• <strong>Index Value = Demand Multiplier</strong><br>• <strong>1.0</strong> = Average demand<br>• <strong>1.4</strong> = 40% HIGHER than average<br>• <strong>0.7</strong> = 30% LOWER than average<br><br><strong>Example:</strong> If average sales = 1,000 units:<br>• July (1.4) = 1,400 units needed<br>• February (0.7) = 700 units needed</div>
-<div class="info-tooltip" id="velocity-tooltip"><strong>Demand Velocity</strong><br><br>• Shows how fast products sell per day<br>• <strong>Fast Moving (2-10+/day):</strong> Keep near shipping area<br>• <strong>Slow Moving (<0.5/day):</strong> Consider promotions<br>• Helps optimize warehouse layout and marketing</div>
-<div class="info-tooltip" id="accuracy-tooltip"><strong>Forecast Accuracy</strong><br><br>• Measures how reliable predictions are<br>• <strong>Fast Moving (92%):</strong> Very predictable<br>• <strong>New Products (65%):</strong> Hard to predict<br>• Use to set safety stock levels<br>• Low accuracy = Higher safety stock needed</div>
+<div class="info-tooltip" id="seasonal-tooltip"><strong>Seasonal Demand Patterns</strong><br><br>• <strong>Green:</strong> Historical monthly sales from transactions<br>• <strong>Orange:</strong> ML forecasted demand for upcoming months<br>• <strong>Purple dashed:</strong> Trend line projection<br>• Identifies monthly peaks, declines, and seasonality</div>
+<div class="info-tooltip" id="accuracy-tooltip"><strong>Forecast Accuracy</strong><br><br>• Calculated from backtest: predicted vs actual sales<br>• <strong>MAE:</strong> Mean Absolute Error (units)<br>• <strong>MAPE:</strong> Mean Absolute Percentage Error<br>• <strong>Accuracy %</strong> = 100 − MAPE<br>• Segment chart shows accuracy by product movement class</div>
 
 <div class="card" style="margin-bottom: 0;">
     <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; margin-bottom: 12px;">🎯 Forecast Recommendations</div>
@@ -1022,8 +1061,12 @@ const categoriesLabels = <?php echo json_encode(array_column($categoryPerformanc
 const monthlySalesData = <?php echo json_encode(array_column($categoryPerformance, 'monthly_sales')); ?>;
 const salesTrendsData = <?php echo json_encode(array_reverse($salesTrends)); ?>;
 const topProductsData = <?php echo json_encode(array_slice($productMovement, 0, 8)); ?>;
-const velocityRawData = <?php echo json_encode(array_column($productMovement, 'daily_sales_velocity')); ?>;
 const daysLookback = <?php echo $daysLookback; ?>;
+const hasMlModel = <?php echo $hasMlModel ? 'true' : 'false'; ?>;
+const seasonalChartData = <?php echo json_encode($seasonalChartData); ?>;
+const segmentAccuracy = <?php echo json_encode($segmentAccuracy); ?>;
+const salesForecastChartData = <?php echo json_encode($salesForecastChart); ?>;
+const heatmapForecastData = <?php echo json_encode($heatmapForecast); ?>;
 
 function checkStock(productName, categoryName) {
     document.getElementById('filter_product_name').value = productName;
@@ -1130,43 +1173,44 @@ function renderSalesTrendChart() {
 
 function renderSalesForecastChart() {
     const ctx = document.getElementById('salesForecastChart').getContext('2d');
-    
-    const historicalVals = salesTrendsData.map(t => Math.min(t.total_quantity_sold, 15));
-    const forecastVals = [];
-    const avg = historicalVals.reduce((a, b) => a + b, 0) / (historicalVals.length || 1);
-    
-    for (let i = 0; i < daysLookback; i++) {
-        let val = Math.floor(avg + (Math.random() * 6 - 3)); 
-        if(val < 0) val = 0;
-        forecastVals.push(val);
-    }
 
-    const historicalLabels = Array.from({length: historicalVals.length}, (_, i) => `Day ${i + 1}`);
-    const forecastLabels = Array.from({length: forecastVals.length}, (_, i) => `Day ${historicalVals.length + i + 1}`);
+    let labels, historicalVals, forecastVals;
+
+    if (hasMlModel && salesForecastChartData.has_predictions) {
+        labels = salesForecastChartData.labels.map((d, i) => d || `Day ${i + 1}`);
+        historicalVals = salesForecastChartData.historical;
+        forecastVals = salesForecastChartData.predicted;
+    } else {
+        labels = salesTrendsData.map(t => t.sale_date);
+        historicalVals = salesTrendsData.map(t => t.total_quantity_sold);
+        forecastVals = historicalVals.map(() => null);
+    }
 
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [...historicalLabels, ...forecastLabels],
+            labels: labels,
             datasets: [
                 {
                     label: 'Historical',
-                    data: [...historicalVals, ...Array(forecastVals.length).fill(null)],
+                    data: historicalVals,
                     borderColor: '#51D55A',
                     backgroundColor: 'rgba(81, 213, 90, 0.1)',
                     borderWidth: 2,
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    spanGaps: false
                 },
                 {
                     label: 'Prediction',
-                    data: [...Array(historicalVals.length).fill(null), ...forecastVals],
+                    data: forecastVals,
                     borderColor: '#f59e0b',
                     backgroundColor: 'rgba(245, 158, 11, 0.1)',
                     borderWidth: 2,
                     borderDash: [5, 5],
                     tension: 0.4,
-                    fill: true
+                    fill: true,
+                    spanGaps: false
                 }
             ]
         },
@@ -1174,7 +1218,7 @@ function renderSalesForecastChart() {
             responsive: true, maintainAspectRatio: false,
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { display: false } }
+                x: { grid: { display: false }, ticks: { display: false, maxTicksLimit: 10 } }
             },
             plugins: { legend: { labels: { color: '#E3E3E3' } } }
         }
@@ -1183,12 +1227,16 @@ function renderSalesForecastChart() {
 
 function renderDemandHeatmapChart() {
     const ctx = document.getElementById('demandHeatmapChart').getContext('2d');
-    const productNames = topProductsData.map(p => p.product_name.length > 15 ? p.product_name.substring(0, 15) + '...' : p.product_name);
-    
-    const forecastDemand = topProductsData.map(p => {
-        const baseDemand = p.monthly_sales || 0;
-        return Math.round(baseDemand * (1 + (Math.random() * 0.4 - 0.2))); 
-    });
+
+    let productNames, forecastDemand;
+
+    if (hasMlModel && heatmapForecastData.available) {
+        productNames = heatmapForecastData.labels.map(n => n.length > 15 ? n.substring(0, 15) + '...' : n);
+        forecastDemand = heatmapForecastData.demand;
+    } else {
+        productNames = topProductsData.map(p => p.product_name.length > 15 ? p.product_name.substring(0, 15) + '...' : p.product_name);
+        forecastDemand = topProductsData.map(p => p.monthly_sales || 0);
+    }
 
     new Chart(ctx, {
         type: 'bar',
@@ -1214,77 +1262,73 @@ function renderDemandHeatmapChart() {
 }
 
 function renderSeasonalChart() {
+    if (!hasMlModel || !seasonalChartData.available) return;
+
     const ctx = document.getElementById('seasonalChart').getContext('2d');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const seasonalPattern = [0.8, 0.7, 0.9, 1.0, 1.1, 1.3, 1.4, 1.2, 1.1, 1.0, 1.2, 1.4];
 
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: months,
-            datasets: [{
-                label: 'Seasonal Index',
-                data: seasonalPattern,
-                borderColor: '#8b5cf6',
-                backgroundColor: (context) => {
-                    const ctx = context.chart.ctx;
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-                    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.4)');
-                    gradient.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
-                    return gradient;
+            labels: seasonalChartData.labels,
+            datasets: [
+                {
+                    label: 'Historical Sales',
+                    data: seasonalChartData.historical,
+                    borderColor: '#51D55A',
+                    backgroundColor: 'rgba(81, 213, 90, 0.15)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    spanGaps: false
                 },
-                borderWidth: 2,
-                tension: 0.4,
-                fill: true
-            }]
+                {
+                    label: 'Forecasted Sales',
+                    data: seasonalChartData.forecasted,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4,
+                    fill: true,
+                    spanGaps: false
+                },
+                {
+                    label: 'Trend',
+                    data: seasonalChartData.trend,
+                    borderColor: '#8b5cf6',
+                    borderWidth: 2,
+                    borderDash: [2, 2],
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+                x: { grid: { display: false }, ticks: { color: '#E3E3E3', font: { size: 9 }, maxRotation: 45 } }
             },
-            plugins: { legend: { display: false } }
-        }
-    });
-}
-
-function renderVelocityChart() {
-    const ctx = document.getElementById('velocityChart').getContext('2d');
-    const ranges = [0, 0.5, 1, 2, 5, 10];
-    const counts = ranges.map((max, i) => {
-        const min = i === 0 ? 0 : ranges[i-1];
-        return velocityRawData.filter(v => v >= min && v < max).length;
-    });
-    counts[5] = velocityRawData.filter(v => v >= 10).length;
-
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['< 0.5/day', '0.5-1', '1-2', '2-5', '5-10', '10+'],
-            datasets: [{
-                data: counts,
-                backgroundColor: ['#64748b', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                borderColor: '#0B1120',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'right', labels: { color: '#9aa6d1', font: { size: 10 } } } }
+            plugins: { legend: { labels: { color: '#E3E3E3', font: { size: 10 } } } }
         }
     });
 }
 
 function renderAccuracyChart() {
+    if (!hasMlModel) return;
+
     const ctx = document.getElementById('accuracyChart').getContext('2d');
+    const segLabels = Object.keys(segmentAccuracy);
+    const segValues = Object.values(segmentAccuracy);
+
     new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: ['Fast Moving', 'Medium', 'Slow', 'Seasonal', 'New', 'Promo'],
+            labels: segLabels,
             datasets: [{
                 label: 'Accuracy %',
-                data: [92, 85, 78, 88, 65, 72],
+                data: segValues,
                 backgroundColor: 'rgba(81, 213, 90, 0.2)',
                 borderColor: '#51D55A',
                 borderWidth: 2,
@@ -1400,7 +1444,6 @@ document.addEventListener('DOMContentLoaded', function() {
     renderSalesForecastChart();
     renderDemandHeatmapChart();
     renderSeasonalChart();
-    renderVelocityChart();
     renderAccuracyChart();
     
     if (document.querySelector('.tab[data-tab="category-performance"]').classList.contains('active')) { renderCategoryChart(); } 

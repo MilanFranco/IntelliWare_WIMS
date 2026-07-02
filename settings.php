@@ -78,6 +78,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_rules'])) {
     exit();
 }
 
+// E. Handle ML Forecast Training (Admin only)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['train_forecast_model'])) {
+    if ($currentRole !== 'admin') {
+        $_SESSION['error'] = "Only administrators can train the forecasting model.";
+    } else {
+        require_once 'src/ml/MLForecastManager.php';
+        try {
+            set_time_limit(300);
+            $manager = new MLForecastManager();
+            $result = $manager->runForecast();
+            $metrics = $result['result']['metrics'] ?? [];
+            $acc = $metrics['forecast_accuracy'] ?? 'N/A';
+            $_SESSION['success'] = "Forecast model trained successfully. Accuracy: {$acc}%. Model: " . ($result['result']['model_type'] ?? 'unknown');
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Model training failed: " . $e->getMessage();
+        }
+    }
+    header('Location: settings.php');
+    exit();
+}
+
+$mlRunStatus = null;
+$mlHasModel = false;
+$mlLastMetrics = null;
+if ($currentRole === 'admin') {
+    require_once 'src/ml/ForecastDataService.php';
+    require_once 'src/ml/MLForecastManager.php';
+    $mlForecastService = new ForecastDataService($conn);
+    $mlManager = new MLForecastManager();
+    $mlHasModel = $mlForecastService->hasTrainedModel();
+    $mlLastMetrics = $mlForecastService->getLatestMetrics();
+    $mlRunStatus = $mlManager->getLastRunStatus();
+}
+
 $success = $_SESSION['success'] ?? '';
 $error = $_SESSION['error'] ?? '';
 unset($_SESSION['success'], $_SESSION['error']);
@@ -401,6 +435,64 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
             </div>
         </div>
     </div>
+
+    <?php if ($currentRole === 'admin'): ?>
+    <div class="lg:col-span-2">
+        <div class="premium-card">
+            <div class="premium-card-header">
+                <div class="w-8 h-8 rounded-lg bg-[#51D55A]/10 flex items-center justify-center text-[#51D55A]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <div>
+                    <h3 class="font-onest font-semibold text-lg text-white">ML Demand Forecasting</h3>
+                    <p class="text-xs text-[#9aa6d1]">Train model on transaction history</p>
+                </div>
+            </div>
+            <div class="premium-card-body">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="p-4 rounded-xl bg-[#0D1638]/60 border border-[#2A4484]/40">
+                        <div class="text-xs text-[#9aa6d1] mb-1">Model Status</div>
+                        <div class="text-lg font-semibold <?php echo $mlHasModel ? 'text-[#51D55A]' : 'text-amber-400'; ?>">
+                            <?php echo $mlHasModel ? 'Trained' : 'Not Trained'; ?>
+                        </div>
+                    </div>
+                    <?php if ($mlLastMetrics): ?>
+                    <div class="p-4 rounded-xl bg-[#0D1638]/60 border border-[#2A4484]/40">
+                        <div class="text-xs text-[#9aa6d1] mb-1">Forecast Accuracy</div>
+                        <div class="text-lg font-semibold text-[#51D55A]"><?php echo number_format((float)$mlLastMetrics['forecast_accuracy'], 1); ?>%</div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-[#0D1638]/60 border border-[#2A4484]/40">
+                        <div class="text-xs text-[#9aa6d1] mb-1">Last Trained</div>
+                        <div class="text-sm font-medium text-[#E3E3E3]"><?php echo date('M d, Y H:i', strtotime($mlLastMetrics['training_date'])); ?></div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($mlRunStatus): ?>
+                <div class="text-xs text-[#9aa6d1] mb-4">
+                    Last run: <span class="text-[#E3E3E3]"><?php echo htmlspecialchars($mlRunStatus['status']); ?></span>
+                    <?php if (!empty($mlRunStatus['error_message'])): ?>
+                        — <span class="text-red-400"><?php echo htmlspecialchars(substr($mlRunStatus['error_message'], 0, 120)); ?></span>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <p class="text-sm text-[#9aa6d1] mb-4">
+                    Trains on real <strong>stock_out</strong> transaction history using Prophet or Random Forest.
+                    Results appear on the Insights dashboard. Training may take 1–3 minutes.
+                </p>
+
+                <form method="POST" id="trainForecastForm">
+                    <input type="hidden" name="train_forecast_model" value="1">
+                    <button type="submit" class="premium-button flex items-center gap-2" onclick="return confirm('Start ML model training? This may take a few minutes.');">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Train Forecast Model
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
 </div>
 

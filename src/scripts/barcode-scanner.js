@@ -1,6 +1,20 @@
 /**
- * IntelliWare Barcode Scanner — webcam scanning via html5-qrcode.
- * Supports EAN-13, UPC-A/E, Code 128, Code 39, and other common 1D formats.
+ * IntelliWare Barcode Scanner Module
+ * 
+ * This module handles reading/scanning manufacturer-assigned barcodes from product packaging
+ * using webcam-based scanning (html5-qrcode library). It supports:
+ *   - EAN-13, EAN-8 (retail barcodes)
+ *   - UPC-A, UPC-E (North American retail)
+ *   - Code 128, Code 39, Code 93 (industrial/logistics)
+ *   - ITF (Interleaved 2 of 5)
+ * 
+ * IMPORTANT: This module reads existing barcodes only. It does NOT:
+ *   - Generate new barcodes
+ *   - Assign barcodes to products
+ *   - Create barcode images
+ *   - Print barcodes
+ * 
+ * Barcodes must be pre-registered in the system before use in transactions.
  */
 (function () {
     'use strict';
@@ -11,16 +25,21 @@
     var lastScanned = '';
     var lastScanTime = 0;
     var onScanCallback = null;
+    var scanOptions = {};
     var cameraPrefetchPromise = null;
     var focusAssistTimer = null;
 
     var DUPLICATE_COOLDOWN_MS = 2500;
-    var SCAN_FPS = 25;
+    var SCAN_FPS = 10;
+    var INLINE_SCAN_DEBOUNCE_MS = 900;
     var FOCUS_ASSIST_INTERVAL_MS = 2500;
 
     var overlay = null;
     var readerEl = null;
     var statusEl = null;
+    var inlineMode = false;
+    var inlineReaderId = null;
+    var inlineStatusId = null;
 
     var REAR_CAMERA_LABELS = ['back', 'rear', 'environment', 'rück', 'arrière', 'posteriore', 'traseira'];
 
@@ -30,11 +49,22 @@
     }
 
     function getReaderEl() {
+        if (inlineMode && inlineReaderId) {
+            return document.getElementById(inlineReaderId);
+        }
         if (!readerEl) readerEl = document.getElementById('barcode-scanner-reader');
         return readerEl;
     }
 
+    function getReaderElementId() {
+        if (inlineMode && inlineReaderId) return inlineReaderId;
+        return 'barcode-scanner-reader';
+    }
+
     function getStatusEl() {
+        if (inlineMode && inlineStatusId) {
+            return document.getElementById(inlineStatusId);
+        }
         if (!statusEl) statusEl = document.getElementById('barcode-scanner-status');
         return statusEl;
     }
@@ -58,22 +88,68 @@
         ];
     }
 
-    /** Visual scan frame — dimensions unchanged from original UI. */
+    /**
+     * Wide scan region for 1D barcodes (EAN, UPC, Code 128/39).
+     * html5-qrcode only decodes inside qrbox when set; keep it large.
+     */
     function getScanBox(viewfinderWidth, viewfinderHeight) {
-        var width = Math.min(viewfinderWidth * 0.85, 400);
-        var height = Math.min(viewfinderHeight * 0.4, 120);
-        return { width: width, height: height };
+        var width = Math.min(Math.floor(viewfinderWidth * 0.92), 640);
+        var height = Math.min(Math.floor(viewfinderHeight * 0.55), 220);
+        if (height < 100) {
+            height = Math.min(160, Math.floor(viewfinderHeight * 0.75));
+        }
+        return { width: Math.max(width, 240), height: Math.max(height, 100) };
+    }
+
+    function getScannerConstructorConfig() {
+        var config = { verbose: false };
+        var formats = getSupportedFormats();
+        if (formats) {
+            config.formatsToSupport = formats;
+        }
+        config.experimentalFeatures = { useBarCodeDetectorIfSupported: false };
+        return config;
     }
 
     function getScanConfig() {
         return {
             fps: SCAN_FPS,
             qrbox: getScanBox,
-            formatsToSupport: getSupportedFormats(),
-            disableFlip: true,
-            rememberLastUsedCamera: true,
-            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            aspectRatio: 1.777778,
+            disableFlip: false,
+            rememberLastUsedCamera: true
         };
+    }
+
+    function waitForReaderLayout(readerId) {
+        return new Promise(function (resolve) {
+            var attempts = 0;
+            var maxAttempts = 30;
+
+            function tick() {
+                var el = document.getElementById(readerId);
+                if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+                    resolve();
+                    return;
+                }
+                attempts += 1;
+                if (attempts >= maxAttempts) {
+                    resolve();
+                    return;
+                }
+                requestAnimationFrame(tick);
+            }
+
+            requestAnimationFrame(function () {
+                requestAnimationFrame(tick);
+            });
+        });
+    }
+
+    function resolveApiUrl(path) {
+        if (/^https?:\/\//i.test(path)) return path;
+        var base = window.location.href.replace(/[#?].*$/, '').replace(/[^/]+$/, '');
+        return base + path.replace(/^\//, '');
     }
 
     function prefetchCameras() {
@@ -136,7 +212,7 @@
         if (!reader) return null;
 
         reader.innerHTML = '';
-        scanner = new Html5Qrcode('barcode-scanner-reader', false);
+        scanner = new Html5Qrcode(getReaderElementId(), getScannerConstructorConfig());
         return scanner;
     }
 
@@ -200,12 +276,17 @@
         return code === lastScanned && (Date.now() - lastScanTime) < DUPLICATE_COOLDOWN_MS;
     }
 
-    function handleScanSuccess(decodedText) {
+    function isInlineScanDebounced(code) {
+        return code === lastScanned && (Date.now() - lastScanTime) < INLINE_SCAN_DEBOUNCE_MS;
+    }
+
+    function handleScanSuccess(decodedText, skipDuplicate) {
         if (isProcessingScan) return;
 
         var code = (decodedText || '').trim();
         if (!code) return;
-        if (isDuplicateScan(code)) return;
+        if (!skipDuplicate && isDuplicateScan(code)) return;
+        if (skipDuplicate && inlineMode && isInlineScanDebounced(code)) return;
 
         isProcessingScan = true;
         lastScanned = code;
@@ -214,6 +295,18 @@
         setStatus('Barcode detected: ' + code);
 
         var callback = onScanCallback;
+
+        if (inlineMode) {
+            if (typeof callback === 'function') {
+                callback(code);
+            }
+            setTimeout(function () {
+                isProcessingScan = false;
+                setStatus('Scanning… align barcode within the frame.');
+            }, INLINE_SCAN_DEBOUNCE_MS);
+            return;
+        }
+
         closeScanner();
 
         if (typeof callback === 'function') {
@@ -229,7 +322,9 @@
         return scanner.start(
             cameraConfig,
             getScanConfig(),
-            handleScanSuccess,
+            function (decodedText) {
+                handleScanSuccess(decodedText, scanOptions.skipDuplicate);
+            },
             function () {
                 /* continuous mode — ignore per-frame decode misses */
             }
@@ -288,15 +383,58 @@
             setStatus('Camera error: ' + (err.message || err));
             isScanning = false;
             isProcessingScan = false;
+            console.error('Barcode scanner error:', err);
         });
+    }
+
+    /**
+     * Open inline scanner (embedded in page, stays open for continuous scanning).
+     * @param {string} readerId - DOM id of the reader container element.
+     * @param {Function} callback - Called with scanned barcode string.
+     * @param {Object} [options] - { skipDuplicate: boolean, statusId: string }
+     */
+    function openInlineScanner(readerId, callback, options) {
+        options = options || {};
+        inlineMode = true;
+        inlineReaderId = readerId;
+        inlineStatusId = options.statusId || null;
+        onScanCallback = callback;
+        scanOptions = options;
+        isProcessingScan = false;
+        lastScanned = '';
+        lastScanTime = 0;
+
+        setStatus('Initializing camera…');
+        waitForReaderLayout(readerId).then(function () {
+            startScanner();
+        });
+    }
+
+    /**
+     * Close inline scanner and return to normal input mode.
+     */
+    function closeInlineScanner() {
+        inlineMode = false;
+        inlineReaderId = null;
+        inlineStatusId = null;
+
+        return stopScanner().then(function () {
+            onScanCallback = null;
+        });
+    }
+
+    function isInlineActive() {
+        return inlineMode && isScanning;
     }
 
     /**
      * Open the barcode scanner modal.
      * @param {Function} callback - Called with scanned barcode string.
+     * @param {Object} [options] - { skipDuplicate: boolean }
      */
-    function openScanner(callback) {
+    function openScanner(callback, options) {
         onScanCallback = callback;
+        scanOptions = options || {};
         isProcessingScan = false;
 
         var el = getOverlay();
@@ -317,8 +455,13 @@
      * @returns {Promise<object>}
      */
     function lookupBarcode(barcode) {
-        return fetch('api/get_product_by_barcode.php?barcode=' + encodeURIComponent(barcode))
-            .then(function (r) { return r.json(); });
+        var url = resolveApiUrl('api/get_product_by_barcode.php?barcode=' + encodeURIComponent(barcode));
+        return fetch(url).then(function (r) {
+            if (!r.ok) {
+                throw new Error('Lookup failed (' + r.status + ')');
+            }
+            return r.json();
+        });
     }
 
     /**
@@ -395,6 +538,7 @@
         options = options || {};
         var minLength = options.minLength || 3;
         var maxScanMs = options.maxScanMs || 700;
+        var skipDuplicate = options.skipDuplicate || false;
         var scanStart = 0;
         var lastKeyTime = 0;
 
@@ -411,10 +555,12 @@
 
                 if (code.length >= minLength && elapsed <= maxScanMs) {
                     e.preventDefault();
-                    if (isDuplicateScan(code)) return;
+                    if (!skipDuplicate && isDuplicateScan(code)) return;
 
-                    lastScanned = code;
-                    lastScanTime = now;
+                    if (!skipDuplicate) {
+                        lastScanned = code;
+                        lastScanTime = now;
+                    }
 
                     if (typeof onScan === 'function') {
                         onScan(code, input);
@@ -455,6 +601,9 @@
     window.BarcodeScanner = {
         open: openScanner,
         close: closeScanner,
+        openInline: openInlineScanner,
+        closeInline: closeInlineScanner,
+        isInlineActive: isInlineActive,
         lookup: lookupBarcode,
         showDuplicate: showDuplicateWarning,
         closeDuplicate: closeDuplicateWarning,

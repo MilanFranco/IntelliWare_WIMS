@@ -1,0 +1,12 @@
+{
+  "model_type": "random_forest",
+  "model_version": "1.0.0",
+  "trained_at": "2026-06-30T15:23:01.543421",
+  "metrics": {
+    "mae": 3.5692,
+    "rmse": 27.4158,
+    "mape": 99.8033,
+    "forecast_accuracy": 0.2,
+    "error_rate": 99.8
+  }
+}

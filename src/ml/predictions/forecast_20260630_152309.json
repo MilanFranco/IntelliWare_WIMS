@@ -1,0 +1,80 @@
+{
+  "chart_data": {
+    "labels": [
+      "Jan 2026",
+      "Feb 2026",
+      "Mar 2026",
+      "Apr 2026",
+      "May 2026",
+      "Jun 2026",
+      "Jun 2026 (F)",
+      "Jul 2026 (F)"
+    ],
+    "historical": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      211.0,
+      null,
+      null
+    ],
+    "forecasted": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      42.75,
+      311.67
+    ],
+    "trend": [
+      -40.19,
+      -10.05,
+      20.1,
+      50.24,
+      80.38,
+      110.52,
+      140.67,
+      170.81
+    ],
+    "seasonal_index": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.9014,
+      1.0,
+      1.0637,
+      1.5678,
+      1.6788,
+      5.7883,
+      0.0
+    ],
+    "month_labels": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ]
+  },
+  "metrics": {
+    "mae": 3.5692,
+    "rmse": 27.4158,
+    "mape": 99.8033,
+    "forecast_accuracy": 0.2,
+    "error_rate": 99.8
+  },
+  "generated_at": "2026-06-30T15:23:09.634582"
+}

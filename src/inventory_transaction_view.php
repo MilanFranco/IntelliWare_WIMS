@@ -1,6 +1,6 @@
 <?php
 /**
- * Shared inventory transaction page (Receive / Release).
+ * Shared inventory transaction page (Receive / Release) — POS-style interface.
  * Expects $TXN_MODE = 'in'|'out' and $TXN_PAGE_TITLE.
  */
 if (!isset($TXN_MODE) || !in_array($TXN_MODE, ['in', 'out'], true)) {
@@ -30,35 +30,120 @@ function setInventoryFlash(string $type, string $message): void
     $_SESSION['toast'] = ['type' => $type, 'message' => $message];
 }
 
+function getStockStatus(int $qty, int $reorderPoint): string
+{
+    if ($qty <= 0) {
+        return 'out_of_stock';
+    }
+    if ($qty <= $reorderPoint) {
+        return 'low_stock';
+    }
+    return 'in_stock';
+}
+
+function getStockStatusLabel(string $status): string
+{
+    switch ($status) {
+        case 'out_of_stock':
+            return 'Out of Stock';
+        case 'low_stock':
+            return 'Low Stock';
+        default:
+            return 'In Stock';
+    }
+}
+
+function getProductImageUrl(int $productId): ?string
+{
+    $baseDir = __DIR__ . '/../uploads/products/';
+    $webBase = 'uploads/products/';
+    $patterns = [
+        (string)$productId,
+        'product_' . $productId,
+        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
+    ];
+    $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+    foreach ($patterns as $name) {
+        foreach ($extensions as $ext) {
+            $path = $baseDir . $name . '.' . $ext;
+            if (is_file($path)) {
+                return $webBase . $name . '.' . $ext;
+            }
+        }
+    }
+
+    return null;
+}
+
 $redirectPage = $TXN_MODE === 'in' ? 'receive.php' : 'release.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $productId = (int)($_POST['product_id'] ?? 0);
-    $qty = (int)($_POST['qty'] ?? 0);
     $remarks = trim($_POST['remarks'] ?? '');
+    $remarksVal = $remarks !== '' ? $remarks : null;
 
     try {
-        $result = StockMovementService::executeMovement(
-            $conn,
-            $productId,
-            $qty,
-            $TXN_MODE,
-            $_SESSION['Username'],
-            $remarks !== '' ? $remarks : null
-        );
-        $productName = $result['product']['product_name'] ?? 'Product';
-        $label = $TXN_MODE === 'in' ? 'received' : 'released';
-        setInventoryFlash(
-            'success',
-            sprintf(
-                '%s: %d %s. Stock updated %d → %d.',
-                $productName,
+        if (!empty($_POST['items_json'])) {
+            $items = json_decode($_POST['items_json'], true);
+            if (!is_array($items) || empty($items)) {
+                throw new Exception('No items in transaction.');
+            }
+
+            $normalized = [];
+            foreach ($items as $item) {
+                $productId = (int)($item['product_id'] ?? 0);
+                $qty = (int)($item['qty'] ?? 0);
+                if ($productId <= 0 || $qty <= 0) {
+                    throw new Exception('Invalid item in transaction.');
+                }
+                $normalized[] = ['product_id' => $productId, 'qty' => $qty];
+            }
+
+            $results = StockMovementService::executeBatchMovement(
+                $conn,
+                $normalized,
+                $TXN_MODE,
+                $_SESSION['Username'],
+                $remarksVal
+            );
+
+            $totalQty = array_sum(array_column($normalized, 'qty'));
+            $label = $TXN_MODE === 'in' ? 'received' : 'released';
+            setInventoryFlash(
+                'success',
+                sprintf(
+                    '%d product(s) %s — %d total unit(s). Stock updated successfully.',
+                    count($results),
+                    $label,
+                    $totalQty
+                )
+            );
+        } else {
+            $productId = (int)($_POST['product_id'] ?? 0);
+            $qty = (int)($_POST['qty'] ?? 0);
+
+            $result = StockMovementService::executeMovement(
+                $conn,
+                $productId,
                 $qty,
-                $label,
-                $result['previous_stock'],
-                $result['new_stock']
-            )
-        );
+                $TXN_MODE,
+                $_SESSION['Username'],
+                $remarksVal
+            );
+            $productName = $result['product']['product_name'] ?? 'Product';
+            $label = $TXN_MODE === 'in' ? 'received' : 'released';
+            setInventoryFlash(
+                'success',
+                sprintf(
+                    '%s: %d %s. Stock updated %d → %d.',
+                    $productName,
+                    $qty,
+                    $label,
+                    $result['previous_stock'],
+                    $result['new_stock']
+                )
+            );
+        }
     } catch (Exception $e) {
         setInventoryFlash('error', $e->getMessage());
     }
@@ -67,116 +152,487 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
-$dropdownItems = [];
-$dropQuery = "SELECT product_id AS id, CONCAT('P-', LPAD(product_id, 4, '0')) AS sku,
-                     product_name AS name, barcode, quantity AS qty, unit AS uom
-              FROM products ORDER BY product_name";
-$dropRes = $conn->query($dropQuery);
-while ($r = $dropRes->fetch_assoc()) {
-    $dropdownItems[] = $r;
-}
 $conn->close();
 
 $txnIcon = $TXN_MODE === 'in' ? '📥' : '📤';
 $txnLabel = $TXN_MODE === 'in' ? 'Receive Stock' : 'Release Stock';
 $confirmLabel = $TXN_MODE === 'in' ? 'Confirm Receive' : 'Confirm Release';
-$qtyLabel = $TXN_MODE === 'in' ? 'Quantity Received' : 'Quantity to Release';
+$accentClass = $TXN_MODE === 'in' ? 'pos-accent-receive' : 'pos-accent-release';
 
 require_once __DIR__ . '/layout.php';
 renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 ?>
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
-
 <style>
-    .select2-container { width: 100% !important; max-width: 100%; }
-    .select2-container--default .select2-selection--single {
-        background-color: rgba(19, 39, 91, 0.8) !important;
-        border: 1px solid rgba(48, 67, 116, 0.6) !important;
-        border-radius: 12px !important;
-        height: 46px !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        color: #E3E3E3 !important;
-        padding-left: 16px !important;
-        line-height: 44px !important;
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-    }
-    .select2-dropdown {
-        background-color: #1D387B !important;
-        border: 1px solid rgba(48, 67, 116, 0.8) !important;
-        border-radius: 12px !important;
-        z-index: 100010 !important;
-    }
-    .select2-results__option { color: #E3E3E3 !important; }
-    .select2-container--default .select2-results__option--highlighted[aria-selected] {
-        background: rgba(81, 213, 90, 0.2) !important;
-        color: #51D55A !important;
-    }
-
-    .inv-txn-card { padding: 0 !important; overflow: visible !important; }
-    .inv-txn-card:hover { transform: none !important; }
-
-    .inv-product-panel {
-        display: none;
-        margin-top: 16px;
-        padding: 16px;
-        border-radius: 12px;
-        border: 1px solid rgba(81, 213, 90, 0.25);
-        background: rgba(81, 213, 90, 0.06);
-    }
-    .inv-product-panel.visible { display: block; }
-    .inv-product-panel .inv-detail-grid {
+    .pos-layout {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-    .inv-product-panel .inv-detail-label {
-        font-size: 11px;
-        color: #9aa6d1;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 4px;
-    }
-    .inv-product-panel .inv-detail-value {
-        font-size: 15px;
-        color: #E3E3E3;
-        font-weight: 600;
-    }
-
-    .inv-form-row {
-        display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(340px, 1fr) minmax(360px, 1.15fr);
         gap: 16px;
-        align-items: end;
+        align-items: stretch;
+        min-height: calc(100vh - 140px);
     }
-    @media (min-width: 768px) {
-        .inv-form-row { grid-template-columns: 1fr 120px 1fr auto; }
+    @media (max-width: 1100px) {
+        .pos-layout { grid-template-columns: 1fr; min-height: auto; }
+    }
+
+    .pos-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
+        border: 1px solid rgba(42, 68, 132, 0.6);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    .pos-panel:hover { transform: none; }
+
+    .pos-panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.5);
+        background: rgba(19, 39, 91, 0.35);
+        flex-shrink: 0;
+    }
+
+    .pos-panel-body {
+        padding: 16px 20px;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .pos-barcode-row {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .pos-barcode-input {
+        flex: 1;
+        height: 56px;
+        font-size: 18px;
+        font-family: 'Onest', sans-serif;
+        letter-spacing: 0.02em;
     }
 
     .btn-scan {
-        height: 46px;
-        min-width: 46px;
-        padding: 0 14px;
+        height: 56px;
+        min-width: 56px;
+        padding: 0 16px;
         background: #2A4484;
         border: 1px solid #355296;
         border-radius: 12px;
         color: #fff;
         cursor: pointer;
-        font-size: 18px;
+        font-size: 22px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        transition: border-color 0.2s, color 0.2s;
     }
     .btn-scan:hover { border-color: #51D55A; color: #51D55A; }
+    .btn-scan.is-active { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.12); }
 
-    .inv-product-search-row { display: flex; gap: 8px; align-items: stretch; }
-    .inv-select-wrap { flex: 1; min-width: 0; }
+    .pos-scanner-zone { flex-shrink: 0; }
+
+    .pos-inline-scanner {
+        border: 1px solid rgba(81, 213, 90, 0.35);
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(11, 20, 56, 0.55);
+    }
+
+    .pos-inline-scanner #inv-inline-scanner-reader {
+        width: 100%;
+        min-height: 220px;
+        max-height: 280px;
+        overflow: hidden;
+    }
+
+    .pos-inline-scanner #inv-inline-scanner-reader video {
+        border-radius: 0;
+        object-fit: cover;
+    }
+
+    .pos-inline-scanner-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-top: 1px solid rgba(42, 68, 132, 0.5);
+        background: rgba(19, 39, 91, 0.5);
+    }
+
+    .pos-inline-scanner-status {
+        font-size: 12px;
+        color: #9aa6d1;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .pos-close-camera-btn {
+        flex-shrink: 0;
+        height: 34px;
+        padding: 0 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        background: rgba(239, 68, 68, 0.1);
+        color: #f87171;
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .pos-close-camera-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: #f87171;
+    }
+
+    .pos-scanner-badge {
+        font-size: 10px;
+        color: #51D55A;
+        background: rgba(81, 213, 90, 0.1);
+        border: 1px solid rgba(81, 213, 90, 0.2);
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+    }
+
+    .pos-cart-wrap {
+        flex: 1;
+        min-height: 180px;
+        max-height: 420px;
+        overflow-y: auto;
+        border: 1px solid rgba(42, 68, 132, 0.5);
+        border-radius: 12px;
+        background: rgba(11, 20, 56, 0.35);
+    }
+
+    .pos-cart-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        min-height: 160px;
+        color: #9aa6d1;
+        font-size: 13px;
+        text-align: center;
+        padding: 24px;
+    }
+
+    .pos-cart-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+    }
+    .pos-cart-table th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: rgba(19, 39, 91, 0.95);
+        color: #9aa6d1;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.5);
+    }
+    .pos-cart-table td {
+        padding: 10px 12px;
+        color: #E3E3E3;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.25);
+        vertical-align: middle;
+    }
+    .pos-cart-table tr:last-child td { border-bottom: none; }
+    .pos-cart-table tr.pos-cart-row-flash td {
+        animation: posRowFlash 0.6s ease;
+    }
+    @keyframes posRowFlash {
+        0% { background: rgba(81, 213, 90, 0.25); }
+        100% { background: transparent; }
+    }
+
+    .pos-qty-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .pos-qty-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid rgba(48, 67, 116, 0.8);
+        background: rgba(19, 39, 91, 0.8);
+        color: #E3E3E3;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .pos-qty-btn:hover { border-color: #51D55A; color: #51D55A; }
+    .pos-qty-value {
+        min-width: 28px;
+        text-align: center;
+        font-weight: 600;
+    }
+
+    .pos-remove-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        background: rgba(239, 68, 68, 0.08);
+        color: #f87171;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
+    }
+    .pos-remove-btn:hover { background: rgba(239, 68, 68, 0.18); }
+
+    .pos-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(42, 68, 132, 0.5);
+        background: rgba(19, 39, 91, 0.4);
+    }
+    .pos-summary-item label {
+        display: block;
+        font-size: 10px;
+        color: #9aa6d1;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+    }
+    .pos-summary-item span {
+        font-size: 18px;
+        font-weight: 700;
+        color: #E3E3E3;
+    }
+    .pos-accent-receive .pos-summary-type { color: #51D55A; }
+    .pos-accent-release .pos-summary-type { color: #f87171; }
+
+    .pos-info-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: auto;
+        padding-top: 8px;
+    }
+
+    .pos-info-action-btn {
+        height: 52px;
+        border-radius: 12px;
+        border: 1px solid rgba(48, 67, 116, 0.8);
+        background: rgba(19, 39, 91, 0.8);
+        color: #E3E3E3;
+        font-family: 'Onest', sans-serif;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .pos-info-action-btn:hover {
+        border-color: #51D55A;
+        color: #51D55A;
+        background: rgba(81, 213, 90, 0.08);
+    }
+    .pos-info-action-btn.pos-info-action-remove {
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #f87171;
+    }
+    .pos-info-action-btn.pos-info-action-remove:hover {
+        border-color: #f87171;
+        background: rgba(239, 68, 68, 0.12);
+        color: #fca5a5;
+    }
+    .pos-info-action-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .pos-footer-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+
+    .pos-clear-btn {
+        background: transparent;
+        border: 1px solid rgba(48, 67, 116, 0.8);
+        color: #9aa6d1;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    .pos-clear-btn:hover { border-color: #f87171; color: #f87171; }
+
+    .pos-confirm-btn {
+        height: 52px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .pos-accent-release .pos-confirm-btn {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+    }
+    .pos-accent-release .pos-confirm-btn:hover {
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+    }
+
+    .pos-cart-table tr.pos-cart-row-selected td {
+        background: rgba(81, 213, 90, 0.08);
+    }
+    .pos-cart-table tbody tr {
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .pos-cart-table tbody tr:hover td {
+        background: rgba(42, 68, 132, 0.2);
+    }
+
+    .pos-info-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #9aa6d1;
+        font-size: 13px;
+        padding: 32px 24px;
+        min-height: 280px;
+    }
+
+    .pos-info-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: 0;
+    }
+
+    .pos-info-image-wrap {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+        aspect-ratio: 1;
+        border-radius: 16px;
+        border: 1px solid rgba(42, 68, 132, 0.5);
+        background: rgba(11, 20, 56, 0.5);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pos-info-image-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: none;
+    }
+    .pos-info-image-wrap.has-image img { display: block; }
+    .pos-info-image-wrap.has-image .pos-info-image-placeholder { display: none; }
+
+    .pos-info-image-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: #4a5f9a;
+        padding: 24px;
+    }
+    .pos-info-image-placeholder svg { width: 64px; height: 64px; opacity: 0.7; }
+    .pos-info-image-placeholder span {
+        font-size: 12px;
+        color: #9aa6d1;
+    }
+
+    .pos-info-name {
+        font-family: 'Onest', sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        color: #E3E3E3;
+        line-height: 1.3;
+        text-align: center;
+    }
+
+    .pos-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    @media (max-width: 480px) {
+        .pos-info-grid { grid-template-columns: 1fr; }
+    }
+
+    .pos-info-field {
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(42, 68, 132, 0.45);
+        background: rgba(19, 39, 91, 0.45);
+    }
+    .pos-info-field.full-width { grid-column: 1 / -1; }
+
+    .pos-info-field dt {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #9aa6d1;
+        margin-bottom: 4px;
+    }
+    .pos-info-field dd {
+        font-size: 14px;
+        font-weight: 600;
+        color: #E3E3E3;
+        margin: 0;
+        word-break: break-word;
+    }
+
+    .pos-status-badge {
+        display: inline-block;
+        font-size: 9px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 6px;
+    }
+    .pos-status-in_stock { background: rgba(81, 213, 90, 0.15); color: #51D55A; border: 1px solid rgba(81, 213, 90, 0.25); }
+    .pos-status-low_stock { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .pos-status-out_of_stock { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); }
 
     #toast-container {
         visibility: hidden;
@@ -193,6 +649,9 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         transition: all 0.4s;
         border: 1px solid rgba(255,255,255,0.1);
         backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast-container.success { background-color: rgba(6, 95, 70, 0.9); border-color: #34d399; color: #d1fae5; }
@@ -201,96 +660,161 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
 
-<div class="premium-card inv-txn-card mb-8">
-    <div class="p-6 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
-        <div>
-            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
-            </h3>
-            <p class="text-xs text-[#9aa6d1] mt-1">Scan barcode or search product, enter quantity, then confirm.</p>
-        </div>
-        <span class="text-[10px] text-[#51D55A] bg-[#51D55A]/10 border border-[#51D55A]/20 px-2 py-1 rounded hidden md:inline">
-            USB / Bluetooth scanner ready
-        </span>
-    </div>
+<div class="pos-layout <?php echo htmlspecialchars($accentClass); ?>">
 
-    <div class="p-6">
-        <form method="POST" id="inv-txn-form" data-txn-mode="<?php echo htmlspecialchars($TXN_MODE); ?>">
-            <input type="hidden" name="product_id" id="inv-product-id" value="">
-
-            <div class="inv-form-row mb-4">
-                <div>
-                    <label class="block text-[#9aa6d1] text-xs font-semibold mb-2" for="inv-product-select">Product</label>
-                    <div class="inv-product-search-row">
-                        <div class="inv-select-wrap">
-                            <select class="w-full" id="inv-product-select">
-                                <option value="">-- Scan barcode or search product --</option>
-                                <?php foreach ($dropdownItems as $it): ?>
-                                    <option value="<?php echo (int)$it['id']; ?>"
-                                            data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? ''); ?>"
-                                            data-qty="<?php echo (int)$it['qty']; ?>"
-                                            data-uom="<?php echo htmlspecialchars($it['uom'] ?? ''); ?>"
-                                            data-name="<?php echo htmlspecialchars($it['name']); ?>">
-                                        <?php echo htmlspecialchars($it['sku'] . ' - ' . $it['name']); ?>
-                                        <?php if (!empty($it['barcode'])): ?>
-                                            [<?php echo htmlspecialchars($it['barcode']); ?>]
-                                        <?php endif; ?>
-                                        (Qty: <?php echo (int)$it['qty']; ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="button" class="btn-scan" id="inv-scan-btn" title="Scan with camera">📷</button>
-                    </div>
-                    <p class="barcode-scan-hint mt-2" id="inv-hid-focus-hint">Click here or scan with USB/Bluetooth scanner</p>
-                </div>
+    <!-- LEFT: Scanner & Transaction -->
+    <div class="pos-panel">
+        <div class="pos-panel-header flex justify-between items-center gap-3">
+            <div>
+                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                    <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
+                </h3>
+                <p class="text-xs text-[#9aa6d1] mt-1">Scan product barcodes to build your transaction. If product not found, register it first in Products page.</p>
             </div>
+            <span class="pos-scanner-badge hidden sm:inline">Scanner ready</span>
+        </div>
 
-            <div class="inv-product-panel" id="inv-product-panel">
-                <div class="inv-detail-grid">
-                    <div>
-                        <div class="inv-detail-label">Product Name</div>
-                        <div class="inv-detail-value" id="inv-display-name">—</div>
+        <div class="pos-panel-body">
+            <form method="POST" id="inv-txn-form" data-txn-mode="<?php echo htmlspecialchars($TXN_MODE); ?>">
+                <input type="hidden" name="items_json" id="inv-items-json" value="">
+
+                <div class="pos-scanner-zone" id="inv-scanner-zone">
+                    <div id="inv-barcode-mode">
+                        <div class="pos-barcode-row">
+                            <input type="text"
+                                   id="inv-barcode-input"
+                                   class="premium-input pos-barcode-input"
+                                   placeholder="Scan manufacturer barcode or type and press Enter…"
+                                   autocomplete="off"
+                                   autofocus>
+                            <button type="button" class="btn-scan" id="inv-scan-btn" title="Scan barcode with camera">📷</button>
+                        </div>
+                        <p class="barcode-scan-hint" id="inv-scanner-hint"><strong>Scan the barcode</strong> printed on product packaging. USB/Bluetooth scanners work automatically. If product not found, register it in Products page first.</p>
                     </div>
-                    <div>
-                        <div class="inv-detail-label">Barcode</div>
-                        <div class="inv-detail-value font-mono text-sm" id="inv-display-barcode">—</div>
-                    </div>
-                    <div>
-                        <div class="inv-detail-label">Current Stock</div>
-                        <div class="inv-detail-value" id="inv-display-stock">—</div>
+                    <input type="text" id="inv-wedge-input" autocomplete="off" aria-hidden="true" tabindex="-1"
+                           style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;">
+
+                    <div id="inv-camera-mode" style="display:none;">
+                        <div class="pos-inline-scanner">
+                            <div id="inv-inline-scanner-reader"></div>
+                            <div class="pos-inline-scanner-footer">
+                                <span class="pos-inline-scanner-status" id="inv-inline-scanner-status">Initializing camera…</span>
+                                <button type="button" class="pos-close-camera-btn" id="inv-close-camera-btn">Close Camera</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="inv-form-row">
-                    <div>
-                        <label class="block text-[#9aa6d1] text-xs font-semibold mb-2" for="inv-qty-input"><?php echo htmlspecialchars($qtyLabel); ?></label>
-                        <input type="number" id="inv-qty-input" name="qty" class="premium-input w-full" value="1" min="1" required style="height:46px;">
+                <div class="pos-cart-wrap" id="inv-cart-wrap">
+                    <div class="pos-cart-empty" id="inv-cart-empty">
+                        <svg class="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                        </svg>
+                        Scan a barcode to add products to this transaction
                     </div>
-                    <div>
-                        <label class="block text-[#9aa6d1] text-xs font-semibold mb-2" for="inv-remarks-input">Remarks (optional)</label>
-                        <input type="text" id="inv-remarks-input" name="remarks" class="premium-input w-full" placeholder="Notes..." style="height:46px;">
+                    <table class="pos-cart-table" id="inv-cart-table" style="display:none;">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="inv-cart-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="pos-summary">
+                    <div class="pos-summary-item">
+                        <label>Total Products</label>
+                        <span id="inv-summary-products">0</span>
                     </div>
-                    <div>
-                        <label class="hidden md:block text-xs mb-2" style="visibility:hidden;">Action</label>
-                        <button type="submit" class="premium-button w-full" style="height:46px;" id="inv-confirm-btn">
+                    <div class="pos-summary-item">
+                        <label>Total Quantity</label>
+                        <span id="inv-summary-qty">0</span>
+                    </div>
+                </div>
+
+                <div class="pos-footer-actions">
+                    <input type="text" id="inv-remarks-input" name="remarks" class="premium-input w-full" placeholder="Remarks (optional)" style="height:42px; font-size:13px;">
+                    <div class="flex gap-2">
+                        <button type="button" class="pos-clear-btn flex-1" id="inv-clear-btn">Clear Transaction</button>
+                        <button type="submit" class="premium-button pos-confirm-btn flex-[2]" id="inv-confirm-btn" disabled>
                             <?php echo htmlspecialchars($confirmLabel); ?>
                         </button>
                     </div>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT: Product Information -->
+    <div class="pos-panel">
+        <div class="pos-panel-header">
+            <h3 class="font-onest font-semibold text-lg text-white">Product Information</h3>
+            <p class="text-xs text-[#9aa6d1] mt-1">Updates when you scan or select a product from the list.</p>
+        </div>
+
+        <div class="pos-panel-body">
+            <div class="pos-info-empty" id="inv-info-empty">
+                <svg class="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
+                </svg>
+                Scan a product barcode to view details and add to transaction.
             </div>
-        </form>
+
+            <div class="pos-info-content" id="inv-info-content" style="display:none;">
+                <div class="pos-info-image-wrap" id="inv-info-image-wrap">
+                    <img id="inv-info-image" src="" alt="Product image">
+                    <div class="pos-info-image-placeholder" id="inv-info-image-placeholder">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/>
+                        </svg>
+                        <span>No image available</span>
+                    </div>
+                </div>
+
+                <h4 class="pos-info-name" id="inv-info-name"></h4>
+
+                <dl class="pos-info-grid">
+                    <div class="pos-info-field">
+                        <dt>Barcode</dt>
+                        <dd id="inv-info-barcode">—</dd>
+                    </div>
+                    <div class="pos-info-field">
+                        <dt>Category</dt>
+                        <dd id="inv-info-category">—</dd>
+                    </div>
+                    <div class="pos-info-field">
+                        <dt>Current Stock</dt>
+                        <dd id="inv-info-stock">—</dd>
+                    </div>
+                    <div class="pos-info-field">
+                        <dt>Stock Status</dt>
+                        <dd id="inv-info-status">—</dd>
+                    </div>
+                    <div class="pos-info-field">
+                        <dt>Reorder Point</dt>
+                        <dd id="inv-info-reorder">—</dd>
+                    </div>
+                    <div class="pos-info-field">
+                        <dt>Expiration Date</dt>
+                        <dd id="inv-info-expiry">—</dd>
+                    </div>
+                </dl>
+
+                <div class="pos-info-actions" id="inv-info-actions">
+                    <button type="button" class="pos-info-action-btn" id="inv-info-increase">+ Increase Quantity</button>
+                    <button type="button" class="pos-info-action-btn" id="inv-info-decrease">− Decrease Quantity</button>
+                    <button type="button" class="pos-info-action-btn pos-info-action-remove" id="inv-info-remove">Remove from Transaction</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<input type="text" id="inv-hid-barcode-input" class="hid-barcode-capture" aria-hidden="true" tabindex="-1" autocomplete="off">
-
 <?php renderLayoutContentEnd(); ?>
 
-<?php require_once __DIR__ . '/partials/barcode_scanner_modal.php'; ?>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="src/scripts/barcode-scanner.js"></script>
 <script src="src/scripts/inventory-transaction.js"></script>

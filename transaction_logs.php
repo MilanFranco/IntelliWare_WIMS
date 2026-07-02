@@ -22,6 +22,7 @@ if ($logResult && $logResult->num_rows > 0) {
 }
 
 // --- STOCK MOVEMENTS (TRANSACTIONS) ---
+// Used for the stat cards above and the "Recent Stock Moves" widget.
 // Optimization Note: Ensure 'transaction_date' in 'transactions' table is INDEXED.
 $transactions = [];
 $transactionQuery = "SELECT t.*, p.product_name, p.category, u.username 
@@ -34,6 +35,31 @@ $transactionResult = $conn->query($transactionQuery);
 if ($transactionResult && $transactionResult->num_rows > 0) {
     while ($row = $transactionResult->fetch_assoc()) {
         $transactions[] = $row;
+    }
+}
+
+// --- FULL TRANSACTION HISTORY (PAGINATED) ---
+$perPage = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) { $page = 1; }
+
+$countResult = $conn->query("SELECT COUNT(*) as total FROM transactions");
+$totalRows = $countResult ? (int)$countResult->fetch_assoc()['total'] : 0;
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+if ($page > $totalPages) { $page = $totalPages; }
+$offset = ($page - 1) * $perPage;
+
+$historyTransactions = [];
+$historyQuery = "SELECT t.*, p.product_name, p.category, u.username 
+                 FROM transactions t 
+                 LEFT JOIN products p ON t.product_id = p.product_id 
+                 LEFT JOIN users u ON t.user_id = u.user_id 
+                 ORDER BY t.transaction_date DESC 
+                 LIMIT $perPage OFFSET $offset";
+$historyResult = $conn->query($historyQuery);
+if ($historyResult && $historyResult->num_rows > 0) {
+    while ($row = $historyResult->fetch_assoc()) {
+        $historyTransactions[] = $row;
     }
 }
 
@@ -237,7 +263,12 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($transactions as $trans): ?>
+                <?php if (empty($historyTransactions)): ?>
+                <tr>
+                    <td colspan="8" class="text-center text-[#9aa6d1] py-6">No transactions found</td>
+                </tr>
+                <?php endif; ?>
+                <?php foreach ($historyTransactions as $trans): ?>
                 <tr class="hover:bg-[#1D387B]/50 transition-colors">
                     <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo $trans['transaction_id']; ?></td>
                     <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
@@ -269,39 +300,57 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
             </tbody>
         </table>
     </div>
+
+    <div class="flex justify-between items-center p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30">
+        <span class="text-xs text-[#9aa6d1] font-onest">
+            Page <?php echo $page; ?> of <?php echo $totalPages; ?> &middot; <?php echo $totalRows; ?> records
+        </span>
+        <div class="flex gap-2">
+            <?php if ($page > 1): ?>
+                <a href="?page=<?php echo $page - 1; ?>" class="premium-button text-xs py-2 px-4 whitespace-nowrap">Previous</a>
+            <?php else: ?>
+                <span class="premium-button text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Previous</span>
+            <?php endif; ?>
+
+            <?php if ($page < $totalPages): ?>
+                <a href="?page=<?php echo $page + 1; ?>" class="premium-button text-xs py-2 px-4 whitespace-nowrap">Next</a>
+            <?php else: ?>
+                <span class="premium-button text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Next</span>
+            <?php endif; ?>
+        </div>
+    </div>
 </div>
 
 <script>
-// Simple Filter Function for the Table
+// Search only filters within the current page (10 rows) since pagination is server-side
 function filterTable() {
-    var input, filter, table, tr, td, i, txtValue;
+    var input, filter, table, tr, i;
     input = document.getElementById("logSearch");
     filter = input.value.toUpperCase();
     table = document.getElementById("mainLogTable");
     tr = table.getElementsByTagName("tr");
 
     for (i = 1; i < tr.length; i++) { // Start at 1 to skip header
-        // Search Product Name (Column 1) and Remarks (Column 7)
         var tdProduct = tr[i].getElementsByTagName("td")[1];
         var tdRemarks = tr[i].getElementsByTagName("td")[7];
-        
+
         if (tdProduct || tdRemarks) {
-            var txtProduct = tdProduct.textContent || tdProduct.innerText;
-            var txtRemarks = tdRemarks.textContent || tdRemarks.innerText;
-            
+            var txtProduct = tdProduct ? (tdProduct.textContent || tdProduct.innerText) : "";
+            var txtRemarks = tdRemarks ? (tdRemarks.textContent || tdRemarks.innerText) : "";
+
             if (txtProduct.toUpperCase().indexOf(filter) > -1 || txtRemarks.toUpperCase().indexOf(filter) > -1) {
                 tr[i].style.display = "";
             } else {
                 tr[i].style.display = "none";
             }
-        }       
+        }
     }
 }
 
 function exportLogs() {
     let csv = 'Transaction ID,Product,Category,Type,Quantity,User,Date,Remarks\n';
     
-    <?php foreach ($transactions as $trans): ?>
+    <?php foreach ($historyTransactions as $trans): ?>
     csv += '<?php echo $trans['transaction_id']; ?>,<?php echo addslashes($trans['product_name'] ?? 'Unknown'); ?>,<?php echo addslashes($trans['category'] ?? 'N/A'); ?>,<?php echo $trans['transaction_type']; ?>,<?php echo $trans['quantity']; ?>,<?php echo addslashes($trans['username'] ?? 'Unknown'); ?>,<?php echo date('Y-m-d H:i', strtotime($trans['transaction_date'])); ?>,<?php echo addslashes($trans['remarks'] ?? 'N/A'); ?>\n';
     <?php endforeach; ?>
     

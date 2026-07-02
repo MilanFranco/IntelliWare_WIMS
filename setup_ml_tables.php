@@ -63,6 +63,50 @@ $sql_statements = [
       KEY `anomaly_score` (`anomaly_score`),
       CONSTRAINT `anomalies_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;",
+
+    // forecast_results — ML prediction outputs
+    "CREATE TABLE IF NOT EXISTS `forecast_results` (
+      `result_id` bigint(20) NOT NULL AUTO_INCREMENT,
+      `product_id` int(11) NOT NULL DEFAULT 0,
+      `forecast_date` date NOT NULL,
+      `predicted_quantity` decimal(12,2) NOT NULL,
+      `confidence_score` decimal(6,4) DEFAULT NULL,
+      `model_version` varchar(20) DEFAULT '1.0.0',
+      `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+      PRIMARY KEY (`result_id`),
+      UNIQUE KEY `unique_forecast_result` (`product_id`,`forecast_date`),
+      KEY `idx_forecast_date` (`forecast_date`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;",
+
+    // forecast_metrics — training evaluation metrics
+    "CREATE TABLE IF NOT EXISTS `forecast_metrics` (
+      `metric_id` bigint(20) NOT NULL AUTO_INCREMENT,
+      `training_date` timestamp NOT NULL DEFAULT current_timestamp(),
+      `mae` decimal(12,4) DEFAULT NULL,
+      `rmse` decimal(12,4) DEFAULT NULL,
+      `mape` decimal(8,4) DEFAULT NULL,
+      `forecast_accuracy` decimal(6,2) DEFAULT NULL,
+      `error_rate` decimal(6,2) DEFAULT NULL,
+      `model_type` varchar(50) DEFAULT NULL,
+      `model_version` varchar(20) DEFAULT '1.0.0',
+      `products_processed` int(11) DEFAULT 0,
+      `forecasts_generated` int(11) DEFAULT 0,
+      `segment_accuracy_json` text DEFAULT NULL,
+      PRIMARY KEY (`metric_id`),
+      KEY `idx_training_date` (`training_date`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;",
+
+    // ml_training_state — auto-retrain tracking
+    "CREATE TABLE IF NOT EXISTS `ml_training_state` (
+      `id` int(11) NOT NULL DEFAULT 1,
+      `last_training_at` timestamp NULL DEFAULT NULL,
+      `last_transaction_count` int(11) DEFAULT 0,
+      `auto_retrain_threshold` int(11) DEFAULT 50,
+      `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+      PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;",
+
+    "INSERT IGNORE INTO `ml_training_state` (`id`, `auto_retrain_threshold`) VALUES (1, 50);",
     
 ];
 
@@ -136,7 +180,7 @@ if ($check_forecast && $check_forecast->num_rows > 0) {
         }
     }
 } else {
-    echo "⚠ Forecast table does not exist yet. It will be created when you run the main database setup.\n";
+    echo "Forecast table does not exist yet. It will be created when you run the main database setup.\n";
 }
 
 echo "\n=== Migration Summary ===\n";

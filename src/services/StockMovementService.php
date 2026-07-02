@@ -190,4 +190,44 @@ class StockMovementService
             throw $e;
         }
     }
+
+    /**
+     * Process multiple stock movements in a single database transaction.
+     *
+     * @param array<int, array{product_id:int, qty:int}> $items
+     * @return array<int, array>
+     */
+    public static function executeBatchMovement(
+        mysqli $conn,
+        array $items,
+        string $type,
+        string $username,
+        ?string $remarks = null
+    ): array {
+        if (empty($items)) {
+            throw new Exception('No items in transaction.');
+        }
+
+        $conn->begin_transaction();
+        try {
+            $results = [];
+            foreach ($items as $item) {
+                $productId = (int)($item['product_id'] ?? 0);
+                $qty = (int)($item['qty'] ?? 0);
+                $results[] = self::processMovement(
+                    $conn,
+                    $productId,
+                    $qty,
+                    $type,
+                    $username,
+                    $remarks
+                );
+            }
+            $conn->commit();
+            return $results;
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
 }

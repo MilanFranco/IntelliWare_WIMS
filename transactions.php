@@ -449,7 +449,7 @@ function selectProductByBarcode(barcode) {
             $('#productSelect').val(p.product_id).trigger('change');
             showToast('Product found: ' + p.product_name, 'success');
         } else {
-            showToast('No product found for barcode: ' + barcode, 'error');
+            showToast('Product not found. Please register this product first.', 'error');
         }
     }).catch(function() {
         showToast('Failed to look up barcode.', 'error');
