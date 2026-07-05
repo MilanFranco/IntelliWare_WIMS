@@ -415,32 +415,6 @@ body {
     border: 1px solid #2A4484;
 }
 
-.btn {
-    background: linear-gradient(90deg, #51D55A, #3d9743);
-    color: #0B1120;
-    border: 1px solid #51D55A;
-    border-radius: 12px;
-    padding: 8px 20px;
-    font-family: 'Onest', sans-serif;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-.btn:hover {
-    box-shadow: 0 0 15px rgba(81, 213, 90, 0.4);
-    transform: translateY(-1px);
-    color: #fff;
-}
-.btn-secondary {
-    background: transparent;
-    border: 1px solid var(--glass-border);
-    color: #9aa6d1;
-}
-.btn-secondary:hover {
-    background: rgba(255,255,255,0.05);
-    color: #fff;
-}
 
 .search-box, .filter-select, .dropdown-select {
     height: 46px; 

@@ -9,10 +9,10 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_admin.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
-            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
-            ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
             ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
+            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
+            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
+            ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
             ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
             ['href' => 'users.php', 'label' => 'User Management', 'icon' => 'users'],
             ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
@@ -21,9 +21,9 @@ function renderSidebar($currentPage, $userRole) {
         $menuItems = [
             ['href' => 'dash_manager.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
             ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
-            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
             ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
+            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
+            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
             ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
             ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
         ];
@@ -47,8 +47,8 @@ function renderSidebar($currentPage, $userRole) {
         'logs' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 0 6.75 5.625v1.5c0 .621.504 1.125 1.125 1.125h.375m-1.5-3-3.75 3.75" />',
         'insights' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />',
         'reports' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />',
-        'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372m-10.002-.372a9.338 9.338 0 0 0-2.625.372M12 21a9.338 9.338 0 0 0 9 0a9.338 9.338 0 0 0-18 0M12 2.25v12.75a4.5 4.5 0 0 0 0 8.25a4.5 4.5 0 0 0 0-8.25V2.25Z" />',
-        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Zm0 0c-.688 0-1.25-.561-1.25-1.25 0-.688.562-1.25 1.25-1.25s1.25.562 1.25 1.25c0 .688-.562 1.25-1.25 1.25Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5c0-1.23-.323-2.38-.87-3.39l.035-.02a.75.75 0 0 1 .64 1.14l-.036.021a3.73 3.73 0 0 1-.869 3.39.75.75 0 0 1-1.14-.64l.021-.035a3.73 3.73 0 0 0 0-4.78.75.75 0 0 1 .64-1.14l.035.02a3.73 3.73 0 0 0 .869-3.39.75.75 0 0 1 1.14.64l-.02.035c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.02.035a.75.75 0 0 1-.64 1.14l-.035-.02c.548 1.01.87 2.16.87 3.39s-.323 2.38-.87 3.39l.035.02a.75.75 0 0 1-.64 1.14l-.035-.021a3.73 3.73 0 0 1 .869-3.39.75.75 0 0 1 1.14.64l-.021.035c.548-1.01.87-2.16.87-3.39Zm-15 0c0-1.23.323-2.38.87-3.39l-.035-.02a.75.75 0 0 0-.64 1.14l.036.021a3.73 3.73 0 0 0 .869 3.39.75.75 0 0 0 1.14-.64l-.021-.035a3.73 3.73 0 0 1 0-4.78.75.75 0 0 0-.64-1.14l-.035.02a3.73 3.73 0 0 1-.869-3.39.75.75 0 0 0-1.14.64l.02.035C4.823 6.62 4.5 7.77 4.5 9s.323 2.38.87 3.39l-.02.035a.75.75 0 0 0 .64 1.14l.035-.02c-.548 1.01-.87 2.16-.87 3.39s.323 2.38.87 3.39l-.035.02a.75.75 0 0 0 .64-1.14l.035-.021a3.73 3.73 0 0 0-.869-3.39.75.75 0 0 0-1.14.64l.021.035c-.548-1.01-.87-2.16-.87-3.39Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />'
+        'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M17 20a2 2 0 00-2-2H9a2 2 0 00-2 2" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 11.25a3 3 0 100-6 3 3 0 000 6z" /><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12.75a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" />',
+        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /><circle cx="12" cy="12" r="3" />'
     ];
     
     // UPDATED: Added ID and transition classes for toggling
@@ -172,8 +172,16 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.premium-menu-item.active { background: linear-gradient(135deg, rgba(81, 213, 90, 0.2) 0%, rgba(75, 192, 82, 0.1) 100%); border-color: rgba(81, 213, 90, 0.4); }';
     echo '.sidebar-icon { width: 20px; height: 20px; margin-right: 12px; flex-shrink: 0; }';
     echo '.sidebar-text { font-size: 14px; }';
-    echo '.premium-button { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-decoration: none; display: inline-block; }';
-    echo '.premium-button:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
+    echo '.btn, .btn-primary, .premium-button, .button-primary { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }';
+    echo '.btn::before, .button-primary::before, .premium-button::before { content: \'\'; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s; }';
+    echo '.btn:hover, .btn-primary:hover, .premium-button:hover, .button-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
+    echo '.btn:hover::before, .btn-primary:hover::before, .premium-button:hover::before, .button-primary:hover::before { left: 100%; }';
+    echo '.btn:active, .btn-primary:active, .button-primary:active, .premium-button:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }';
+    echo '.btn-secondary, .button-secondary, .btn-outline { background: rgba(255, 255, 255, 0.06); color: #E3E3E3; border: 1px solid rgba(81, 213, 90, 0.18); border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.25s ease; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none; }';
+    echo '.btn-secondary:hover, .button-secondary:hover, .btn-outline:hover { background: rgba(255, 255, 255, 0.11); }';
+    echo '.btn-danger, .button-danger, .btn-destructive { background: transparent; color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.25s ease; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none; }';
+    echo '.btn-danger:hover, .button-danger:hover, .btn-destructive:hover { background: rgba(248, 113, 113, 0.1); }';
+    echo '.btn[disabled], .premium-button:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled, .button-danger:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }';
     echo '.premium-admin-header { background: linear-gradient(135deg, #1D387B); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); border-bottom: 1px solid rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px); position: relative; z-index: 100000; }';
     echo '.admin-user-section { display: flex; align-items: center; gap: 16px; position: relative; z-index: 100000; }';
     echo '.user-profile { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: rgba(81, 213, 90, 0.1); border-radius: 12px; backdrop-filter: blur(10px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid rgba(81, 213, 90, 0.2); cursor: pointer; position: relative; }';

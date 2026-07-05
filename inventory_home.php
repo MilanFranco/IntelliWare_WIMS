@@ -60,20 +60,6 @@ require_once 'src/layout.php';
 renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
 ?>
 
-<style>
-.card { background:#1D387B; border:1px solid #2A4484; border-radius:10px; padding:14px; box-shadow: 0 0 20px 2px #304374; }
-.btn { background:#51D55A; color:#fff; border-radius:6px; padding:8px 10px; font-size:12px; text-decoration:none; border:1px solid transparent; cursor:pointer; }
-.btn:hover { background:#3d9743; }
-.btn-outline { background:transparent; border:1px solid #2A4484; color:#E3E3E3; }
-.btn-outline:hover { background:#1D387B; }
-.input { background:#13275B; color:#fff; border:1px solid #304374; padding:8px; border-radius:6px; width:100%; }
-.label { color:#E3E3E3; font-family:'Onest'; font-size:12px; margin-bottom:6px; display:block; }
-.table { width:100%; border-collapse: collapse; }
-.table th, .table td { padding:10px; border-bottom:1px solid #2A4484; color:#E3E3E3; font-family:'Onest', sans-serif; font-size:12px; }
-.badge { padding:2px 8px; border-radius:999px; background:#13275B; color:#E3E3E3; font-size:11px; }
-.badge.low { background:#ef4444; color:#fff; }
-.badge.normal { background:#10b981; color:#fff; }
-</style>
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
     <div class="card">
@@ -107,7 +93,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                 </div>
             </div>
             <div style="margin-top:12px;">
-                <button class="btn" type="submit">➕ Add Item</button>
+                <button class="btn btn-primary" type="submit">➕ Add Item</button>
             </div>
         </form>
     </div>
@@ -166,11 +152,11 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                         </span>
                     </td>
                     <td>
-                        <button class="btn btn-outline" onclick="fillEdit(<?php echo $it['id']; ?>,'<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>',<?php echo (int)$it['qty']; ?>,'<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>')">✏️ Edit</button>
+                        <button class="btn btn-secondary" onclick="fillEdit(<?php echo $it['id']; ?>,'<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>',<?php echo (int)$it['qty']; ?>,'<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>')">✏️ Edit</button>
                         <form method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Delete this item?');">
                             <input type="hidden" name="action" value="delete" />
                             <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
-                            <button class="btn btn-outline" type="submit">🗑️ Delete</button>
+                            <button class="btn btn-secondary" type="submit">🗑️ Delete</button>
                         </form>
                     </td>
                 </tr>
@@ -217,7 +203,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
             </div>
             <div style="margin-top:16px; display:flex; gap:8px;">
                 <button class="btn" type="submit">💾 Save Changes</button>
-                <button type="button" class="btn btn-outline" onclick="closeEdit()">❌ Cancel</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEdit()">❌ Cancel</button>
             </div>
         </form>
     </div>

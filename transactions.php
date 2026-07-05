@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 
 // Redirect to signin if the user is not logged in
@@ -13,7 +13,6 @@ if (!in_array($role, ['admin', 'manager', 'staff'])) {
 }
 
 require_once 'config/db.php';
-require_once 'src/services/StockMovementService.php';
 
 // capture 'action' from URL (e.g., ?action=in or ?action=out) to pre-select dropdown
 $action = $_GET['action'] ?? '';
@@ -36,7 +35,6 @@ $limit = 20; // Rows per page
 $offset = ($page - 1) * $limit; // Calculate SQL offset
 
 // Initialize arrays to hold data
-$dropdownItems = []; 
 $tableItems = [];   
 $categories = []; 
 
@@ -46,30 +44,9 @@ function setFlashMessage($type, $message) {
 }
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['smart_insight_referral']) && !isset($_POST['search_submit'])) {
-    $type = $_POST['type'] ?? 'in';
-    $id = (int)($_POST['id'] ?? 0);
-    $qty = (int)($_POST['qty'] ?? 0);
-
-    try {
-        StockMovementService::executeMovement($conn, $id, $qty, $type, $_SESSION['Username']);
-        setFlashMessage('success', 'Transaction processed successfully!');
-    } catch (Exception $e) {
-        setFlashMessage('error', $e->getMessage());
-    }
-
-    header('Location: transactions.php');
-    exit();
-}
-
 // Fetch unique categories for the filter dropdown
 $catResult = $conn->query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category");
 while ($row = $catResult->fetch_assoc()) { $categories[] = $row['category']; }
-
-// Fetch ALL products for the Transaction Form Dropdown (Select2)
-$dropQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, quantity as qty, unit as uom FROM products ORDER BY product_name";
-$dropRes = $conn->query($dropQuery);
-while ($r = $dropRes->fetch_assoc()) { $dropdownItems[] = $r; }
 
 $sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, reorder_point FROM products WHERE 1=1";
 $params = [];
@@ -124,71 +101,7 @@ require_once 'src/layout.php';
 renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 ?>
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
-
 <style>
-    /* Select2 dark theme — load overrides with page styles */
-    .select2-container { width: 100% !important; max-width: 100%; }
-    .select2-container--default .select2-selection--single {
-        background-color: rgba(19, 39, 91, 0.8) !important;
-        border: 1px solid rgba(48, 67, 116, 0.6) !important;
-        border-radius: 12px !important;
-        height: 46px !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        color: #E3E3E3 !important;
-        padding-left: 16px !important;
-        padding-right: 36px !important;
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-        line-height: 44px !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__placeholder {
-        color: #9aa6d1 !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 44px !important;
-        right: 10px !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__arrow b {
-        border-color: #9aa6d1 transparent transparent transparent !important;
-    }
-    .select2-container--default .select2-selection--single .select2-selection__clear {
-        color: #9aa6d1 !important;
-        margin-right: 28px !important;
-        font-size: 16px !important;
-    }
-    .select2-dropdown {
-        background-color: #1D387B !important;
-        border: 1px solid rgba(48, 67, 116, 0.8) !important;
-        border-radius: 12px !important;
-        z-index: 100010 !important;
-    }
-    .select2-search--dropdown { padding: 8px !important; }
-    .select2-search__field {
-        background-color: rgba(13, 22, 56, 0.95) !important;
-        color: #E3E3E3 !important;
-        border: 1px solid rgba(48, 67, 116, 0.6) !important;
-        border-radius: 8px !important;
-        padding: 8px 12px !important;
-        outline: none !important;
-    }
-    .select2-results__option {
-        color: #E3E3E3 !important;
-        padding: 10px 16px !important;
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-    }
-    .select2-container--default .select2-results__option--highlighted[aria-selected] {
-        background: linear-gradient(135deg, rgba(81, 213, 90, 0.2) 0%, rgba(75, 192, 82, 0.1) 100%) !important;
-        color: #51D55A !important;
-    }
-    .select2-container--default .select2-results__option[aria-selected=true] {
-        background-color: rgba(81, 213, 90, 0.15) !important;
-    }
-
     .txn-page-card { padding: 0 !important; overflow: visible !important; }
     .txn-page-card:hover { transform: none !important; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; }
 
@@ -267,82 +180,42 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             <span class="text-[10px] text-[#51D55A] bg-[#51D55A]/10 border border-[#51D55A]/20 px-2 py-1 rounded">Write Access Enabled</span>
         </div>
     </div>
-    
-    <div class="p-6">
-        <form method="POST">
-            <div class="txn-form-grid">
-                <div class="txn-field">
-                    <label for="txn-type-select">Transaction Type</label>
-                    <select id="txn-type-select" class="premium-input w-full cursor-pointer" name="type" style="height: 46px;">
-                        <option value="in" <?php echo $action==='in'?'selected':''; ?>>📥 Stock In (Restock)</option>
-                        <option value="out" <?php echo $action==='out'?'selected':''; ?>>📤 Stock Out (Dispense)</option>
-                    </select>
-                </div>
-
-                <div class="txn-field">
-                    <label for="productSelect">Select Product</label>
-                    <div class="txn-product-row">
-                        <div class="txn-select-wrap">
-                            <select class="w-full" name="id" id="productSelect" required>
-                                <option value="">-- Search or Select Product --</option>
-                                <?php foreach($dropdownItems as $it): ?>
-                                    <option value="<?php echo $it['id']; ?>" data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? ''); ?>" data-qty="<?php echo (int)$it['qty']; ?>" data-uom="<?php echo htmlspecialchars($it['uom'] ?? ''); ?>">
-                                        <?php echo htmlspecialchars($it['sku'].' - '.$it['name']); ?><?php if(!empty($it['barcode'])) echo ' ['.htmlspecialchars($it['barcode']).']'; ?> (Qty: <?php echo $it['qty']; ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <button type="button" class="btn-scan" id="txn-scan-barcode-btn" title="Scan with camera">📷</button>
-                    </div>
-                </div>
-
-                <div class="txn-field">
-                    <label for="txn-qty-input">Quantity</label>
-                    <input type="number" id="txn-qty-input" class="premium-input w-full" name="qty" value="1" min="1" required style="height: 46px;">
-                </div>
-
-                <div class="txn-field txn-field-action">
-                    <label class="hidden lg:block" style="visibility:hidden;margin-bottom:8px;">Action</label>
-                    <button class="premium-button" type="submit">
-                        <span>Process</span>
-                    </button>
-                </div>
+    <div id="txn-scanner-indicator" class="hidden border border-[#2A4484] rounded-2xl bg-[#13275B]/50 p-4 mb-4 text-[#9aa6d1]">
+        <div class="flex items-start gap-3">
+            <div class="flex-shrink-0 mt-0.5 text-emerald-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             </div>
-
-        </form>
-    </div>
-</div>
-
-<!-- ── BARCODE SCANNER BAR ─────────────────────────────────────────────── -->
-<div id="txn-hid-focus-hint" style="
-    background: rgba(81,213,90,0.06);
-    border: 1.5px dashed rgba(81,213,90,0.35);
-    border-radius: 12px;
-    padding: 12px 20px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    cursor: text;
-" title="Click here then scan a product">
-    <svg style="width:20px;height:20px;color:#51D55A;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
-    </svg>
-    <div style="flex:1;">
-        <div id="txn-hid-status-label" style="font-family:'Onest',sans-serif;font-size:11px;color:#51D55A;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;">
-            Barcode Scanner Ready
-        </div>
-        <div style="font-family:'Onest',sans-serif;font-size:13px;color:#9aa6d1;">
-            Click here then scan any product — it will be selected automatically
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-[#51D55A]">Physical Scanner Detected</div>
+                <div class="text-sm text-[#d1d9f0] mt-1">Handheld barcode scanner input is ready. Camera scanning remains available as well.</div>
+            </div>
         </div>
     </div>
-    <div id="txn-scan-live-result" style="font-family:'Onest',sans-serif;font-size:12px;color:#9aa6d1;text-align:right;min-width:120px;"></div>
+    <div class="p-6">
+        <div class="grid gap-4 md:grid-cols-2">
+            <a href="receive.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-base text-white group-hover:text-emerald-400 transition-colors">Receive Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Add incoming stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-emerald-400 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <a href="release.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-red-500/40 hover:bg-red-500/5 transition-all">
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 border border-red-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12h-15"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-base text-white group-hover:text-red-400 transition-colors">Release Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Record outgoing stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-red-400 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
 </div>
-
-<!-- Hidden input that receives scanner keystrokes — must be focusable -->
-<input type="text" id="txn-hid-barcode-input" autocomplete="off"
-    style="position:fixed;top:0;left:-9999px;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;">
 
 <div class="premium-card txn-page-card">
     <form method="GET" action="" class="p-6 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#13275B]/30">
@@ -355,10 +228,8 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             <div class="relative w-full md:w-64">
                 <input type="text" name="q" id="txn-search-input" class="premium-input w-full pl-10" placeholder="Search by name or barcode..." 
                        value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off">
-                <button type="button" id="txn-search-scan-btn" class="absolute right-3 top-3.5 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none text-lg" title="Scan barcode to search">📷</button>
-                <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
-            
+
             <select name="category" class="premium-input cursor-pointer text-sm w-full md:w-40" onchange="this.form.submit()">
                 <option value="">All Categories</option>
                 <?php foreach($categories as $cat): ?>
@@ -427,13 +298,13 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             $qs = http_build_query($params);
         ?>
         <?php if ($page > 1): ?>
-            <a href="?<?php echo $qs; ?>&page=<?php echo $page-1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Previous</a>
+            <a href="?<?php echo $qs; ?>&page=<?php echo $page-1; ?>" class="btn btn-secondary px-3 py-1 text-sm">Previous</a>
         <?php endif; ?>
         
         <span class="px-3 py-1 text-[#9aa6d1] text-sm flex items-center">Page <?php echo $page; ?></span>
         
         <?php if ($page < $totalPages): ?>
-            <a href="?<?php echo $qs; ?>&page=<?php echo $page+1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Next</a>
+            <a href="?<?php echo $qs; ?>&page=<?php echo $page+1; ?>" class="btn btn-secondary px-3 py-1 text-sm">Next</a>
         <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -441,26 +312,25 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 
 <?php renderLayoutContentEnd(); ?>
 
-<?php require_once 'src/partials/barcode_scanner_modal.php'; ?>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="src/scripts/barcode-scanner.js"></script>
 <script>
-$(document).ready(function() {
-    $('#productSelect').select2({
-        placeholder: "-- Search or Select Product --",
-        allowClear: true,
-        width: '100%',
-        dropdownParent: $(document.body),
-        language: { noResults: function() { return "No products found."; } }
-    });
+function showScannerIndicator() {
+    var banner = document.getElementById('txn-scanner-indicator');
+    if (banner) banner.classList.remove('hidden');
+}
 
-    if (window.BarcodeScanner) {
-        BarcodeScanner.init();
-        initTransactionBarcodeInputs();
-    }
+function initHidScannerIndicator() {
+    var input = document.getElementById('txn-search-input');
+    if (!window.BarcodeScanner || !input || typeof window.BarcodeScanner.attachHidInput !== 'function') return;
+
+    BarcodeScanner.attachHidInput(input, function(code, inputEl) {
+        showScannerIndicator();
+    }, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+}
+
+$(document).ready(function() {
+    initHidScannerIndicator();
 
     <?php if (isset($_SESSION['toast'])): ?>
     showToast(<?php echo json_encode($_SESSION['toast']['message']); ?>, <?php echo json_encode($_SESSION['toast']['type']); ?>);
@@ -469,67 +339,6 @@ $(document).ready(function() {
     <?php if ($smartInsightActive): ?>
     showToast(<?php echo json_encode("Filtering Category '" . $filter_cat . "'"); ?>, 'success');
     <?php endif; ?>
-});
-
-function selectProductByBarcode(barcode) {
-    var liveResult = document.getElementById('txn-scan-live-result');
-    var statusLabel = document.getElementById('txn-hid-status-label');
-    if (liveResult) liveResult.textContent = 'Looking up...';
-
-    BarcodeScanner.lookup(barcode).then(function(data) {
-        if (data.found && data.product) {
-            var p = data.product;
-            $('#productSelect').val(p.product_id).trigger('change');
-            showToast('✓ ' + p.product_name + ' selected', 'success');
-
-            // Update scan bar
-            if (liveResult) {
-                liveResult.innerHTML = '<span style="color:#51D55A;font-weight:600;">✓ ' + p.product_name + '</span><br><span style="color:#9aa6d1;font-size:11px;">Stock: ' + p.quantity + ' ' + (p.unit || 'pcs') + '</span>';
-            }
-            if (statusLabel) statusLabel.textContent = 'Product Found — Scan another or enter qty';
-
-            // Move focus to quantity field
-            setTimeout(function() {
-                var qtyInput = document.getElementById('txn-qty-input');
-                if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
-            }, 200);
-        } else {
-            showToast('Product not found. Register this barcode first.', 'error');
-            if (liveResult) liveResult.innerHTML = '<span style="color:#ef4444;">Not registered</span>';
-            if (statusLabel) statusLabel.textContent = 'Barcode Scanner Ready';
-
-            // Flash scan bar red
-            var bar = document.getElementById('txn-hid-focus-hint');
-            if (bar) {
-                bar.style.borderColor = 'rgba(239,68,68,0.5)';
-                bar.style.background = 'rgba(239,68,68,0.06)';
-                setTimeout(function() {
-                    bar.style.borderColor = 'rgba(81,213,90,0.35)';
-                    bar.style.background = 'rgba(81,213,90,0.06)';
-                }, 1800);
-            }
-        }
-    }).catch(function() {
-        showToast('Connection error. Try again.', 'error');
-        if (liveResult) liveResult.textContent = '';
-    });
-
-    // Re-focus the hidden input so scanner keeps working
-    setTimeout(function() {
-        var wedge = document.getElementById('txn-hid-barcode-input');
-        if (wedge) wedge.focus();
-    }, 300);
-}
-
-document.getElementById('txn-scan-barcode-btn')?.addEventListener('click', function() {
-    BarcodeScanner.open(selectProductByBarcode);
-});
-
-document.getElementById('txn-search-scan-btn')?.addEventListener('click', function() {
-    BarcodeScanner.open(function(code) {
-        document.getElementById('txn-search-input').value = code;
-        document.getElementById('txn-search-input').closest('form').submit();
-    });
 });
 
 function showToast(message, type) {
@@ -546,52 +355,6 @@ function showToast(message, type) {
         toastIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
     }
     setTimeout(function() { toast.classList.remove('show'); }, 3500);
-}
-
-function initTransactionBarcodeInputs() {
-    if (!window.BarcodeScanner) return;
-
-    var searchInput = document.getElementById('txn-search-input');
-    if (searchInput) {
-        BarcodeScanner.attachHidInput(searchInput, function(code) {
-            searchInput.value = code;
-            searchInput.closest('form').submit();
-        });
-    }
-
-    var wedgeInput = document.getElementById('txn-hid-barcode-input');
-    if (wedgeInput) {
-        BarcodeScanner.attachHidInput(wedgeInput, function(code) {
-            wedgeInput.value = '';
-            selectProductByBarcode(code);
-        });
-
-        // Auto-focus on page load so scanner works immediately
-        BarcodeScanner.focusHidInput(wedgeInput);
-
-        // Re-focus when clicking anywhere EXCEPT Select2, qty, type, submit
-        document.addEventListener('click', function(e) {
-            var tag = e.target.tagName;
-            var id  = e.target.id || '';
-            var cls = e.target.className || '';
-            var skip = (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT' ||
-                        id === 'txn-qty-input' ||
-                        cls.toString().indexOf('select2') !== -1);
-            if (!skip) {
-                BarcodeScanner.focusHidInput(wedgeInput);
-            }
-        });
-    }
-
-    // Clicking the scan bar always re-focuses
-    var scanHint = document.getElementById('txn-hid-focus-hint');
-    if (scanHint && wedgeInput) {
-        scanHint.addEventListener('click', function() {
-            BarcodeScanner.focusHidInput(wedgeInput);
-            var label = document.getElementById('txn-hid-status-label');
-            if (label) label.textContent = 'Ready — Scan now';
-        });
-    }
 }
 </script>
 

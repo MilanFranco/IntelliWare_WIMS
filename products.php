@@ -525,8 +525,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </div>
             </div>
             <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: flex-end; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0;">
-                <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
-                <button type="submit" class="premium-button">Create Product</button>
+                <button type="button" class="btn-secondary !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Product</button>
             </div>
         </form>
     </div>
@@ -548,12 +548,12 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <h3 style="color:#fff; margin-bottom:10px;">Confirm Deletion</h3>
         <p style="color:#9aa6d1; margin-bottom:30px;">This action cannot be undone. Are you sure you want to delete product ID <span id="del-id-display" style="font-weight: bold; color: #f87171;"></span>?</p>
         <div style="display:flex; justify-content:center; gap:15px;">
-            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeDeleteModal()">Cancel</button>
+            <button type="button" class="btn-secondary !shadow-none border border-[#64748b]" onclick="closeDeleteModal()">Cancel</button>
             <form method="POST" id="modal-delete-form" style="display:inline;">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="modal-delete-id">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <button type="submit" class="premium-button" id="modal-yes-btn" style="background:#ef4444 !important;">Delete</button>
+                <button type="submit" class="btn-danger" id="modal-yes-btn" style="background:#ef4444 !important; border-color: rgba(248, 113, 113, 0.4);">Delete</button>
             </form>
         </div>
     </div>

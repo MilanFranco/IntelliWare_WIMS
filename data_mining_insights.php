@@ -70,47 +70,14 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 ?>
 
 <style>
-.card { background:#1D387B; border:1px solid #2A4484; border-radius:12px; padding:20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); margin-bottom:20px; }
-.btn { background:#51D55A; color:#fff; border-radius:8px; padding:10px 16px; font-size:13px; text-decoration:none; border:1px solid transparent; cursor:pointer; font-weight:500; transition:all 0.2s ease; }
-.btn:hover { background:#3d9743; transform:translateY(-1px); }
-.btn-secondary { background:#13275B; color:#E3E3E3; border:1px solid #2A4484; }
-.btn-secondary:hover { background:#1D387B; }
-.table { width:100%; border-collapse:collapse; }
-
-/* --- MODIFIED CSS FOR TABLES --- */
-.table th, .table td {
-    padding:12px;
-    border-bottom:1px solid #2A4484;
-    color:#E3E3E3;
-    font-family:'Onest';
-    font-size:13px;
-    text-align: left; /* Justify left */
-    font-weight: 700;   /* Bold */
+.card, .premium-card {
+    background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
+    border: 1px solid rgba(42, 68, 132, 0.6);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    margin-bottom: 20px;
 }
-.table th {
-    background:#13275B;
-    /* font-weight:600; <- Now handled above */
-}
-.badge {
-  display: inline-block; /* Ensures padding and layout are consistent */
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: #13275B;
-  color: #E3E3E3;
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap; /* This is the fix: prevents text from wrapping */
-}
-.badge { padding:4px 10px; border-radius:12px; background:#13275B; color:#E3E3E3; font-size:11px; font-weight:500; }
-.badge.fast-moving { background:#10b981; color:#fff; }
-.badge.low-stock { background:#ef4444; color:#fff; }
-.badge.high-demand { background:#10b981; color:#fff; }
-.badge.low-demand { background:#ef4444; color:#fff; }
-.badge.overstocked { background:#f59e0b; color:#fff; }
-.badge.inactive { background:#6b7280; color:#fff; }
-.badge.normal { background:#3b82f6; color:#fff; }
-.badge.high { background:#ef4444; color:#fff; }
-.badge.medium { background:#f59e0b; color:#fff; }
 .metric-card { cursor: pointer; transition: all 0.3s ease; }
 .metric-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); border-color: #51D55A; }
 .metric-card.active { border-color: #51D55A; background: linear-gradient(135deg, #13275B 0%, #1D387B 100%); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }

@@ -307,15 +307,15 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
         </span>
         <div class="flex gap-2">
             <?php if ($page > 1): ?>
-                <a href="?page=<?php echo $page - 1; ?>" class="premium-button text-xs py-2 px-4 whitespace-nowrap">Previous</a>
+                <a href="?page=<?php echo $page - 1; ?>" class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap">Previous</a>
             <?php else: ?>
-                <span class="premium-button text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Previous</span>
+                <span class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Previous</span>
             <?php endif; ?>
 
             <?php if ($page < $totalPages): ?>
-                <a href="?page=<?php echo $page + 1; ?>" class="premium-button text-xs py-2 px-4 whitespace-nowrap">Next</a>
+                <a href="?page=<?php echo $page + 1; ?>" class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap">Next</a>
             <?php else: ?>
-                <span class="premium-button text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Next</span>
+                <span class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Next</span>
             <?php endif; ?>
         </div>
     </div>
