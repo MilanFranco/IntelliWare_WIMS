@@ -313,7 +313,36 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     </div>
 </div>
 
-<input type="text" id="txn-hid-barcode-input" class="hid-barcode-capture" aria-hidden="true" tabindex="-1" autocomplete="off">
+<!-- ── BARCODE SCANNER BAR ─────────────────────────────────────────────── -->
+<div id="txn-hid-focus-hint" style="
+    background: rgba(81,213,90,0.06);
+    border: 1.5px dashed rgba(81,213,90,0.35);
+    border-radius: 12px;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: text;
+" title="Click here then scan a product">
+    <svg style="width:20px;height:20px;color:#51D55A;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75v-.75ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+    </svg>
+    <div style="flex:1;">
+        <div id="txn-hid-status-label" style="font-family:'Onest',sans-serif;font-size:11px;color:#51D55A;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;">
+            Barcode Scanner Ready
+        </div>
+        <div style="font-family:'Onest',sans-serif;font-size:13px;color:#9aa6d1;">
+            Click here then scan any product — it will be selected automatically
+        </div>
+    </div>
+    <div id="txn-scan-live-result" style="font-family:'Onest',sans-serif;font-size:12px;color:#9aa6d1;text-align:right;min-width:120px;"></div>
+</div>
+
+<!-- Hidden input that receives scanner keystrokes — must be focusable -->
+<input type="text" id="txn-hid-barcode-input" autocomplete="off"
+    style="position:fixed;top:0;left:-9999px;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;">
 
 <div class="premium-card txn-page-card">
     <form method="GET" action="" class="p-6 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#13275B]/30">
@@ -443,17 +472,53 @@ $(document).ready(function() {
 });
 
 function selectProductByBarcode(barcode) {
+    var liveResult = document.getElementById('txn-scan-live-result');
+    var statusLabel = document.getElementById('txn-hid-status-label');
+    if (liveResult) liveResult.textContent = 'Looking up...';
+
     BarcodeScanner.lookup(barcode).then(function(data) {
         if (data.found && data.product) {
             var p = data.product;
             $('#productSelect').val(p.product_id).trigger('change');
-            showToast('Product found: ' + p.product_name, 'success');
+            showToast('✓ ' + p.product_name + ' selected', 'success');
+
+            // Update scan bar
+            if (liveResult) {
+                liveResult.innerHTML = '<span style="color:#51D55A;font-weight:600;">✓ ' + p.product_name + '</span><br><span style="color:#9aa6d1;font-size:11px;">Stock: ' + p.quantity + ' ' + (p.unit || 'pcs') + '</span>';
+            }
+            if (statusLabel) statusLabel.textContent = 'Product Found — Scan another or enter qty';
+
+            // Move focus to quantity field
+            setTimeout(function() {
+                var qtyInput = document.getElementById('txn-qty-input');
+                if (qtyInput) { qtyInput.focus(); qtyInput.select(); }
+            }, 200);
         } else {
-            showToast('Product not found. Please register this product first.', 'error');
+            showToast('Product not found. Register this barcode first.', 'error');
+            if (liveResult) liveResult.innerHTML = '<span style="color:#ef4444;">Not registered</span>';
+            if (statusLabel) statusLabel.textContent = 'Barcode Scanner Ready';
+
+            // Flash scan bar red
+            var bar = document.getElementById('txn-hid-focus-hint');
+            if (bar) {
+                bar.style.borderColor = 'rgba(239,68,68,0.5)';
+                bar.style.background = 'rgba(239,68,68,0.06)';
+                setTimeout(function() {
+                    bar.style.borderColor = 'rgba(81,213,90,0.35)';
+                    bar.style.background = 'rgba(81,213,90,0.06)';
+                }, 1800);
+            }
         }
     }).catch(function() {
-        showToast('Failed to look up barcode.', 'error');
+        showToast('Connection error. Try again.', 'error');
+        if (liveResult) liveResult.textContent = '';
     });
+
+    // Re-focus the hidden input so scanner keeps working
+    setTimeout(function() {
+        var wedge = document.getElementById('txn-hid-barcode-input');
+        if (wedge) wedge.focus();
+    }, 300);
 }
 
 document.getElementById('txn-scan-barcode-btn')?.addEventListener('click', function() {
@@ -500,12 +565,31 @@ function initTransactionBarcodeInputs() {
             wedgeInput.value = '';
             selectProductByBarcode(code);
         });
+
+        // Auto-focus on page load so scanner works immediately
+        BarcodeScanner.focusHidInput(wedgeInput);
+
+        // Re-focus when clicking anywhere EXCEPT Select2, qty, type, submit
+        document.addEventListener('click', function(e) {
+            var tag = e.target.tagName;
+            var id  = e.target.id || '';
+            var cls = e.target.className || '';
+            var skip = (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT' ||
+                        id === 'txn-qty-input' ||
+                        cls.toString().indexOf('select2') !== -1);
+            if (!skip) {
+                BarcodeScanner.focusHidInput(wedgeInput);
+            }
+        });
     }
 
+    // Clicking the scan bar always re-focuses
     var scanHint = document.getElementById('txn-hid-focus-hint');
     if (scanHint && wedgeInput) {
         scanHint.addEventListener('click', function() {
             BarcodeScanner.focusHidInput(wedgeInput);
+            var label = document.getElementById('txn-hid-status-label');
+            if (label) label.textContent = 'Ready — Scan now';
         });
     }
 }

@@ -81,12 +81,13 @@ switch ($selectedPeriod) {
 }
 
 function getCategoryPerformance($conn) {
-    $query = "SELECT c.name as category_name, COUNT(p.product_id) as product_count, SUM(p.quantity) as total_stock,
-        AVG(p.quantity) as avg_stock, COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) as low_stock_count,
-        (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id 
-        WHERE p2.category_id = c.id AND t.transaction_type = 'stock_out') as monthly_sales
-        FROM categories c LEFT JOIN products p ON c.id = p.category_id
-        GROUP BY c.id, c.name ORDER BY monthly_sales DESC";
+    $query = "SELECT p.category AS category_name, COUNT(p.product_id) AS product_count, SUM(p.quantity) AS total_stock,
+        AVG(p.quantity) AS avg_stock, COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) AS low_stock_count,
+        (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id
+        WHERE p2.category = p.category AND t.transaction_type = 'stock_out') AS monthly_sales
+        FROM products p
+        WHERE p.category IS NOT NULL AND p.category != ''
+        GROUP BY p.category ORDER BY monthly_sales DESC";
     $result = $conn->query($query);
     $categories = [];
     while ($row = $result->fetch_assoc()) { $categories[] = $row; }
@@ -94,9 +95,9 @@ function getCategoryPerformance($conn) {
 }
 
 function getProductMovementAnalysis($conn) {
-    $query = "SELECT p.product_id, p.product_name, c.name as category_name, p.quantity as current_stock, p.reorder_point,
-        (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') as monthly_sales
-        FROM products p LEFT JOIN categories c ON p.category_id = c.id ORDER BY monthly_sales DESC";
+    $query = "SELECT p.product_id, p.product_name, p.category AS category_name, p.quantity AS current_stock, p.reorder_point,
+        (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') AS monthly_sales
+        FROM products p ORDER BY monthly_sales DESC";
     
     $result = $conn->query($query);
     $products = [];
@@ -149,10 +150,10 @@ function getSupplierPerformance($conn) {
 }
 
 function getExpiryRiskAnalysis($conn) {
-    $query = "SELECT p.product_id, p.product_name, c.name as category_name, p.quantity, p.expiry_date,
-        DATEDIFF(p.expiry_date, CURDATE()) as days_until_expiry,
-        (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') as monthly_sales
-        FROM products p LEFT JOIN categories c ON p.category_id = c.id
+    $query = "SELECT p.product_id, p.product_name, p.category AS category_name, p.quantity, p.expiry_date,
+        DATEDIFF(p.expiry_date, CURDATE()) AS days_until_expiry,
+        (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') AS monthly_sales
+        FROM products p
         WHERE p.expiry_date IS NOT NULL AND p.expiry_date > CURDATE()
         ORDER BY days_until_expiry ASC";
     $result = $conn->query($query);
@@ -254,11 +255,10 @@ if (isset($conn)) {
             p.product_id,
             p.product_name,
             p.quantity as current_stock,
-            c.name as category_name,
-            SUM(t.quantity) as total_historical_sales
+            p.category AS category_name,
+            SUM(t.quantity) AS total_historical_sales
         FROM transactions t
         JOIN products p ON t.product_id = p.product_id
-        LEFT JOIN categories c ON p.category_id = c.id
         WHERE $sqlTimeFilter
         AND t.transaction_type = 'stock_out'
         GROUP BY p.product_id

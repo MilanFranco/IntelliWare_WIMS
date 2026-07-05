@@ -9,11 +9,85 @@ require_once __DIR__ . '/../../config/db.php';
 class ForecastDataService
 {
     private $conn;
+    private static $tablesEnsured = false;
 
     public function __construct($connection = null)
     {
         global $conn;
         $this->conn = $connection ?? $conn;
+        $this->ensureMlTables();
+    }
+
+    /**
+     * Create ML tables if the migration was never run.
+     */
+    private function ensureMlTables(): void
+    {
+        if (self::$tablesEnsured) {
+            return;
+        }
+
+        $statements = [
+            "CREATE TABLE IF NOT EXISTS `forecast_results` (
+              `result_id` bigint(20) NOT NULL AUTO_INCREMENT,
+              `product_id` int(11) NOT NULL DEFAULT 0,
+              `forecast_date` date NOT NULL,
+              `predicted_quantity` decimal(12,2) NOT NULL,
+              `confidence_score` decimal(6,4) DEFAULT NULL,
+              `model_version` varchar(20) DEFAULT '1.0.0',
+              `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (`result_id`),
+              UNIQUE KEY `unique_forecast_result` (`product_id`,`forecast_date`),
+              KEY `idx_forecast_date` (`forecast_date`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+            "CREATE TABLE IF NOT EXISTS `forecast_metrics` (
+              `metric_id` bigint(20) NOT NULL AUTO_INCREMENT,
+              `training_date` timestamp NOT NULL DEFAULT current_timestamp(),
+              `mae` decimal(12,4) DEFAULT NULL,
+              `rmse` decimal(12,4) DEFAULT NULL,
+              `mape` decimal(8,4) DEFAULT NULL,
+              `forecast_accuracy` decimal(6,2) DEFAULT NULL,
+              `error_rate` decimal(6,2) DEFAULT NULL,
+              `model_type` varchar(50) DEFAULT NULL,
+              `model_version` varchar(20) DEFAULT '1.0.0',
+              `products_processed` int(11) DEFAULT 0,
+              `forecasts_generated` int(11) DEFAULT 0,
+              `segment_accuracy_json` text DEFAULT NULL,
+              PRIMARY KEY (`metric_id`),
+              KEY `idx_training_date` (`training_date`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+            "CREATE TABLE IF NOT EXISTS `ml_training_state` (
+              `id` int(11) NOT NULL DEFAULT 1,
+              `last_training_at` timestamp NULL DEFAULT NULL,
+              `last_transaction_count` int(11) DEFAULT 0,
+              `auto_retrain_threshold` int(11) DEFAULT 50,
+              `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+              PRIMARY KEY (`id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci",
+            "INSERT IGNORE INTO `ml_training_state` (`id`, `auto_retrain_threshold`) VALUES (1, 50)",
+        ];
+
+        foreach ($statements as $sql) {
+            try {
+                $this->conn->query($sql);
+            } catch (mysqli_sql_exception $e) {
+                // Table creation failed; safeQuery will handle missing tables gracefully.
+            }
+        }
+
+        self::$tablesEnsured = true;
+    }
+
+    /**
+     * Run a query, returning null on failure instead of throwing.
+     */
+    private function safeQuery(string $sql): ?mysqli_result
+    {
+        try {
+            return $this->conn->query($sql);
+        } catch (mysqli_sql_exception $e) {
+            return null;
+        }
     }
 
     /**
@@ -21,7 +95,7 @@ class ForecastDataService
      */
     public function hasTrainedModel(): bool
     {
-        $result = $this->conn->query(
+        $result = $this->safeQuery(
             "SELECT COUNT(*) AS cnt FROM forecast_metrics
              WHERE model_type NOT LIKE '%_segments'"
         );
@@ -37,7 +111,7 @@ class ForecastDataService
      */
     public function getLatestMetrics(): ?array
     {
-        $result = $this->conn->query(
+        $result = $this->safeQuery(
             "SELECT * FROM forecast_metrics
              WHERE model_type NOT LIKE '%_segments'
              ORDER BY training_date DESC LIMIT 1"
@@ -53,7 +127,7 @@ class ForecastDataService
      */
     public function getPreviousMetrics(): ?array
     {
-        $result = $this->conn->query(
+        $result = $this->safeQuery(
             "SELECT * FROM forecast_metrics
              WHERE model_type NOT LIKE '%_segments'
              ORDER BY training_date DESC LIMIT 1 OFFSET 1"
@@ -104,7 +178,7 @@ class ForecastDataService
      */
     public function getSegmentAccuracy(): array
     {
-        $result = $this->conn->query(
+        $result = $this->safeQuery(
             "SELECT segment_accuracy_json FROM forecast_metrics
              WHERE segment_accuracy_json IS NOT NULL
              ORDER BY training_date DESC LIMIT 1"
