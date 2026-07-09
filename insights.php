@@ -351,7 +351,24 @@ $accuracyTrend = $forecastService->getAccuracyTrend();
 $segmentAccuracy = $forecastService->getSegmentAccuracy();
 $salesForecastChart = $forecastService->getSalesForecastChartData($daysLookback);
 $heatmapForecast = $forecastService->getProductForecastDemand(8);
+$depletionTrend = $forecastService->getStockDepletionTrend();
+$reorderFrequencyTrend = $forecastService->getReorderFrequencyTrend();
 $lastMlRun = $mlManager->getLastRunStatus();
+
+$seasonalHighlights = [];
+if ($hasMlModel && !empty($seasonalChartData['month_labels']) && !empty($seasonalChartData['seasonal_index'])) {
+    $pairs = [];
+    for ($i = 0; $i < count($seasonalChartData['month_labels']); $i++) {
+        $pairs[] = [
+            'month' => $seasonalChartData['month_labels'][$i],
+            'index' => (float)($seasonalChartData['seasonal_index'][$i] ?? 1.0),
+        ];
+    }
+    usort($pairs, function ($a, $b) {
+        return $b['index'] <=> $a['index'];
+    });
+    $seasonalHighlights = array_slice($pairs, 0, 3);
+}
 
 $conn->close();
 
@@ -942,6 +959,15 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
         </div>
         <?php endif; ?>
         <div class="chart-container-lg"<?php echo !$hasMlModel ? ' style="display:none;"' : ''; ?>><canvas id="seasonalChart"></canvas></div>
+        <?php if ($hasMlModel && !empty($seasonalHighlights)): ?>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
+            <?php foreach ($seasonalHighlights as $highlight): ?>
+            <span style="padding:6px 10px; border-radius:999px; font-size:11px; background: rgba(81,213,90,0.12); color: #51D55A; border: 1px solid rgba(81,213,90,0.25);">
+                <?php echo htmlspecialchars($highlight['month']); ?> ×<?php echo number_format($highlight['index'], 2); ?>
+            </span>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
@@ -976,10 +1002,41 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
     </div>
 </div>
 
+<div class="grid-2" style="margin-bottom: 20px;">
+    <div class="card">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📉 Stock Depletion Trend</div>
+            <div class="info-icon" data-tooltip="depletion-tooltip">?</div>
+        </div>
+        <?php if (!$depletionTrend['available']): ?>
+        <div class="chart-container" style="display:flex; align-items:center; justify-content:center; text-align:center; padding:16px;">
+            <p style="color: #9aa6d1; font-size: 13px; margin: 0;">No stock movement history yet. Add stock in/out transactions to view depletion trends.</p>
+        </div>
+        <?php else: ?>
+        <div class="chart-container"><canvas id="depletionTrendChart"></canvas></div>
+        <?php endif; ?>
+    </div>
+    <div class="card">
+        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">🔁 Reorder Frequency Over Time</div>
+            <div class="info-icon" data-tooltip="reorder-tooltip">?</div>
+        </div>
+        <?php if (!$reorderFrequencyTrend['available']): ?>
+        <div class="chart-container" style="display:flex; align-items:center; justify-content:center; text-align:center; padding:16px;">
+            <p style="color: #9aa6d1; font-size: 13px; margin: 0;">No restock history yet. Reorder events will appear once stock is replenished.</p>
+        </div>
+        <?php else: ?>
+        <div class="chart-container"><canvas id="reorderFrequencyChart"></canvas></div>
+        <?php endif; ?>
+    </div>
+</div>
+
 <div class="info-tooltip" id="sales-forecast-tooltip"><strong><?php echo $daysLookback; ?>-Day Sales Forecast</strong><br><br>• <strong>Green Line:</strong> Historical daily sales from transactions<br>• <strong>Orange Dashed Line:</strong> ML-predicted future demand<br>• Powered by Prophet or Random Forest model<br>• Train the model from Settings to enable predictions</div>
 <div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• Shows top products by forecasted demand<br>• <span style="color: #ef4444">🔴 High</span> = 50+ units (Priority restock)<br>• <span style="color: #f59e0b">🟠 Medium-High</span> = 25-50 units<br>• <span style="color: #3b82f6">🔵 Medium</span> = 10-25 units<br>• <span style="color: #10b981">🟢 Low</span> = Under 10 units</div>
 <div class="info-tooltip" id="seasonal-tooltip"><strong>Seasonal Demand Patterns</strong><br><br>• <strong>Green:</strong> Historical monthly sales from transactions<br>• <strong>Orange:</strong> ML forecasted demand for upcoming months<br>• <strong>Purple dashed:</strong> Trend line projection<br>• Identifies monthly peaks, declines, and seasonality</div>
 <div class="info-tooltip" id="accuracy-tooltip"><strong>Forecast Accuracy</strong><br><br>• Calculated from backtest: predicted vs actual sales<br>• <strong>MAE:</strong> Mean Absolute Error (units)<br>• <strong>MAPE:</strong> Mean Absolute Percentage Error<br>• <strong>Accuracy %</strong> = 100 − MAPE<br>• Segment chart shows accuracy by product movement class</div>
+<div class="info-tooltip" id="depletion-tooltip"><strong>Stock Depletion Trend</strong><br><br>• Compares monthly stock-outs against replenishment activity<br>• Helps identify where inventory is draining faster than it is restocked</div>
+<div class="info-tooltip" id="reorder-tooltip"><strong>Reorder Frequency Over Time</strong><br><br>• Tracks how often stock is replenished each month<br>• Helps spot recurring restock cycles and supplier cadence</div>
 
 <div class="card" style="margin-bottom: 0;">
     <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; margin-bottom: 12px;">🎯 Forecast Recommendations</div>
@@ -1041,6 +1098,8 @@ const seasonalChartData = <?php echo json_encode($seasonalChartData); ?>;
 const segmentAccuracy = <?php echo json_encode($segmentAccuracy); ?>;
 const salesForecastChartData = <?php echo json_encode($salesForecastChart); ?>;
 const heatmapForecastData = <?php echo json_encode($heatmapForecast); ?>;
+const depletionTrendData = <?php echo json_encode($depletionTrend); ?>;
+const reorderFrequencyData = <?php echo json_encode($reorderFrequencyTrend); ?>;
 
 function checkStock(productName, categoryName) {
     document.getElementById('filter_product_name').value = productName;
@@ -1235,6 +1294,89 @@ function renderDemandHeatmapChart() {
     });
 }
 
+function renderDepletionTrendChart() {
+    const canvas = document.getElementById('depletionTrendChart');
+    if (!canvas || !depletionTrendData.available) return;
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: depletionTrendData.labels,
+            datasets: [
+                {
+                    label: 'Stock Outs',
+                    data: depletionTrendData.depletion,
+                    backgroundColor: 'rgba(248, 113, 113, 0.7)',
+                    borderColor: '#f87171',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Restocks',
+                    data: depletionTrendData.restocks,
+                    backgroundColor: 'rgba(81, 213, 90, 0.65)',
+                    borderColor: '#51D55A',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
+                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+            },
+            plugins: { legend: { labels: { color: '#E3E3E3' } } }
+        }
+    });
+}
+
+function renderReorderFrequencyChart() {
+    const canvas = document.getElementById('reorderFrequencyChart');
+    if (!canvas || !reorderFrequencyData.available) return;
+
+    const ctx = canvas.getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: reorderFrequencyData.labels,
+            datasets: [
+                {
+                    label: 'Restock Events',
+                    data: reorderFrequencyData.events,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    borderWidth: 2,
+                    tension: 0.35,
+                    fill: true
+                },
+                {
+                    label: 'Units Restocked',
+                    data: reorderFrequencyData.units,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    borderWidth: 2,
+                    borderDash: [4, 4],
+                    tension: 0.35,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
+                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+            },
+            plugins: { legend: { labels: { color: '#E3E3E3' } } }
+        }
+    });
+}
+
 function renderSeasonalChart() {
     if (!hasMlModel || !seasonalChartData.available) return;
 
@@ -1417,6 +1559,8 @@ function exportData() {
 document.addEventListener('DOMContentLoaded', function() {
     renderSalesForecastChart();
     renderDemandHeatmapChart();
+    renderDepletionTrendChart();
+    renderReorderFrequencyChart();
     renderSeasonalChart();
     renderAccuracyChart();
     

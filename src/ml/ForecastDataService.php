@@ -218,7 +218,7 @@ class ForecastDataService
             'forecasted' => [],
             'trend' => [],
             'seasonal_index' => array_fill(0, 12, 1.0),
-            'month_labels' => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+            'month_labels' => [],
         ];
 
         if (!$this->hasTrainedModel()) {
@@ -300,6 +300,11 @@ class ForecastDataService
                 : 1.0;
         }
 
+        $monthLabels = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $monthLabels[] = (new \DateTimeImmutable("2000-$m-01"))->format('M');
+        }
+
         return [
             'available' => !empty($labels),
             'labels' => $labels,
@@ -307,7 +312,7 @@ class ForecastDataService
             'forecasted' => $forecasted,
             'trend' => $trend,
             'seasonal_index' => $seasonalIndex,
-            'month_labels' => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+            'month_labels' => $monthLabels,
         ];
     }
 
@@ -367,6 +372,180 @@ class ForecastDataService
             'predicted' => array_merge(array_fill(0, count($histValues), null), $predValues),
             'hist_count' => count($histValues),
         ];
+    }
+
+    /**
+     * Stock depletion trend: stock-out volume versus restocks over time.
+     */
+    public function getStockDepletionTrend(?int $months = null): array
+    {
+        $empty = ['available' => false, 'labels' => [], 'depletion' => [], 'restocks' => [], 'net' => []];
+
+        $periods = $this->getMonthlyPeriods($months);
+        if (empty($periods)) {
+            return $empty;
+        }
+
+        $stmt = $this->conn->prepare(
+            "SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS period_key,
+                    SUM(CASE WHEN transaction_type = 'stock_out' THEN quantity ELSE 0 END) AS stock_out_qty,
+                    SUM(CASE WHEN transaction_type = 'stock_in' THEN quantity ELSE 0 END) AS stock_in_qty
+             FROM transactions
+             WHERE transaction_date >= ?
+             GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+             ORDER BY period_key ASC"
+        );
+
+        if (!$stmt) {
+            return $empty;
+        }
+
+        $startDate = new \DateTimeImmutable(array_key_first($periods) . '-01');
+        $startSql = $startDate->format('Y-m-d');
+        $stmt->bind_param('s', $startSql);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        while ($row = $result->fetch_assoc()) {
+            $key = $row['period_key'] ?? null;
+            if ($key && isset($periods[$key])) {
+                $periods[$key]['stock_out'] = (float)($row['stock_out_qty'] ?? 0);
+                $periods[$key]['stock_in'] = (float)($row['stock_in_qty'] ?? 0);
+            }
+        }
+
+        $stmt->close();
+
+        $labels = [];
+        $depletion = [];
+        $restocks = [];
+        $net = [];
+        foreach ($periods as $key => $period) {
+            $labels[] = $period['label'];
+            $depletion[] = (float)$period['stock_out'];
+            $restocks[] = (float)$period['stock_in'];
+            $net[] = round((float)$period['stock_out'] - (float)$period['stock_in'], 2);
+        }
+
+        $hasData = array_sum($depletion) > 0 || array_sum($restocks) > 0;
+
+        return [
+            'available' => $hasData,
+            'labels' => $labels,
+            'depletion' => $depletion,
+            'restocks' => $restocks,
+            'net' => $net,
+        ];
+    }
+
+    /**
+     * Reorder frequency trend: restock events over time.
+     */
+    public function getReorderFrequencyTrend(?int $months = null): array
+    {
+        $empty = ['available' => false, 'labels' => [], 'events' => [], 'units' => []];
+
+        $periods = $this->getMonthlyPeriods($months);
+        if (empty($periods)) {
+            return $empty;
+        }
+
+        $stmt = $this->conn->prepare(
+            "SELECT DATE_FORMAT(transaction_date, '%Y-%m') AS period_key,
+                    COUNT(*) AS reorder_events,
+                    SUM(quantity) AS reorder_units
+             FROM transactions
+             WHERE transaction_type = 'stock_in'
+               AND transaction_date >= ?
+             GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+             ORDER BY period_key ASC"
+        );
+
+        if (!$stmt) {
+            return $empty;
+        }
+
+        $startDate = new \DateTimeImmutable(array_key_first($periods) . '-01');
+        $startSql = $startDate->format('Y-m-d');
+        $stmt->bind_param('s', $startSql);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        while ($row = $result->fetch_assoc()) {
+            $key = $row['period_key'] ?? null;
+            if ($key && isset($periods[$key])) {
+                $periods[$key]['events'] = (int)($row['reorder_events'] ?? 0);
+                $periods[$key]['units'] = (float)($row['reorder_units'] ?? 0);
+            }
+        }
+
+        $stmt->close();
+
+        $labels = [];
+        $events = [];
+        $units = [];
+        foreach ($periods as $period) {
+            $labels[] = $period['label'];
+            $events[] = (int)$period['events'];
+            $units[] = (float)$period['units'];
+        }
+
+        $hasData = array_sum($events) > 0 || array_sum($units) > 0;
+
+        return [
+            'available' => $hasData,
+            'labels' => $labels,
+            'events' => $events,
+            'units' => $units,
+        ];
+    }
+
+    /**
+     * Build a month-by-month series from the earliest transaction month seen in the database.
+     */
+    private function getMonthlyPeriods(?int $months = null): array
+    {
+        $rangeResult = $this->conn->query(
+            "SELECT DATE_FORMAT(MIN(transaction_date), '%Y-%m') AS min_period,
+                    DATE_FORMAT(MAX(transaction_date), '%Y-%m') AS max_period
+             FROM transactions"
+        );
+
+        if (!$rangeResult || $rangeResult->num_rows === 0) {
+            return [];
+        }
+
+        $row = $rangeResult->fetch_assoc();
+        $startKey = $row['min_period'] ?? null;
+        $endKey = $row['max_period'] ?? date('Y-m');
+
+        if (!$startKey) {
+            return [];
+        }
+
+        if ($months !== null && $months > 0) {
+            $endDate = new \DateTimeImmutable($endKey . '-01');
+            $startDate = $endDate->modify('-' . ($months - 1) . ' months');
+            $startKey = $startDate->format('Y-m');
+        }
+
+        $periods = [];
+        $cursor = new \DateTimeImmutable($startKey . '-01');
+        $endDate = new \DateTimeImmutable($endKey . '-01');
+
+        while ($cursor <= $endDate) {
+            $key = $cursor->format('Y-m');
+            $periods[$key] = [
+                'label' => $cursor->format('M Y'),
+                'stock_out' => 0,
+                'stock_in' => 0,
+                'events' => 0,
+                'units' => 0,
+            ];
+            $cursor = $cursor->modify('+1 month');
+        }
+
+        return $periods;
     }
 
     /**

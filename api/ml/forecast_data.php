@@ -25,4 +25,6 @@ echo json_encode([
     'segments' => $service->getSegmentAccuracy(),
     'sales_forecast' => $service->getSalesForecastChartData($daysLookback),
     'heatmap' => $service->getProductForecastDemand(8),
+    'depletion' => $service->getStockDepletionTrend(),
+    'reorder_frequency' => $service->getReorderFrequencyTrend(),
 ]);
