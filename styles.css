@@ -701,10 +701,14 @@ input.match-border {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.45);
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+}
+
+.modal-overlay.active {
+    display: flex;
 }
 
 .modal-box {
@@ -916,7 +920,8 @@ input.match-border {
     color: #E3E3E3;
     border-radius: 12px;
     padding: 14px 18px;
-    display: block;
+    display: flex;
+    align-items: center;
     text-decoration: none;
     font-family: 'Onest', sans-serif;
     font-weight: 500;

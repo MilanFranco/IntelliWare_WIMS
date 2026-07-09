@@ -312,6 +312,31 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     #barcode-scanner-overlay { z-index: 100003; }
     #barcode-duplicate-overlay { z-index: 100003; }
+
+    [data-theme="light"] .modal-overlay { background: var(--iw-bg-overlay) !important; }
+    [data-theme="light"] .modal-box {
+        background: var(--iw-bg-modal) !important;
+        border-color: var(--iw-border-solid) !important;
+        box-shadow: var(--iw-shadow-dropdown) !important;
+    }
+    [data-theme="light"] .modal-header {
+        background: var(--iw-bg-panel-header) !important;
+        border-bottom-color: var(--iw-border) !important;
+    }
+    [data-theme="light"] .modal-title h3 { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .modal-subtitle,
+    [data-theme="light"] .form-label { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .btn-scan {
+        background: var(--iw-bg-btn-secondary) !important;
+        border-color: var(--iw-border) !important;
+        color: var(--iw-text) !important;
+    }
+    [data-theme="light"] #toast-container {
+        background: var(--iw-bg-modal) !important;
+        border-color: var(--iw-border) !important;
+        box-shadow: var(--iw-shadow-dropdown) !important;
+        color: var(--iw-text) !important;
+    }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
@@ -352,7 +377,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
 
     <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left" style="min-width:1200px;">
+        <table class="premium-table w-full text-left min-w-[1200px]">
             <thead>
                 <tr>
                     <th width="9%">SKU</th> <th width="12%">Barcode</th> <th width="16%">Name</th> <th width="10%">Category</th>
@@ -453,6 +478,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 </div>
 
 <?php renderLayoutContentEnd(); ?>
+<?php renderLayoutShellEnd(); ?>
 
 <div id="add-modal-overlay" class="modal-overlay">
     <div class="modal-box">
@@ -707,4 +733,4 @@ if (window.BarcodeScanner) {
     initProductBarcodeInputs();
 }
 </script>
-<?php renderLayoutEnd(); ?>
+<?php renderLayoutFooter(); ?>

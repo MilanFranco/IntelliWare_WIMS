@@ -52,9 +52,10 @@ function renderSidebar($currentPage, $userRole) {
     ];
     
     // UPDATED: Added ID and transition classes for toggling
-    echo '<div id="main-sidebar" class="premium-sidebar w-[290px] text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out">';
+    echo '<div id="main-sidebar" class="premium-sidebar w-[290px] shrink-0 text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out">';
     echo '<div class="ml-2 mb-4">';
-    echo '<img src="img/logo01.png" alt="IntelliWare" class="w-[220px]" />';
+    echo '<img src="img/logo.svg" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-dark" />';
+    echo '<img src="img/logo-light.svg" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-light" />';
     echo '</div>';
     echo '<div class="p-2 flex flex-col gap-[8px]">';
     
@@ -84,6 +85,8 @@ function renderSidebar($currentPage, $userRole) {
 }
 
 function renderHeader($pageTitle, $userRole, $username) {
+    $displayName = trim($_SESSION['full_name'] ?? '') ?: $username;
+
     echo '<div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">';
     
     // UPDATED: Added Flex container for Toggle Button + Page Title
@@ -97,6 +100,14 @@ function renderHeader($pageTitle, $userRole, $username) {
     echo '</div>';
 
     echo '<div class="admin-user-section">';
+
+    echo '<div id="header-scanner-status" class="header-scanner-status header-scanner-status--checking" title="Detecting barcode scanner connection.">';
+    echo '<svg class="header-scanner-status__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">';
+    echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>';
+    echo '</svg>';
+    echo '<span class="header-scanner-status__dot" aria-hidden="true"></span>';
+    echo '<span class="header-scanner-status__text">Checking scanner…</span>';
+    echo '</div>';
 
     if ($userRole === 'admin') {
         echo '<div class="notification-container">';
@@ -127,9 +138,9 @@ function renderHeader($pageTitle, $userRole, $username) {
     echo '</button>';
 
     echo '<div class="user-profile" onclick="toggleUserDropdown(event)">';
-    echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($username) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
+    echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($displayName) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
     echo '<div class="user-details">';
-    echo '<div class="user-name">' . htmlspecialchars($username) . '</div>';
+    echo '<div class="user-name">' . htmlspecialchars($displayName) . '</div>';
     echo '<div class="user-role">' . ucfirst($userRole) . '</div>';
     echo '</div>';
     echo '<div class="user-dropdown" id="userDropdown">';
@@ -161,7 +172,6 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<script>(function(){var t=localStorage.getItem("iw-theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>';
     echo '<script src="https://cdn.tailwindcss.com"></script>';
     echo '<link href="styles.css" rel="stylesheet" />';
-    echo '<link href="theme.css" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
@@ -229,9 +239,33 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.notification-message { font-family: \'Onest\', sans-serif; font-size: 14px; color: var(--iw-text-dropdown); margin-bottom: 4px; line-height: 1.4; }';
     echo '.notification-time { font-family: \'Onest\', sans-serif; font-size: 12px; color: var(--iw-text-subtle); }';
     echo '.notification-empty { padding: 32px 16px; text-align: center; color: var(--iw-text-subtle); font-family: \'Onest\', sans-serif; font-size: 14px; }';
+
+    echo '.header-scanner-status { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 12px; font-family: \'Onest\', sans-serif; font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(10px); border: 1px solid transparent; }';
+    echo '.header-scanner-status__icon { width: 18px; height: 18px; flex-shrink: 0; }';
+    echo '.header-scanner-status__dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }';
+    echo '.header-scanner-status--ready { color: #51D55A; background: rgba(81, 213, 90, 0.12); border-color: rgba(81, 213, 90, 0.28); box-shadow: 0 4px 12px rgba(81, 213, 90, 0.12); }';
+    echo '.header-scanner-status--ready .header-scanner-status__dot { background: #51D55A; box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.18); animation: scannerPulse 2s infinite; }';
+    echo '.header-scanner-status--disconnected { color: #fca5a5; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.24); }';
+    echo '.header-scanner-status--disconnected .header-scanner-status__dot { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }';
+    echo '.header-scanner-status--checking { color: #fcd34d; background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.24); }';
+    echo '.header-scanner-status--checking .header-scanner-status__dot { background: #fbbf24; animation: scannerPulse 1.2s infinite; }';
+    echo '@keyframes scannerPulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.75; } 100% { transform: scale(1); opacity: 1; } }';
+    echo '@media (max-width: 900px) { .header-scanner-status__text { display: none; } .header-scanner-status { padding: 8px 10px; } }';
     
     echo '.dropdown-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--iw-bg-backdrop); backdrop-filter: blur(2px); z-index: 99990; opacity: 0; visibility: hidden; transition: all 0.3s ease; }';
     echo '.dropdown-backdrop.show { opacity: 1; visibility: visible; }';
+    echo '</style>';
+    echo '<link href="theme.css" rel="stylesheet" />';
+    echo '<style id="iw-tailwind-overrides">';
+    echo '[data-theme="light"] .header-scanner-status--checking { color: #92400E !important; background: rgba(251, 191, 36, 0.28) !important; border-color: rgba(217, 119, 6, 0.5) !important; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.12) !important; }';
+    echo '[data-theme="light"] .header-scanner-status--checking .header-scanner-status__dot { background: #D97706 !important; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2) !important; }';
+    echo '[data-theme="light"] .header-scanner-status--ready { color: #15803D !important; background: rgba(22, 163, 74, 0.18) !important; border-color: rgba(22, 163, 74, 0.45) !important; }';
+    echo '[data-theme="light"] .header-scanner-status--ready .header-scanner-status__dot { background: #16A34A !important; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2) !important; }';
+    echo '[data-theme="light"] .header-scanner-status--disconnected { color: #B91C1C !important; background: rgba(239, 68, 68, 0.16) !important; border-color: rgba(220, 38, 38, 0.42) !important; }';
+    echo '[data-theme="light"] .header-scanner-status--disconnected .header-scanner-status__dot { background: #DC2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18) !important; }';
+    echo '[data-theme="light"] .hero-forecast-btn { background: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; background-image: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; color: #0F172A !important; border-color: #7A92A8 !important; box-shadow: 0 2px 8px rgba(55, 75, 99, 0.1) !important; --tw-gradient-from: #E8EFF6 !important; --tw-gradient-to: #D8E6F0 !important; }';
+    echo '[data-theme="light"] .hero-forecast-btn:hover { background: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; background-image: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; border-color: rgba(22, 163, 74, 0.45) !important; color: #0F172A !important; box-shadow: 0 4px 12px rgba(55, 75, 99, 0.12) !important; }';
+    echo '[data-theme="light"] .iw-sidebar-logo-light { filter: none; opacity: 1; }';
     echo '</style>';
     echo '</head>';
     echo '<body class="w-full h-screen iw-body-shell px-3 pt-3 flex items-start justify-center">';
@@ -239,22 +273,30 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     
     renderSidebar($pageTitle, $userRole);
     
-    echo '<div class="flex-1 flex flex-col">';
+    echo '<div class="flex-1 flex flex-col min-w-0">';
     renderHeader($pageTitle, $userRole, $username);
-    echo '<div class="p-6 premium-scrollbar iw-main-content" style="flex:1; overflow-y:auto; overflow-x:hidden; position:relative; z-index:1; padding:24px 32px;">';
+    echo '<div class="p-6 premium-scrollbar iw-main-content min-w-0" style="flex:1; overflow-y:auto; overflow-x:hidden; position:relative; z-index:1; padding:24px 32px;">';
 }
 
-/** Close the scrollable page content area. Output modals AFTER this so fixed overlays are not clipped. */
+/** Close the scrollable page content area. Output modals AFTER renderLayoutShellEnd() so fixed overlays are not clipped. */
 function renderLayoutContentEnd() {
     echo '</div>'; // Close content scroll area
 }
 
-function renderLayoutEnd() {
+function renderLayoutShellEnd() {
     echo '</div>'; // Close flex-1 flex-col (main column)
     echo '</div>'; // Close main container
-    
-    echo '';
+}
+
+function renderLayoutEnd() {
+    renderLayoutShellEnd();
+    renderLayoutFooter();
+}
+
+function renderLayoutFooter() {
     echo '<div class="dropdown-backdrop" id="dropdownBackdrop"></div>';
+    echo '<input type="text" id="global-scanner-wedge-input" class="hid-barcode-capture" autocomplete="off" aria-hidden="true" tabindex="-1">';
+    echo '<script src="src/scripts/barcode-scanner.js"></script>';
     
     echo '<script>';
     ?>

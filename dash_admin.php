@@ -86,12 +86,148 @@ while($row = $heatResult->fetch_assoc()) {
     $heatmapData['labels'][] = $row['product_name'];
     $heatmapData['data'][] = (int)$row['demand_qty'];
 }
+
+// 7. Hero Banner Data
+$displayName = trim($userInfo['full_name'] ?? '') ?: $_SESSION['Username'];
+$userRoleLabel = ucfirst($userInfo['role'] ?? $_SESSION['Role'] ?? 'admin');
+$hour = (int)date('G');
+if ($hour < 12) {
+    $greeting = 'Good morning';
+} elseif ($hour < 17) {
+    $greeting = 'Good afternoon';
+} else {
+    $greeting = 'Good evening';
+}
+
+if ($lowStockCount === 0) {
+    $statusSummary = "All {$totalSKUs} SKUs across {$totalCategories} " . ($totalCategories === 1 ? 'category are' : 'categories are') . " well stocked.";
+} else {
+    $statusSummary = "You have {$lowStockCount} " . ($lowStockCount === 1 ? 'item' : 'items') . " low on stock across {$totalSKUs} SKUs in {$totalCategories} " . ($totalCategories === 1 ? 'category' : 'categories') . ".";
+}
+
+$priorityItem = null;
+$priorityInsight = null;
+$priorityType = null;
+
+$nextMonthNum = (int)date('n', strtotime('+1 month'));
+$forecastPrioQuery = "
+    SELECT product_name, current_stock, category_name, total_historical_sales
+    FROM (
+        SELECT p.product_name, p.quantity AS current_stock, p.category AS category_name,
+               SUM(t.quantity) AS total_historical_sales
+        FROM transactions t
+        JOIN products p ON t.product_id = p.product_id
+        WHERE MONTH(t.transaction_date) = {$nextMonthNum}
+          AND t.transaction_type = 'stock_out'
+        GROUP BY p.product_id
+        HAVING SUM(t.quantity) > 0
+    ) AS forecast_prio
+    ORDER BY (current_stock / total_historical_sales) ASC
+    LIMIT 1
+";
+$forecastPrioResult = $conn->query($forecastPrioQuery);
+
+if ($forecastPrioResult && $forecastPrioResult->num_rows > 0) {
+    $row = $forecastPrioResult->fetch_assoc();
+    $stock = (int)$row['current_stock'];
+    $demand = (int)$row['total_historical_sales'];
+    $coverage = ($demand > 0) ? ($stock / $demand) * 100 : 100;
+
+    $priorityItem = $row['product_name'];
+
+    if ($stock === 0 && $demand > 0) {
+        $priorityType = 'Critical Outage';
+        $priorityInsight = "I noticed you have <strong>0 stock</strong> against a demand of {$demand} units. I strongly advise you to restock to avoid missed sales.";
+    } elseif ($coverage < 50) {
+        $priorityType = 'High Risk';
+        $priorityInsight = "I calculated that your stock ({$stock}) only covers " . round($coverage) . "% of expected demand ({$demand}). I recommend ordering more.";
+    } elseif ($coverage < 100) {
+        $priorityType = 'Low Cover';
+        $priorityInsight = "I'm tracking tight inventory here. Demand ({$demand}) slightly exceeds your stock ({$stock}). I suggest planning replenishment soon.";
+    } elseif ($coverage > 300) {
+        $priorityType = 'Slow Moving';
+        $priorityInsight = "I see " . round($coverage) . "% coverage. Your stock ({$stock}) far exceeds demand ({$demand}). I advise pausing orders.";
+    } else {
+        $priorityType = 'Optimal';
+        $priorityInsight = "I confirm your inventory ({$stock}) aligns perfectly with my demand projection ({$demand}). Great job.";
+    }
+}
+
+if (!$priorityItem && !empty($lowStockItems)) {
+    $worstRatio = PHP_FLOAT_MAX;
+    $worstItem = null;
+    foreach ($lowStockItems as $item) {
+        $reorderPoint = max((int)($item['reorder_point'] ?? 10), 1);
+        $ratio = (int)$item['qty'] / $reorderPoint;
+        if ($ratio < $worstRatio) {
+            $worstRatio = $ratio;
+            $worstItem = $item;
+        }
+    }
+    if ($worstItem) {
+        $priorityItem = $worstItem['name'];
+        $qty = (int)$worstItem['qty'];
+        $rp = (int)($worstItem['reorder_point'] ?? 10);
+        $pct = round($worstRatio * 100);
+        $priorityType = 'Low Stock Alert';
+        $safeName = htmlspecialchars($worstItem['name'], ENT_QUOTES, 'UTF-8');
+        $priorityInsight = "<strong>{$safeName}</strong> is critically low — only {$qty} units remaining ({$pct}% of reorder point {$rp}). Restock immediately.";
+    }
+}
+
 $conn->close();
 
 renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
 ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
+    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="flex-1 min-w-0 space-y-4">
+            <div>
+                <div class="flex flex-wrap items-center gap-3 mb-1">
+                    <h2 class="font-onest text-xl md:text-2xl font-semibold text-white">
+                        <?php echo $greeting; ?>, <?php echo htmlspecialchars($displayName); ?>
+                    </h2>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-onest uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                        <?php echo htmlspecialchars($userRoleLabel); ?>
+                    </span>
+                </div>
+                <p class="text-[#9aa6d1] text-sm md:text-base font-onest"><?php echo htmlspecialchars($statusSummary); ?></p>
+            </div>
+
+            <?php if ($priorityItem && $priorityInsight): ?>
+            <div class="flex items-start gap-3 p-4 rounded-xl bg-[#13275B]/60 border border-amber-500/30">
+                <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 flex-shrink-0 mt-0.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <span class="text-[#E3E3E3] font-onest font-semibold text-sm"><?php echo htmlspecialchars($priorityItem); ?></span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                            <?php echo htmlspecialchars($priorityType); ?>
+                        </span>
+                    </div>
+                    <p class="text-[#9aa6d1] text-sm leading-relaxed font-onest"><?php echo $priorityInsight; ?></p>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
+            <a href="insights.php" class="hero-forecast-btn inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-white bg-gradient-to-r from-[#1D387B] to-[#2A4484] border border-[#2A4484] hover:border-[#51D55A]/50 hover:shadow-[0_0_20px_rgba(81,213,90,0.15)] transition-all whitespace-nowrap">
+                View Full Forecast
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+            <a href="products.php" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-[#E3E3E3] bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-400 transition-all whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
+                Add Product
+            </a>
+        </div>
+    </div>
+</div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <div class="premium-card p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">

@@ -592,10 +592,197 @@
         }
     }
 
+    // --------------------------------------------------------
+    // HEADER SCANNER STATUS (USB / Bluetooth HID wedge + WebHID)
+    // --------------------------------------------------------
+
+    var SCANNER_STATUS_KEY = 'intelliware_scanner_ready';
+    var headerStatusEl = null;
+    var headerStatusTextEl = null;
+    var hidDeviceCount = 0;
+    var headerStatusInitialized = false;
+
+    function getHeaderStatusEl() {
+        if (!headerStatusEl) headerStatusEl = document.getElementById('header-scanner-status');
+        return headerStatusEl;
+    }
+
+    function getHeaderStatusTextEl() {
+        if (!headerStatusTextEl) {
+            var el = getHeaderStatusEl();
+            headerStatusTextEl = el ? el.querySelector('.header-scanner-status__text') : null;
+        }
+        return headerStatusTextEl;
+    }
+
+    function isLikelyBarcodeScanner(device) {
+        if (!device) return false;
+
+        var collections = device.collections || [];
+        for (var i = 0; i < collections.length; i++) {
+            var col = collections[i];
+            if (col.usagePage === 0x8C) return true;
+        }
+
+        var label = [
+            device.productName,
+            device.manufacturerName
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return /barcode|scanner|symbol|honeywell|zebra|datalogic|code reader|handheld|scan/i.test(label);
+    }
+
+    function setHeaderScannerStatus(state) {
+        var el = getHeaderStatusEl();
+        var textEl = getHeaderStatusTextEl();
+        if (!el) return;
+
+        el.classList.remove(
+            'header-scanner-status--ready',
+            'header-scanner-status--disconnected',
+            'header-scanner-status--checking'
+        );
+
+        if (state === 'ready') {
+            el.classList.add('header-scanner-status--ready');
+            if (textEl) textEl.textContent = 'Scanner ready';
+            el.title = 'Barcode scanner is connected and ready to scan.';
+            try { sessionStorage.setItem(SCANNER_STATUS_KEY, '1'); } catch (e) {}
+            return;
+        }
+
+        if (state === 'checking') {
+            el.classList.add('header-scanner-status--checking');
+            if (textEl) textEl.textContent = 'Checking scanner…';
+            el.title = 'Detecting barcode scanner connection.';
+            return;
+        }
+
+        el.classList.add('header-scanner-status--disconnected');
+        if (textEl) textEl.textContent = 'Scanner not plugged in';
+        el.title = 'Connect a USB or Bluetooth barcode scanner, then scan a barcode to activate.';
+        try { sessionStorage.removeItem(SCANNER_STATUS_KEY); } catch (e) {}
+    }
+
+    function markScannerReady() {
+        setHeaderScannerStatus('ready');
+    }
+
+    function markScannerDisconnected(force) {
+        if (!force && hidDeviceCount > 0) return;
+
+        var hadSession = false;
+        try { hadSession = sessionStorage.getItem(SCANNER_STATUS_KEY) === '1'; } catch (e) {}
+        if (!force && hadSession) return;
+
+        setHeaderScannerStatus('disconnected');
+    }
+
+    function refreshHidDeviceStatus() {
+        if (!navigator.hid || typeof navigator.hid.getDevices !== 'function') {
+            return Promise.resolve(false);
+        }
+
+        return navigator.hid.getDevices().then(function (devices) {
+            var scanners = devices.filter(isLikelyBarcodeScanner);
+            hidDeviceCount = scanners.length;
+
+            if (hidDeviceCount > 0) {
+                markScannerReady();
+                return true;
+            }
+
+            return false;
+        }).catch(function () {
+            return false;
+        });
+    }
+
+    function initWebHidStatus() {
+        if (!navigator.hid) return;
+
+        navigator.hid.addEventListener('connect', function (e) {
+            if (isLikelyBarcodeScanner(e.device)) {
+                hidDeviceCount += 1;
+                markScannerReady();
+            }
+        });
+
+        navigator.hid.addEventListener('disconnect', function (e) {
+            if (!isLikelyBarcodeScanner(e.device)) return;
+
+            hidDeviceCount = Math.max(0, hidDeviceCount - 1);
+            if (hidDeviceCount === 0) {
+                markScannerDisconnected(true);
+            }
+        });
+
+        refreshHidDeviceStatus();
+    }
+
+    function initGlobalWedgeStatus() {
+        var input = document.getElementById('global-scanner-wedge-input');
+        if (!input) return;
+
+        attachHidInput(input, null, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+
+        input.addEventListener('blur', function () {
+            var active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                return;
+            }
+            setTimeout(function () {
+                if (document.activeElement === input) return;
+                active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+                    return;
+                }
+                input.focus({ preventScroll: true });
+            }, 120);
+        });
+
+        setTimeout(function () {
+            input.focus({ preventScroll: true });
+        }, 300);
+    }
+
+    function initHeaderScannerStatus() {
+        if (headerStatusInitialized) return;
+        headerStatusInitialized = true;
+
+        if (!getHeaderStatusEl()) return;
+
+        setHeaderScannerStatus('checking');
+
+        var hadSessionReady = false;
+        try { hadSessionReady = sessionStorage.getItem(SCANNER_STATUS_KEY) === '1'; } catch (e) {}
+
+        if (hadSessionReady) {
+            markScannerReady();
+        } else {
+            setHeaderScannerStatus('disconnected');
+        }
+
+        initWebHidStatus();
+        initGlobalWedgeStatus();
+    }
+
+    var originalAttachHidInput = attachHidInput;
+    attachHidInput = function (input, onScan, options) {
+        return originalAttachHidInput(input, function (code, inputEl) {
+            markScannerReady();
+            if (typeof onScan === 'function') {
+                onScan(code, inputEl);
+            }
+        }, options);
+    };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initModalListeners);
+        document.addEventListener('DOMContentLoaded', initHeaderScannerStatus);
     } else {
         initModalListeners();
+        initHeaderScannerStatus();
     }
 
     window.BarcodeScanner = {
@@ -609,6 +796,9 @@
         closeDuplicate: closeDuplicateWarning,
         init: initModalListeners,
         attachHidInput: attachHidInput,
-        focusHidInput: focusHidInput
+        focusHidInput: focusHidInput,
+        initHeaderStatus: initHeaderScannerStatus,
+        setHeaderStatus: setHeaderScannerStatus,
+        markReady: markScannerReady
     };
 })();

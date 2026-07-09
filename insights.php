@@ -400,20 +400,20 @@ renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
 }
 
 [data-theme="light"] {
-    --insights-bg: #f5f7fa;
-    --insights-surface: #ffffff;
-    --insights-surface-alt: #f8fafc;
-    --insights-border: #e5e7eb;
-    --insights-border-soft: #e2e8f0;
-    --insights-text: #111827;
-    --insights-text-muted: #64748b;
-    --insights-heading: #0f172a;
-    --insights-input: #ffffff;
-    --insights-input-border: #d1d5db;
-    --insights-table-head: #f8fafc;
-    --insights-row-hover: rgba(15, 23, 42, 0.035);
-    --insights-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-    --insights-banner: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+    --insights-bg: #C4D0DE;
+    --insights-surface: linear-gradient(160deg, #E6EDF5 0%, #D6E2EE 100%);
+    --insights-surface-alt: #D2DCE8;
+    --insights-border: #7A92A8;
+    --insights-border-soft: #92A5B8;
+    --insights-text: #1E293B;
+    --insights-text-muted: #4A5D72;
+    --insights-heading: #0F172A;
+    --insights-input: #D8E2ED;
+    --insights-input-border: #7A92A8;
+    --insights-table-head: #C8D5E3;
+    --insights-row-hover: rgba(59, 130, 246, 0.09);
+    --insights-shadow: 0 2px 6px rgba(55, 75, 99, 0.08), 0 6px 18px rgba(55, 75, 99, 0.1), 0 0 0 1px rgba(107, 131, 153, 0.35);
+    --insights-banner: linear-gradient(135deg, #D2DCE8 0%, #C4D0DE 100%);
     --insights-accent: #16a34a;
 }
 
@@ -509,9 +509,13 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     box-shadow: 0 16px 34px rgba(81, 213, 90, 0.12);
     border-color: rgba(81, 213, 90, 0.4);
 }
-.metric-card.active {
-    border-color: rgba(81, 213, 90, 0.65);
-    box-shadow: 0 16px 34px rgba(81, 213, 90, 0.16);
+[data-theme="light"] .metric-card:hover {
+    box-shadow: 0 8px 22px rgba(55, 75, 99, 0.12), 0 0 0 1px var(--insights-border);
+    border-color: var(--insights-border);
+}
+[data-theme="light"] .metric-card.active {
+    border-color: var(--insights-accent);
+    box-shadow: 0 8px 22px rgba(22, 163, 74, 0.12), 0 0 0 1px rgba(22, 163, 74, 0.25);
 }
 
 .tab-container {
