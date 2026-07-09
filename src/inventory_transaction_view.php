@@ -179,18 +179,18 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         display: flex;
         flex-direction: column;
         min-height: 0;
-        background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
-        border: 1px solid rgba(42, 68, 132, 0.6);
+        background: var(--iw-bg-card);
+        border: 1px solid var(--iw-border);
         border-radius: 16px;
         overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        box-shadow: var(--iw-shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     }
     .pos-panel:hover { transform: none; }
 
     .pos-panel-header {
         padding: 16px 20px;
-        border-bottom: 1px solid rgba(42, 68, 132, 0.5);
-        background: rgba(19, 39, 91, 0.35);
+        border-bottom: 1px solid var(--iw-border);
+        background: var(--iw-bg-panel-header);
         flex-shrink: 0;
     }
 
@@ -221,10 +221,10 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         height: 56px;
         min-width: 56px;
         padding: 0 16px;
-        background: #2A4484;
-        border: 1px solid #355296;
+        background: var(--iw-bg-btn-secondary);
+        border: 1px solid var(--iw-border-input);
         border-radius: 12px;
-        color: #fff;
+        color: var(--iw-text);
         cursor: pointer;
         font-size: 22px;
         display: inline-flex;
@@ -233,16 +233,16 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         flex-shrink: 0;
         transition: border-color 0.2s, color 0.2s;
     }
-    .btn-scan:hover { border-color: #51D55A; color: #51D55A; }
-    .btn-scan.is-active { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.12); }
+    .btn-scan:hover { border-color: var(--iw-accent); color: var(--iw-accent); }
+    .btn-scan.is-active { border-color: var(--iw-accent); color: var(--iw-accent); background: rgba(81, 213, 90, 0.12); }
 
     .pos-scanner-zone { flex-shrink: 0; }
 
     .pos-inline-scanner {
-        border: 1px solid rgba(81, 213, 90, 0.35);
+        border: 1px solid var(--iw-border);
         border-radius: 12px;
         overflow: hidden;
-        background: rgba(11, 20, 56, 0.55);
+        background: var(--iw-bg-surface);
     }
 
     .pos-inline-scanner #inv-inline-scanner-reader {
@@ -263,8 +263,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         justify-content: space-between;
         gap: 10px;
         padding: 10px 12px;
-        border-top: 1px solid rgba(42, 68, 132, 0.5);
-        background: rgba(19, 39, 91, 0.5);
+        border-top: 1px solid var(--iw-border);
+        background: var(--iw-bg-panel-header);
     }
 
     .pos-inline-scanner-status {
@@ -311,9 +311,9 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         min-height: 180px;
         max-height: 420px;
         overflow-y: auto;
-        border: 1px solid rgba(42, 68, 132, 0.5);
+        border: 1px solid var(--iw-border);
         border-radius: 12px;
-        background: rgba(11, 20, 56, 0.35);
+        background: var(--iw-bg-surface);
     }
 
     .pos-cart-empty {
@@ -339,19 +339,19 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         position: sticky;
         top: 0;
         z-index: 2;
-        background: rgba(19, 39, 91, 0.95);
-        color: #9aa6d1;
+        background: var(--iw-bg-table-head);
+        color: var(--iw-text);
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         padding: 10px 12px;
         text-align: left;
-        border-bottom: 1px solid rgba(42, 68, 132, 0.5);
+        border-bottom: 1px solid var(--iw-border);
     }
     .pos-cart-table td {
         padding: 10px 12px;
-        color: #E3E3E3;
-        border-bottom: 1px solid rgba(42, 68, 132, 0.25);
+        color: var(--iw-text);
+        border-bottom: 1px solid var(--iw-border);
         vertical-align: middle;
     }
     .pos-cart-table tr:last-child td { border-bottom: none; }
@@ -372,9 +372,9 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         width: 28px;
         height: 28px;
         border-radius: 8px;
-        border: 1px solid rgba(48, 67, 116, 0.8);
-        background: rgba(19, 39, 91, 0.8);
-        color: #E3E3E3;
+        border: 1px solid var(--iw-border-input);
+        background: var(--iw-bg-btn-secondary);
+        color: var(--iw-text);
         cursor: pointer;
         font-size: 16px;
         line-height: 1;
@@ -412,8 +412,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         gap: 10px;
         padding: 12px;
         border-radius: 12px;
-        border: 1px solid rgba(42, 68, 132, 0.5);
-        background: rgba(19, 39, 91, 0.4);
+        border: 1px solid var(--iw-border);
+        background: var(--iw-bg-surface);
     }
     .pos-summary-item label {
         display: block;
@@ -442,9 +442,9 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-info-action-btn {
         height: 52px;
         border-radius: 12px;
-        border: 1px solid rgba(48, 67, 116, 0.8);
-        background: rgba(19, 39, 91, 0.8);
-        color: #E3E3E3;
+        border: 1px solid var(--iw-border-input);
+        background: var(--iw-bg-btn-secondary);
+        color: var(--iw-text);
         font-family: 'Onest', sans-serif;
         font-size: 15px;
         font-weight: 600;
@@ -484,8 +484,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
     .pos-clear-btn {
         background: transparent;
-        border: 1px solid rgba(48, 67, 116, 0.8);
-        color: #9aa6d1;
+        border: 1px solid var(--iw-border-input);
+        color: var(--iw-text-muted);
         border-radius: 12px;
         padding: 10px 16px;
         font-family: 'Onest', sans-serif;
@@ -527,7 +527,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         align-items: center;
         justify-content: center;
         text-align: center;
-        color: #9aa6d1;
+        color: var(--iw-text-muted);
         font-size: 13px;
         padding: 32px 24px;
         min-height: 280px;
@@ -547,8 +547,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         margin: 0 auto;
         aspect-ratio: 1;
         border-radius: 16px;
-        border: 1px solid rgba(42, 68, 132, 0.5);
-        background: rgba(11, 20, 56, 0.5);
+        border: 1px solid var(--iw-border);
+        background: var(--iw-bg-surface);
         overflow: hidden;
         display: flex;
         align-items: center;
@@ -583,7 +583,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
         font-size: 22px;
         font-weight: 700;
-        color: #E3E3E3;
+        color: var(--iw-text);
         line-height: 1.3;
         text-align: center;
     }
@@ -600,8 +600,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-info-field {
         padding: 12px 14px;
         border-radius: 12px;
-        border: 1px solid rgba(42, 68, 132, 0.45);
-        background: rgba(19, 39, 91, 0.45);
+        border: 1px solid var(--iw-border);
+        background: var(--iw-bg-surface);
     }
     .pos-info-field.full-width { grid-column: 1 / -1; }
 

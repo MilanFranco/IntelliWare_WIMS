@@ -320,7 +320,7 @@ if (typeof Chart === 'undefined') {
                     scales: {
                         x: { display: false, grid: { display: false } },
                         y: {
-                            ticks: { color: '#E3E3E3', font: { family: 'Onest', size: 11 } },
+                            ticks: { color: (window.IWTheme ? IWTheme.chartColors().text : '#E3E3E3'), font: { family: 'Onest', size: 11 } },
                             grid: { display: false },
                             border: { display: false }
                         }
@@ -330,6 +330,7 @@ if (typeof Chart === 'undefined') {
         }
     })();
 }
+document.addEventListener('themechange', function() { if (window.IWTheme) IWTheme.refreshAllCharts(); });
 </script>
 
 <?php renderLayoutEnd(); ?>

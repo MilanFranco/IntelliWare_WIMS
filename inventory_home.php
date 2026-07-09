@@ -170,7 +170,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
 </div>
 
 <div id="edit-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:1000;">
-    <div class="card" style="width:600px; margin:40px auto; background:#1D387B;">
+    <div class="card" style="width:600px; margin:40px auto;">
         <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">✏️ Edit Item</div>
         <form method="POST">
             <input type="hidden" name="action" value="edit" />

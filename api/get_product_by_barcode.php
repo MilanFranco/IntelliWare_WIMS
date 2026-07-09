@@ -116,7 +116,6 @@ function barcodeLookupCandidates(string $barcode): array
 $stmt = $conn->prepare("
     SELECT product_id, product_name, category, supplier,
            quantity, reorder_point, unit, barcode, expiry_date,
-           price,
            CONCAT('P-', LPAD(product_id, 4, '0')) AS sku
     FROM products
     WHERE barcode = ?

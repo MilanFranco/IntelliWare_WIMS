@@ -381,30 +381,46 @@ renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@100..900&display=swap" rel="stylesheet">
 
 <style>
-:root {
-    --bg-deep: #0B1120;
-    --glass-card: rgba(19, 39, 91, 0.3);
-    --glass-input: rgba(19, 39, 91, 0.8);
-    --glass-border: rgba(42, 68, 132, 0.5);
-    --text-primary: #E3E3E3;
-    --text-secondary: #9aa6d1;
-    --accent-success: #51D55A;
-    --accent-danger: #f87171;
-    --accent-warning: #f59e0b;
-    --accent-info: #3b82f6;
-    --btn-gradient-start: #1D387B;
-    --btn-gradient-end: #2A4484;
+:root, [data-theme="dark"] {
+    --insights-bg: #07111f;
+    --insights-surface: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
+    --insights-surface-alt: rgba(19, 39, 91, 0.4);
+    --insights-border: rgba(42, 68, 132, 0.6);
+    --insights-border-soft: rgba(42, 68, 132, 0.32);
+    --insights-text: #E3E3E3;
+    --insights-text-muted: #9aa6d1;
+    --insights-heading: #FFFFFF;
+    --insights-input: rgba(19, 39, 91, 0.8);
+    --insights-input-border: rgba(42, 68, 132, 0.5);
+    --insights-table-head: rgba(19, 39, 91, 0.6);
+    --insights-row-hover: rgba(81, 213, 90, 0.06);
+    --insights-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    --insights-banner: linear-gradient(135deg, #1D387B 0%, #0F204B 100%);
+    --insights-accent: #51D55A;
+}
+
+[data-theme="light"] {
+    --insights-bg: #f5f7fa;
+    --insights-surface: #ffffff;
+    --insights-surface-alt: #f8fafc;
+    --insights-border: #e5e7eb;
+    --insights-border-soft: #e2e8f0;
+    --insights-text: #111827;
+    --insights-text-muted: #64748b;
+    --insights-heading: #0f172a;
+    --insights-input: #ffffff;
+    --insights-input-border: #d1d5db;
+    --insights-table-head: #f8fafc;
+    --insights-row-hover: rgba(15, 23, 42, 0.035);
+    --insights-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+    --insights-banner: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+    --insights-accent: #16a34a;
 }
 
 body {
-    background-color: var(--bg-deep) !important;
     font-family: 'Onest', sans-serif !important;
-    color: var(--text-primary);
-}
-
-.sidebar, nav, #sidebar, .d-flex.flex-column.flex-shrink-0.p-3 {
-    background-color: #13275B !important;
-    border-right: 1px solid var(--glass-border);
+    color: var(--insights-text);
+    background: var(--insights-bg);
 }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
@@ -414,86 +430,108 @@ body {
 @media(max-width: 1200px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media(max-width: 768px) { .grid-2, .grid-3, .grid-4, .grid-forecast-ml { grid-template-columns: 1fr; } }
 
-/* UPDATED CARD STYLE TO MATCH OTHER PAGES */
 .card, .forecast-card {
-    background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
+    background: var(--insights-surface);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(42, 68, 132, 0.6);
-    border-radius: 12px;
+    border: 1px solid var(--insights-border);
+    border-radius: 16px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    box-shadow: var(--insights-shadow);
     position: relative;
-    transition: opacity 0.3s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.3s;
+}
+
+.card:hover, .forecast-card:hover {
+    transform: translateY(-2px);
 }
 
 .forecast-highlight-card {
-    border: 1px solid #2A4484;
+    border-color: var(--insights-border);
 }
 
-
 .search-box, .filter-select, .dropdown-select {
-    height: 46px; 
-    background-color: var(--glass-input);
-    border: 1px solid var(--glass-border);
+    height: 46px;
+    background-color: var(--insights-input);
+    border: 1px solid var(--insights-input-border);
     border-radius: 12px;
-    color: var(--text-primary);
+    color: var(--insights-text);
     padding: 0 16px;
     font-family: 'Onest', sans-serif;
     font-size: 14px;
     outline: none;
     transition: all 0.3s;
 }
+.search-box::placeholder {
+    color: var(--insights-text-muted);
+}
 .search-box:focus, .filter-select:focus, .dropdown-select:focus {
-    border-color: var(--accent-success);
-    box-shadow: 0 0 0 1px rgba(81, 213, 90, 0.3);
+    border-color: var(--insights-accent);
+    box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.16);
 }
 .search-filter-container {
     display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
 }
 .search-box { flex: 1; min-width: 200px; }
 
-h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
-.text-muted, .product-sub { color: var(--text-secondary); }
-.text-accent { color: var(--accent-success); }
+h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
+.text-muted, .product-sub { color: var(--insights-text-muted); }
+.text-accent { color: var(--insights-accent); }
 
-/* UPDATED METRIC CARD STYLE TO MATCH */
+.card [style*="color: #E3E3E3"],
+.card [style*="color:#E3E3E3"],
+.card [style*="color: #fff"],
+.card [style*="color:#fff"],
+.card [style*="color: #9aa6d1"],
+.card [style*="color:#9aa6d1"] {
+    color: var(--insights-heading) !important;
+}
+
+.card [style*="color: #9aa6d1"],
+.card [style*="color:#9aa6d1"] {
+    color: var(--insights-text-muted) !important;
+}
+
 .metric-card {
-    background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
-    border: 1px solid rgba(42, 68, 132, 0.6);
-    border-radius: 12px;
+    background: var(--insights-surface);
+    border: 1px solid var(--insights-border);
+    border-radius: 16px;
     padding: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
+    box-shadow: var(--insights-shadow);
 }
-.metric-card:hover { 
-    background: rgba(19, 39, 91, 0.5); 
+.metric-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 0 20px rgba(81, 213, 90, 0.4);
-    border-color: #51D55A;
+    box-shadow: 0 16px 34px rgba(81, 213, 90, 0.12);
+    border-color: rgba(81, 213, 90, 0.4);
 }
-.metric-card.active { border-color: var(--accent-success); box-shadow: 0 0 20px rgba(81, 213, 90, 0.15); }
+.metric-card.active {
+    border-color: rgba(81, 213, 90, 0.65);
+    box-shadow: 0 16px 34px rgba(81, 213, 90, 0.16);
+}
 
 .tab-container {
-    display: flex; gap: 24px; border-bottom: 1px solid var(--glass-border); margin-bottom: 24px; padding-bottom: 0;
+    display: flex; gap: 18px; border-bottom: 1px solid var(--insights-border); margin-bottom: 24px; padding-bottom: 0;
 }
 .tab {
-    padding: 12px 4px;
-    color: var(--text-secondary);
+    padding: 12px 4px 14px;
+    color: var(--insights-text-muted);
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     position: relative;
-    transition: color 0.3s;
+    transition: color 0.2s ease, transform 0.2s ease;
 }
-.tab:hover { color: #fff; }
-.tab.active { color: var(--accent-success); }
+.tab:hover { color: var(--insights-heading); }
+.tab.active { color: var(--insights-accent); }
 .tab.active::after {
-    content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px;
-    background: var(--accent-success); box-shadow: 0 -2px 10px var(--accent-success);
+    content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px;
+    background: var(--insights-accent);
+    border-radius: 999px;
 }
 .tab-content { display: none; animation: fadeIn 0.4s ease; }
 .tab-content.active { display: block; }
@@ -501,63 +539,112 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
 .table { width: 100%; border-collapse: collapse; }
 .table th {
     text-align: left;
-    color: var(--text-secondary);
+    color: var(--insights-text-muted);
     font-size: 12px;
     text-transform: uppercase;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    padding: 16px;
-    border-bottom: 1px solid var(--glass-border);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--insights-border-soft);
+    background: var(--insights-table-head);
 }
 .table td {
-    padding: 16px;
-    color: var(--text-primary);
+    padding: 14px 16px;
+    color: var(--insights-text);
     font-size: 14px;
-    border-bottom: 1px solid rgba(42, 68, 132, 0.3);
+    border-bottom: 1px solid var(--insights-border-soft);
     vertical-align: middle;
 }
-.table tr:hover td { background-color: rgba(29, 56, 123, 0.5); }
+.table tr:hover td { background-color: var(--insights-row-hover); }
 
-.badge { 
-    padding: 4px 10px; 
-    border-radius: 6px; 
-    font-size: 11px; 
-    font-weight: 600; 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px;
+.badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     white-space: nowrap;
     display: inline-block;
 }
-.badge.fast_moving, .badge.normal, .badge.low { background: rgba(81, 213, 90, 0.15); color: var(--accent-success); border: 1px solid rgba(81, 213, 90, 0.3); }
-.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); border: 1px solid rgba(245, 158, 11, 0.3); }
-.badge.slow_moving, .badge.overstocked { background: rgba(59, 130, 246, 0.15); color: var(--accent-info); border: 1px solid rgba(59, 130, 246, 0.3); }
-.badge.non_moving, .badge.out_of_stock, .badge.high { background: rgba(248, 113, 113, 0.15); color: var(--accent-danger); border: 1px solid rgba(248, 113, 113, 0.3); }
+.badge.fast_moving, .badge.normal, .badge.low { background: rgba(22, 163, 74, 0.14); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.2); }
+.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(245, 158, 11, 0.16); color: #c2410c; border: 1px solid rgba(245, 158, 11, 0.22); }
+.badge.slow_moving, .badge.overstocked { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2); }
+.badge.non_moving, .badge.out_of_stock, .badge.high { background: rgba(248, 113, 113, 0.16); color: #dc2626; border: 1px solid rgba(248, 113, 113, 0.22); }
+
+.btn {
+    background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
+    color: #ffffff;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 8px 18px rgba(81, 213, 90, 0.18);
+}
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(81, 213, 90, 0.22);
+    color: #ffffff;
+}
+.btn-secondary {
+    background: var(--insights-surface);
+    color: var(--insights-text);
+    border: 1px solid var(--insights-border);
+    box-shadow: none;
+}
+.btn-secondary:hover {
+    background: var(--insights-surface-alt);
+    color: var(--insights-text);
+    box-shadow: none;
+}
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.recommendation-card {
+    padding: 16px;
+    background: var(--insights-surface-alt);
+    border-radius: 12px;
+    border: 1px solid var(--insights-border);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.recommendation-card.success { border-left: 4px solid #16a34a; }
+.recommendation-card.warning { border-left: 4px solid #f59e0b; }
+.recommendation-card.info { border-left: 4px solid #3b82f6; }
+.recommendation-card.purple { border-left: 4px solid #8b5cf6; }
+.recommendation-card .card-label {
+    font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--insights-heading);
+}
+.recommendation-card .card-copy {
+    color: var(--insights-text-muted); font-size: 13px; line-height: 1.5;
+}
 .loading-overlay {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(19, 39, 91, 0.8);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(6px);
     display: flex; justify-content: center; align-items: center;
-    border-radius: 12px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    border-radius: 16px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.3s;
 }
 .forecast-card.loading .loading-overlay { opacity: 1; pointer-events: all; }
 .spinner {
-    width: 40px; height: 40px; border: 3px solid rgba(42, 68, 132, 0.5);
-    border-top: 3px solid var(--accent-success); border-radius: 50%;
+    width: 40px; height: 40px; border: 3px solid rgba(148, 163, 184, 0.25);
+    border-top: 3px solid var(--insights-accent); border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 .info-icon {
     display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
-    border-radius: 50%; border: 1px solid var(--text-secondary); color: var(--text-secondary);
+    border-radius: 50%; border: 1px solid var(--insights-text-muted); color: var(--insights-text-muted);
     font-size: 11px; cursor: pointer; margin-left: 8px;
 }
 .tooltip-text {
-    visibility: hidden; width: 240px; background-color: var(--bg-deep); color: #fff; text-align: left;
-    border: 1px solid var(--accent-success); border-radius: 8px; padding: 12px; position: absolute; z-index: 20;
+    visibility: hidden; width: 240px; background-color: var(--insights-bg); color: var(--insights-text);
+    border: 1px solid var(--insights-border); border-radius: 8px; padding: 12px; position: absolute; z-index: 20;
     top: 100%; right: 0; opacity: 0; transition: opacity 0.3s; font-size: 12px; line-height: 1.5;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5); margin-top: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.12); margin-top: 8px;
 }
 .tooltip-container:hover .tooltip-text { visibility: visible; opacity: 1; }
 .chart-container { position: relative; height: 300px; width: 100%; }
@@ -566,39 +653,39 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
 
 .info-tooltip { display: none; }
 
-.forecast-nav-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px; align-items: center; }
+.forecast-nav-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--insights-border); padding-bottom: 12px; align-items: center; }
 .forecast-nav-btn {
-    color: var(--text-secondary); text-decoration: none; font-size: 13px; padding: 8px 16px; border-radius: 12px;
-    transition: all 0.2s; background: rgba(255,255,255,0.02); border: 1px solid transparent; cursor: pointer;
+    color: var(--insights-text-muted); text-decoration: none; font-size: 13px; padding: 8px 16px; border-radius: 999px;
+    transition: all 0.2s; background: var(--insights-surface-alt); border: 1px solid transparent; cursor: pointer;
 }
-.forecast-nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.forecast-nav-btn:hover { background: var(--insights-surface); color: var(--insights-heading); border-color: var(--insights-border); }
 .forecast-nav-btn.active {
-    background: linear-gradient(135deg, rgba(81, 213, 90, 0.2), rgba(81, 213, 90, 0.1));
-    color: var(--accent-success); border: 1px solid var(--accent-success); font-weight: 700;
+    background: rgba(81, 213, 90, 0.12);
+    color: var(--insights-accent); border: 1px solid rgba(81, 213, 90, 0.28); font-weight: 700;
 }
 
 .smart-restock-banner {
-    background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%);
-    border: 1px solid var(--accent-success); border-radius: 12px; padding: 24px; position: relative; overflow: hidden;
+    background: var(--insights-banner);
+    border: 1px solid rgba(81, 213, 90, 0.25); border-radius: 16px; padding: 24px; position: relative; overflow: hidden;
 }
 .bg-icon {
     position: absolute; top: -15px; right: -10px; font-size: 140px; opacity: 0.05;
-    transform: rotate(15deg); pointer-events: none; color: #fff;
+    transform: rotate(15deg); pointer-events: none; color: var(--insights-heading);
 }
 .forecast-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 .forecast-table th {
-    text-align: left; color: var(--text-secondary); font-size: 11px; font-weight: 600; uppercase; tracking-wider;
-    padding: 12px; border-bottom: 1px solid rgba(81, 213, 90, 0.3); background: rgba(19, 39, 91, 0.5);
+    text-align: left; color: var(--insights-text-muted); font-size: 11px; font-weight: 700; uppercase; tracking-wider;
+    padding: 12px; border-bottom: 1px solid var(--insights-border-soft); background: var(--insights-surface-alt);
 }
-.forecast-table td { padding: 16px 12px; border-bottom: 1px solid rgba(42, 68, 132, 0.3); vertical-align: top; }
-.insight-text { color: var(--text-primary); font-size: 13px; line-height: 1.6; }
-.insight-text strong { color: #fff; }
+.forecast-table td { padding: 16px 12px; border-bottom: 1px solid var(--insights-border-soft); vertical-align: top; }
+.insight-text { color: var(--insights-text); font-size: 13px; line-height: 1.6; }
+.insight-text strong { color: var(--insights-heading); }
 .action-btn {
-    display: inline-block; padding: 8px 16px; color: var(--accent-success); border: 1px solid var(--accent-success);
-    border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600;
-    transition: 0.2s; white-space: nowrap; cursor: pointer; background: transparent;
+    display: inline-block; padding: 8px 16px; color: var(--insights-accent); border: 1px solid rgba(81, 213, 90, 0.28);
+    border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: 600;
+    transition: 0.2s; white-space: nowrap; cursor: pointer; background: rgba(81, 213, 90, 0.08);
 }
-.action-btn:hover { background: var(--accent-success); color: #0B1120; box-shadow: 0 0 10px rgba(81, 213, 90, 0.4); }
+.action-btn:hover { background: var(--insights-accent); color: #ffffff; box-shadow: 0 10px 20px rgba(81, 213, 90, 0.18); }
 </style>
 
 <div class="card" style="margin-bottom: 24px;">
@@ -613,7 +700,7 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
         </div>
         <div style="display: flex; gap: 10px;">
              <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
-             <button class="btn" onclick="exportData()">Export View</button>
+             <button class="btn btn-secondary" onclick="exportData()">Export View</button>
         </div>
     </div>
     
@@ -1041,9 +1128,9 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
 <div class="card" style="margin-bottom: 0;">
     <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; margin-bottom: 12px;">🎯 Forecast Recommendations</div>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
-        <div style="padding: 16px; background: rgba(29, 56, 123, 0.4); border-radius: 8px; border-left: 4px solid #51D55A;">
-            <div style="color: #51D55A; font-weight: 600; font-size: 14px; margin-bottom: 4px;">High Priority Restock</div>
-            <div style="color: #9aa6d1; font-size: 13px;">
+        <div class="recommendation-card success">
+            <div class="card-label">High Priority Restock</div>
+            <div class="card-copy">
                 <?php
                 $highPriority = array_filter($productMovement, function($p) {
                     return $p['movement_class'] === 'fast_moving' && $p['stock_status'] === 'low_stock' && $p['days_of_supply'] < 7;
@@ -1052,22 +1139,22 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
                 ?>
             </div>
         </div>
-        <div style="padding: 16px; background: rgba(29, 56, 123, 0.4); border-radius: 8px; border-left: 4px solid #f59e0b;">
-            <div style="color: #f59e0b; font-weight: 600; font-size: 14px; margin-bottom: 4px;">Seasonal Stock Build-up</div>
-            <div style="color: #9aa6d1; font-size: 13px;">Prepare for increased demand in Beverages and Dairy categories</div>
+        <div class="recommendation-card warning">
+            <div class="card-label">Seasonal Stock Build-up</div>
+            <div class="card-copy">Prepare for increased demand in Beverages and Dairy categories</div>
         </div>
-        <div style="padding: 16px; background: rgba(29, 56, 123, 0.4); border-radius: 8px; border-left: 4px solid #3b82f6;">
-            <div style="color: #3b82f6; font-weight: 600; font-size: 14px; margin-bottom: 4px;">Optimize Inventory</div>
-            <div style="color: #9aa6d1; font-size: 13px;">
+        <div class="recommendation-card info">
+            <div class="card-label">Optimize Inventory</div>
+            <div class="card-copy">
                 <?php
                 $overstocked = array_filter($productMovement, function($p) { return $p['stock_status'] === 'overstocked'; });
                 echo count($overstocked) . ' overstocked items identified';
                 ?>
             </div>
         </div>
-        <div style="padding: 16px; background: rgba(29, 56, 123, 0.4); border-radius: 8px; border-left: 4px solid #8b5cf6;">
-            <div style="color: #8b5cf6; font-weight: 600; font-size: 14px; margin-bottom: 4px;">Promotional Opportunities</div>
-            <div style="color: #9aa6d1; font-size: 13px;">
+        <div class="recommendation-card purple">
+            <div class="card-label">Promotional Opportunities</div>
+            <div class="card-copy">
                 <?php
                 $slowMoving = array_filter($productMovement, function($p) { return $p['movement_class'] === 'slow_moving' && $p['current_stock'] > 20; });
                 echo count($slowMoving) . ' slow-moving products for promotions';
@@ -1084,9 +1171,11 @@ h1, h2, h3, .product-title { color: #E3E3E3; font-weight: 600; }
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-Chart.defaults.color = '#9aa6d1';
-Chart.defaults.borderColor = 'rgba(42, 68, 132, 0.3)';
+const chartTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+Chart.defaults.color = chartTheme === 'light' ? '#64748b' : '#9aa6d1';
+Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)';
 Chart.defaults.font.family = "'Onest', sans-serif";
+Chart.defaults.font.size = 12;
 
 const categoriesLabels = <?php echo json_encode(array_column($categoryPerformance, 'category_name')); ?>;
 const monthlySalesData = <?php echo json_encode(array_column($categoryPerformance, 'monthly_sales')); ?>;

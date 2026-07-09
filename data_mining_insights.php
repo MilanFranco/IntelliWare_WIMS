@@ -71,16 +71,24 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
 <style>
 .card, .premium-card {
-    background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
-    border: 1px solid rgba(42, 68, 132, 0.6);
+    background: var(--iw-bg-card);
+    border: 1px solid var(--iw-border);
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--iw-shadow-card);
     margin-bottom: 20px;
 }
-.metric-card { cursor: pointer; transition: all 0.3s ease; }
+.metric-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--iw-bg-card);
+    border: 1px solid var(--iw-border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
 .metric-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); border-color: #51D55A; }
-.metric-card.active { border-color: #51D55A; background: linear-gradient(135deg, #13275B 0%, #1D387B 100%); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
+.metric-card.active { border-color: #51D55A; background: var(--iw-bg-surface); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
 .filter-tag { display: inline-block; background: #51D55A; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
 .filter-tag .close { margin-left: 8px; cursor: pointer; font-weight: bold; }
 </style>
@@ -92,7 +100,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     </div>
     
     <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:20px;">
-        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('all')" data-filter="all">
+        <div class="metric-card" style=" background: #13275B; padding: 20px; border-radius: 12px; border: 2px solid #2A4484; text-align: center;" onclick="filterProducts('all')" data-filter="all">
             <div style="color:#51D55A; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['total_products']; ?></div>
             <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Total Products</div>
         </div>
