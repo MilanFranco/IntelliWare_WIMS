@@ -154,7 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $conn->close();
 
-$txnIcon = $TXN_MODE === 'in' ? '📥' : '📤';
+$txnIcon = $TXN_MODE === 'in'
+    ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12M12 16.5V3"/></svg>'
+    : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 7.5m0 0 4.5 4.5M12 7.5V21"/></svg>';
 $txnLabel = $TXN_MODE === 'in' ? 'Receive Stock' : 'Release Stock';
 $confirmLabel = $TXN_MODE === 'in' ? 'Confirm Receive' : 'Confirm Release';
 $accentClass = $TXN_MODE === 'in' ? 'pos-accent-receive' : 'pos-accent-release';
@@ -297,13 +299,19 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
 
     .pos-scanner-badge {
-        font-size: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(81, 213, 90, 0.12);
         color: #51D55A;
-        background: rgba(81, 213, 90, 0.1);
-        border: 1px solid rgba(81, 213, 90, 0.2);
-        padding: 4px 8px;
-        border-radius: 6px;
+        border: 1px solid rgba(81, 213, 90, 0.28);
         white-space: nowrap;
+    }
+    .pos-scanner-badge--off {
+        background: rgba(239, 68, 68, 0.1);
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.24);
     }
 
     .pos-cart-wrap {
@@ -671,7 +679,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 </h3>
                 <p class="text-xs text-[#9aa6d1] mt-1">Scan product barcodes to build your transaction. If product not found, register it first in Products page.</p>
             </div>
-            <span class="pos-scanner-badge hidden sm:inline">Scanner ready</span>
+            <span class="pos-scanner-badge pos-scanner-badge--off hidden sm:inline" id="inv-scanner-badge">No barcode scanner detected.</span>
         </div>
 
         <div class="pos-panel-body">
@@ -687,7 +695,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                                    placeholder="Scan manufacturer barcode or type and press Enter…"
                                    autocomplete="off"
                                    autofocus>
-                            <button type="button" class="btn-scan" id="inv-scan-btn" title="Scan barcode with camera">📷</button>
+                            <button type="button" class="btn-scan" id="inv-scan-btn" title="Scan barcode with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                         </div>
                         <p class="barcode-scan-hint" id="inv-scanner-hint"><strong>Scan the barcode</strong> printed on product packaging. USB/Bluetooth scanners work automatically. If product not found, register it in Products page first.</p>
                     </div>

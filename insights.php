@@ -276,23 +276,23 @@ if (isset($conn)) {
             $coverage = ($demand > 0) ? ($stock / $demand) * 100 : 100;
 
             if ($stock == 0 && $demand > 0) {
-                $row['type'] = '🚨 Critical Outage';
+                $row['type'] = 'Critical Outage';
                 $row['insight'] = "I noticed you have <strong>0 stock</strong> against a demand of $demand units. I strongly advise you to restock to avoid missed sales.";
                 $row['action_needed'] = 'urgent';
             } elseif ($coverage < 50) {
-                $row['type'] = '⚠️ High Risk';
+                $row['type'] = 'High Risk';
                 $row['insight'] = "I calculated that your stock ($stock) only covers " . round($coverage) . "% of expected demand ($demand). I recommend ordering more.";
                 $row['action_needed'] = 'restock';
             } elseif ($coverage < 100) {
-                $row['type'] = '📉 Low Cover';
+                $row['type'] = 'Low Cover';
                 $row['insight'] = "I'm tracking tight inventory here. Demand ($demand) slightly exceeds your stock ($stock). I suggest planning replenishment soon.";
                 $row['action_needed'] = 'monitor';
             } elseif ($coverage > 300) {
-                $row['type'] = '🧊 Slow Moving';
+                $row['type'] = 'Slow Moving';
                 $row['insight'] = "I see " . round($coverage) . "% coverage. Your stock ($stock) far exceeds demand ($demand). I advise pausing orders.";
                 $row['action_needed'] = 'pause';
             } else {
-                $row['type'] = '✅ Optimal';
+                $row['type'] = 'Optimal';
                 $row['insight'] = "I confirm your inventory ($stock) aligns perfectly with my demand projection ($demand). Great job.";
                 $row['action_needed'] = 'none';
             }
@@ -332,9 +332,59 @@ if (empty($forecastData)) {
             'product_name' => $defaultItem['name'],
             'category_name' => $defaultItem['cat'],
             'insight' => "Based on my market trend data, I predict a surge because: " . strtolower($defaultItem['reason']),
-            'type' => '💡 System Advisory',
+            'type' => 'System Advisory',
             'action_needed' => 'advisory'
         ];
+    }
+}
+
+$highlightProductId = null;
+if (isset($_GET['product_id']) && (int)$_GET['product_id'] > 0) {
+    $highlightProductId = (int)$_GET['product_id'];
+} elseif (!empty($_GET['barcode']) && isset($conn)) {
+    $barcodeLookup = trim($_GET['barcode']);
+    $barcodeStmt = $conn->prepare("SELECT product_id FROM products WHERE barcode = ? LIMIT 1");
+    if ($barcodeStmt) {
+        $barcodeStmt->bind_param("s", $barcodeLookup);
+        $barcodeStmt->execute();
+        $barcodeResult = $barcodeStmt->get_result();
+        if ($barcodeRow = $barcodeResult->fetch_assoc()) {
+            $highlightProductId = (int)$barcodeRow['product_id'];
+        }
+        $barcodeStmt->close();
+    }
+}
+
+if ($highlightProductId && isset($conn)) {
+    $alreadyListed = false;
+    foreach ($forecastData as &$forecastItem) {
+        if (isset($forecastItem['product_id']) && (int)$forecastItem['product_id'] === $highlightProductId) {
+            $forecastItem['highlight'] = true;
+            $alreadyListed = true;
+        }
+    }
+    unset($forecastItem);
+
+    if (!$alreadyListed) {
+        $productStmt = $conn->prepare("
+            SELECT product_id, product_name, quantity AS current_stock, category AS category_name
+            FROM products WHERE product_id = ?
+        ");
+        if ($productStmt) {
+            $productStmt->bind_param("i", $highlightProductId);
+            $productStmt->execute();
+            $productResult = $productStmt->get_result();
+            if ($productRow = $productResult->fetch_assoc()) {
+                $stock = (int)$productRow['current_stock'];
+                $productRow['total_historical_sales'] = 0;
+                $productRow['type'] = $stock <= 0 ? 'Critical Outage' : 'Product Focus';
+                $productRow['insight'] = 'Viewing product selected from dashboard. Review stock levels and demand forecast below.';
+                $productRow['action_needed'] = $stock <= 0 ? 'urgent' : 'monitor';
+                $productRow['highlight'] = true;
+                array_unshift($forecastData, $productRow);
+            }
+            $productStmt->close();
+        }
     }
 }
 
@@ -673,9 +723,10 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     border: 1px solid rgba(81, 213, 90, 0.25); border-radius: 16px; padding: 24px; position: relative; overflow: hidden;
 }
 .bg-icon {
-    position: absolute; top: -15px; right: -10px; font-size: 140px; opacity: 0.05;
+    position: absolute; top: -15px; right: -10px; width: 140px; height: 140px; opacity: 0.05;
     transform: rotate(15deg); pointer-events: none; color: var(--insights-heading);
 }
+.bg-icon svg { width: 100%; height: 100%; }
 .forecast-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 .forecast-table th {
     text-align: left; color: var(--insights-text-muted); font-size: 11px; font-weight: 700; uppercase; tracking-wider;
@@ -690,13 +741,41 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     transition: 0.2s; white-space: nowrap; cursor: pointer; background: rgba(81, 213, 90, 0.08);
 }
 .action-btn:hover { background: var(--insights-accent); color: #ffffff; box-shadow: 0 10px 20px rgba(81, 213, 90, 0.18); }
+.forecast-row--highlighted { background: rgba(81, 213, 90, 0.1) !important; }
+.forecast-row--highlighted td { border-bottom-color: rgba(81, 213, 90, 0.25) !important; }
+.forecast-product-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 8px;
+    padding: 4px;
+    margin: -4px;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
+}
+.forecast-product-link:hover {
+    background: rgba(81, 213, 90, 0.08);
+    transform: translateX(4px);
+}
+.forecast-product-link:hover .product-title { color: var(--insights-accent); }
+.section-heading-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    color: var(--insights-accent);
+}
+.section-heading-icon svg { width: 22px; height: 22px; }
 </style>
 
 <div class="card" style="margin-bottom: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 10px;">
         <div>
             <div style="color: #E3E3E3; font-weight: 600; font-size: 26px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                📊 Data Mining & Analytics
+                <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></span>
+                Data Mining & Analytics
             </div>
             <div style="color: #9aa6d1; font-size: 14px; margin-bottom: 20px;">
                 Advanced analytics and insights powered by data mining algorithms to optimize your warehouse operations.
@@ -738,7 +817,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
 <div class="tab-content active" id="product-analysis">
     <div class="card">
-        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">📦 Product Movement Analysis</div>
+        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Product Movement Analysis</div>
         <div class="search-filter-container">
             <input type="text" id="productSearch" class="search-box" placeholder="Search products...">
             <select id="categoryFilter" class="filter-select">
@@ -798,7 +877,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <div class="tab-content" id="category-performance">
     <div class="grid-2">
         <div class="card">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">🏷️ Category Performance</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Category Performance</div>
             <div style="overflow: auto; max-height: 500px;">
                 <table class="table">
                     <thead><tr><th>Category</th><th>Products</th><th>Total Stock</th><th>Avg Stock</th><th>Low Stock</th><th>Sales</th></tr></thead>
@@ -818,7 +897,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             </div>
         </div>
         <div class="card">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">📈 Sales Distribution</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Sales Distribution</div>
             <div class="chart-container"><canvas id="categoryChart"></canvas></div>
         </div>
     </div>
@@ -828,7 +907,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="grid-2">
         <div class="card">
             <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">
-                📊 Sales Trends (Last <?php echo $daysLookback; ?> Days)
+                Sales Trends (Last <?php echo $daysLookback; ?> Days)
             </div>
             <div style="overflow: auto; max-height: 500px;">
                 <table class="table">
@@ -848,7 +927,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             </div>
         </div>
         <div class="card">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">📈 Trend Visualization</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Trend Visualization</div>
             <div class="chart-container"><canvas id="salesTrendChart"></canvas></div>
         </div>
     </div>
@@ -856,7 +935,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
 <div class="tab-content" id="supplier-analysis">
     <div class="card">
-        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">🏭 Supplier Performance</div>
+        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Supplier Performance</div>
         <div style="overflow: auto; max-height: 500px;">
             <table class="table">
                 <thead><tr><th>Supplier</th><th>Products</th><th>Total Stock</th><th>Avg Stock</th><th>Monthly Sales</th><th>Low Stock</th><th>Status</th></tr></thead>
@@ -887,7 +966,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
 <div class="tab-content" id="expiry-risk">
     <div class="card">
-        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">⚠️ Expiry Risk Analysis</div>
+        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Expiry Risk Analysis</div>
         <div style="overflow: auto; max-height: 500px;">
             <table class="table">
                 <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Expiry Date</th><th>Days Left</th><th>Sales</th><th>Sell Through</th><th>Risk</th></tr></thead>
@@ -913,8 +992,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <div class="forecast-card" id="forecastWidget">
     <div class="loading-overlay"><div class="spinner"></div></div>
     
-    <div style="color: #E3E3E3; font-weight: 600; font-size: 20px; margin-bottom: 16px; display: flex; align-items: center;">
-        📈 Demand Forecasting
+    <div style="color: #E3E3E3; font-weight: 600; font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.318 11.318 0 0 1 5.814 5.814L21.75 18M2.25 18V15a2.25 2.25 0 0 1 2.25-2.25h1.5M2.25 18h16.5"/></svg></span>
+        Demand Forecasting
     </div>
 
     <div class="forecast-nav-bar">
@@ -957,12 +1037,13 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     </div>
 
     <div class="smart-restock-banner">
-        <div class="bg-icon">📅</div>
+        <div class="bg-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg></div>
         
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative; z-index: 2;">
             <div>
-                <div style="color: #51D55A; font-weight: 700; font-size: 22px; display: flex; align-items: center;">
-                    🚀 Smart Restock: <?php echo $periodTitle; ?>
+                <div style="color: #51D55A; font-weight: 700; font-size: 22px; display: flex; align-items: center; gap: 8px;">
+                    <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
+                    Smart Restock: <?php echo $periodTitle; ?>
                 </div>
                 <div style="color: #9aa6d1; font-size: 13px; margin-top: 6px;">
                       Forecast insights suggestions for next period based on 
@@ -990,7 +1071,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 </thead>
                 <tbody>
                     <?php foreach ($forecastData as $item): ?>
-                    <tr>
+                    <tr class="<?php echo !empty($item['highlight']) ? 'forecast-row--highlighted' : ''; ?>"<?php echo !empty($item['highlight']) ? ' id="highlighted-product-row"' : ''; ?>>
                         <td>
                             <div class="product-title"><?php echo htmlspecialchars($item['product_name']); ?></div>
                             <div class="product-sub"><?php echo htmlspecialchars($item['category_name']); ?></div>
@@ -1024,14 +1105,14 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <div class="grid-2" style="margin-bottom: 20px;">
     <div class="card forecast-highlight-card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">🔮 <?php echo $daysLookback; ?>-Day Sales Forecast</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg></span><?php echo $daysLookback; ?>-Day Sales Forecast</div>
             <div class="info-icon" data-tooltip="sales-forecast-tooltip">?</div>
         </div>
         <div class="chart-container"><canvas id="salesForecastChart"></canvas></div>
     </div>
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📊 Product Demand Heatmap</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></span>Product Demand Heatmap</div>
             <div class="info-icon" data-tooltip="heatmap-tooltip">?</div>
         </div>
         <div class="chart-container"><canvas id="demandHeatmapChart"></canvas></div>
@@ -1041,7 +1122,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <div class="grid-forecast-ml" style="margin-bottom: 20px;">
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📦 Seasonal Demand Patterns</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg></span>Seasonal Demand Patterns</div>
             <div class="info-icon" data-tooltip="seasonal-tooltip">?</div>
         </div>
         <?php if (!$hasMlModel): ?>
@@ -1062,7 +1143,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     </div>
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 8px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📍 Forecast Accuracy</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg></span>Forecast Accuracy</div>
             <div class="info-icon" data-tooltip="accuracy-tooltip">?</div>
         </div>
         <?php if ($hasMlModel && $accuracyTrend['current'] !== null): ?>
@@ -1096,7 +1177,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <div class="grid-2" style="margin-bottom: 20px;">
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">📉 Stock Depletion Trend</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.318 11.318 0 0 1 5.814 5.814L21.75 18M2.25 18V15a2.25 2.25 0 0 1 2.25-2.25h1.5M2.25 18h16.5"/></svg></span>Stock Depletion Trend</div>
             <div class="info-icon" data-tooltip="depletion-tooltip">?</div>
         </div>
         <?php if (!$depletionTrend['available']): ?>
@@ -1109,7 +1190,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     </div>
     <div class="card">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px;">🔁 Reorder Frequency Over Time</div>
+            <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3 3-3"/></svg></span>Reorder Frequency Over Time</div>
             <div class="info-icon" data-tooltip="reorder-tooltip">?</div>
         </div>
         <?php if (!$reorderFrequencyTrend['available']): ?>
@@ -1123,14 +1204,14 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 <div class="info-tooltip" id="sales-forecast-tooltip"><strong><?php echo $daysLookback; ?>-Day Sales Forecast</strong><br><br>• <strong>Green Line:</strong> Historical daily sales from transactions<br>• <strong>Orange Dashed Line:</strong> ML-predicted future demand<br>• Powered by Prophet or Random Forest model<br>• Train the model from Settings to enable predictions</div>
-<div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• Shows top products by forecasted demand<br>• <span style="color: #ef4444">🔴 High</span> = 50+ units (Priority restock)<br>• <span style="color: #f59e0b">🟠 Medium-High</span> = 25-50 units<br>• <span style="color: #3b82f6">🔵 Medium</span> = 10-25 units<br>• <span style="color: #10b981">🟢 Low</span> = Under 10 units</div>
+<div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• Shows top products by forecasted demand<br>• <span style="color: #ef4444">High</span> = 50+ units (Priority restock)<br>• <span style="color: #f59e0b">Medium-High</span> = 25-50 units<br>• <span style="color: #3b82f6">Medium</span> = 10-25 units<br>• <span style="color: #10b981">Low</span> = Under 10 units</div>
 <div class="info-tooltip" id="seasonal-tooltip"><strong>Seasonal Demand Patterns</strong><br><br>• <strong>Green:</strong> Historical monthly sales from transactions<br>• <strong>Orange:</strong> ML forecasted demand for upcoming months<br>• <strong>Purple dashed:</strong> Trend line projection<br>• Identifies monthly peaks, declines, and seasonality</div>
 <div class="info-tooltip" id="accuracy-tooltip"><strong>Forecast Accuracy</strong><br><br>• Calculated from backtest: predicted vs actual sales<br>• <strong>MAE:</strong> Mean Absolute Error (units)<br>• <strong>MAPE:</strong> Mean Absolute Percentage Error<br>• <strong>Accuracy %</strong> = 100 − MAPE<br>• Segment chart shows accuracy by product movement class</div>
 <div class="info-tooltip" id="depletion-tooltip"><strong>Stock Depletion Trend</strong><br><br>• Compares monthly stock-outs against replenishment activity<br>• Helps identify where inventory is draining faster than it is restocked</div>
 <div class="info-tooltip" id="reorder-tooltip"><strong>Reorder Frequency Over Time</strong><br><br>• Tracks how often stock is replenished each month<br>• Helps spot recurring restock cycles and supplier cadence</div>
 
 <div class="card" style="margin-bottom: 0;">
-    <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; margin-bottom: 12px;">🎯 Forecast Recommendations</div>
+    <div style="color: #E3E3E3; font-weight: 600; font-size: 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;"><span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 12H18M7.757 14.743l-1.59 1.59M6 12H4.5m4.243-5.657L6.75 4.5M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg></span>Forecast Recommendations</div>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
         <div class="recommendation-card success">
             <div class="card-label">High Priority Restock</div>
@@ -1193,6 +1274,15 @@ const salesForecastChartData = <?php echo json_encode($salesForecastChart); ?>;
 const heatmapForecastData = <?php echo json_encode($heatmapForecast); ?>;
 const depletionTrendData = <?php echo json_encode($depletionTrend); ?>;
 const reorderFrequencyData = <?php echo json_encode($reorderFrequencyTrend); ?>;
+
+<?php if ($highlightProductId): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    const row = document.getElementById('highlighted-product-row');
+    if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
+<?php endif; ?>
 
 function checkStock(productName, categoryName) {
     document.getElementById('filter_product_name').value = productName;

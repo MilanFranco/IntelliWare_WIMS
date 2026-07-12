@@ -256,10 +256,10 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], $lowStockCount);
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Stock Status</label>
                 <select name="status" class="premium-input w-full h-[46px] cursor-pointer">
                     <option value="">All Status</option>
-                    <option value="good" <?php echo $statusFilter === 'good' ? 'selected' : ''; ?>>✅ Good Stock</option>
-                    <option value="attention" <?php echo $statusFilter === 'attention' ? 'selected' : ''; ?>>⚠️ Attention Needed (Low/Out)</option>
-                    <option value="low" <?php echo $statusFilter === 'low' ? 'selected' : ''; ?>>📉 Low Stock</option>
-                    <option value="out" <?php echo $statusFilter === 'out' ? 'selected' : ''; ?>>❌ Out of Stock</option>
+                    <option value="good" <?php echo $statusFilter === 'good' ? 'selected' : ''; ?>>Good Stock</option>
+                    <option value="attention" <?php echo $statusFilter === 'attention' ? 'selected' : ''; ?>>Attention Needed (Low/Out)</option>
+                    <option value="low" <?php echo $statusFilter === 'low' ? 'selected' : ''; ?>>Low Stock</option>
+                    <option value="out" <?php echo $statusFilter === 'out' ? 'selected' : ''; ?>>Out of Stock</option>
                 </select>
             </div>
 

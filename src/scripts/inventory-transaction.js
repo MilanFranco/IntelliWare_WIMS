@@ -37,12 +37,30 @@ var InventoryTransaction = (function () {
             focusWedgeInput();
             return;
         }
+        if (window.BarcodeScanner && BarcodeScanner.isUsbScannerConnected()) {
+            focusWedgeInput();
+            return;
+        }
         var input = document.getElementById('inv-barcode-input');
         if (input) {
             setTimeout(function () {
                 input.focus();
                 input.select();
             }, 50);
+        }
+    }
+
+    function updateScannerUi(connected) {
+        var badge = document.getElementById('inv-scanner-badge');
+        var hint = document.getElementById('inv-scanner-hint');
+        if (badge) {
+            badge.textContent = connected ? 'Scanner ready' : 'No barcode scanner detected.';
+            badge.classList.toggle('pos-scanner-badge--off', !connected);
+        }
+        if (hint) {
+            hint.innerHTML = connected
+                ? '<strong>Scan the barcode</strong> printed on product packaging. USB scanners work automatically. If product not found, register it in Products page first.'
+                : 'No barcode scanner detected. Type barcodes manually and press Enter. Connect a USB scanner to enable automatic scanning.';
         }
     }
 
@@ -663,12 +681,21 @@ var InventoryTransaction = (function () {
             });
 
             if (window.BarcodeScanner) {
-                BarcodeScanner.attachHidInput(barcodeInput, onWedgeScan, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+                BarcodeScanner.attachHidInput(barcodeInput, function (code) {
+                    if (!BarcodeScanner.isUsbScannerConnected()) return;
+                    onWedgeScan(code);
+                }, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
             }
         }
 
         if (wedgeInput && window.BarcodeScanner) {
-            BarcodeScanner.attachHidInput(wedgeInput, onWedgeScan, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+            BarcodeScanner.attachHidInput(wedgeInput, function (code) {
+                if (!BarcodeScanner.isUsbScannerConnected()) return;
+                onWedgeScan(code);
+            }, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+
+            updateScannerUi(BarcodeScanner.isUsbScannerConnected());
+            BarcodeScanner.onStatusChange(updateScannerUi);
         }
 
         if (window.BarcodeScanner) {

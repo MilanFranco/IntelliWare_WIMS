@@ -593,14 +593,17 @@
     }
 
     // --------------------------------------------------------
-    // HEADER SCANNER STATUS (USB / Bluetooth HID wedge + WebHID)
+    // USB BARCODE SCANNER DETECTION (WebHID + keyboard wedge)
     // --------------------------------------------------------
 
-    var SCANNER_STATUS_KEY = 'intelliware_scanner_ready';
     var headerStatusEl = null;
     var headerStatusTextEl = null;
     var hidDeviceCount = 0;
     var headerStatusInitialized = false;
+    var usbScannerConnected = false;
+    var globalWedgeEnabled = false;
+    var globalWedgeBlurHandler = null;
+    var statusChangeListeners = [];
 
     function getHeaderStatusEl() {
         if (!headerStatusEl) headerStatusEl = document.getElementById('header-scanner-status');
@@ -647,7 +650,6 @@
             el.classList.add('header-scanner-status--ready');
             if (textEl) textEl.textContent = 'Scanner ready';
             el.title = 'Barcode scanner is connected and ready to scan.';
-            try { sessionStorage.setItem(SCANNER_STATUS_KEY, '1'); } catch (e) {}
             return;
         }
 
@@ -659,23 +661,52 @@
         }
 
         el.classList.add('header-scanner-status--disconnected');
-        if (textEl) textEl.textContent = 'Scanner not plugged in';
-        el.title = 'Connect a USB or Bluetooth barcode scanner, then scan a barcode to activate.';
-        try { sessionStorage.removeItem(SCANNER_STATUS_KEY); } catch (e) {}
+        if (textEl) textEl.textContent = 'No barcode scanner detected.';
+        el.title = 'Connect a USB barcode scanner to enable automatic scanning. Manual entry still works.';
+    }
+
+    function notifyStatusChange() {
+        statusChangeListeners.forEach(function (fn) {
+            try { fn(usbScannerConnected); } catch (e) { /* ignore listener errors */ }
+        });
+    }
+
+    function setUsbScannerConnected(connected) {
+        if (usbScannerConnected === connected) {
+            if (connected) setHeaderScannerStatus('ready');
+            return;
+        }
+
+        usbScannerConnected = connected;
+
+        if (connected) {
+            setHeaderScannerStatus('ready');
+            enableGlobalWedge();
+        } else {
+            setHeaderScannerStatus('disconnected');
+            disableGlobalWedge();
+        }
+
+        notifyStatusChange();
+    }
+
+    function isUsbScannerConnected() {
+        return usbScannerConnected;
+    }
+
+    function onScannerStatusChange(callback) {
+        if (typeof callback === 'function') {
+            statusChangeListeners.push(callback);
+        }
     }
 
     function markScannerReady() {
-        setHeaderScannerStatus('ready');
+        setUsbScannerConnected(true);
     }
 
     function markScannerDisconnected(force) {
         if (!force && hidDeviceCount > 0) return;
-
-        var hadSession = false;
-        try { hadSession = sessionStorage.getItem(SCANNER_STATUS_KEY) === '1'; } catch (e) {}
-        if (!force && hadSession) return;
-
-        setHeaderScannerStatus('disconnected');
+        setUsbScannerConnected(false);
     }
 
     function refreshHidDeviceStatus() {
@@ -688,7 +719,7 @@
             hidDeviceCount = scanners.length;
 
             if (hidDeviceCount > 0) {
-                markScannerReady();
+                setUsbScannerConnected(true);
                 return true;
             }
 
@@ -704,7 +735,7 @@
         navigator.hid.addEventListener('connect', function (e) {
             if (isLikelyBarcodeScanner(e.device)) {
                 hidDeviceCount += 1;
-                markScannerReady();
+                setUsbScannerConnected(true);
             }
         });
 
@@ -720,30 +751,52 @@
         refreshHidDeviceStatus();
     }
 
-    function initGlobalWedgeStatus() {
+    function enableGlobalWedge() {
         var input = document.getElementById('global-scanner-wedge-input');
-        if (!input) return;
+        if (!input || globalWedgeEnabled) return;
 
-        attachHidInput(input, null, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
+        globalWedgeEnabled = true;
+        input.disabled = false;
+        originalAttachHidInput(input, null, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
 
-        input.addEventListener('blur', function () {
+        globalWedgeBlurHandler = function () {
+            if (!usbScannerConnected) return;
             var active = document.activeElement;
             if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
                 return;
             }
             setTimeout(function () {
-                if (document.activeElement === input) return;
+                if (!usbScannerConnected || document.activeElement === input) return;
                 active = document.activeElement;
                 if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
                     return;
                 }
                 input.focus({ preventScroll: true });
             }, 120);
-        });
+        };
+
+        input.addEventListener('blur', globalWedgeBlurHandler);
 
         setTimeout(function () {
-            input.focus({ preventScroll: true });
+            if (usbScannerConnected) {
+                input.focus({ preventScroll: true });
+            }
         }, 300);
+    }
+
+    function disableGlobalWedge() {
+        var input = document.getElementById('global-scanner-wedge-input');
+        if (!input) return;
+
+        globalWedgeEnabled = false;
+        input.disabled = true;
+        input.value = '';
+        input.blur();
+
+        if (globalWedgeBlurHandler) {
+            input.removeEventListener('blur', globalWedgeBlurHandler);
+            globalWedgeBlurHandler = null;
+        }
     }
 
     function initHeaderScannerStatus() {
@@ -753,24 +806,22 @@
         if (!getHeaderStatusEl()) return;
 
         setHeaderScannerStatus('checking');
-
-        var hadSessionReady = false;
-        try { hadSessionReady = sessionStorage.getItem(SCANNER_STATUS_KEY) === '1'; } catch (e) {}
-
-        if (hadSessionReady) {
-            markScannerReady();
-        } else {
-            setHeaderScannerStatus('disconnected');
-        }
-
+        disableGlobalWedge();
         initWebHidStatus();
-        initGlobalWedgeStatus();
+
+        refreshHidDeviceStatus().then(function (found) {
+            if (!found) {
+                setUsbScannerConnected(false);
+            }
+        }).catch(function () {
+            setUsbScannerConnected(false);
+        });
     }
 
     var originalAttachHidInput = attachHidInput;
     attachHidInput = function (input, onScan, options) {
         return originalAttachHidInput(input, function (code, inputEl) {
-            markScannerReady();
+            setUsbScannerConnected(true);
             if (typeof onScan === 'function') {
                 onScan(code, inputEl);
             }
@@ -799,6 +850,8 @@
         focusHidInput: focusHidInput,
         initHeaderStatus: initHeaderScannerStatus,
         setHeaderStatus: setHeaderScannerStatus,
-        markReady: markScannerReady
+        markReady: markScannerReady,
+        isUsbScannerConnected: isUsbScannerConnected,
+        onStatusChange: onScannerStatusChange
     };
 })();

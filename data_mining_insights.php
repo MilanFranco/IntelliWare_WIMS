@@ -94,7 +94,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </style>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:18px; margin-bottom:12px;">📊 Data Mining Insights Dashboard</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:18px; margin-bottom:12px;">Data Mining Insights Dashboard</div>
     <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:20px; opacity:0.8;">
         Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. Click on any metric to filter products.
     </div>
@@ -127,11 +127,11 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🏷️ Inventory Classifications</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">Inventory Classifications</div>
         <div style="overflow:auto; max-height:420px;">
             <?php if (empty($detailedAnalysis)): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:40px; font-size:14px;">
-                    <div style="font-size:48px; margin-bottom:16px;">📊</div>
+                    <div class="iw-empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg></div>
                     <div>No inventory data available</div>
                     <div style="font-size:12px; margin-top:8px; opacity:0.7;">Add products to see classifications</div>
                 </div>
@@ -169,11 +169,11 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
     </div>
 
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">⚠️ Anomaly Detection</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">Anomaly Detection</div>
         <div style="overflow:auto; max-height:420px;">
             <?php if (empty($insights['anomalies'])): ?>
                 <div style="color:#9aa6d1; text-align:center; padding:40px; font-size:14px;">
-                    <div style="font-size:48px; margin-bottom:16px;">✅</div>
+                    <div class="iw-empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg></div>
                     <div>No anomalies detected</div>
                     <div style="font-size:12px; margin-top:8px; opacity:0.7;">All inventory levels appear normal</div>
                 </div>
@@ -208,7 +208,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">📈 Classification Rules Applied</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">Classification Rules Applied</div>
     <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
             
@@ -232,7 +232,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🤖 AI Recommendations</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">AI Recommendations</div>
     <div style="display:grid; grid-template-columns: repeat(1, 1fr); gap:20px;">
         <?php if (!empty($monthlyRecommendations)): ?>
             <div style="background:#13275B; padding:20px; border-radius:12px; border:1px solid #2A4484;">
@@ -307,7 +307,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 </div>
 
 <div class="card">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">🔧 Analysis Tools</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">Analysis Tools</div>
     <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;">
         <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
         <button class="btn" onclick="runAIForecast()">Run AI Forecast</button>
@@ -377,7 +377,7 @@ function filterProducts(filterType) {
     }
     
     if (filterType !== 'all') {
-        filterDisplay.innerHTML = `<span class="filter-tag">${filterLabel} <span class="close" onclick="filterProducts('all')">✕</span></span>`;
+        filterDisplay.innerHTML = `<span class="filter-tag">${filterLabel} <span class="close" onclick="filterProducts('all')">&times;</span></span>`;
     } else {
         filterDisplay.innerHTML = '';
     }
@@ -418,7 +418,7 @@ function filterProducts(filterType) {
         emptyRow.id = 'emptyFilterRow';
         emptyRow.innerHTML = `
             <td colspan="6" style="text-align:center; padding:40px; color:#9aa6d1;">
-                <div style="font-size:48px; margin-bottom:16px;">🔍</div>
+                <div class="iw-empty-state-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg></div>
                 <div>No products found for this filter</div>
                 <div style="font-size:12px; margin-top:8px; opacity:0.7;">Try a different classification</div>
             </td>
@@ -483,7 +483,7 @@ function scheduleAnalysis() {
 async function runAIForecast() {
     const btn = document.querySelector('button[onclick="runAIForecast()"]');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Running AI Forecast...';
+    btn.innerHTML = 'Running AI Forecast...';
     btn.disabled = true;
     
     try {

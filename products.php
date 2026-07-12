@@ -25,6 +25,17 @@ function setFlashMessage($type, $message) {
     $_SESSION['toast'] = ['type' => $type, 'message' => $message];
 }
 
+function parseNonNegativeInt($value, $default = null) {
+    if ($value === null || $value === '') {
+        return $default;
+    }
+    if (!is_numeric($value) || (int)$value != $value) {
+        return false;
+    }
+    $intVal = (int)$value;
+    return $intVal < 0 ? false : $intVal;
+}
+
 $cat_query = $conn->query("SELECT DISTINCT category FROM products WHERE category != '' ORDER BY category");
 while ($row = $cat_query->fetch_assoc()) { $categories[] = $row['category']; }
 
@@ -42,26 +53,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     try {
         if ($action === 'add') {
+            $product_name = trim($_POST['product_name'] ?? '');
             $barcode = trim($_POST['barcode'] ?? '');
-            $barcodeVal = $barcode !== '' ? $barcode : null;
+            $category = trim($_POST['category'] ?? '');
+            $supplier = trim($_POST['supplier'] ?? '');
+            $location = trim($_POST['location'] ?? '');
+            $unit = trim($_POST['unit'] ?? '');
+            $quantity = parseNonNegativeInt($_POST['quantity'] ?? null);
+            $reorder_point = parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
+            $exp = empty($_POST['expiry_date']) ? null : trim($_POST['expiry_date']);
 
-            // Barcode duplicate check
-            if ($barcodeVal !== null) {
-                $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
-                $dupStmt->bind_param("s", $barcodeVal);
-                $dupStmt->execute();
-                $existing = $dupStmt->get_result()->fetch_assoc();
-                $dupStmt->close();
-                if ($existing) {
-                    throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
-                }
+            if ($barcode === '') {
+                throw new Exception('Barcode is required.');
+            }
+            if (strlen($barcode) > 50) {
+                throw new Exception('Barcode must be 50 characters or fewer.');
+            }
+            if ($product_name === '') {
+                throw new Exception('Product name is required.');
+            }
+            if (strlen($product_name) > 255) {
+                throw new Exception('Product name must be 255 characters or fewer.');
+            }
+            if ($quantity === false) {
+                throw new Exception('Quantity must be a whole number of 0 or greater.');
+            }
+            if ($reorder_point === false) {
+                throw new Exception('Reorder point must be a whole number of 0 or greater.');
+            }
+
+            $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
+            $dupStmt->bind_param("s", $barcode);
+            $dupStmt->execute();
+            $existing = $dupStmt->get_result()->fetch_assoc();
+            $dupStmt->close();
+            if ($existing) {
+                throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
             }
 
             $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $exp = empty($_POST['expiry_date']) ? null : $_POST['expiry_date'];
-            $stmt->bind_param("sssssiiss", $_POST['product_name'], $barcodeVal, $_POST['category'], $_POST['supplier'], $_POST['location'], $_POST['quantity'], $_POST['reorder_point'], $_POST['unit'], $exp);
-            if ($stmt->execute()) setFlashMessage('success', 'Product added successfully.');
-            else throw new Exception($stmt->error);
+            $stmt->bind_param("sssssiiss", $product_name, $barcode, $category, $supplier, $location, $quantity, $reorder_point, $unit, $exp);
+            if ($stmt->execute()) {
+                setFlashMessage('success', 'Product added successfully.');
+            } else {
+                if ($conn->errno === 1062) {
+                    throw new Exception('This barcode is already registered to another product.');
+                }
+                throw new Exception('Could not save product. Please try again.');
+            }
+            $stmt->close();
         }
         if ($action === 'edit') {
             $qty = (int)$_POST['qty'];
@@ -284,6 +324,58 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         transition: all 0.2s ease;
     }
     .btn-scan:hover { border-color: #51D55A; color: #51D55A; }
+    .btn-scan:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-scan:disabled:hover { border-color: #355296; color: #fff; }
+
+    .add-field-locked {
+        background: rgba(13, 22, 56, 0.65) !important;
+        color: #9aa6d1 !important;
+        cursor: not-allowed;
+    }
+    .add-barcode-status {
+        font-size: 12px;
+        margin-top: 8px;
+        font-family: 'Onest', sans-serif;
+    }
+    .add-barcode-status--pending { color: #fcd34d; }
+    .add-barcode-status--ready { color: #51D55A; }
+    .add-barcode-status--error { color: #f87171; }
+
+    .add-field-error {
+        color: #f87171;
+        font-size: 11px;
+        margin-top: 6px;
+        font-family: 'Onest', sans-serif;
+        line-height: 1.4;
+    }
+    .add-field-error[hidden] { display: none; }
+
+    .add-input-invalid {
+        border-color: #f87171 !important;
+        box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+    }
+
+    #add-product-submit:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-clear-barcode {
+        height: 46px;
+        padding: 0 14px;
+        background: transparent;
+        border: 1px solid #64748b;
+        border-radius: 12px;
+        color: #9aa6d1;
+        cursor: pointer;
+        font-size: 12px;
+        font-family: 'Onest', sans-serif;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+    }
+    .btn-clear-barcode:hover { border-color: #f87171; color: #f87171; }
 
     #toast-container {
         visibility: hidden;
@@ -358,7 +450,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <div class="relative flex-1 sm:min-w-[220px]">
                     <input name="q" id="product-search-input" class="premium-input w-full pl-10 pr-10" style="height:46px;" placeholder="Search name or barcode..." value="<?php echo htmlspecialchars($q); ?>">
                     <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <button type="button" id="search-scan-barcode-btn" class="absolute right-3 top-3 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none text-lg leading-none" title="Scan with camera">📷</button>
+                    <button type="button" id="search-scan-barcode-btn" class="absolute right-3 top-3 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none leading-none flex items-center justify-center" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 </div>
                 <select name="category" class="premium-input cursor-pointer text-sm w-full sm:w-40" style="height:46px;">
                     <option value="">All Categories</option>
@@ -366,7 +458,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </select>
                 <button type="submit" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-5">Search</button>
                 <?php if($q||$category_param): ?>
-                    <a href="products.php" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-4 !bg-[#2A4484] !shadow-none hover:!bg-[#355296]" title="Clear filters">✕</a>
+                    <a href="products.php" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-4 !bg-[#2A4484] !shadow-none hover:!bg-[#355296]" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
             </form>
             <button type="button" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center gap-2 shrink-0" onclick="openAddModal()">
@@ -484,63 +576,65 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     <div class="modal-box">
         <div class="modal-header">
             <div class="modal-title">
-                <h3>📦 Add New Product</h3>
+                <h3>Add New Product</h3>
                 <div class="modal-subtitle">Enter product details below to create a new inventory item.</div>
             </div>
             <button onclick="closeAddModal()" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
         </div>
-        <form method="POST" autocomplete="off">
+        <form method="POST" id="add-product-form" autocomplete="off">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                 <div style="grid-column: span 2;">
-                    <label class="form-label">Product Name *</label>
-                    <input name="product_name" class="premium-input w-full" style="height:46px;" placeholder="e.g. Wireless Mouse" required>
+                    <label class="form-label">Manufacturer Barcode (Product Identifier) *</label>
+                    <div class="flex gap-2">
+                        <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan or type barcode, then press Enter" autocomplete="off" required maxlength="50">
+                        <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan barcode with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                        <button type="button" class="btn-clear-barcode" id="add-clear-barcode-btn" style="display:none;" title="Clear barcode and start over">Clear</button>
+                    </div>
+                    <p class="add-barcode-status add-barcode-status--pending" id="add-barcode-status">Scan or enter a barcode to unlock the remaining fields.</p>
                 </div>
                 <div style="grid-column: span 2;">
-                    <label class="form-label">Manufacturer Barcode (Product Identifier)</label>
-                    <div class="flex gap-2">
-                        <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan the barcode printed on product packaging or enter manually" autocomplete="off">
-                        <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan barcode with camera">📷</button>
-                    </div>
-                    <p class="barcode-scan-hint" style="font-size:13px; color:#9aa6d1; margin-top:8px;">
-                        <strong>How to scan:</strong> Use a USB/Bluetooth barcode scanner (just focus this field and scan), or click 📷 to scan with your webcam. The barcode uniquely identifies this product in the system.
-                    </p>
+                    <label class="form-label">Product Name *</label>
+                    <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Wireless Mouse" required maxlength="255" disabled>
+                    <p class="add-field-error" id="add-product-name-error" hidden></p>
                 </div>
                 <div>
                     <label class="form-label">Category</label>
-                    <select name="category" class="premium-input w-full cursor-pointer" style="height:46px;">
+                    <select name="category" id="add-category" class="premium-input w-full cursor-pointer add-form-field" style="height:46px;" disabled>
                         <option value="">Select Category</option>
                         <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."'>".htmlspecialchars($cat)."</option>"; ?>
                     </select>
                 </div>
                 <div>
                     <label class="form-label">Supplier</label>
-                    <input name="supplier" class="premium-input w-full" style="height:46px;" placeholder="Supplier Name">
+                    <input name="supplier" id="add-supplier" class="premium-input w-full add-form-field" style="height:46px;" placeholder="Supplier Name" disabled>
                 </div>
                 <div>
                     <label class="form-label">Quantity *</label>
-                    <input type="number" name="quantity" class="premium-input w-full" style="height:46px;" required>
+                    <input type="number" name="quantity" id="add-quantity" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" required disabled>
+                    <p class="add-field-error" id="add-quantity-error" hidden></p>
                 </div>
                 <div>
                     <label class="form-label">Location</label>
-                    <input name="location" class="premium-input w-full" style="height:46px;" placeholder="e.g. Shelf A">
+                    <input name="location" id="add-location" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Shelf A" disabled>
                 </div>
                 <div>
                     <label class="form-label">Unit (UoM)</label>
-                    <select name="unit" class="premium-input w-full cursor-pointer" style="height:46px;">
+                    <select name="unit" id="add-unit" class="premium-input w-full cursor-pointer add-form-field" style="height:46px;" disabled>
                         <option value="">Select Unit</option>
                         <?php foreach ($uoms as $u) echo "<option value='".htmlspecialchars($u)."'>".htmlspecialchars($u)."</option>"; ?>
                     </select>
                 </div>
                 <div>
                     <label class="form-label">Reorder Point</label>
-                    <input type="number" name="reorder_point" class="premium-input w-full" style="height:46px;" value="10">
+                    <input type="number" name="reorder_point" id="add-reorder-point" class="premium-input w-full add-form-field" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
+                    <p class="add-field-error" id="add-reorder-point-error" hidden></p>
                 </div>
             </div>
             <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: flex-end; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0;">
                 <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
-                <button type="submit" class="premium-button">Create Product</button>
+                <button type="submit" class="premium-button" id="add-product-submit" disabled>Create Product</button>
             </div>
         </form>
     </div>
@@ -580,14 +674,244 @@ const editInputs = <?php echo json_encode($edit_inputs); ?>;
 
 const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'uom', 'reorder_point'];
 
+var addBarcodeLocked = false;
+var addBarcodeValidating = false;
+var addFormSubmitting = false;
+var ADD_BARCODE_MIN_LENGTH = 3;
+var ADD_SUBMIT_LABEL = 'Create Product';
+
+function getAddFormFields() {
+    return document.querySelectorAll('#add-product-form .add-form-field');
+}
+
+function setAddBarcodeStatus(message, state) {
+    var statusEl = document.getElementById('add-barcode-status');
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = 'add-barcode-status add-barcode-status--' + (state || 'pending');
+}
+
+function setAddFormFieldsEnabled(enabled) {
+    getAddFormFields().forEach(function (field) {
+        field.disabled = !enabled;
+    });
+    var submitBtn = document.getElementById('add-product-submit');
+    if (submitBtn && !addFormSubmitting) {
+        submitBtn.disabled = !enabled;
+    }
+}
+
+function clearAddFormErrors() {
+    document.querySelectorAll('#add-product-form .add-field-error').forEach(function (el) {
+        el.textContent = '';
+        el.hidden = true;
+    });
+    document.querySelectorAll('#add-product-form .add-input-invalid').forEach(function (el) {
+        el.classList.remove('add-input-invalid');
+    });
+}
+
+function setAddFieldError(inputId, errorId, message) {
+    var input = document.getElementById(inputId);
+    var errorEl = document.getElementById(errorId);
+    if (input) input.classList.add('add-input-invalid');
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+    }
+}
+
+function clearAddFieldError(inputId, errorId) {
+    var input = document.getElementById(inputId);
+    var errorEl = document.getElementById(errorId);
+    if (input) input.classList.remove('add-input-invalid');
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.hidden = true;
+    }
+}
+
+function setAddSubmitState(submitting) {
+    addFormSubmitting = submitting;
+    var submitBtn = document.getElementById('add-product-submit');
+    if (!submitBtn) return;
+
+    if (submitting) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        return;
+    }
+
+    submitBtn.textContent = ADD_SUBMIT_LABEL;
+    submitBtn.disabled = !addBarcodeLocked;
+}
+
+function isValidWholeNumber(value) {
+    if (value === '' || value === null || value === undefined) return false;
+    var num = Number(value);
+    return Number.isInteger(num) && num >= 0;
+}
+
+function validateAddProductForm() {
+    clearAddFormErrors();
+    var valid = true;
+    var firstInvalid = null;
+
+    if (!addBarcodeLocked) {
+        setAddBarcodeStatus('Please scan or enter a valid barcode first.', 'error');
+        valid = false;
+        firstInvalid = document.getElementById('add-barcode-input');
+    }
+
+    var barcode = (document.getElementById('add-barcode-input')?.value || '').trim();
+    if (barcode && barcode.length < ADD_BARCODE_MIN_LENGTH) {
+        setAddBarcodeStatus('Barcode is too short. Please scan again.', 'error');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-barcode-input');
+    }
+
+    var name = (document.getElementById('add-product-name')?.value || '').trim();
+    if (!name) {
+        setAddFieldError('add-product-name', 'add-product-name-error', 'Product name is required.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-product-name');
+    }
+
+    var qtyRaw = document.getElementById('add-quantity')?.value ?? '';
+    if (qtyRaw === '') {
+        setAddFieldError('add-quantity', 'add-quantity-error', 'Quantity is required.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-quantity');
+    } else if (!isValidWholeNumber(qtyRaw)) {
+        setAddFieldError('add-quantity', 'add-quantity-error', 'Quantity must be a whole number of 0 or greater.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-quantity');
+    }
+
+    var rpRaw = document.getElementById('add-reorder-point')?.value ?? '';
+    if (rpRaw !== '' && !isValidWholeNumber(rpRaw)) {
+        setAddFieldError('add-reorder-point', 'add-reorder-point-error', 'Reorder point must be a whole number of 0 or greater.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-reorder-point');
+    }
+
+    if (firstInvalid) firstInvalid.focus();
+    return valid;
+}
+
+function lockAddBarcodeField(locked) {
+    var input = document.getElementById('add-barcode-input');
+    var clearBtn = document.getElementById('add-clear-barcode-btn');
+    if (!input) return;
+
+    addBarcodeLocked = locked;
+    input.readOnly = locked;
+    input.classList.toggle('add-field-locked', locked);
+    if (clearBtn) clearBtn.style.display = locked ? 'inline-flex' : 'none';
+}
+
+function resetAddProductForm() {
+    var form = document.getElementById('add-product-form');
+    if (!form) return;
+
+    form.reset();
+    addBarcodeLocked = false;
+    addBarcodeValidating = false;
+    addFormSubmitting = false;
+    lockAddBarcodeField(false);
+    clearAddFormErrors();
+    setAddFormFieldsEnabled(false);
+    setAddSubmitState(false);
+    setAddBarcodeStatus('Scan or enter a barcode to unlock the remaining fields.', 'pending');
+}
+
+function focusAddBarcodeInput() {
+    if (window.BarcodeScanner) {
+        BarcodeScanner.focusHidInput('add-barcode-input');
+    } else {
+        var input = document.getElementById('add-barcode-input');
+        if (input) setTimeout(function () { input.focus(); }, 50);
+    }
+}
+
+function acceptAddBarcode(barcode) {
+    var input = document.getElementById('add-barcode-input');
+    if (!input) return;
+
+    input.value = barcode;
+    input.setAttribute('data-locked-value', barcode);
+    lockAddBarcodeField(true);
+    setAddFormFieldsEnabled(true);
+    setAddBarcodeStatus('Barcode locked. Complete the product details below.', 'ready');
+
+    var nameInput = document.getElementById('add-product-name');
+    if (nameInput) setTimeout(function () { nameInput.focus(); }, 80);
+}
+
+function rejectAddBarcode(message) {
+    var input = document.getElementById('add-barcode-input');
+    if (input) {
+        input.value = '';
+        input.readOnly = false;
+        input.classList.remove('add-field-locked');
+    }
+    addBarcodeLocked = false;
+    setAddFormFieldsEnabled(false);
+    setAddBarcodeStatus(message || 'Scan or enter a barcode to unlock the remaining fields.', message ? 'error' : 'pending');
+    focusAddBarcodeInput();
+}
+
+function validateAddBarcode(barcode) {
+    if (addBarcodeLocked || addBarcodeValidating) return;
+
+    var code = (barcode || '').trim();
+    if (!code) {
+        rejectAddBarcode('Please scan or enter a barcode first.');
+        return;
+    }
+    if (code.length < ADD_BARCODE_MIN_LENGTH) {
+        rejectAddBarcode('Barcode is too short. Please scan again.');
+        return;
+    }
+
+    if (!window.BarcodeScanner) {
+        acceptAddBarcode(code);
+        return;
+    }
+
+    addBarcodeValidating = true;
+    setAddBarcodeStatus('Checking barcode…', 'pending');
+
+    BarcodeScanner.lookup(code).then(function (data) {
+        addBarcodeValidating = false;
+        if (data.found && data.product) {
+            BarcodeScanner.showDuplicate(data.product);
+            rejectAddBarcode('This barcode already exists. Scan a different barcode or click Clear.');
+            return;
+        }
+        acceptAddBarcode(code);
+    }).catch(function () {
+        addBarcodeValidating = false;
+        if (!navigator.onLine) {
+            acceptAddBarcode(code);
+            setAddBarcodeStatus('Offline — barcode not verified online. Uniqueness will be checked when you save.', 'pending');
+            return;
+        }
+        rejectAddBarcode('Could not verify barcode. Check your connection and try again.');
+    });
+}
+
 function openAddModal() {
+    resetAddProductForm();
     document.body.style.overflow = 'hidden';
     document.getElementById('add-modal-overlay').classList.add('active');
-    if (window.BarcodeScanner) BarcodeScanner.focusHidInput('add-barcode-input');
+    focusAddBarcodeInput();
 }
+
 function closeAddModal() {
     document.getElementById('add-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
+    resetAddProductForm();
 }
 
 let delId = null;
@@ -657,14 +981,15 @@ function showToast(msg, type) {
     document.getElementById("toast-message").innerText = msg;
     t.className = 'show ' + (type === 'success' ? 'success' : 'error');
 
-    let iconSymbol = '⚠️';
-    if (type === 'success') {
-        iconSymbol = msg.toLowerCase().includes('deleted') ? '🗑️' : '✅';
-    } else if (type === 'error') {
-        iconSymbol = '❌';
-    }
+    const icons = {
+        success: msg.toLowerCase().includes('deleted')
+            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>'
+            : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        error: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+        warning: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>'
+    };
 
-    icon.innerText = iconSymbol;
+    icon.innerHTML = icons[type === 'success' ? 'success' : (type === 'error' ? 'error' : 'warning')];
     setTimeout(() => t.classList.remove('show'), 4000);
 }
 
@@ -675,7 +1000,7 @@ function showToast(msg, type) {
 
 // Barcode scanner integration
 function checkBarcodeDuplicate(barcode, onClear) {
-    if (!barcode || !barcode.trim()) return;
+    if (!barcode || !barcode.trim() || !window.BarcodeScanner) return;
     BarcodeScanner.lookup(barcode.trim()).then(function(data) {
         if (data.found && data.product) {
             BarcodeScanner.showDuplicate(data.product);
@@ -684,16 +1009,68 @@ function checkBarcodeDuplicate(barcode, onClear) {
     });
 }
 
-document.getElementById('add-scan-barcode-btn')?.addEventListener('click', function() {
+document.getElementById('add-clear-barcode-btn')?.addEventListener('click', function () {
+    resetAddProductForm();
+    focusAddBarcodeInput();
+});
+
+document.getElementById('add-scan-barcode-btn')?.addEventListener('click', function () {
+    if (addBarcodeLocked || addBarcodeValidating) return;
     BarcodeScanner.open(function(code) {
-        var input = document.getElementById('add-barcode-input');
-        input.value = code;
-        checkBarcodeDuplicate(code, function() { input.value = ''; });
+        validateAddBarcode(code);
     });
 });
 
-document.getElementById('add-barcode-input')?.addEventListener('change', function() {
-    checkBarcodeDuplicate(this.value, function() { this.value = ''; }.bind(this));
+document.getElementById('add-barcode-input')?.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!addBarcodeLocked) validateAddBarcode(this.value);
+    }
+});
+
+document.getElementById('add-barcode-input')?.addEventListener('input', function () {
+    if (!addBarcodeLocked) return;
+    var lockedValue = this.getAttribute('data-locked-value') || '';
+    if (this.value !== lockedValue) this.value = lockedValue;
+});
+
+document.getElementById('add-product-form')?.addEventListener('submit', function (e) {
+    if (addFormSubmitting) {
+        e.preventDefault();
+        return;
+    }
+
+    if (!addBarcodeLocked) {
+        e.preventDefault();
+        validateAddBarcode(document.getElementById('add-barcode-input')?.value || '');
+        return;
+    }
+
+    if (!validateAddProductForm()) {
+        e.preventDefault();
+        showToast('Please fix the highlighted fields before saving.', 'error');
+        return;
+    }
+
+    setAddSubmitState(true);
+});
+
+[
+    ['add-product-name', 'add-product-name-error'],
+    ['add-quantity', 'add-quantity-error'],
+    ['add-reorder-point', 'add-reorder-point-error']
+].forEach(function (pair) {
+    document.getElementById(pair[0])?.addEventListener('input', function () {
+        clearAddFieldError(pair[0], pair[1]);
+    });
+});
+
+['add-quantity', 'add-reorder-point'].forEach(function (fieldId) {
+    document.getElementById(fieldId)?.addEventListener('keydown', function (e) {
+        if (e.key === '.' || e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+            e.preventDefault();
+        }
+    });
 });
 
 document.getElementById('search-scan-barcode-btn')?.addEventListener('click', function() {
@@ -710,6 +1087,7 @@ function initProductBarcodeInputs() {
     var searchInput = document.getElementById('product-search-input');
     if (searchInput) {
         BarcodeScanner.attachHidInput(searchInput, function(code) {
+            if (!BarcodeScanner.isUsbScannerConnected()) return;
             searchInput.value = code;
             searchInput.closest('form').submit();
         });
@@ -718,8 +1096,8 @@ function initProductBarcodeInputs() {
     var addInput = document.getElementById('add-barcode-input');
     if (addInput) {
         BarcodeScanner.attachHidInput(addInput, function(code) {
-            addInput.value = code;
-            checkBarcodeDuplicate(code, function() { addInput.value = ''; });
+            if (addBarcodeLocked || addBarcodeValidating) return;
+            validateAddBarcode(code);
         });
     }
 }

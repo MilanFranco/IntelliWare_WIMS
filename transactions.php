@@ -342,7 +342,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <button type="button" class="btn-scan" id="txn-scan-barcode-btn" title="Scan with camera">📷</button>
+                        <button type="button" class="btn-scan" id="txn-scan-barcode-btn" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                     </div>
                 </div>
 
@@ -377,7 +377,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             <div class="relative w-full md:w-64">
                 <input type="text" name="q" id="txn-search-input" class="premium-input w-full pl-10" placeholder="Search by name or barcode..." 
                        value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off">
-                <button type="button" id="txn-search-scan-btn" class="absolute right-3 top-3.5 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none text-lg" title="Scan barcode to search">📷</button>
+                <button type="button" id="txn-search-scan-btn" class="absolute right-3 top-3.5 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none" title="Scan barcode to search"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             

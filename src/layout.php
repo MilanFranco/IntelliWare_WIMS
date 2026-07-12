@@ -1,6 +1,26 @@
 <?php
 // File: src/layout.php
 
+function getUserInitials($name) {
+    $name = trim(preg_replace('/\s+/', ' ', (string)$name));
+    if ($name === '') {
+        return '?';
+    }
+    $parts = preg_split('/\s+/', $name);
+    if (count($parts) >= 2) {
+        return strtoupper(substr($parts[0], 0, 1) . substr($parts[count($parts) - 1], 0, 1));
+    }
+    return strtoupper(substr($name, 0, 2));
+}
+
+function renderUserAvatar($displayName, $size = 40, $extraClass = '') {
+    $initials = htmlspecialchars(getUserInitials($displayName), ENT_QUOTES, 'UTF-8');
+    $size = max(16, (int)$size);
+    $fontSize = max(10, (int)round($size * 0.35));
+    $class = trim('user-avatar iw-avatar-initials ' . $extraClass);
+    echo '<span class="' . $class . '" style="width:' . $size . 'px;height:' . $size . 'px;font-size:' . $fontSize . 'px" aria-hidden="true">' . $initials . '</span>';
+}
+
 function renderSidebar($currentPage, $userRole) {
     $menuItems = [];
     
@@ -138,7 +158,7 @@ function renderHeader($pageTitle, $userRole, $username) {
     echo '</button>';
 
     echo '<div class="user-profile" onclick="toggleUserDropdown(event)">';
-    echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($displayName) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
+    renderUserAvatar($displayName, 40);
     echo '<div class="user-details">';
     echo '<div class="user-name">' . htmlspecialchars($displayName) . '</div>';
     echo '<div class="user-role">' . ucfirst($userRole) . '</div>';
@@ -170,15 +190,19 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<meta charset="UTF-8" />';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0" />';
     echo '<script>(function(){var t=localStorage.getItem("iw-theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>';
-    echo '<script src="https://cdn.tailwindcss.com"></script>';
     echo '<link href="styles.css" rel="stylesheet" />';
+    echo '<link href="theme.css" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
+    echo '<script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add(\'iw-no-tailwind\')"></script>';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
         echo '<link href="admin_dashboard.css" rel="stylesheet">';
     }
 
-    echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;5m0;600;700&display=swap" rel="stylesheet">';
+    echo '<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>';
+    echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+    echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media=\'all\'">';
+    echo '<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>';
     echo '<title>' . htmlspecialchars($pageTitle) . ' | IntelliWare</title>';
     echo '<style>';
     echo 'body { font-family: \'Inter\', sans-serif; }';
@@ -255,7 +279,6 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.dropdown-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--iw-bg-backdrop); backdrop-filter: blur(2px); z-index: 99990; opacity: 0; visibility: hidden; transition: all 0.3s ease; }';
     echo '.dropdown-backdrop.show { opacity: 1; visibility: visible; }';
     echo '</style>';
-    echo '<link href="theme.css" rel="stylesheet" />';
     echo '<style id="iw-tailwind-overrides">';
     echo '[data-theme="light"] .header-scanner-status--checking { color: #92400E !important; background: rgba(251, 191, 36, 0.28) !important; border-color: rgba(217, 119, 6, 0.5) !important; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.12) !important; }';
     echo '[data-theme="light"] .header-scanner-status--checking .header-scanner-status__dot { background: #D97706 !important; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2) !important; }';
@@ -361,9 +384,19 @@ function renderLayoutFooter() {
 
     // 3. FETCH NOTIFICATIONS (REALTIME AJAX)
     async function fetchNotifications() {
+        if (!navigator.onLine) {
+            if (notifList) {
+                notifList.innerHTML = '<div class="notification-empty">Offline — notifications unavailable</div>';
+            }
+            return;
+        }
+
         try {
             // Call the PHP API
             const response = await fetch('api/get_notifications.php');
+            if (!response.ok) {
+                throw new Error('Notification request failed');
+            }
             const data = await response.json();
             
             // A. Update Badge
@@ -415,8 +448,14 @@ function renderLayoutFooter() {
         });
     }
 
-    // 5. AUTO-POLL: Check for notifications every 5 seconds
-    setInterval(fetchNotifications, 5000);
+    // 5. AUTO-POLL: Check for notifications every 5 seconds (skip while offline)
+    setInterval(function() {
+        if (navigator.onLine) {
+            fetchNotifications();
+        }
+    }, 5000);
+
+    window.addEventListener('online', fetchNotifications);
     
     // Initial fetch on page load
     document.addEventListener('DOMContentLoaded', fetchNotifications);

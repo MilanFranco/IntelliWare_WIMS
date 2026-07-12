@@ -359,14 +359,6 @@
                 </div>
             </form>
             
-            <br>
-            <div class="link-box">
-                <div class="new-user-line">
-                    <span class="newt">New to IntelliWare?</span>
-                    <span class="reglink"><a href="register.php">Register here.</a></span>
-                </div>
-            </div>
-            
             <div class="footer">
                 <hr><br>
                 © 2025 IntelliWare. All rights reserved.

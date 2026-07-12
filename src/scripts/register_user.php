@@ -3,8 +3,13 @@ session_start();
 
 require_once __DIR__ . '/../../config/db.php';
 
+if (!isset($_SESSION['Username']) || ($_SESSION['Role'] ?? '') !== 'admin') {
+	header('Location: ../../signin.php');
+	exit();
+}
+
 function redirect_with_error($msg) {
-	header('Location: ../../register.php?step=2&error=' . urlencode($msg));
+	header('Location: ../../users.php?error=' . urlencode($msg));
 	exit();
 }
 
@@ -14,7 +19,7 @@ $first    = trim($_POST['first_name'] ?? '');
 $last     = trim($_POST['last_name'] ?? '');
 $email    = trim($_POST['email'] ?? '');
 $username = trim($_POST['username'] ?? '');
-$fullName = $first . ' ' . $last; // Auto-generate full name from first + last
+$fullName = $first . ' ' . $last;
 $role = trim($_POST['role'] ?? '');
 $employeeId = trim($_POST['employee_id'] ?? '');
 
@@ -28,20 +33,16 @@ if ($password !== $confirm) {
 
 $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-// Validate role selection
 $allowedRoles = ['admin', 'manager', 'staff'];
 if (!in_array($role, $allowedRoles, true)) {
     redirect_with_error('Please select a valid role.');
 }
 
-// Use username provided by the user (must be unique and valid)
 $username = strtolower($username);
-// basic validation: allowed characters and length
 if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) {
     redirect_with_error('Username invalid. Use 3-30 chars: letters, numbers, dot, underscore or hyphen.');
 }
 
-// Check uniqueness
 $checkUsername = $conn->prepare('SELECT user_id FROM users WHERE username = ?');
 if (!$checkUsername) {
     redirect_with_error('Database error checking username.');
@@ -70,22 +71,15 @@ if (!$stmt->execute()) {
 }
 $stmt->close();
 
-unset($_SESSION['reg_password'], $_SESSION['reg_confirm']);
-
-$_SESSION['Username'] = $finalUsername;
-$_SESSION['AccountID'] = $conn->insert_id;
-$_SESSION['Role'] = $role;
-
-switch ($role) {
-    case 'admin':
-        header('Location: ../../dash_admin.php');
-        break;
-    case 'manager':
-        header('Location: ../../dash_manager.php');
-        break;
-    default:
-        header('Location: ../../dash_staff.php');
+$adminId = (int)($_SESSION['user_id'] ?? $_SESSION['AccountID'] ?? 0);
+$logAction = "Created user account: $finalUsername ($role)";
+$logStmt = $conn->prepare('INSERT INTO logs (user_id, action) VALUES (?, ?)');
+if ($logStmt) {
+	$logStmt->bind_param('is', $adminId, $logAction);
+	$logStmt->execute();
+	$logStmt->close();
 }
+
+$_SESSION['success'] = 'User account created successfully.';
+header('Location: ../../users.php');
 exit();
-
-

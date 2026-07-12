@@ -289,7 +289,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                     <td class="font-mono font-semibold text-[#E3E3E3]"><?php echo $trans['quantity']; ?></td>
                     <td class="text-sm">
                         <div class="flex items-center gap-2">
-                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($trans['username'] ?? 'U'); ?>&background=1D387B&color=fff&size=20" class="rounded-full w-5 h-5 border border-[#2A4484]">
+                            <?php renderUserAvatar($trans['username'] ?? 'U', 20, 'iw-avatar-initials--sm'); ?>
                             <?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?>
                         </div>
                     </td>

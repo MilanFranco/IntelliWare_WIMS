@@ -77,14 +77,15 @@ foreach ($tempData as $dateData) {
 }
 
 // 6. Heatmap Data
-$heatmapData = ['labels' => [], 'data' => []];
-$heatQuery = "SELECT p.product_name, SUM(t.quantity) as demand_qty FROM transactions t 
+$heatmapData = ['labels' => [], 'data' => [], 'ids' => []];
+$heatQuery = "SELECT p.product_id, p.product_name, SUM(t.quantity) as demand_qty FROM transactions t 
               JOIN products p ON t.product_id = p.product_id WHERE t.transaction_type = 'stock_out' 
               GROUP BY p.product_id ORDER BY demand_qty DESC LIMIT 7";
 $heatResult = $conn->query($heatQuery);
 while($row = $heatResult->fetch_assoc()) {
     $heatmapData['labels'][] = $row['product_name'];
     $heatmapData['data'][] = (int)$row['demand_qty'];
+    $heatmapData['ids'][] = (int)$row['product_id'];
 }
 
 // 7. Hero Banner Data
@@ -108,12 +109,13 @@ if ($lowStockCount === 0) {
 $priorityItem = null;
 $priorityInsight = null;
 $priorityType = null;
+$priorityProductId = null;
 
 $nextMonthNum = (int)date('n', strtotime('+1 month'));
 $forecastPrioQuery = "
-    SELECT product_name, current_stock, category_name, total_historical_sales
+    SELECT product_id, product_name, current_stock, category_name, total_historical_sales
     FROM (
-        SELECT p.product_name, p.quantity AS current_stock, p.category AS category_name,
+        SELECT p.product_id, p.product_name, p.quantity AS current_stock, p.category AS category_name,
                SUM(t.quantity) AS total_historical_sales
         FROM transactions t
         JOIN products p ON t.product_id = p.product_id
@@ -134,6 +136,7 @@ if ($forecastPrioResult && $forecastPrioResult->num_rows > 0) {
     $coverage = ($demand > 0) ? ($stock / $demand) * 100 : 100;
 
     $priorityItem = $row['product_name'];
+    $priorityProductId = (int)$row['product_id'];
 
     if ($stock === 0 && $demand > 0) {
         $priorityType = 'Critical Outage';
@@ -166,6 +169,7 @@ if (!$priorityItem && !empty($lowStockItems)) {
     }
     if ($worstItem) {
         $priorityItem = $worstItem['name'];
+        $priorityProductId = (int)$worstItem['id'];
         $qty = (int)$worstItem['qty'];
         $rp = (int)($worstItem['reorder_point'] ?? 10);
         $pct = round($worstRatio * 100);
@@ -198,21 +202,24 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
                 <p class="text-[#9aa6d1] text-sm md:text-base font-onest"><?php echo htmlspecialchars($statusSummary); ?></p>
             </div>
 
-            <?php if ($priorityItem && $priorityInsight): ?>
-            <div class="flex items-start gap-3 p-4 rounded-xl bg-[#13275B]/60 border border-amber-500/30">
+            <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
+            <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
+               class="hero-product-card flex items-start gap-3 p-4 rounded-xl bg-[#13275B]/60 border border-amber-500/30 no-underline"
+               title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
                 <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 flex-shrink-0 mt-0.5">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <span class="text-[#E3E3E3] font-onest font-semibold text-sm"><?php echo htmlspecialchars($priorityItem); ?></span>
+                        <span class="text-[#E3E3E3] font-onest font-semibold text-sm group-hover:text-emerald-400 transition-colors"><?php echo htmlspecialchars($priorityItem); ?></span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
                             <?php echo htmlspecialchars($priorityType); ?>
                         </span>
+                        <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                     <p class="text-[#9aa6d1] text-sm leading-relaxed font-onest"><?php echo $priorityInsight; ?></p>
                 </div>
-            </div>
+            </a>
             <?php endif; ?>
         </div>
 
@@ -450,8 +457,21 @@ if (typeof Chart === 'undefined') {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: function(evt, elements) {
+                        if (!elements.length) return;
+                        const idx = elements[0].index;
+                        const productId = heatData.ids[idx];
+                        if (productId) {
+                            window.location.href = 'insights.php?product_id=' + productId;
+                        }
+                    },
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function() { return 'Click to view insights'; }
+                            }
+                        }
                     },
                     scales: {
                         x: { display: false, grid: { display: false } },

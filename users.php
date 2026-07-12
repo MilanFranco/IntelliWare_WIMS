@@ -434,7 +434,7 @@ renderLayoutStart($pageTitle, $role, $username, 0);
                 <tr class="border-b border-[#2A4484]/30 hover:bg-[#1D387B]/50 transition-colors group">
                     <td class="p-4 pl-6">
                         <div class="flex items-center gap-3">
-                            <img src="https://ui-avatars.com/api/?name=<?php echo urlencode($u['full_name'] ?: $u['username']); ?>&background=1D387B&color=fff&size=32" class="w-8 h-8 rounded-full border border-[#2A4484]">
+                            <?php renderUserAvatar($u['full_name'] ?: $u['username'], 32, 'iw-avatar-initials--md'); ?>
                             <span class="font-medium text-[#E3E3E3] font-onest"><?php echo htmlspecialchars($u['full_name'] ?: 'N/A'); ?></span>
                         </div>
                     </td>

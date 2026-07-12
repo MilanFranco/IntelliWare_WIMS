@@ -63,7 +63,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📦 Add New Item</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Add New Item</div>
         <form method="POST">
             <input type="hidden" name="action" value="add" />
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -93,13 +93,13 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                 </div>
             </div>
             <div style="margin-top:12px;">
-                <button class="btn btn-primary" type="submit">➕ Add Item</button>
+                <button class="btn btn-primary" type="submit">Add Item</button>
             </div>
         </form>
     </div>
 
     <div class="card">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📊 Inventory Summary</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Inventory Summary</div>
         <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px;">
             <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                 <span>Total SKUs:</span>
@@ -122,7 +122,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
 </div>
 
 <div class="card" style="margin-top:16px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">📋 Inventory Items</div>
+    <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Inventory Items</div>
     <div style="overflow:auto;">
         <table class="table">
             <thead>
@@ -152,11 +152,11 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                         </span>
                     </td>
                     <td>
-                        <button class="btn btn-secondary" onclick="fillEdit(<?php echo $it['id']; ?>,'<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>',<?php echo (int)$it['qty']; ?>,'<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>')">✏️ Edit</button>
+                        <button class="btn btn-secondary" onclick="fillEdit(<?php echo $it['id']; ?>,'<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>',<?php echo (int)$it['qty']; ?>,'<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>','<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>')">Edit</button>
                         <form method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('Delete this item?');">
                             <input type="hidden" name="action" value="delete" />
                             <input type="hidden" name="id" value="<?php echo $it['id']; ?>" />
-                            <button class="btn btn-secondary" type="submit">🗑️ Delete</button>
+                            <button class="btn btn-secondary" type="submit">Delete</button>
                         </form>
                     </td>
                 </tr>
@@ -171,7 +171,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
 
 <div id="edit-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); align-items:center; justify-content:center; z-index:1000;">
     <div class="card" style="width:600px; margin:40px auto;">
-        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">✏️ Edit Item</div>
+        <div style="color:#E3E3E3; font-weight:600; font-family:'Overpass'; font-size:16px; margin-bottom:16px;">Edit Item</div>
         <form method="POST">
             <input type="hidden" name="action" value="edit" />
             <input type="hidden" name="id" id="edit-id" />
@@ -202,8 +202,8 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                 </div>
             </div>
             <div style="margin-top:16px; display:flex; gap:8px;">
-                <button class="btn" type="submit">💾 Save Changes</button>
-                <button type="button" class="btn btn-secondary" onclick="closeEdit()">❌ Cancel</button>
+                <button class="btn" type="submit">Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
             </div>
         </form>
     </div>

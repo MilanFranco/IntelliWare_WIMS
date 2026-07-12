@@ -81,7 +81,7 @@
     <div class="barcode-modal-box" style="max-width: 520px;">
         <div class="barcode-modal-header">
             <div class="barcode-modal-title">
-                <h3>📷 Scan Barcode</h3>
+                <h3>Scan Barcode</h3>
                 <div class="barcode-modal-subtitle">Point your camera at the barcode. Supports EAN-13, UPC, and Code 128.</div>
             </div>
             <button type="button" id="barcode-scanner-close" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
