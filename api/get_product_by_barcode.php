@@ -29,6 +29,9 @@ if (!isset($_SESSION['Username'])) {
 }
 
 require_once '../config/db.php';
+require_once '../src/services/StockMovementService.php';
+
+StockMovementService::ensureBatchColumn($conn);
 
 function getStockStatus(int $qty, int $reorderPoint): string
 {
@@ -114,8 +117,8 @@ function barcodeLookupCandidates(string $barcode): array
 }
 
 $stmt = $conn->prepare("
-    SELECT product_id, product_name, category, supplier,
-           quantity, reorder_point, unit, barcode, expiry_date,
+    SELECT product_id, product_name, category, supplier, location,
+           quantity, reorder_point, unit, barcode, expiry_date, batch_number,
            CONCAT('P-', LPAD(product_id, 4, '0')) AS sku
     FROM products
     WHERE barcode = ?

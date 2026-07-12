@@ -123,15 +123,43 @@ var InventoryTransaction = (function () {
             name: raw.product_name || raw.name || 'Unknown',
             barcode: raw.barcode || '',
             category: raw.category || '',
+            location: raw.location || '',
             currentStock: qty,
             reorderPoint: reorderPoint,
             expiryDate: raw.expiry_date || null,
+            batchNumber: raw.batch_number || '',
             stockStatus: stockStatus,
             stockStatusLabel: raw.stock_status_label || getStockStatusLabel(stockStatus),
             imageUrl: raw.image_url || null,
             unit: raw.unit || raw.uom || '',
             sku: raw.sku || ''
         };
+    }
+
+    function syncReceiveFieldsToCart() {
+        if (txnMode !== 'in' || selectedProductId == null) return;
+
+        var item = findCartItem(selectedProductId);
+        if (!item) return;
+
+        var batchInput = document.getElementById('inv-receive-batch');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (batchInput) item.batch_number = batchInput.value.trim();
+        if (expiryInput) item.expiry_date = expiryInput.value.trim();
+    }
+
+    function loadReceiveFieldsFromCart(productId) {
+        var batchInput = document.getElementById('inv-receive-batch');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (!batchInput && !expiryInput) return;
+
+        var item = findCartItem(productId);
+        if (batchInput) batchInput.value = item ? (item.batch_number || '') : '';
+        if (expiryInput) {
+            expiryInput.value = item && item.expiry_date
+                ? item.expiry_date
+                : (item && item.productExpiryDate ? item.productExpiryDate : '');
+        }
     }
 
     function getProductDetails(productId) {
@@ -190,6 +218,7 @@ var InventoryTransaction = (function () {
         var statusEl = document.getElementById('inv-info-status');
         var reorderEl = document.getElementById('inv-info-reorder');
         var expiryEl = document.getElementById('inv-info-expiry');
+        var batchEl = document.getElementById('inv-info-batch');
 
         if (emptyEl) emptyEl.style.display = 'none';
         if (contentEl) contentEl.style.display = '';
@@ -197,6 +226,8 @@ var InventoryTransaction = (function () {
         if (nameEl) nameEl.textContent = product.name;
         if (barcodeEl) barcodeEl.textContent = product.barcode || '—';
         if (categoryEl) categoryEl.textContent = product.category || 'Uncategorized';
+        var locationEl = document.getElementById('inv-info-location');
+        if (locationEl) locationEl.textContent = product.location || '—';
 
         var stockText = String(product.currentStock);
         if (product.unit) stockText += ' ' + product.unit;
@@ -209,6 +240,9 @@ var InventoryTransaction = (function () {
 
         if (reorderEl) reorderEl.textContent = String(product.reorderPoint);
         if (expiryEl) expiryEl.textContent = formatExpiryDate(product.expiryDate);
+        if (batchEl) batchEl.textContent = product.batchNumber || '—';
+
+        loadReceiveFieldsFromCart(product.productId);
 
         if (imageWrap && imageEl) {
             if (product.imageUrl) {
@@ -278,8 +312,13 @@ var InventoryTransaction = (function () {
             productId: product.productId,
             name: product.name,
             barcode: product.barcode,
+            category: product.category,
+            location: product.location,
             currentStock: product.currentStock,
             unit: product.unit,
+            productExpiryDate: product.expiryDate || '',
+            batch_number: product.batchNumber || '',
+            expiry_date: product.expiryDate || '',
             qty: 1
         });
 
@@ -648,7 +687,19 @@ var InventoryTransaction = (function () {
         }
 
         var payload = cart.map(function (item) {
-            return { product_id: item.productId, qty: item.qty };
+            var row = { product_id: item.productId, qty: item.qty };
+            if (txnMode === 'in') {
+                var metadata = {};
+                if (item.batch_number) metadata.batch_number = item.batch_number;
+                if (item.expiry_date) metadata.expiry_date = item.expiry_date;
+                if (item.location) metadata.location = item.location;
+                if (item.category) metadata.category = item.category;
+                if (metadata.batch_number) row.batch_number = metadata.batch_number;
+                if (metadata.expiry_date) row.expiry_date = metadata.expiry_date;
+                if (metadata.location) row.location = metadata.location;
+                if (metadata.category) row.category = metadata.category;
+            }
+            return row;
         });
 
         document.getElementById('inv-items-json').value = JSON.stringify(payload);
@@ -733,10 +784,14 @@ var InventoryTransaction = (function () {
         });
 
         form.addEventListener('submit', function (e) {
+            syncReceiveFieldsToCart();
             if (!validateAndSubmit(form)) {
                 e.preventDefault();
             }
         });
+
+        document.getElementById('inv-receive-batch')?.addEventListener('input', syncReceiveFieldsToCart);
+        document.getElementById('inv-receive-expiry')?.addEventListener('change', syncReceiveFieldsToCart);
 
         document.getElementById('inv-scanner-hint')?.addEventListener('click', focusBarcodeInput);
 

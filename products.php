@@ -6,6 +6,10 @@ $role = $_SESSION['Role'] ?? 'staff';
 if (!in_array($role, ['admin', 'manager', 'staff'])) { header('Location: signin.php'); exit(); }
 
 require_once 'config/db.php';
+require_once 'src/services/StockMovementService.php';
+require_once 'src/services/LocationCategoryService.php';
+
+StockMovementService::ensureBatchColumn($conn);
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -36,8 +40,37 @@ function parseNonNegativeInt($value, $default = null) {
     return $intVal < 0 ? false : $intVal;
 }
 
+function parseNonNegativeDecimal($value, $default = null) {
+    if ($value === null || $value === '') {
+        return $default;
+    }
+    if (!is_numeric($value)) {
+        return false;
+    }
+    $floatVal = round((float)$value, 2);
+    return $floatVal < 0 ? false : $floatVal;
+}
+
+function ensurePriceColumn($conn) {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $result = $conn->query("SHOW COLUMNS FROM products LIKE 'price'");
+    if ($result && $result->num_rows === 0) {
+        $conn->query("ALTER TABLE `products` ADD COLUMN `price` DECIMAL(10,2) DEFAULT 0.00 AFTER `expiry_date`");
+    }
+    $checked = true;
+}
+
+ensurePriceColumn($conn);
+
+$locationCategoryMap = LocationCategoryService::buildMap($conn);
+
 $cat_query = $conn->query("SELECT DISTINCT category FROM products WHERE category != '' ORDER BY category");
 while ($row = $cat_query->fetch_assoc()) { $categories[] = $row['category']; }
+$categories = array_values(array_unique(array_merge($locationCategoryMap['categories'], $categories)));
+sort($categories);
 
 $uom_query = $conn->query("SELECT DISTINCT unit FROM products WHERE unit != '' ORDER BY unit");
 while ($row = $uom_query->fetch_assoc()) { $uoms[] = $row['unit']; }
@@ -61,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $unit = trim($_POST['unit'] ?? '');
             $quantity = parseNonNegativeInt($_POST['quantity'] ?? null);
             $reorder_point = parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
+            $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
             $exp = empty($_POST['expiry_date']) ? null : trim($_POST['expiry_date']);
 
             if ($barcode === '') {
@@ -81,6 +115,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($reorder_point === false) {
                 throw new Exception('Reorder point must be a whole number of 0 or greater.');
             }
+            if ($price === false) {
+                throw new Exception('Price must be a number of 0 or greater with up to 2 decimal places.');
+            }
+
+            $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
+            $synced = LocationCategoryService::synchronize($category, $location, $changedField, $conn);
+            $category = $synced['category'];
+            $location = $synced['location'];
+
+            $openingQty = $quantity;
 
             $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
             $dupStmt->bind_param("s", $barcode);
@@ -91,9 +135,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
             }
 
-            $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssiiss", $product_name, $barcode, $category, $supplier, $location, $quantity, $reorder_point, $unit, $exp);
+            $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, expiry_date, price) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssissd", $product_name, $barcode, $category, $supplier, $location, $reorder_point, $unit, $exp, $price);
             if ($stmt->execute()) {
+                $newProductId = (int)$conn->insert_id;
+                $stmt->close();
+
+                if ($openingQty > 0) {
+                    StockMovementService::executeMovement(
+                        $conn,
+                        $newProductId,
+                        $openingQty,
+                        'in',
+                        $_SESSION['Username'],
+                        'Opening stock on product create'
+                    );
+                }
+
                 setFlashMessage('success', 'Product added successfully.');
             } else {
                 if ($conn->errno === 1062) {
@@ -101,14 +159,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 throw new Exception('Could not save product. Please try again.');
             }
-            $stmt->close();
         }
         if ($action === 'edit') {
-            $qty = (int)$_POST['qty'];
+            $newQty = (int)$_POST['qty'];
             $reorder_point = (int)$_POST['reorder_point'];
+            $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
             $id = (int)$_POST['id'];
             $barcode = trim($_POST['barcode'] ?? '');
             $barcodeVal = $barcode !== '' ? $barcode : null;
+            $category = trim($_POST['category'] ?? '');
+            $location = trim($_POST['location'] ?? '');
+
+            if ($price === false) {
+                throw new Exception('Price must be a number of 0 or greater with up to 2 decimal places.');
+            }
+
+            $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
+            $synced = LocationCategoryService::synchronize($category, $location, $changedField, $conn);
+            $category = $synced['category'];
+            $location = $synced['location'];
 
             if ($barcodeVal !== null) {
                 $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ? AND product_id != ?");
@@ -121,10 +190,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, quantity=?, reorder_point=?, unit=? WHERE product_id=?");
-            $stmt->bind_param("sssssiisi", $_POST['name'], $barcodeVal, $_POST['category'], $_POST['supplier'], $_POST['location'], $qty, $reorder_point, $_POST['uom'], $id);
-            if ($stmt->execute()) setFlashMessage('success', 'Product updated.');
-            else throw new Exception("Update failed: " . $stmt->error);
+            $currentQtyStmt = $conn->prepare('SELECT quantity FROM products WHERE product_id = ?');
+            $currentQtyStmt->bind_param('i', $id);
+            $currentQtyStmt->execute();
+            $currentRow = $currentQtyStmt->get_result()->fetch_assoc();
+            $currentQtyStmt->close();
+
+            if (!$currentRow) {
+                throw new Exception('Product not found.');
+            }
+
+            $currentQty = (int)$currentRow['quantity'];
+            $qtyDelta = $newQty - $currentQty;
+
+            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, reorder_point=?, unit=?, price=? WHERE product_id=?");
+            $stmt->bind_param("sssssisdi", $_POST['name'], $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $id);
+            if (!$stmt->execute()) {
+                throw new Exception("Update failed: " . $stmt->error);
+            }
+            $stmt->close();
+
+            if ($qtyDelta !== 0) {
+                $movementType = $qtyDelta > 0 ? 'in' : 'out';
+                StockMovementService::executeMovement(
+                    $conn,
+                    $id,
+                    abs($qtyDelta),
+                    $movementType,
+                    $_SESSION['Username'],
+                    'Manual stock adjustment from inventory edit'
+                );
+            }
+
+            setFlashMessage('success', 'Product updated.');
         }
         if ($action === 'delete') {
             if ($role === 'staff') throw new Exception("Access Denied. Only Managers and Admins can delete products.");
@@ -132,6 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param("i", $_POST['id']);
             if ($stmt->execute()) setFlashMessage('success', 'Product deleted successfully.');
         }
+    } catch (InvalidArgumentException $e) {
+        setFlashMessage('error', $e->getMessage());
     } catch (Exception $e) {
         setFlashMessage('error', $e->getMessage());
     }
@@ -171,7 +271,7 @@ $offset = ($page - 1) * $items_per_page;
 $count_stmt->close();
 
 // --- 5. MAIN DATA FETCH ---
-$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
+$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
 
 $main_params = array_merge($params, [$items_per_page, $offset]);
 $main_types = $types . 'ii';
@@ -207,10 +307,11 @@ foreach ($items as $it) {
         'barcode' => "<input type='text' id='input-barcode-{$id}' class='edit-field' value='".htmlspecialchars($it['barcode'] ?? '')."' placeholder='Barcode' />",
         'category' => "<select id='input-category-{$id}' class='edit-field'>".renderOptions($categories, $it['category'])."</select>",
         'supplier' => "<input type='text' id='input-supplier-{$id}' class='edit-field' value='".htmlspecialchars($it['supplier'])."' />",
-        'location' => "<input type='text' id='input-location-{$id}' class='edit-field' value='".htmlspecialchars($it['location'])."' />",
+        'location' => "<input type='text' id='input-location-{$id}' class='edit-field' value='".htmlspecialchars($it['location'])."' list='location-options' />",
         'qty' => "<input type='number' id='input-qty-{$id}' class='edit-field' value='".htmlspecialchars($it['qty'])."' required />",
         'uom' => "<select id='input-uom-{$id}' class='edit-field'>".renderOptions($uoms, $it['uom'])."</select>",
         'reorder_point' => "<input type='number' id='input-reorder_point-{$id}' class='edit-field' value='".htmlspecialchars($it['reorder_point'])."' required />",
+        'price' => "<input type='number' id='input-price-{$id}' class='edit-field' value='".htmlspecialchars(number_format((float)($it['price'] ?? 0), 2, '.', ''))."' min='0' step='0.01' inputmode='decimal' required />",
     ];
 }
 
@@ -238,6 +339,87 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inventory-action-btn.delete-btn:hover,
     .inventory-action-btn.cancel-btn:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
     .inventory-action-btn.save-btn:hover { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.1); }
+
+    .inventory-text-btn {
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 10px;
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+    }
+    .inventory-text-btn.save-btn {
+        background: rgba(81, 213, 90, 0.15);
+        border: 1px solid rgba(81, 213, 90, 0.4);
+        color: #51D55A;
+    }
+    .inventory-text-btn.save-btn:hover {
+        background: rgba(81, 213, 90, 0.25);
+        transform: translateY(-1px);
+    }
+    .inventory-text-btn.cancel-btn {
+        background: transparent;
+        border: 1px solid rgba(100, 116, 139, 0.6);
+        color: #9aa6d1;
+    }
+    .inventory-text-btn.cancel-btn:hover {
+        border-color: #f87171;
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.08);
+    }
+
+    .btn-confirm-barcode {
+        height: 46px;
+        padding: 0 16px;
+        background: rgba(81, 213, 90, 0.15);
+        border: 1px solid rgba(81, 213, 90, 0.4);
+        border-radius: 12px;
+        color: #51D55A;
+        cursor: pointer;
+        font-size: 13px;
+        font-family: 'Onest', sans-serif;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+    }
+    .btn-confirm-barcode:hover:not(:disabled) {
+        background: rgba(81, 213, 90, 0.25);
+        transform: translateY(-1px);
+    }
+    .btn-confirm-barcode:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .form-keyboard-hint {
+        font-size: 11px;
+        color: #64748b;
+        font-family: 'Onest', sans-serif;
+        margin-top: 8px;
+    }
+
+    .add-save-field-col {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+    }
+
+    .form-label--spacer {
+        visibility: hidden;
+    }
+
+    #add-product-submit {
+        width: 100%;
+        height: 46px;
+        justify-content: center;
+    }
 
     .edit-field {
         background: #0B1438;
@@ -469,18 +651,18 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
 
     <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left min-w-[1200px]">
+        <table class="premium-table w-full text-left min-w-[1280px]">
             <thead>
                 <tr>
-                    <th width="9%">SKU</th> <th width="12%">Barcode</th> <th width="16%">Name</th> <th width="10%">Category</th>
-                    <th width="10%">Supplier</th> <th width="9%">Location</th> <th width="7%">Qty</th>
-                    <th width="7%">Unit</th> <th width="7%">Reorder</th> <th width="9%">Status</th>
+                    <th width="8%">SKU</th> <th width="11%">Barcode</th> <th width="14%">Name</th> <th width="9%">Category</th>
+                    <th width="9%">Supplier</th> <th width="8%">Location</th> <th width="6%">Qty</th>
+                    <th width="7%">Price</th> <th width="6%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Status</th>
                     <th width="10%" class="text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$items): ?>
-                    <tr><td colspan="11" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
+                    <tr><td colspan="12" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
                 <?php else: ?>
                     <?php foreach ($items as $it): ?>
                     <?php $low = $it['qty'] <= $it['reorder_point']; ?>
@@ -504,6 +686,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         <td data-field="qty" data-value="<?php echo htmlspecialchars($it['qty']); ?>">
                             <span id="display-qty-<?php echo $it['id']; ?>" style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span>
                         </td>
+                        <td data-field="price" data-value="<?php echo htmlspecialchars(number_format((float)($it['price'] ?? 0), 2, '.', '')); ?>">
+                            <span id="display-price-<?php echo $it['id']; ?>" style="font-family:monospace;"><?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
+                        </td>
                         <td data-field="uom" data-value="<?php echo htmlspecialchars($it['uom']); ?>">
                             <span id="display-uom-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['uom']); ?></span>
                         </td>
@@ -522,7 +707,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 <input type="hidden" name="action" value="edit"> 
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                                <?php foreach(['name','barcode','category','supplier','location','qty','uom','reorder_point'] as $f) echo "<input type='hidden' name='$f'>"; ?>
+                                <input type="hidden" name="sync_driver" value="category">
+                                <?php foreach(['name','barcode','category','supplier','location','qty','price','uom','reorder_point'] as $f) echo "<input type='hidden' name='$f'>"; ?>
                             </form>
 
                             <div id="actions-default-<?php echo $it['id']; ?>" style="display:flex; gap:8px; justify-content:flex-end;">
@@ -535,12 +721,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 </button>
                                 <?php endif; ?>
                             </div>
-                            <div id="actions-edit-<?php echo $it['id']; ?>" style="display:none; gap:8px; justify-content:flex-end;">
-                                <button type="button" class="inventory-action-btn save-btn" onclick="saveEdit('<?php echo $it['id']; ?>')" title="Save">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <div id="actions-edit-<?php echo $it['id']; ?>" style="display:none; gap:8px; justify-content:flex-end; align-items:center;">
+                                <button type="button" class="inventory-text-btn save-btn" onclick="saveEdit('<?php echo $it['id']; ?>')" title="Save changes (Enter)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    Save
                                 </button>
-                                <button type="button" class="inventory-action-btn cancel-btn" onclick="cancelEdit('<?php echo $it['id']; ?>')" title="Cancel">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                <button type="button" class="inventory-text-btn cancel-btn" onclick="cancelEdit('<?php echo $it['id']; ?>')" title="Cancel editing">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    Cancel
                                 </button>
                             </div>
                         </td>
@@ -584,12 +772,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <form method="POST" id="add-product-form" autocomplete="off">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="sync_driver" id="add-sync-driver" value="category">
             <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                 <div style="grid-column: span 2;">
                     <label class="form-label">Manufacturer Barcode (Product Identifier) *</label>
                     <div class="flex gap-2">
                         <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan or type barcode, then press Enter" autocomplete="off" required maxlength="50">
                         <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan barcode with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                        <button type="button" class="btn-confirm-barcode" id="add-confirm-barcode-btn">Confirm</button>
                         <button type="button" class="btn-clear-barcode" id="add-clear-barcode-btn" style="display:none;" title="Clear barcode and start over">Clear</button>
                     </div>
                     <p class="add-barcode-status add-barcode-status--pending" id="add-barcode-status">Scan or enter a barcode to unlock the remaining fields.</p>
@@ -616,8 +806,13 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <p class="add-field-error" id="add-quantity-error" hidden></p>
                 </div>
                 <div>
+                    <label class="form-label">Price *</label>
+                    <input type="number" name="price" id="add-price" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="0.01" inputmode="decimal" value="0.00" required disabled>
+                    <p class="add-field-error" id="add-price-error" hidden></p>
+                </div>
+                <div>
                     <label class="form-label">Location</label>
-                    <input name="location" id="add-location" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Shelf A" disabled>
+                    <input name="location" id="add-location" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Shelf A1" list="location-options" disabled>
                 </div>
                 <div>
                     <label class="form-label">Unit (UoM)</label>
@@ -631,14 +826,30 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="number" name="reorder_point" id="add-reorder-point" class="premium-input w-full add-form-field" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
                     <p class="add-field-error" id="add-reorder-point-error" hidden></p>
                 </div>
+                <div class="add-save-field-col">
+                    <label class="form-label form-label--spacer" aria-hidden="true">Action</label>
+                    <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
+                </div>
             </div>
-            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: flex-end; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0;">
+            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
+                <p class="form-keyboard-hint" style="margin:0;">Enter to save · Shift+Enter for next field</p>
                 <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
-                <button type="submit" class="premium-button" id="add-product-submit" disabled>Create Product</button>
             </div>
         </form>
     </div>
 </div>
+
+<datalist id="location-options">
+    <?php
+    $locationOptions = array_unique(array_values($locationCategoryMap['category_to_location']));
+    sort($locationOptions);
+    foreach ($locationOptions as $loc) {
+        if ($loc !== '') {
+            echo "<option value='" . htmlspecialchars($loc) . "'>";
+        }
+    }
+    ?>
+</datalist>
 
 <div id="delete-modal-overlay" class="modal-overlay">
     <div class="modal-box" style="max-width: 400px; text-align: center; padding: 40px;">
@@ -671,14 +882,127 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
 <script>
 const editInputs = <?php echo json_encode($edit_inputs); ?>;
+const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 
-const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'uom', 'reorder_point'];
+const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point'];
+
+const ADD_FORM_FIELD_ORDER = [
+    'add-product-name',
+    'add-category',
+    'add-supplier',
+    'add-quantity',
+    'add-price',
+    'add-location',
+    'add-unit',
+    'add-reorder-point'
+];
+
+const EDIT_FIELD_ORDER = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point'];
 
 var addBarcodeLocked = false;
 var addBarcodeValidating = false;
 var addFormSubmitting = false;
+var editRowSubmitting = {};
+var locationCategorySyncLock = false;
 var ADD_BARCODE_MIN_LENGTH = 3;
-var ADD_SUBMIT_LABEL = 'Create Product';
+var ADD_SUBMIT_LABEL = 'Save Product';
+
+function setBarcodeConfirmEnabled(enabled) {
+    var confirmBtn = document.getElementById('add-confirm-barcode-btn');
+    if (confirmBtn) confirmBtn.disabled = !enabled;
+}
+
+function extractLocationPrefix(location) {
+    location = (location || '').trim();
+    if (!location) return '';
+    var zoneMatch = location.match(/^(Shelf [A-Z]|Freezer [A-Z])/i);
+    if (zoneMatch) {
+        return zoneMatch[1].replace(/^\w/, function (c) { return c.toUpperCase(); })
+            .replace(/\s[a-z]/, function (m) { return m.toUpperCase(); });
+    }
+    var genericMatch = location.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)?)/);
+    return genericMatch ? genericMatch[1].trim() : location;
+}
+
+function syncLocationFromCategory(categoryValue, locationInput, syncDriverInput) {
+    if (locationCategorySyncLock || !locationInput) return;
+    var category = (categoryValue || '').trim();
+    if (!category) return;
+    var mapped = locationCategoryMap.category_to_location[category];
+    if (!mapped) return;
+    locationCategorySyncLock = true;
+    locationInput.value = mapped;
+    if (syncDriverInput) syncDriverInput.value = 'category';
+    locationCategorySyncLock = false;
+}
+
+function syncCategoryFromLocation(locationValue, categoryInput, syncDriverInput) {
+    if (locationCategorySyncLock || !categoryInput) return;
+    var location = (locationValue || '').trim();
+    if (!location) return;
+    var prefix = extractLocationPrefix(location);
+    var mapped = locationCategoryMap.location_to_category[prefix];
+    if (!mapped) return;
+    locationCategorySyncLock = true;
+    if (categoryInput.tagName === 'SELECT') {
+        var hasOption = Array.from(categoryInput.options).some(function (opt) {
+            return opt.value === mapped;
+        });
+        if (!hasOption) {
+            var option = document.createElement('option');
+            option.value = mapped;
+            option.textContent = mapped;
+            categoryInput.appendChild(option);
+        }
+        categoryInput.value = mapped;
+    } else {
+        categoryInput.value = mapped;
+    }
+    if (syncDriverInput) syncDriverInput.value = 'location';
+    locationCategorySyncLock = false;
+}
+
+function initLocationCategorySync() {
+    var addCategory = document.getElementById('add-category');
+    var addLocation = document.getElementById('add-location');
+    var addSyncDriver = document.getElementById('add-sync-driver');
+
+    addCategory?.addEventListener('change', function () {
+        syncLocationFromCategory(this.value, addLocation, addSyncDriver);
+    });
+    addLocation?.addEventListener('change', function () {
+        syncCategoryFromLocation(this.value, addCategory, addSyncDriver);
+    });
+    addLocation?.addEventListener('blur', function () {
+        syncCategoryFromLocation(this.value, addCategory, addSyncDriver);
+    });
+
+    document.addEventListener('change', function (e) {
+        var target = e.target;
+        if (!target || !target.id) return;
+
+        var categoryMatch = target.id.match(/^input-category-(\d+)$/);
+        if (categoryMatch) {
+            var rowId = categoryMatch[1];
+            var locationInput = document.getElementById('input-location-' + rowId);
+            var form = document.getElementById('edit-form-' + rowId);
+            var syncDriver = form ? form.querySelector('input[name="sync_driver"]') : null;
+            syncLocationFromCategory(target.value, locationInput, syncDriver);
+            return;
+        }
+
+        var locationMatch = target.id.match(/^input-location-(\d+)$/);
+        if (locationMatch) {
+            var editRowId = locationMatch[1];
+            var categoryInput = document.getElementById('input-category-' + editRowId);
+            var editForm = document.getElementById('edit-form-' + editRowId);
+            var editSyncDriver = editForm ? editForm.querySelector('input[name="sync_driver"]') : null;
+            syncCategoryFromLocation(target.value, categoryInput, editSyncDriver);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initLocationCategorySync);
 
 function getAddFormFields() {
     return document.querySelectorAll('#add-product-form .add-form-field');
@@ -752,6 +1076,51 @@ function isValidWholeNumber(value) {
     return Number.isInteger(num) && num >= 0;
 }
 
+function isValidPrice(value) {
+    if (value === '' || value === null || value === undefined) return false;
+    var trimmed = String(value).trim();
+    if (!/^(\d+)(\.\d{1,2})?$/.test(trimmed)) return false;
+    return Number(trimmed) >= 0;
+}
+
+function getAddFormFocusableFields() {
+    return ADD_FORM_FIELD_ORDER
+        .map(function (id) { return document.getElementById(id); })
+        .filter(function (el) { return el && !el.disabled; });
+}
+
+function focusNextAddFormField(currentId) {
+    var fields = getAddFormFocusableFields();
+    var idx = fields.findIndex(function (el) { return el.id === currentId; });
+    if (idx >= 0 && idx < fields.length - 1) {
+        var next = fields[idx + 1];
+        next.focus();
+        if (typeof next.select === 'function') next.select();
+    }
+}
+
+function focusNextEditField(rowId, currentInput) {
+    var idx = EDIT_FIELD_ORDER.findIndex(function (field) {
+        return currentInput && currentInput.id === 'input-' + field + '-' + rowId;
+    });
+    if (idx < 0 || idx >= EDIT_FIELD_ORDER.length - 1) return;
+    var next = document.getElementById('input-' + EDIT_FIELD_ORDER[idx + 1] + '-' + rowId);
+    if (next) {
+        next.focus();
+        if (typeof next.select === 'function') next.select();
+    }
+}
+
+function submitAddProductForm() {
+    var form = document.getElementById('add-product-form');
+    if (!form || addFormSubmitting) return;
+    if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }
+}
+
 function validateAddProductForm() {
     clearAddFormErrors();
     var valid = true;
@@ -795,6 +1164,17 @@ function validateAddProductForm() {
         firstInvalid = firstInvalid || document.getElementById('add-reorder-point');
     }
 
+    var priceRaw = document.getElementById('add-price')?.value ?? '';
+    if (priceRaw === '') {
+        setAddFieldError('add-price', 'add-price-error', 'Price is required.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-price');
+    } else if (!isValidPrice(priceRaw)) {
+        setAddFieldError('add-price', 'add-price-error', 'Price must be 0 or greater with up to 2 decimal places.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-price');
+    }
+
     if (firstInvalid) firstInvalid.focus();
     return valid;
 }
@@ -808,6 +1188,7 @@ function lockAddBarcodeField(locked) {
     input.readOnly = locked;
     input.classList.toggle('add-field-locked', locked);
     if (clearBtn) clearBtn.style.display = locked ? 'inline-flex' : 'none';
+    setBarcodeConfirmEnabled(!locked && !addBarcodeValidating);
 }
 
 function resetAddProductForm() {
@@ -857,6 +1238,7 @@ function rejectAddBarcode(message) {
     }
     addBarcodeLocked = false;
     setAddFormFieldsEnabled(false);
+    setBarcodeConfirmEnabled(!addBarcodeValidating);
     setAddBarcodeStatus(message || 'Scan or enter a barcode to unlock the remaining fields.', message ? 'error' : 'pending');
     focusAddBarcodeInput();
 }
@@ -881,6 +1263,7 @@ function validateAddBarcode(barcode) {
 
     addBarcodeValidating = true;
     setAddBarcodeStatus('Checking barcode…', 'pending');
+    setBarcodeConfirmEnabled(false);
 
     BarcodeScanner.lookup(code).then(function (data) {
         addBarcodeValidating = false;
@@ -956,6 +1339,8 @@ function cancelEdit(id) {
 }
 
 function saveEdit(id) {
+    if (editRowSubmitting[id]) return;
+
     const form = document.getElementById(`edit-form-${id}`);
     let isValid = true;
 
@@ -967,10 +1352,16 @@ function saveEdit(id) {
                  alert(`The ${f} field is required.`);
                  isValid = false;
             }
+            if (f === 'price' && input.value !== '' && !isValidPrice(input.value)) {
+                alert('Price must be 0 or greater with up to 2 decimal places.');
+                input.focus();
+                isValid = false;
+            }
         }
     });
     
     if (isValid) {
+        editRowSubmitting[id] = true;
         form.submit();
     }
 }
@@ -1008,6 +1399,11 @@ function checkBarcodeDuplicate(barcode, onClear) {
         }
     });
 }
+
+document.getElementById('add-confirm-barcode-btn')?.addEventListener('click', function () {
+    if (addBarcodeLocked || addBarcodeValidating) return;
+    validateAddBarcode(document.getElementById('add-barcode-input')?.value || '');
+});
 
 document.getElementById('add-clear-barcode-btn')?.addEventListener('click', function () {
     resetAddProductForm();
@@ -1058,7 +1454,8 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
 [
     ['add-product-name', 'add-product-name-error'],
     ['add-quantity', 'add-quantity-error'],
-    ['add-reorder-point', 'add-reorder-point-error']
+    ['add-reorder-point', 'add-reorder-point-error'],
+    ['add-price', 'add-price-error']
 ].forEach(function (pair) {
     document.getElementById(pair[0])?.addEventListener('input', function () {
         clearAddFieldError(pair[0], pair[1]);
@@ -1071,6 +1468,39 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
             e.preventDefault();
         }
     });
+});
+
+document.getElementById('add-price')?.addEventListener('keydown', function (e) {
+    if (e.key === 'e' || e.key === 'E' || e.key === '+' || e.key === '-') {
+        e.preventDefault();
+    }
+});
+
+ADD_FORM_FIELD_ORDER.forEach(function (fieldId) {
+    document.getElementById(fieldId)?.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || this.disabled) return;
+        e.preventDefault();
+        if (e.shiftKey) {
+            focusNextAddFormField(fieldId);
+            return;
+        }
+        submitAddProductForm();
+    });
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || !e.target.classList.contains('edit-field')) return;
+
+    var match = e.target.id.match(/^input-([a-z_]+)-(\d+)$/);
+    if (!match) return;
+
+    e.preventDefault();
+    var rowId = match[2];
+    if (e.shiftKey) {
+        focusNextEditField(rowId, e.target);
+        return;
+    }
+    saveEdit(rowId);
 });
 
 document.getElementById('search-scan-barcode-btn')?.addEventListener('click', function() {

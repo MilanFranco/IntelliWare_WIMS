@@ -96,7 +96,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($productId <= 0 || $qty <= 0) {
                     throw new Exception('Invalid item in transaction.');
                 }
-                $normalized[] = ['product_id' => $productId, 'qty' => $qty];
+
+                $entry = ['product_id' => $productId, 'qty' => $qty];
+
+                if ($TXN_MODE === 'in') {
+                    $metadata = array_filter([
+                        'batch_number' => trim((string)($item['batch_number'] ?? '')),
+                        'expiry_date' => trim((string)($item['expiry_date'] ?? '')),
+                        'location' => trim((string)($item['location'] ?? '')),
+                        'category' => trim((string)($item['category'] ?? '')),
+                    ], static function ($value) {
+                        return $value !== '';
+                    });
+                    if (!empty($metadata)) {
+                        $entry['metadata'] = $metadata;
+                    }
+                }
+
+                $normalized[] = $entry;
             }
 
             $results = StockMovementService::executeBatchMovement(
@@ -794,6 +811,10 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <dd id="inv-info-category">—</dd>
                     </div>
                     <div class="pos-info-field">
+                        <dt>Location</dt>
+                        <dd id="inv-info-location">—</dd>
+                    </div>
+                    <div class="pos-info-field">
                         <dt>Current Stock</dt>
                         <dd id="inv-info-stock">—</dd>
                     </div>
@@ -809,6 +830,24 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <dt>Expiration Date</dt>
                         <dd id="inv-info-expiry">—</dd>
                     </div>
+                    <div class="pos-info-field">
+                        <dt>Batch Number</dt>
+                        <dd id="inv-info-batch">—</dd>
+                    </div>
+                    <?php if ($TXN_MODE === 'in'): ?>
+                    <div class="pos-info-field full-width">
+                        <dt>Batch Number</dt>
+                        <dd>
+                            <input type="text" id="inv-receive-batch" class="premium-input w-full" style="height:38px; font-size:13px;" placeholder="Optional batch / lot number">
+                        </dd>
+                    </div>
+                    <div class="pos-info-field full-width">
+                        <dt>Receive Expiry Date</dt>
+                        <dd>
+                            <input type="date" id="inv-receive-expiry" class="premium-input w-full" style="height:38px; font-size:13px;">
+                        </dd>
+                    </div>
+                    <?php endif; ?>
                 </dl>
 
                 <div class="pos-info-actions" id="inv-info-actions">

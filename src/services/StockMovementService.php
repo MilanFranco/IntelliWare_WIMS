@@ -7,6 +7,23 @@ class StockMovementService
 {
     private static $auditColumnsChecked = false;
     private static $hasAuditColumns = false;
+    private static $batchColumnChecked = false;
+    private static $hasBatchColumn = false;
+
+    public static function ensureBatchColumn(mysqli $conn): void
+    {
+        if (self::$batchColumnChecked) {
+            return;
+        }
+
+        $result = $conn->query("SHOW COLUMNS FROM products LIKE 'batch_number'");
+        if (!$result || $result->num_rows === 0) {
+            $conn->query("ALTER TABLE `products` ADD COLUMN `batch_number` VARCHAR(50) DEFAULT NULL AFTER `expiry_date`");
+        }
+
+        self::$batchColumnChecked = true;
+        self::$hasBatchColumn = true;
+    }
 
     public static function hasAuditColumns(mysqli $conn): bool
     {
@@ -65,7 +82,8 @@ class StockMovementService
         int $quantity,
         string $type,
         string $username,
-        ?string $remarks = null
+        ?string $remarks = null,
+        ?array $metadata = null
     ): array {
         if ($productId <= 0) {
             throw new Exception('Invalid product.');
@@ -76,9 +94,11 @@ class StockMovementService
 
         $transactionType = self::normalizeType($type);
         self::ensureAuditColumns($conn);
+        self::ensureBatchColumn($conn);
 
         $productStmt = $conn->prepare(
-            'SELECT product_id, product_name, barcode, quantity, unit, reorder_point,
+            'SELECT product_id, product_name, barcode, category, location, quantity, unit,
+                    reorder_point, expiry_date, batch_number,
                     CONCAT(\'P-\', LPAD(product_id, 4, \'0\')) AS sku
              FROM products WHERE product_id = ? FOR UPDATE'
         );
@@ -114,6 +134,10 @@ class StockMovementService
             throw new Exception('Failed to update stock.');
         }
         $updateStmt->close();
+
+        if ($transactionType === 'stock_in' && is_array($metadata) && !empty($metadata)) {
+            self::applyProductMetadata($conn, $productId, $metadata);
+        }
 
         if ($remarks === null || $remarks === '') {
             $remarks = $transactionType === 'stock_in' ? 'Stock received' : 'Stock issued';
@@ -170,6 +194,56 @@ class StockMovementService
     }
 
     /**
+     * Update product metadata after a stock-in receive.
+     */
+    private static function applyProductMetadata(mysqli $conn, int $productId, array $metadata): void
+    {
+        $fields = [];
+        $params = [];
+        $types = '';
+
+        if (!empty($metadata['batch_number'])) {
+            $fields[] = 'batch_number = ?';
+            $params[] = trim((string)$metadata['batch_number']);
+            $types .= 's';
+        }
+
+        if (!empty($metadata['expiry_date'])) {
+            $fields[] = 'expiry_date = ?';
+            $params[] = trim((string)$metadata['expiry_date']);
+            $types .= 's';
+        }
+
+        if (!empty($metadata['location'])) {
+            $fields[] = 'location = ?';
+            $params[] = trim((string)$metadata['location']);
+            $types .= 's';
+        }
+
+        if (!empty($metadata['category'])) {
+            $fields[] = 'category = ?';
+            $params[] = trim((string)$metadata['category']);
+            $types .= 's';
+        }
+
+        if (empty($fields)) {
+            return;
+        }
+
+        $sql = 'UPDATE products SET ' . implode(', ', $fields) . ' WHERE product_id = ?';
+        $params[] = $productId;
+        $types .= 'i';
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            throw new Exception('Failed to update product inventory details.');
+        }
+        $stmt->close();
+    }
+
+    /**
      * Wrap processMovement in begin/commit with flash-friendly errors.
      */
     public static function executeMovement(
@@ -178,11 +252,12 @@ class StockMovementService
         int $quantity,
         string $type,
         string $username,
-        ?string $remarks = null
+        ?string $remarks = null,
+        ?array $metadata = null
     ): array {
         $conn->begin_transaction();
         try {
-            $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks);
+            $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks, $metadata);
             $conn->commit();
             return $result;
         } catch (Exception $e) {
@@ -214,13 +289,15 @@ class StockMovementService
             foreach ($items as $item) {
                 $productId = (int)($item['product_id'] ?? 0);
                 $qty = (int)($item['qty'] ?? 0);
+                $metadata = isset($item['metadata']) && is_array($item['metadata']) ? $item['metadata'] : null;
                 $results[] = self::processMovement(
                     $conn,
                     $productId,
                     $qty,
                     $type,
                     $username,
-                    $remarks
+                    $remarks,
+                    $metadata
                 );
             }
             $conn->commit();
