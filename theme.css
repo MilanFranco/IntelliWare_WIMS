@@ -876,11 +876,6 @@
     --tw-gradient-to: rgb(59 130 246 / 0.06) var(--tw-gradient-to-position) !important;
 }
 
-/* Sidebar logo — dark text variant for light backgrounds */
-.iw-sidebar-logo-light { display: none; }
-[data-theme="light"] .iw-sidebar-logo-dark { display: none !important; }
-[data-theme="light"] .iw-sidebar-logo-light { display: block !important; }
-
 /* Darken light-mode indicator / accent text */
 [data-theme="light"] .text-blue-300 { color: #1D4ED8 !important; }
 [data-theme="light"] .text-blue-400 { color: #1D4ED8 !important; }
@@ -992,4 +987,66 @@
 
 [data-theme="light"] .border-\[\#51D55A\]\/20 {
     border-color: rgba(22, 163, 74, 0.35) !important;
+}
+
+/* Native select / dropdown fixes (Product + Inventory modules) */
+select.premium-input,
+select.inventory-select,
+select.edit-field,
+.filter-select,
+.dropdown-select {
+    appearance: auto;
+    -webkit-appearance: menulist;
+    cursor: pointer;
+    padding-right: 32px;
+    min-height: 38px;
+}
+
+select.premium-input:disabled,
+select.inventory-select:disabled,
+select.edit-field:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+select.premium-input option,
+select.inventory-select option,
+select.edit-field option,
+.filter-select option,
+.dropdown-select option {
+    background: #1D387B;
+    color: #E3E3E3;
+}
+
+[data-theme="light"] select.premium-input,
+[data-theme="light"] select.inventory-select,
+[data-theme="light"] select.edit-field,
+[data-theme="light"] .filter-select,
+[data-theme="light"] .dropdown-select {
+    background: var(--iw-bg-input) !important;
+    color: var(--iw-text) !important;
+    border-color: var(--iw-border-input) !important;
+}
+
+[data-theme="light"] select.premium-input option,
+[data-theme="light"] select.inventory-select option,
+[data-theme="light"] select.edit-field option,
+[data-theme="light"] .filter-select option,
+[data-theme="light"] .dropdown-select option {
+    background: #ffffff;
+    color: #1e293b;
+}
+
+.premium-card,
+.txn-page-card {
+    overflow: visible !important;
+}
+
+.modal-box {
+    overflow: visible !important;
+}
+
+.modal-body-scroll {
+    overflow-y: auto;
+    overflow-x: visible;
 }

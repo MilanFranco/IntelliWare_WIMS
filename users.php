@@ -333,7 +333,7 @@ renderLayoutStart($pageTitle, $role, $username, 0);
                 
                 <div>
                     <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Role</label>
-                    <select name="role" class="premium-input">
+                    <select name="role" class="premium-input inventory-select cursor-pointer">
                         <option value="staff">Staff</option>
                         <option value="manager">Manager</option>
                         <option value="admin">Admin</option>
@@ -374,7 +374,7 @@ renderLayoutStart($pageTitle, $role, $username, 0);
                 
                 <div>
                     <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Select User</label>
-                    <select name="user_id" class="premium-input" required>
+                    <select name="user_id" class="premium-input inventory-select cursor-pointer" required>
                         <option value="">-- Choose Account --</option>
                         <?php foreach($users as $u): ?>
                             <option value="<?php echo $u['user_id']; ?>">

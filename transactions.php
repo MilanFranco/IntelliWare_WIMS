@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 
 // Redirect to signin if the user is not logged in
@@ -17,18 +17,25 @@ require_once 'src/services/StockMovementService.php';
 
 // capture 'action' from URL (e.g., ?action=in or ?action=out) to pre-select dropdown
 $action = $_GET['action'] ?? '';
-$smartInsightActive = false;
-
-// Handle special "Smart Insight" referral (likely from a dashboard widget)
+// Handle special "Smart Insight" referral from Insights → Check Stock
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['smart_insight_referral'])) {
-    $search_q = ''; 
-    $filter_cat = $_POST['filter_category'] ?? '';
-    $smartInsightActive = true;
-} else {
-    // Standard search and filter inputs from GET request
-    $search_q = $_GET['q'] ?? '';
-    $filter_cat = $_GET['category'] ?? '';
+    $redirectParams = ['ref' => 'insights'];
+    $category = trim($_POST['filter_category'] ?? '');
+    $product = trim($_POST['filter_product_name'] ?? '');
+    if ($category !== '') {
+        $redirectParams['category'] = $category;
+    }
+    if ($product !== '') {
+        $redirectParams['q'] = $product;
+    }
+    header('Location: transactions.php?' . http_build_query($redirectParams));
+    exit();
 }
+
+// Standard search and filter inputs from GET request
+$search_q = $_GET['q'] ?? '';
+$filter_cat = $_GET['category'] ?? '';
+$smartInsightActive = (($_GET['ref'] ?? '') === 'insights');
 
 // Set current page, ensuring it's at least 1
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -127,8 +134,10 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
 
 <style>
-    /* Select2 dark theme — load overrides with page styles */
-    body[data-theme="dark"] .select2-container { width: 100% !important; max-width: 100%; }
+    /* Select2 — base layout */
+    .select2-container { width: 100% !important; max-width: 100%; }
+
+    /* Select2 dark theme */
     body[data-theme="dark"] .select2-container--default .select2-selection--single {
         background-color: rgba(19, 39, 91, 0.8) !important;
         border: 1px solid rgba(48, 67, 116, 0.6) !important;
@@ -187,6 +196,68 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     }
     body[data-theme="dark"] .select2-container--default .select2-results__option[aria-selected=true] {
         background-color: rgba(81, 213, 90, 0.15) !important;
+    }
+
+    /* Select2 light theme */
+    body[data-theme="light"] .select2-container--default .select2-selection--single {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        height: 46px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: #1e293b !important;
+        padding-left: 16px !important;
+        padding-right: 36px !important;
+        font-family: 'Onest', sans-serif;
+        font-size: 14px;
+        line-height: 44px !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: #64748b !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 44px !important;
+        right: 10px !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__arrow b {
+        border-color: #64748b transparent transparent transparent !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-selection--single .select2-selection__clear {
+        color: #64748b !important;
+        margin-right: 28px !important;
+        font-size: 16px !important;
+    }
+    body[data-theme="light"] .select2-dropdown {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        z-index: 100010 !important;
+        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12) !important;
+    }
+    body[data-theme="light"] .select2-search--dropdown { padding: 8px !important; }
+    body[data-theme="light"] .select2-search__field {
+        background-color: #f8fafc !important;
+        color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        outline: none !important;
+    }
+    body[data-theme="light"] .select2-results__option {
+        color: #334155 !important;
+        padding: 10px 16px !important;
+        font-family: 'Onest', sans-serif;
+        font-size: 14px;
+    }
+    body[data-theme="light"] .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background: rgba(81, 213, 90, 0.15) !important;
+        color: #15803d !important;
+    }
+    body[data-theme="light"] .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: rgba(81, 213, 90, 0.1) !important;
     }
 
     .txn-page-card { padding: 0 !important; overflow: visible !important; }
@@ -381,16 +452,22 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             
-            <select name="category" class="premium-input cursor-pointer text-sm w-full md:w-40" onchange="this.form.submit()">
+            <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full md:w-40" onchange="this.form.submit()">
                 <option value="">All Categories</option>
                 <?php foreach($categories as $cat): ?>
                     <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo ($filter_cat === $cat) ? 'selected' : ''; ?>>
                         <?php echo htmlspecialchars($cat); ?>
                     </option>
                 <?php endforeach; ?>
+                <?php if ($filter_cat !== '' && !in_array($filter_cat, $categories, true)): ?>
+                    <option value="<?php echo htmlspecialchars($filter_cat); ?>" selected>
+                        <?php echo htmlspecialchars($filter_cat); ?>
+                    </option>
+                <?php endif; ?>
             </select>
             
             <?php if($action): ?><input type="hidden" name="action" value="<?php echo $action; ?>"><?php endif; ?>
+            <?php if($smartInsightActive): ?><input type="hidden" name="ref" value="insights"><?php endif; ?>
             
             <button type="submit" class="hidden">Search</button>
         </div>
@@ -479,6 +556,10 @@ $(document).ready(function() {
         language: { noResults: function() { return "No products found."; } }
     });
 
+    document.addEventListener('themechange', function () {
+        $('#productSelect').select2('close');
+    });
+
     if (window.BarcodeScanner) {
         BarcodeScanner.init();
         initTransactionBarcodeInputs();
@@ -489,7 +570,19 @@ $(document).ready(function() {
     <?php unset($_SESSION['toast']); endif; ?>
 
     <?php if ($smartInsightActive): ?>
-    showToast(<?php echo json_encode("Filtering Category '" . $filter_cat . "'"); ?>, 'success');
+    <?php
+        $insightParts = [];
+        if ($filter_cat !== '') {
+            $insightParts[] = "category '" . $filter_cat . "'";
+        }
+        if ($search_q !== '') {
+            $insightParts[] = "product '" . $search_q . "'";
+        }
+        $insightMsg = $insightParts
+            ? 'Showing stock for ' . implode(' and ', $insightParts) . '.'
+            : 'Opened stock view from Insights.';
+    ?>
+    showToast(<?php echo json_encode($insightMsg); ?>, 'success');
     <?php endif; ?>
 });
 

@@ -223,7 +223,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], $lowStockCount);
     <span id="toast-message"></span>
 </div>
 
-<div class="premium-card mb-6">
+<div class="premium-card mb-6" style="overflow:visible;">
     <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
         <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
@@ -243,7 +243,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], $lowStockCount);
             </div>
             <div>
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Category</label>
-                <select name="category" class="premium-input w-full h-[46px] cursor-pointer">
+                <select name="category" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Categories</option>
                     <?php foreach ($allCategories as $cat): ?>
                         <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $categoryFilter === $cat ? 'selected' : ''; ?>>
@@ -254,7 +254,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], $lowStockCount);
             </div>
             <div>
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Stock Status</label>
-                <select name="status" class="premium-input w-full h-[46px] cursor-pointer">
+                <select name="status" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Status</option>
                     <option value="good" <?php echo $statusFilter === 'good' ? 'selected' : ''; ?>>Good Stock</option>
                     <option value="attention" <?php echo $statusFilter === 'attention' ? 'selected' : ''; ?>>Attention Needed (Low/Out)</option>

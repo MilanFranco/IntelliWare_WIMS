@@ -12,6 +12,66 @@ if (!in_array($role, ['admin','manager'])) {
 }
 
 require_once 'config/db.php';
+require_once 'src/services/LocationCategoryService.php';
+
+/**
+ * Map insight/forecast shorthand categories to canonical product category names.
+ */
+function resolveInsightCategory(string $category, mysqli $conn): string
+{
+    $category = trim($category);
+    if ($category === '') {
+        return '';
+    }
+
+    static $aliases = [
+        'Household' => 'Household Items',
+        'Bev' => 'Beverages',
+        'Dry' => 'Dry Goods',
+        'Canned' => 'Canned Goods',
+        'Frozen' => 'Frozen Foods',
+        'Bakery' => 'Bakery Products',
+        'Care' => 'Personal Care',
+        'Stationery' => 'Stationery and Office Supplies',
+        'Staples' => 'Dry Goods',
+        'Staple Foods' => 'Dry Goods',
+        'Condiments & Sauces' => 'Condiments and Sauces',
+        'Noodles and Instant Food' => 'Dry Goods',
+        'Snacks and Biscuits' => 'Dry Goods',
+        'Alcohol and Spirits' => 'Beverages',
+    ];
+
+    if (isset($aliases[$category])) {
+        return $aliases[$category];
+    }
+
+    static $knownCategories = null;
+    if ($knownCategories === null) {
+        $map = LocationCategoryService::buildMap($conn);
+        $knownCategories = $map['categories'];
+        $res = $conn->query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $knownCategories[] = trim((string)$row['category']);
+            }
+        }
+        $knownCategories = array_values(array_unique($knownCategories));
+    }
+
+    foreach ($knownCategories as $known) {
+        if (strcasecmp($known, $category) === 0) {
+            return $known;
+        }
+    }
+
+    foreach ($knownCategories as $known) {
+        if (stripos($known, $category) === 0) {
+            return $known;
+        }
+    }
+
+    return $category;
+}
 
 $weeklyDefaults = [
     'Jan' => [
@@ -26,16 +86,16 @@ $weeklyDefaults = [
         3 => ['name' => 'Dove Soap Bar', 'cat' => 'Personal Care', 'reason' => 'Mid-month hygiene restocking cycle.'],
         4 => ['name' => 'Gardenia Cakes 6pcs', 'cat' => 'Bakery Products', 'reason' => 'School activities return; high demand for "baon" snacks.'],
     ],
-    'Mar' => [ 1 => ['name' => 'Coca-Cola 330ml', 'cat' => 'Beverages', 'reason' => 'Temperatures rising.'], 2 => ['name' => 'Frozen Fish', 'cat' => 'Frozen', 'reason' => 'Lent season.'], 3 => ['name' => 'Royal Pasta', 'cat' => 'Dry', 'reason' => 'Exam weeks.'], 4 => ['name' => 'Pepsi', 'cat' => 'Bev', 'reason' => 'Peak heat.'] ],
-    'Apr' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned', 'reason' => 'Holy Week.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen', 'reason' => 'Summer break.'], 3 => ['name' => 'Soap', 'cat' => 'Care', 'reason' => 'Summer heat.'], 4 => ['name' => 'Rice', 'cat' => 'Dry', 'reason' => 'Payday.'] ],
-    'May' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry', 'reason' => 'Fiestas.'], 2 => ['name' => 'Pens', 'cat' => 'Stationery', 'reason' => 'School prep.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned', 'reason' => 'Tuition saving.'], 4 => ['name' => 'Coke', 'cat' => 'Bev', 'reason' => 'End of summer.'] ],
-    'Jun' => [ 1 => ['name' => 'Notebooks', 'cat' => 'Stationery', 'reason' => 'Back to school.'], 2 => ['name' => 'Cakes', 'cat' => 'Bakery', 'reason' => 'Baon.'], 3 => ['name' => 'Detergent', 'cat' => 'Household', 'reason' => 'Rainy season.'], 4 => ['name' => 'Coffee', 'cat' => 'Bev', 'reason' => 'Rainy mornings.'] ],
-    'Jul' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned', 'reason' => 'Typhoons.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Flu season.'], 3 => ['name' => 'Cleaner', 'cat' => 'Household', 'reason' => 'Mud/Rain.'], 4 => ['name' => 'Pasta', 'cat' => 'Dry', 'reason' => 'Comfort food.'] ],
-    'Aug' => [ 1 => ['name' => 'Bread', 'cat' => 'Bakery', 'reason' => 'Rain/Power outages.'], 2 => ['name' => 'Toothpaste', 'cat' => 'Care', 'reason' => 'Hygiene.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned', 'reason' => 'Storms.'], 4 => ['name' => 'Coffee', 'cat' => 'Bev', 'reason' => 'Cold weather.'] ],
-    'Sep' => [ 1 => ['name' => 'Nuggets', 'cat' => 'Frozen', 'reason' => 'Ber months.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Cool evenings.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry', 'reason' => 'Holiday hoarding.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Dessert trials.'] ],
-    'Oct' => [ 1 => ['name' => 'Cleaner', 'cat' => 'Household', 'reason' => 'Guest prep.'], 2 => ['name' => 'Bread', 'cat' => 'Bakery', 'reason' => 'Undas prep.'], 3 => ['name' => 'Coke', 'cat' => 'Bev', 'reason' => 'Gatherings.'], 4 => ['name' => 'Fish Fillet', 'cat' => 'Frozen', 'reason' => 'Health options.'] ],
-    'Nov' => [ 1 => ['name' => 'Cakes', 'cat' => 'Bakery', 'reason' => 'Undas.'], 2 => ['name' => 'Rice', 'cat' => 'Dry', 'reason' => 'Stockpiling.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry', 'reason' => 'Company parties.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Fruit salads.'] ],
-    'Dec' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry', 'reason' => 'Christmas Spaghetti.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen', 'reason' => 'Kids parties.'], 3 => ['name' => 'Butter', 'cat' => 'Condiments & Sauces','reason' => 'Noche Buena.'], 4 => ['name' => 'Tuna', 'cat' => 'Canned', 'reason' => 'New Year closure.'] ],
+    'Mar' => [ 1 => ['name' => 'Coca-Cola 330ml', 'cat' => 'Beverages', 'reason' => 'Temperatures rising.'], 2 => ['name' => 'Frozen Fish', 'cat' => 'Frozen Foods', 'reason' => 'Lent season.'], 3 => ['name' => 'Royal Pasta', 'cat' => 'Dry Goods', 'reason' => 'Exam weeks.'], 4 => ['name' => 'Pepsi', 'cat' => 'Beverages', 'reason' => 'Peak heat.'] ],
+    'Apr' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'Holy Week.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Summer break.'], 3 => ['name' => 'Soap', 'cat' => 'Personal Care', 'reason' => 'Summer heat.'], 4 => ['name' => 'Rice', 'cat' => 'Dry Goods', 'reason' => 'Payday.'] ],
+    'May' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Fiestas.'], 2 => ['name' => 'Pens', 'cat' => 'Stationery and Office Supplies', 'reason' => 'School prep.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned Goods', 'reason' => 'Tuition saving.'], 4 => ['name' => 'Coke', 'cat' => 'Beverages', 'reason' => 'End of summer.'] ],
+    'Jun' => [ 1 => ['name' => 'Notebooks', 'cat' => 'Stationery and Office Supplies', 'reason' => 'Back to school.'], 2 => ['name' => 'Cakes', 'cat' => 'Bakery Products', 'reason' => 'Baon.'], 3 => ['name' => 'Detergent', 'cat' => 'Household Items', 'reason' => 'Rainy season.'], 4 => ['name' => 'Coffee', 'cat' => 'Beverages', 'reason' => 'Rainy mornings.'] ],
+    'Jul' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'Typhoons.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Flu season.'], 3 => ['name' => 'Cleaner', 'cat' => 'Household Items', 'reason' => 'Mud/Rain.'], 4 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Comfort food.'] ],
+    'Aug' => [ 1 => ['name' => 'Bread', 'cat' => 'Bakery Products', 'reason' => 'Rain/Power outages.'], 2 => ['name' => 'Toothpaste', 'cat' => 'Personal Care', 'reason' => 'Hygiene.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned Goods', 'reason' => 'Storms.'], 4 => ['name' => 'Coffee', 'cat' => 'Beverages', 'reason' => 'Cold weather.'] ],
+    'Sep' => [ 1 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Ber months.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Cool evenings.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Holiday hoarding.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Dessert trials.'] ],
+    'Oct' => [ 1 => ['name' => 'Cleaner', 'cat' => 'Household Items', 'reason' => 'Guest prep.'], 2 => ['name' => 'Bread', 'cat' => 'Bakery Products', 'reason' => 'Undas prep.'], 3 => ['name' => 'Coke', 'cat' => 'Beverages', 'reason' => 'Gatherings.'], 4 => ['name' => 'Fish Fillet', 'cat' => 'Frozen Foods', 'reason' => 'Health options.'] ],
+    'Nov' => [ 1 => ['name' => 'Cakes', 'cat' => 'Bakery Products', 'reason' => 'Undas.'], 2 => ['name' => 'Rice', 'cat' => 'Dry Goods', 'reason' => 'Stockpiling.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Company parties.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Fruit salads.'] ],
+    'Dec' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Christmas Spaghetti.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Kids parties.'], 3 => ['name' => 'Butter', 'cat' => 'Condiments and Sauces', 'reason' => 'Noche Buena.'], 4 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'New Year closure.'] ],
 ];
 
 $monthlyDefaults = [
@@ -61,12 +121,12 @@ $quarterlyDefaults = [
 ];
 
 $semiAnnualDefaults = [
-    1 => ['name' => 'Canned Goods and Rice', 'cat' => 'Staples', 'reason' => 'First half spending leans toward budgeting.'],
+    1 => ['name' => 'Canned Goods and Rice', 'cat' => 'Dry Goods', 'reason' => 'First half spending leans toward budgeting.'],
     2 => ['name' => 'Holiday Goods and Pasta', 'cat' => 'Dry Goods', 'reason' => 'Second half moves toward holiday buildup.'],
 ];
 
 $annualDefaults = [
-    1 => ['name' => 'Rice, Canned Goods', 'cat' => 'Staples', 'reason' => 'These remain year round essentials.'],
+    1 => ['name' => 'Rice, Canned Goods', 'cat' => 'Dry Goods', 'reason' => 'These remain year round essentials.'],
 ];
 
 $selectedPeriod = $_GET['period'] ?? 'monthly';
@@ -388,6 +448,15 @@ if ($highlightProductId && isset($conn)) {
     }
 }
 
+if (isset($conn)) {
+    foreach ($forecastData as &$forecastItem) {
+        if (!empty($forecastItem['category_name'])) {
+            $forecastItem['category_name'] = resolveInsightCategory($forecastItem['category_name'], $conn);
+        }
+    }
+    unset($forecastItem);
+}
+
 // --- ML Forecast Data (read-only; never trains on page load) ---
 require_once 'src/ml/ForecastDataService.php';
 require_once 'src/ml/MLForecastManager.php';
@@ -508,10 +577,14 @@ body {
     border-radius: 12px;
     color: var(--insights-text);
     padding: 0 16px;
+    padding-right: 32px;
     font-family: 'Onest', sans-serif;
     font-size: 14px;
     outline: none;
     transition: all 0.3s;
+    appearance: auto;
+    -webkit-appearance: menulist;
+    cursor: pointer;
 }
 .search-box::placeholder {
     color: var(--insights-text-muted);
@@ -1089,8 +1162,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                             <div class="insight-text"><?php echo $item['insight']; ?></div>
                         </td>
                         <td>
-                            <button type="button" class="action-btn" 
-                                onclick="checkStock('<?php echo htmlspecialchars($item['product_name']); ?>', '<?php echo htmlspecialchars($item['category_name']); ?>')">
+                            <button type="button" class="action-btn check-stock-btn"
+                                data-product="<?php echo htmlspecialchars($item['product_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                data-category="<?php echo htmlspecialchars($item['category_name'], ENT_QUOTES, 'UTF-8'); ?>">
                                 Check Stock
                             </button>
                         </td>
@@ -1249,10 +1323,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     </div>
 </div>
 
-<form id="stockCheckForm" action="transactions.php" method="POST" style="display:none;">
-    <input type="hidden" name="filter_product_name" id="filter_product_name">
-    <input type="hidden" name="filter_category" id="filter_category">
-    <input type="hidden" name="smart_insight_referral" value="true"> </form>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -1285,10 +1355,18 @@ document.addEventListener('DOMContentLoaded', function() {
 <?php endif; ?>
 
 function checkStock(productName, categoryName) {
-    document.getElementById('filter_product_name').value = productName;
-    document.getElementById('filter_category').value = categoryName;
-    document.getElementById('stockCheckForm').submit();
+    var params = new URLSearchParams();
+    if (categoryName) params.set('category', categoryName);
+    if (productName) params.set('q', productName);
+    params.set('ref', 'insights');
+    window.location.href = 'transactions.php?' + params.toString();
 }
+
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.check-stock-btn');
+    if (!btn) return;
+    checkStock(btn.dataset.product || '', btn.dataset.category || '');
+});
 
 function loadForecastContent(e, url) {
     if(e) e.preventDefault();

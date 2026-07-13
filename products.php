@@ -75,6 +75,10 @@ sort($categories);
 $uom_query = $conn->query("SELECT DISTINCT unit FROM products WHERE unit != '' ORDER BY unit");
 while ($row = $uom_query->fetch_assoc()) { $uoms[] = $row['unit']; }
 
+$defaultUoms = ['pieces', 'packs', 'boxes', 'bottles', 'cans', 'bags', 'jars', 'tubes', 'bars', 'sets', 'units', 'kg', 'g', 'L', 'ml'];
+$uoms = array_values(array_unique(array_merge($uoms, $defaultUoms)));
+sort($uoms, SORT_NATURAL | SORT_FLAG_CASE);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $csrf_token) {
@@ -284,18 +288,25 @@ $res = $stmt->get_result();
 while ($row = $res->fetch_assoc()) { $items[] = $row; }
 $stmt->close();
 
-function renderOptions($list, $currentValue) {
-    $html = '';
-    if (!empty($currentValue)) {
-        $html .= "<option value='".htmlspecialchars($currentValue)."' selected>".htmlspecialchars($currentValue)."</option>";
-    } else {
-        $html .= "<option value='' selected>Select</option>";
-    }
+function renderOptions($list, $currentValue, $placeholder = 'Select') {
+    $currentValue = trim((string)$currentValue);
+    $html = '<option value="">' . htmlspecialchars($placeholder) . '</option>';
+    $seen = [];
+
     foreach ($list as $item) {
-        if ($item !== $currentValue) {
-            $html .= "<option value='".htmlspecialchars($item)."'>".htmlspecialchars($item)."</option>";
+        $item = trim((string)$item);
+        if ($item === '' || isset($seen[$item])) {
+            continue;
         }
+        $seen[$item] = true;
+        $selected = ($item === $currentValue) ? ' selected' : '';
+        $html .= '<option value="' . htmlspecialchars($item) . '"' . $selected . '>' . htmlspecialchars($item) . '</option>';
     }
+
+    if ($currentValue !== '' && !isset($seen[$currentValue])) {
+        $html .= '<option value="' . htmlspecialchars($currentValue) . '" selected>' . htmlspecialchars($currentValue) . '</option>';
+    }
+
     return $html;
 }
 
@@ -305,11 +316,11 @@ foreach ($items as $it) {
     $edit_inputs[$id] = [
         'name' => "<input type='text' id='input-name-{$id}' class='edit-field' value='".htmlspecialchars($it['name'])."' />",
         'barcode' => "<input type='text' id='input-barcode-{$id}' class='edit-field' value='".htmlspecialchars($it['barcode'] ?? '')."' placeholder='Barcode' />",
-        'category' => "<select id='input-category-{$id}' class='edit-field'>".renderOptions($categories, $it['category'])."</select>",
+        'category' => "<select id='input-category-{$id}' class='edit-field inventory-select'>".renderOptions($categories, $it['category'], 'Select Category')."</select>",
         'supplier' => "<input type='text' id='input-supplier-{$id}' class='edit-field' value='".htmlspecialchars($it['supplier'])."' />",
         'location' => "<input type='text' id='input-location-{$id}' class='edit-field' value='".htmlspecialchars($it['location'])."' list='location-options' />",
         'qty' => "<input type='number' id='input-qty-{$id}' class='edit-field' value='".htmlspecialchars($it['qty'])."' required />",
-        'uom' => "<select id='input-uom-{$id}' class='edit-field'>".renderOptions($uoms, $it['uom'])."</select>",
+        'uom' => "<select id='input-uom-{$id}' class='edit-field inventory-select'>".renderOptions($uoms, $it['uom'], 'Select Unit')."</select>",
         'reorder_point' => "<input type='number' id='input-reorder_point-{$id}' class='edit-field' value='".htmlspecialchars($it['reorder_point'])."' required />",
         'price' => "<input type='number' id='input-price-{$id}' class='edit-field' value='".htmlspecialchars(number_format((float)($it['price'] ?? 0), 2, '.', ''))."' min='0' step='0.01' inputmode='decimal' required />",
     ];
@@ -433,6 +444,44 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-size: 13px;
     }
 
+    select.edit-field,
+    select.premium-input,
+    select.inventory-select {
+        appearance: auto;
+        -webkit-appearance: menulist;
+        cursor: pointer;
+        padding-right: 28px;
+        min-height: 38px;
+    }
+
+    select.edit-field:disabled,
+    select.premium-input:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+
+    select.edit-field option,
+    select.premium-input option,
+    select.inventory-select option {
+        background: #1D387B;
+        color: #E3E3E3;
+    }
+
+    [data-theme="light"] select.edit-field,
+    [data-theme="light"] select.premium-input,
+    [data-theme="light"] select.inventory-select {
+        background: var(--iw-bg-input);
+        color: var(--iw-text);
+        border-color: var(--iw-border-input);
+    }
+
+    [data-theme="light"] select.edit-field option,
+    [data-theme="light"] select.premium-input option,
+    [data-theme="light"] select.inventory-select option {
+        background: #ffffff;
+        color: #1e293b;
+    }
+
     .modal-overlay {
         display: none;
         position: fixed;
@@ -457,7 +506,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: visible;
         margin: auto;
     }
     .modal-header {
@@ -479,7 +528,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         gap: 10px;
     }
     .modal-subtitle { color: #9aa6d1; font-size: 13px; font-family: 'Onest', sans-serif; }
-    .modal-body-scroll { overflow-y: auto; flex: 1; }
+    .modal-body-scroll { overflow-y: auto; overflow-x: visible; flex: 1; max-height: min(560px, calc(100vh - 220px)); }
 
     .form-label {
         color: #9aa6d1;
@@ -634,7 +683,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     <button type="button" id="search-scan-barcode-btn" class="absolute right-3 top-3 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none leading-none flex items-center justify-center" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 </div>
-                <select name="category" class="premium-input cursor-pointer text-sm w-full sm:w-40" style="height:46px;">
+                <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-40" style="height:46px;">
                     <option value="">All Categories</option>
                     <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."' ".($category_param==$cat?'selected':'').">".htmlspecialchars($cat)."</option>"; ?>
                 </select>
@@ -791,9 +840,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </div>
                 <div>
                     <label class="form-label">Category</label>
-                    <select name="category" id="add-category" class="premium-input w-full cursor-pointer add-form-field" style="height:46px;" disabled>
-                        <option value="">Select Category</option>
-                        <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."'>".htmlspecialchars($cat)."</option>"; ?>
+                    <select name="category" id="add-category" class="premium-input inventory-select w-full cursor-pointer add-form-field" style="height:46px;" disabled>
+                        <?php echo renderOptions($categories, '', 'Select Category'); ?>
                     </select>
                 </div>
                 <div>
@@ -816,9 +864,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </div>
                 <div>
                     <label class="form-label">Unit (UoM)</label>
-                    <select name="unit" id="add-unit" class="premium-input w-full cursor-pointer add-form-field" style="height:46px;" disabled>
-                        <option value="">Select Unit</option>
-                        <?php foreach ($uoms as $u) echo "<option value='".htmlspecialchars($u)."'>".htmlspecialchars($u)."</option>"; ?>
+                    <select name="unit" id="add-unit" class="premium-input inventory-select w-full cursor-pointer add-form-field" style="height:46px;" disabled>
+                        <?php echo renderOptions($uoms, '', 'Select Unit'); ?>
                     </select>
                 </div>
                 <div>
@@ -1479,6 +1526,13 @@ document.getElementById('add-price')?.addEventListener('keydown', function (e) {
 ADD_FORM_FIELD_ORDER.forEach(function (fieldId) {
     document.getElementById(fieldId)?.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' || this.disabled) return;
+        if (this.tagName === 'SELECT') {
+            if (e.shiftKey) {
+                e.preventDefault();
+                focusNextAddFormField(fieldId);
+            }
+            return;
+        }
         e.preventDefault();
         if (e.shiftKey) {
             focusNextAddFormField(fieldId);
@@ -1493,6 +1547,14 @@ document.addEventListener('keydown', function (e) {
 
     var match = e.target.id.match(/^input-([a-z_]+)-(\d+)$/);
     if (!match) return;
+
+    if (e.target.tagName === 'SELECT') {
+        if (e.shiftKey) {
+            e.preventDefault();
+            focusNextEditField(match[2], e.target);
+        }
+        return;
+    }
 
     e.preventDefault();
     var rowId = match[2];

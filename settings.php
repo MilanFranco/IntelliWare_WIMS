@@ -392,7 +392,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     
                     <div>
                         <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Currency</label>
-                        <select name="currency_symbol" class="premium-input cursor-pointer">
+                        <select name="currency_symbol" class="premium-input inventory-select cursor-pointer">
                             <option value="PHP">₱ - Philippine Peso</option>
                             <option value="USD">$ - US Dollar</option>
                         </select>

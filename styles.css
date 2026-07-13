@@ -670,6 +670,19 @@ input.match-border {
     background: rgba(19, 39, 91, 0.9);
 }
 
+select.premium-input,
+select.input {
+    appearance: auto;
+    -webkit-appearance: menulist;
+    cursor: pointer;
+    padding-right: 32px;
+}
+
+select.premium-input:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
 .table {
     width: 100%;
     border-collapse: collapse;
@@ -1152,13 +1165,6 @@ body {
     margin-left: 8px;
     margin-bottom: 16px;
     flex-shrink: 0;
-}
-
-#main-sidebar .iw-sidebar-logo {
-    width: 220px;
-    max-width: calc(100% - 16px);
-    height: auto;
-    display: block;
 }
 
 #main-sidebar > div:nth-child(2) {

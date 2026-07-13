@@ -131,7 +131,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
             </div>
             <div class="w-full lg:w-40">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-2">Type</label>
-                <select name="type" class="premium-input w-full cursor-pointer">
+                <select name="type" class="premium-input inventory-select w-full cursor-pointer">
                     <option value="">All Types</option>
                     <option value="in" <?php echo $filterType === 'in' ? 'selected' : ''; ?>>IN (Receive)</option>
                     <option value="out" <?php echo $filterType === 'out' ? 'selected' : ''; ?>>OUT (Release)</option>
