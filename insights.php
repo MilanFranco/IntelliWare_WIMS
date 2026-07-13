@@ -520,11 +520,6 @@ $depletionTrend = $forecastService->getStockDepletionTrend();
 $reorderFrequencyTrend = $forecastService->getReorderFrequencyTrend();
 $lastMlRun = $mlManager->getLastRunStatus();
 
-$multiHorizonData = [];
-foreach (['weekly','monthly','quarterly','semi_annual','annual'] as $hz) {
-    $multiHorizonData[$hz] = $forecastService->getMultiHorizonForecast($hz);
-}
-
 $seasonalHighlights = [];
 if ($hasMlModel && !empty($seasonalChartData['month_labels']) && !empty($seasonalChartData['seasonal_index'])) {
     $pairs = [];
@@ -892,19 +887,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     color: var(--insights-accent);
 }
 .section-heading-icon svg { width: 22px; height: 22px; }
-
-.horizon-btn {
-    padding: 6px 16px;
-    border: 1px solid rgba(42,68,132,0.6);
-    border-radius: 20px;
-    background: transparent;
-    color: #9aa6d1;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.horizon-btn:hover { border-color: #4a90d9; color: #4a90d9; }
-.horizon-btn.active { background: #4a90d9; border-color: #4a90d9; color: #fff; font-weight: 600; }
 </style>
 
 <div class="card" style="margin-bottom: 24px;">
@@ -992,11 +974,11 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 </thead>
                 <tbody id="productTableBody">
                     <?php foreach ($productMovement as $product): ?>
-                    <tr data-category="<?php echo htmlspecialchars($product['category_name'] ?? ''); ?>"
-                        data-movement="<?php echo $product['movement_class'] ?? ''; ?>"
-                        data-stock="<?php echo $product['stock_status'] ?? ''; ?>">
-                        <td style="font-weight: 500; color: #fff;"><?php echo htmlspecialchars($product['product_name'] ?? ''); ?></td>
-                        <td style="color: #9aa6d1;"><?php echo htmlspecialchars($product['category_name'] ?? ''); ?></td>
+                    <tr data-category="<?php echo htmlspecialchars($product['category_name']); ?>"
+                        data-movement="<?php echo $product['movement_class']; ?>"
+                        data-stock="<?php echo $product['stock_status']; ?>">
+                        <td style="font-weight: 500; color: #fff;"><?php echo htmlspecialchars($product['product_name']); ?></td>
+                        <td style="color: #9aa6d1;"><?php echo htmlspecialchars($product['category_name']); ?></td>
                         <td><?php echo $product['current_stock']; ?></td>
                         <td><?php echo $product['monthly_sales'] ?? 0; ?></td>
                         <td><?php echo number_format($product['daily_sales_velocity'], 2); ?></td>
@@ -1051,16 +1033,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 <div class="tab-content" id="sales-trends">
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; align-items:center;">
-        <span style="color:#9aa6d1; font-size:13px; font-weight:500;">Forecast Horizon:</span>
-        <div id="horizonSelector" style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="horizon-btn active" data-horizon="weekly"      >Weekly</button>
-            <button class="horizon-btn"         data-horizon="monthly"     >Monthly</button>
-            <button class="horizon-btn"         data-horizon="quarterly"   >Quarterly</button>
-            <button class="horizon-btn"         data-horizon="semi_annual" >Semi-Annual</button>
-            <button class="horizon-btn"         data-horizon="annual"      >Annual</button>
-        </div>
-    </div>
     <div class="grid-2">
         <div class="card">
             <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">
@@ -1087,13 +1059,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Trend Visualization</div>
             <div class="chart-container"><canvas id="salesTrendChart"></canvas></div>
         </div>
-    </div>
-    <div class="card" style="margin-top:20px;">
-        <div style="color:#E3E3E3; font-weight:600; font-size:16px; margin-bottom:16px;">
-            📈 Demand Forecast — <span id="horizonLabel">Weekly</span> View
-        </div>
-        <div class="chart-container" style="height:300px;"><canvas id="multiHorizonChart"></canvas></div>
-        <div id="horizonSummaryBar" style="display:flex; gap:24px; margin-top:16px; flex-wrap:wrap;"></div>
     </div>
 </div>
 
@@ -1137,8 +1102,8 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <tbody>
                     <?php foreach ($expiryRiskAnalysis as $item): ?>
                     <tr>
-                        <td style="color:#fff; font-weight:500;"><?php echo htmlspecialchars($item['product_name'] ?? ''); ?></td>
-                        <td style="color:#9aa6d1;"><?php echo htmlspecialchars($item['category_name'] ?? ''); ?></td>
+                        <td style="color:#fff; font-weight:500;"><?php echo htmlspecialchars($item['product_name']); ?></td>
+                        <td style="color:#9aa6d1;"><?php echo htmlspecialchars($item['category_name']); ?></td>
                         <td><?php echo $item['quantity']; ?></td>
                         <td><?php echo $item['expiry_date']; ?></td>
                         <td style="font-weight:700; color: <?php echo ($item['days_until_expiry'] < 30 ? '#f87171' : '#E3E3E3'); ?>;"><?php echo $item['days_until_expiry']; ?></td>
@@ -1211,7 +1176,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 </div>
                 <div style="color: #9aa6d1; font-size: 13px; margin-top: 6px;">
                       Forecast insights suggestions for next period based on 
-                <strong style="color: #fff; border-bottom: 1px dotted #fff;"><?php echo strtolower($forecastData[0]['type'] ?? 'market trends'); ?></strong>.
+                <strong style="color: #fff; border-bottom: 1px dotted #fff;"><?php echo strtolower($castData[0]['type'] ?? 'market trends'); ?></strong>.
                 </div>
             </div>
             
@@ -1237,26 +1202,25 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     <?php foreach ($forecastData as $item): ?>
                     <tr class="<?php echo !empty($item['highlight']) ? 'forecast-row--highlighted' : ''; ?>"<?php echo !empty($item['highlight']) ? ' id="highlighted-product-row"' : ''; ?>>
                         <td>
-                            <div class="product-title"><?php echo htmlspecialchars($item['product_name'] ?? ''); ?></div>
-                            <div class="product-sub"><?php echo htmlspecialchars($item['category_name'] ?? ''); ?></div>
+                            <div class="product-title"><?php echo htmlspecialchars($item['product_name']); ?></div>
+                            <div class="product-sub"><?php echo htmlspecialchars($item['category_name']); ?></div>
                             <?php 
                                 $badgeColor = '#9aa6d1'; 
-                                $itemType = $item['type'] ?? '';
-                                if(strpos($itemType, 'Critical') !== false) $badgeColor = '#ef4444';
-                                elseif(strpos($itemType, 'Risk') !== false) $badgeColor = '#f59e0b';
-                                elseif(strpos($itemType, 'Optimal') !== false) $badgeColor = '#10b981';
+                                if(strpos($item['type'], 'Critical') !== false) $badgeColor = '#ef4444';
+                                elseif(strpos($item['type'], 'Risk') !== false) $badgeColor = '#f59e0b';
+                                elseif(strpos($item['type'], 'Optimal') !== false) $badgeColor = '#10b981';
                             ?>
                             <span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; margin-top:4px; background-color: <?php echo $badgeColor; ?>20; color: <?php echo $badgeColor; ?>;">
-                                <?php echo htmlspecialchars($itemType); ?>
+                                <?php echo htmlspecialchars($item['type']); ?>
                             </span>
                         </td>
                         <td>
-                            <div class="insight-text"><?php echo $item['insight'] ?? ''; ?></div>
+                            <div class="insight-text"><?php echo $item['insight']; ?></div>
                         </td>
                         <td>
                             <button type="button" class="action-btn check-stock-btn"
-                                data-product="<?php echo htmlspecialchars($item['product_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                data-category="<?php echo htmlspecialchars($item['category_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                data-product="<?php echo htmlspecialchars($item['product_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                data-category="<?php echo htmlspecialchars($item['category_name'], ENT_QUOTES, 'UTF-8'); ?>">
                                 Check Stock
                             </button>
                         </td>
@@ -1436,10 +1400,6 @@ const salesForecastChartData = <?php echo json_encode($salesForecastChart); ?>;
 const heatmapForecastData = <?php echo json_encode($heatmapForecast); ?>;
 const depletionTrendData = <?php echo json_encode($depletionTrend); ?>;
 const reorderFrequencyData = <?php echo json_encode($reorderFrequencyTrend); ?>;
-</script>
-<script>
-const multiHorizonData = <?php echo json_encode($multiHorizonData); ?>;
-</script>
 
 <?php if ($highlightProductId): ?>
 document.addEventListener('DOMContentLoaded', function() {
@@ -1560,94 +1520,6 @@ function renderSalesTrendChart() {
         }
     });
 }
-
-function renderMultiHorizonChart(horizon) {
-    const ctx = document.getElementById('multiHorizonChart').getContext('2d');
-    if (window.multiHorizonInstance) window.multiHorizonInstance.destroy();
-
-    const data = multiHorizonData[horizon];
-    if (!data || !data.available) {
-        document.getElementById('horizonSummaryBar').innerHTML =
-            '<span style="color:#9aa6d1;font-size:13px;">No forecast data available for this period. Train the ML model first.</span>';
-        return;
-    }
-
-    const allLabels = [...data.historical_labels, ...data.forecast_labels];
-
-    const horizonNames = {weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',semi_annual:'Semi-Annual',annual:'Annual'};
-    document.getElementById('horizonLabel').textContent = horizonNames[horizon] || horizon;
-
-    window.multiHorizonInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: allLabels,
-            datasets: [
-                {
-                    label: 'Historical Sales',
-                    data: [...data.historical, ...new Array(data.forecasted.length).fill(null)],
-                    backgroundColor: 'rgba(81,213,90,0.6)',
-                    borderColor: '#51D55A',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    order: 2
-                },
-                {
-                    label: 'Forecast',
-                    data: [...new Array(data.historical.length).fill(null), ...data.forecasted],
-                    backgroundColor: 'rgba(245,158,11,0.6)',
-                    borderColor: '#f59e0b',
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    order: 2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#E3E3E3', font: { size: 12 } } },
-                tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(1)} units` } }
-            },
-            scales: {
-                x: { grid: { display: false }, ticks: { color: '#9aa6d1' } },
-                y: { beginAtZero: true, grid: { color: 'rgba(42,68,132,0.3)' }, ticks: { color: '#E3E3E3' } }
-            }
-        }
-    });
-
-    // Summary stats
-    const totalForecast    = data.forecasted.reduce((a,b)=>a+(b||0),0);
-    const totalHistorical  = data.historical.reduce((a,b)=>a+(b||0),0);
-    const growth = totalHistorical > 0 ? ((totalForecast - totalHistorical) / totalHistorical * 100).toFixed(1) : 'N/A';
-    document.getElementById('horizonSummaryBar').innerHTML = `
-        <div style="background:rgba(42,68,132,0.2);border-radius:8px;padding:10px 16px;">
-            <div style="color:#9aa6d1;font-size:11px;">TOTAL FORECAST</div>
-            <div style="color:#f59e0b;font-weight:700;font-size:18px;">${totalForecast.toFixed(0)} units</div>
-        </div>
-        <div style="background:rgba(42,68,132,0.2);border-radius:8px;padding:10px 16px;">
-            <div style="color:#9aa6d1;font-size:11px;">HISTORICAL</div>
-            <div style="color:#51D55A;font-weight:700;font-size:18px;">${totalHistorical.toFixed(0)} units</div>
-        </div>
-        <div style="background:rgba(42,68,132,0.2);border-radius:8px;padding:10px 16px;">
-            <div style="color:#9aa6d1;font-size:11px;">GROWTH TREND</div>
-            <div style="color:#4a90d9;font-weight:700;font-size:18px;">${growth}%</div>
-        </div>
-        <div style="background:rgba(42,68,132,0.2);border-radius:8px;padding:10px 16px;">
-            <div style="color:#9aa6d1;font-size:11px;">PERIODS</div>
-            <div style="color:#E3E3E3;font-weight:700;font-size:18px;">${data.forecasted.length}</div>
-        </div>
-    `;
-}
-
-// Horizon selector button logic
-document.querySelectorAll('.horizon-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.horizon-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderMultiHorizonChart(btn.dataset.horizon);
-    });
-});
 
 function renderSalesForecastChart() {
     const ctx = document.getElementById('salesForecastChart').getContext('2d');
@@ -1919,7 +1791,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         tab.classList.add('active');
         document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
         if (tab.getAttribute('data-tab') === 'category-performance') { renderCategoryChart(); } 
-        else if (tab.getAttribute('data-tab') === 'sales-trends') { renderSalesTrendChart(); renderMultiHorizonChart('weekly'); }
+        else if (tab.getAttribute('data-tab') === 'sales-trends') { renderSalesTrendChart(); }
     });
 });
 

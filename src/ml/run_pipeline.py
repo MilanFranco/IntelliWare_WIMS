@@ -41,49 +41,9 @@ from train_model import (
     train_forecast_model,
 )
 
-HORIZON_DAYS = 365
+HORIZON_DAYS = 30
 FORECAST_MONTHS = 12
 TOP_PRODUCTS = 20
-
-
-def resample_horizon(daily_preds, horizon):
-    """Resample a daily prediction DataFrame into the requested horizon period.
-
-    Args:
-        daily_preds (pd.DataFrame): columns ['date', 'predicted_quantity', 'confidence_score']
-        horizon (str): one of 'weekly', 'monthly', 'quarterly', 'semi_annual', 'annual'
-
-    Returns:
-        pd.DataFrame with columns ['date', 'predicted_quantity', 'confidence_score']
-    """
-    import pandas as pd
-
-    df = daily_preds.copy()
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.set_index("date")
-
-    if horizon == "weekly":
-        resampled = df["predicted_quantity"].resample("W-MON").sum()
-        conf = df["confidence_score"].resample("W-MON").mean()
-    elif horizon == "monthly":
-        resampled = df["predicted_quantity"].resample("MS").sum()
-        conf = df["confidence_score"].resample("MS").mean()
-    elif horizon == "quarterly":
-        resampled = df["predicted_quantity"].resample("QS").sum()
-        conf = df["confidence_score"].resample("QS").mean()
-    elif horizon == "semi_annual":
-        resampled = df["predicted_quantity"].resample(pd.Grouper(freq="6MS")).sum()
-        conf = df["confidence_score"].resample(pd.Grouper(freq="6MS")).mean()
-    elif horizon == "annual":
-        resampled = df["predicted_quantity"].resample("YS").sum()
-        conf = df["confidence_score"].resample("YS").mean()
-    else:
-        raise ValueError(f"Unknown horizon: {horizon}")
-
-    result = resampled.reset_index()
-    result.columns = ["date", "predicted_quantity"]
-    result["confidence_score"] = conf.values
-    return result
 
 
 def save_results_to_db(conn, aggregate_artifact, daily_preds, sales_df, metrics, model_type):
@@ -114,27 +74,16 @@ def save_results_to_db(conn, aggregate_artifact, daily_preds, sales_df, metrics,
         ),
     )
 
-    # --- Schema migration: add horizon_type column and update unique key ---
-    for alter_sql in [
-        "ALTER TABLE forecast_results ADD COLUMN IF NOT EXISTS horizon_type VARCHAR(20) NOT NULL DEFAULT 'daily'",
-        "ALTER TABLE forecast_results DROP INDEX IF EXISTS unique_forecast_result",
-        "ALTER TABLE forecast_results ADD UNIQUE KEY IF NOT EXISTS unique_forecast_horizon (product_id, forecast_date, horizon_type)",
-    ]:
-        try:
-            cursor.execute(alter_sql)
-        except Exception:
-            pass
-
     # Clear stale aggregate predictions (product_id = 0)
     cursor.execute("DELETE FROM forecast_results WHERE product_id = 0")
 
-    # Aggregate daily predictions -> forecast_results (product_id=0 = system-wide, horizon_type='daily')
+    # Aggregate daily predictions -> forecast_results (product_id=0 = system-wide)
     for _, row in daily_preds.iterrows():
         cursor.execute(
             """
             INSERT INTO forecast_results
-                (product_id, forecast_date, predicted_quantity, confidence_score, model_version, horizon_type)
-            VALUES (0, %s, %s, %s, %s, 'daily')
+                (product_id, forecast_date, predicted_quantity, confidence_score, model_version)
+            VALUES (0, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
                 predicted_quantity = VALUES(predicted_quantity),
                 confidence_score = VALUES(confidence_score),
@@ -147,29 +96,6 @@ def save_results_to_db(conn, aggregate_artifact, daily_preds, sales_df, metrics,
                 model_version,
             ),
         )
-
-    # --- Multi-horizon resampled aggregate predictions ---
-    for horizon_label in ["weekly", "monthly", "quarterly", "semi_annual", "annual"]:
-        try:
-            horizon_df = resample_horizon(daily_preds, horizon_label)
-            for _, row in horizon_df.iterrows():
-                fd = row["date"].date() if hasattr(row["date"], "date") else row["date"]
-                qty = float(row["predicted_quantity"])
-                conf = float(row.get("confidence_score", 0.75))
-                cursor.execute(
-                    """
-                    INSERT INTO forecast_results
-                        (product_id, forecast_date, predicted_quantity, confidence_score, model_version, horizon_type)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        predicted_quantity = VALUES(predicted_quantity),
-                        confidence_score   = VALUES(confidence_score),
-                        model_version      = VALUES(model_version)
-                    """,
-                    (0, fd, qty, conf, model_version, horizon_label),
-                )
-        except Exception:
-            pass
 
     # Per-product monthly forecasts for top sellers
     top_ids = (
