@@ -16,7 +16,7 @@ from preprocess import (
     classify_movement,
     seasonal_index,
 )
-from train_model import FEATURE_COLS, compute_metrics, load_model
+from train_model import FEATURE_COLS, compute_metrics, load_model, _available_feature_cols
 
 PREDICTIONS_DIR = os.path.join(os.path.dirname(__file__), "predictions")
 
@@ -56,12 +56,20 @@ def _predict_prophet_daily(model, horizon_days: int) -> pd.DataFrame:
 
 
 def _predict_rf_daily(artifact: dict, history: pd.DataFrame, horizon_days: int) -> pd.DataFrame:
+    """
+    Recursive daily forecast using the trained model artifact.
+    Supports gradient_boosting (with ensemble blend) and random_forest.
+    """
     model = artifact["model"]
+    rf_model = artifact.get("rf_model")
+    scaler = artifact.get("scaler")
     feature_cols = artifact.get("feature_cols", FEATURE_COLS)
+    model_type = artifact.get("model_type", "random_forest")
 
     # Extend history day-by-day for recursive forecasting
     extended = history.copy()
     predictions = []
+    recent_preds = []
 
     last_date = extended["date"].max()
     for i in range(1, horizon_days + 1):
@@ -69,19 +77,45 @@ def _predict_rf_daily(artifact: dict, history: pd.DataFrame, horizon_days: int) 
         row = pd.DataFrame({"date": [next_date], "quantity": [0]})
         combined = pd.concat([extended, row], ignore_index=True)
         features = build_feature_frame(combined)
+
         if features.empty:
             pred_qty = float(extended["quantity"].tail(7).mean())
         else:
             last_row = features.iloc[[-1]]
-            pred_qty = float(max(0, model.predict(last_row[feature_cols])[0]))
+            avail_cols = [c for c in feature_cols if c in last_row.columns]
+            X = last_row[avail_cols].values
+
+            if model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
+                # Ensemble blend: GB (inverse-scaled) + RF
+                gb_scaled = model.predict(X)[0]
+                gb_pred = float(max(0, scaler.inverse_transform([[gb_scaled]])[0][0]))
+                rf_pred = float(max(0, rf_model.predict(X)[0]))
+                pred_qty = max(0.0, 0.6 * gb_pred + 0.4 * rf_pred)
+            else:
+                pred_qty = float(max(0, model.predict(X)[0]))
+
+        recent_preds.append(pred_qty)
+        # Confidence: based on prediction stability over last 7 steps
+        if len(recent_preds) >= 3:
+            window = recent_preds[-7:]
+            mean_p = np.mean(window)
+            std_p = np.std(window)
+            cv = std_p / (mean_p + 1e-6)
+            confidence = round(float(np.clip(1.0 - cv * 0.5, 0.60, 0.98)), 4)
+        else:
+            confidence = 0.82
+
+        # Asymmetric bounds: tighter lower, slightly wider upper for demand planning
+        lower = round(max(0.0, pred_qty * 0.88), 2)
+        upper = round(pred_qty * 1.12, 2)
 
         predictions.append(
             {
                 "date": next_date,
                 "predicted_quantity": round(pred_qty, 2),
-                "lower_bound": round(pred_qty * 0.85, 2),
-                "upper_bound": round(pred_qty * 1.15, 2),
-                "confidence_score": 0.75,
+                "lower_bound": lower,
+                "upper_bound": upper,
+                "confidence_score": confidence,
             }
         )
         extended = pd.concat(
@@ -253,22 +287,53 @@ def _detect_promo_products(sales_df: pd.DataFrame) -> set:
 
 
 def _backtest_segment(sales_df: pd.DataFrame, product_ids: set, artifact: dict) -> float:
-    """Simple holdout accuracy for a product segment."""
+    """
+    Holdout accuracy for a product segment using the trained model's actual predictions.
+    Uses build_feature_frame so the model sees real engineered features, not just a mean.
+    """
     if not product_ids or artifact is None:
         return None
 
     segment_sales = sales_df[sales_df["product_id"].isin(product_ids)]
     daily = aggregate_daily_sales(segment_sales)
-    if len(daily) < 10:
+    if len(daily) < 14:
         return None
 
-    split = int(len(daily) * 0.8)
-    test = daily.iloc[split:]
-    actual = test["quantity"].values
+    features = build_feature_frame(daily)
+    if features.empty or len(features) < 14:
+        return None
 
-    # Use segment mean with seasonal adjustment as baseline predictor
-    train_mean = daily.iloc[:split]["quantity"].mean()
-    predicted = np.full(len(actual), train_mean)
+    split = int(len(features) * 0.8)
+    train_feat = features.iloc[:split]
+    test_feat = features.iloc[split:]
+
+    if test_feat.empty:
+        return None
+
+    actual = test_feat["quantity"].values
+    model = artifact.get("model")
+    rf_model = artifact.get("rf_model")
+    scaler = artifact.get("scaler")
+    model_type = artifact.get("model_type", "random_forest")
+    feat_cols = artifact.get("feature_cols", FEATURE_COLS)
+    avail_cols = [c for c in feat_cols if c in test_feat.columns]
+
+    if not avail_cols:
+        return None
+
+    try:
+        X_test = test_feat[avail_cols].values
+        if model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
+            gb_scaled = model.predict(X_test)
+            gb_pred = np.maximum(scaler.inverse_transform(gb_scaled.reshape(-1, 1)).ravel(), 0)
+            rf_pred = np.maximum(rf_model.predict(X_test), 0)
+            predicted = 0.6 * gb_pred + 0.4 * rf_pred
+        else:
+            predicted = np.maximum(model.predict(X_test), 0)
+    except Exception:
+        # Fallback: weighted mean of recent training values
+        train_mean = train_feat["quantity"].iloc[-30:].mean() if len(train_feat) >= 30 else train_feat["quantity"].mean()
+        predicted = np.full(len(actual), train_mean)
 
     metrics = compute_metrics(actual, predicted)
     return metrics["forecast_accuracy"]

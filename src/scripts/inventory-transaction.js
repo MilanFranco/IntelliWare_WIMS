@@ -110,6 +110,19 @@ var InventoryTransaction = (function () {
         return 'in_stock';
     }
 
+    function formatDateYMD(date) {
+        var d = new Date(date);
+        if (isNaN(d.getTime())) return '';
+        var month = '' + (d.getMonth() + 1),
+            day = '' + d.getDate(),
+            year = d.getFullYear();
+
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2) day = '0' + day;
+
+        return [year, month, day].join('-');
+    }
+
     function normalizeProduct(raw) {
         var qty = parseInt(raw.quantity != null ? raw.quantity : raw.qty || '0', 10);
         var reorderPoint = parseInt(
@@ -128,6 +141,7 @@ var InventoryTransaction = (function () {
             reorderPoint: reorderPoint,
             expiryDate: raw.expiry_date || null,
             batchNumber: raw.batch_number || '',
+            shelfLife: raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : null,
             stockStatus: stockStatus,
             stockStatusLabel: raw.stock_status_label || getStockStatusLabel(stockStatus),
             imageUrl: raw.image_url || null,
@@ -143,18 +157,22 @@ var InventoryTransaction = (function () {
         if (!item) return;
 
         var batchInput = document.getElementById('inv-receive-batch');
+        var mfgInput = document.getElementById('inv-receive-mfg');
         var expiryInput = document.getElementById('inv-receive-expiry');
         if (batchInput) item.batch_number = batchInput.value.trim();
+        if (mfgInput) item.manufacturing_date = mfgInput.value.trim();
         if (expiryInput) item.expiry_date = expiryInput.value.trim();
     }
 
     function loadReceiveFieldsFromCart(productId) {
         var batchInput = document.getElementById('inv-receive-batch');
+        var mfgInput = document.getElementById('inv-receive-mfg');
         var expiryInput = document.getElementById('inv-receive-expiry');
-        if (!batchInput && !expiryInput) return;
+        if (!batchInput && !expiryInput && !mfgInput) return;
 
         var item = findCartItem(productId);
         if (batchInput) batchInput.value = item ? (item.batch_number || '') : '';
+        if (mfgInput) mfgInput.value = item ? (item.manufacturing_date || '') : '';
         if (expiryInput) {
             expiryInput.value = item && item.expiry_date
                 ? item.expiry_date
@@ -308,6 +326,13 @@ var InventoryTransaction = (function () {
             return false;
         }
 
+        var initialExpiry = '';
+        if (product.shelfLife != null && !isNaN(product.shelfLife)) {
+            var date = new Date();
+            date.setDate(date.getDate() + product.shelfLife);
+            initialExpiry = formatDateYMD(date);
+        }
+
         cart.push({
             productId: product.productId,
             name: product.name,
@@ -318,7 +343,9 @@ var InventoryTransaction = (function () {
             unit: product.unit,
             productExpiryDate: product.expiryDate || '',
             batch_number: product.batchNumber || '',
-            expiry_date: product.expiryDate || '',
+            manufacturing_date: '',
+            expiry_date: initialExpiry,
+            shelf_life: product.shelfLife,
             qty: 1
         });
 
@@ -692,10 +719,13 @@ var InventoryTransaction = (function () {
                 var metadata = {};
                 if (item.batch_number) metadata.batch_number = item.batch_number;
                 if (item.expiry_date) metadata.expiry_date = item.expiry_date;
+                if (item.manufacturing_date) metadata.manufacturing_date = item.manufacturing_date;
                 if (item.location) metadata.location = item.location;
                 if (item.category) metadata.category = item.category;
+
                 if (metadata.batch_number) row.batch_number = metadata.batch_number;
                 if (metadata.expiry_date) row.expiry_date = metadata.expiry_date;
+                if (metadata.manufacturing_date) row.manufacturing_date = metadata.manufacturing_date;
                 if (metadata.location) row.location = metadata.location;
                 if (metadata.category) row.category = metadata.category;
             }
@@ -704,6 +734,24 @@ var InventoryTransaction = (function () {
 
         document.getElementById('inv-items-json').value = JSON.stringify(payload);
         return true;
+    }
+
+    function calculatePredictedExpiry() {
+        if (selectedProductId == null) return;
+        var item = findCartItem(selectedProductId);
+        if (!item) return;
+
+        var mfgInput = document.getElementById('inv-receive-mfg');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (!mfgInput || !expiryInput) return;
+
+        if (item.shelf_life != null && !isNaN(item.shelf_life)) {
+            var refDate = mfgInput.value ? new Date(mfgInput.value + 'T00:00:00') : new Date();
+            if (!isNaN(refDate.getTime())) {
+                refDate.setDate(refDate.getDate() + item.shelf_life);
+                expiryInput.value = formatDateYMD(refDate);
+            }
+        }
     }
 
     function init() {
@@ -791,6 +839,16 @@ var InventoryTransaction = (function () {
         });
 
         document.getElementById('inv-receive-batch')?.addEventListener('input', syncReceiveFieldsToCart);
+        document.getElementById('inv-receive-batch')?.addEventListener('change', syncReceiveFieldsToCart);
+
+        var mfgListener = function () {
+            calculatePredictedExpiry();
+            syncReceiveFieldsToCart();
+        };
+        document.getElementById('inv-receive-mfg')?.addEventListener('input', mfgListener);
+        document.getElementById('inv-receive-mfg')?.addEventListener('change', mfgListener);
+
+        document.getElementById('inv-receive-expiry')?.addEventListener('input', syncReceiveFieldsToCart);
         document.getElementById('inv-receive-expiry')?.addEventListener('change', syncReceiveFieldsToCart);
 
         document.getElementById('inv-scanner-hint')?.addEventListener('click', focusBarcodeInput);

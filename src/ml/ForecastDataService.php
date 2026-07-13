@@ -258,7 +258,7 @@ class ForecastDataService
                     SUM(predicted_quantity) AS predicted_qty
              FROM forecast_results
              WHERE product_id = 0
-               AND forecast_date >= CURDATE()
+               AND forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
              GROUP BY YEAR(forecast_date), MONTH(forecast_date)
              ORDER BY year_num, month_num
              LIMIT 6"
@@ -348,7 +348,7 @@ class ForecastDataService
         $predResult = $this->conn->query(
             "SELECT forecast_date, predicted_quantity
              FROM forecast_results
-             WHERE product_id = 0 AND forecast_date >= CURDATE()
+             WHERE product_id = 0 AND forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
              ORDER BY forecast_date ASC
              LIMIT 30"
         );
@@ -371,6 +371,155 @@ class ForecastDataService
             'historical' => array_merge($histValues, array_fill(0, count($predValues), null)),
             'predicted' => array_merge(array_fill(0, count($histValues), null), $predValues),
             'hist_count' => count($histValues),
+        ];
+    }
+
+    /**
+     * Multi-horizon aggregate demand forecast (weekly / monthly / quarterly / semi-annual / annual).
+     * Reads from forecast_results where product_id = 0 and horizon_type = $horizon.
+     */
+    public function getMultiHorizonForecast(string $horizon = 'monthly'): array
+    {
+        $empty = [
+            'available'         => false,
+            'horizon'           => $horizon,
+            'labels'            => [],
+            'historical_labels' => [],
+            'forecast_labels'   => [],
+            'historical'        => [],
+            'forecasted'        => [],
+        ];
+
+        // Determine row limit per horizon
+        $limitMap = [
+            'weekly'     => 52,
+            'monthly'    => 12,
+            'quarterly'  => 4,
+            'semi_annual'=> 2,
+            'annual'     => 2,
+        ];
+        $limit = $limitMap[$horizon] ?? 12;
+
+        // --- Forecast rows ---
+        $horizonSafe = $this->conn->real_escape_string($horizon);
+        $forecastResult = $this->safeQuery(
+            "SELECT forecast_date, predicted_quantity, confidence_score
+             FROM forecast_results
+             WHERE product_id = 0
+               AND horizon_type = '$horizonSafe'
+               AND forecast_date >= CURDATE()
+             ORDER BY forecast_date ASC
+             LIMIT $limit"
+        );
+
+        $forecastLabels = [];
+        $forecastedVals = [];
+        if ($forecastResult) {
+            while ($row = $forecastResult->fetch_assoc()) {
+                $d = new \DateTimeImmutable($row['forecast_date']);
+                switch ($horizon) {
+                    case 'weekly':
+                        $forecastLabels[] = $d->format('M d');
+                        break;
+                    case 'monthly':
+                        $forecastLabels[] = $d->format('M Y');
+                        break;
+                    case 'quarterly':
+                        $forecastLabels[] = $d->format('Y') . ' Q' . ceil((int)$d->format('n') / 3);
+                        break;
+                    case 'semi_annual':
+                        $forecastLabels[] = $d->format('Y') . ' H' . ((int)$d->format('n') <= 6 ? '1' : '2');
+                        break;
+                    case 'annual':
+                        $forecastLabels[] = $d->format('Y');
+                        break;
+                    default:
+                        $forecastLabels[] = $row['forecast_date'];
+                }
+                $forecastedVals[] = round((float)$row['predicted_quantity'], 1);
+            }
+        }
+
+        // --- Historical context rows ---
+        switch ($horizon) {
+            case 'weekly':
+                $histSql =
+                    "SELECT DATE_FORMAT(MIN(transaction_date), '%b %d') AS label,
+                            SUM(quantity) AS total_qty
+                     FROM transactions
+                     WHERE transaction_type = 'stock_out'
+                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 WEEK)
+                     GROUP BY YEARWEEK(transaction_date, 1)
+                     ORDER BY YEARWEEK(transaction_date, 1) ASC
+                     LIMIT 12";
+                break;
+            case 'monthly':
+                $histSql =
+                    "SELECT DATE_FORMAT(transaction_date, '%b %Y') AS label,
+                            SUM(quantity) AS total_qty
+                     FROM transactions
+                     WHERE transaction_type = 'stock_out'
+                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                     GROUP BY YEAR(transaction_date), MONTH(transaction_date)
+                     ORDER BY YEAR(transaction_date), MONTH(transaction_date) ASC
+                     LIMIT 6";
+                break;
+            case 'quarterly':
+                $histSql =
+                    "SELECT CONCAT(YEAR(transaction_date), ' Q', QUARTER(transaction_date)) AS label,
+                            SUM(quantity) AS total_qty
+                     FROM transactions
+                     WHERE transaction_type = 'stock_out'
+                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 4 QUARTER)
+                     GROUP BY YEAR(transaction_date), QUARTER(transaction_date)
+                     ORDER BY YEAR(transaction_date), QUARTER(transaction_date) ASC
+                     LIMIT 4";
+                break;
+            case 'semi_annual':
+                $histSql =
+                    "SELECT CONCAT(YEAR(transaction_date), ' H', IF(MONTH(transaction_date)<=6,1,2)) AS label,
+                            SUM(quantity) AS total_qty
+                     FROM transactions
+                     WHERE transaction_type = 'stock_out'
+                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                     GROUP BY YEAR(transaction_date), IF(MONTH(transaction_date)<=6,1,2)
+                     ORDER BY YEAR(transaction_date), IF(MONTH(transaction_date)<=6,1,2) ASC
+                     LIMIT 2";
+                break;
+            case 'annual':
+            default:
+                $histSql =
+                    "SELECT YEAR(transaction_date) AS label,
+                            SUM(quantity) AS total_qty
+                     FROM transactions
+                     WHERE transaction_type = 'stock_out'
+                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 2 YEAR)
+                     GROUP BY YEAR(transaction_date)
+                     ORDER BY YEAR(transaction_date) ASC
+                     LIMIT 2";
+                break;
+        }
+
+        $histResult = $this->safeQuery($histSql);
+        $historicalLabels = [];
+        $historicalVals   = [];
+        if ($histResult) {
+            while ($row = $histResult->fetch_assoc()) {
+                $historicalLabels[] = (string)$row['label'];
+                $historicalVals[]   = round((float)$row['total_qty'], 1);
+            }
+        }
+
+        $available = !empty($forecastedVals) || !empty($historicalVals);
+
+        return [
+            'available'         => $available,
+            'horizon'           => $horizon,
+            'labels'            => array_merge($historicalLabels, $forecastLabels),
+            'historical_labels' => $historicalLabels,
+            'forecast_labels'   => $forecastLabels,
+            'historical'        => $historicalVals,
+            'forecasted'        => $forecastedVals,
         ];
     }
 
@@ -559,7 +708,7 @@ class ForecastDataService
              FROM forecast_results fr
              INNER JOIN products p ON fr.product_id = p.product_id
              WHERE fr.product_id > 0
-               AND fr.forecast_date >= CURDATE()
+               AND fr.forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                AND fr.forecast_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
              GROUP BY fr.product_id, p.product_name
              ORDER BY forecast_demand DESC

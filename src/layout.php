@@ -288,7 +288,10 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .header-scanner-status--disconnected .header-scanner-status__dot { background: #DC2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18) !important; }';
     echo '[data-theme="light"] .hero-forecast-btn { background: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; background-image: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; color: #0F172A !important; border-color: #7A92A8 !important; box-shadow: 0 2px 8px rgba(55, 75, 99, 0.1) !important; --tw-gradient-from: #E8EFF6 !important; --tw-gradient-to: #D8E6F0 !important; }';
     echo '[data-theme="light"] .hero-forecast-btn:hover { background: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; background-image: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; border-color: rgba(22, 163, 74, 0.45) !important; color: #0F172A !important; box-shadow: 0 4px 12px rgba(55, 75, 99, 0.12) !important; }';
-    echo '[data-theme="light"] .iw-sidebar-logo-light { filter: none; opacity: 1; }';
+    echo '.iw-sidebar-logo-dark { display: block; }';
+    echo '.iw-sidebar-logo-light { display: none; }';
+    echo '[data-theme="light"] .iw-sidebar-logo-dark { display: none !important; }';
+    echo '[data-theme="light"] .iw-sidebar-logo-light { display: block !important; filter: none; opacity: 1; }';
     echo '</style>';
     echo '</head>';
     echo '<body class="w-full h-screen iw-body-shell px-3 pt-3 flex items-start justify-center">';

@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $quantity = parseNonNegativeInt($_POST['quantity'] ?? null);
             $reorder_point = parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
             $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
-            $exp = empty($_POST['expiry_date']) ? null : trim($_POST['expiry_date']);
+            $shelf_life = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
 
             if ($barcode === '') {
                 throw new Exception('Barcode is required.');
@@ -122,6 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($price === false) {
                 throw new Exception('Price must be a number of 0 or greater with up to 2 decimal places.');
             }
+            if ($shelf_life === false) {
+                throw new Exception('Shelf life must be a positive number of days or empty.');
+            }
 
             $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
             $synced = LocationCategoryService::synchronize($category, $location, $changedField, $conn);
@@ -139,8 +142,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
             }
 
-            $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, expiry_date, price) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssissd", $product_name, $barcode, $category, $supplier, $location, $reorder_point, $unit, $exp, $price);
+            $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
+            $stmt->bind_param("sssssisdi", $product_name, $barcode, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
             if ($stmt->execute()) {
                 $newProductId = (int)$conn->insert_id;
                 $stmt->close();
@@ -168,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newQty = (int)$_POST['qty'];
             $reorder_point = (int)$_POST['reorder_point'];
             $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
+            $shelf_life = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
             $id = (int)$_POST['id'];
             $barcode = trim($_POST['barcode'] ?? '');
             $barcodeVal = $barcode !== '' ? $barcode : null;
@@ -176,6 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($price === false) {
                 throw new Exception('Price must be a number of 0 or greater with up to 2 decimal places.');
+            }
+            if ($shelf_life === false) {
+                throw new Exception('Shelf life must be a positive number of days or empty.');
             }
 
             $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
@@ -207,8 +214,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $currentQty = (int)$currentRow['quantity'];
             $qtyDelta = $newQty - $currentQty;
 
-            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, reorder_point=?, unit=?, price=? WHERE product_id=?");
-            $stmt->bind_param("sssssisdi", $_POST['name'], $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $id);
+            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
+            $stmt->bind_param("sssssisdii", $_POST['name'], $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
             if (!$stmt->execute()) {
                 throw new Exception("Update failed: " . $stmt->error);
             }
@@ -275,7 +282,7 @@ $offset = ($page - 1) * $items_per_page;
 $count_stmt->close();
 
 // --- 5. MAIN DATA FETCH ---
-$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
+$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price, shelf_life FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
 
 $main_params = array_merge($params, [$items_per_page, $offset]);
 $main_types = $types . 'ii';
@@ -323,6 +330,7 @@ foreach ($items as $it) {
         'uom' => "<select id='input-uom-{$id}' class='edit-field inventory-select'>".renderOptions($uoms, $it['uom'], 'Select Unit')."</select>",
         'reorder_point' => "<input type='number' id='input-reorder_point-{$id}' class='edit-field' value='".htmlspecialchars($it['reorder_point'])."' required />",
         'price' => "<input type='number' id='input-price-{$id}' class='edit-field' value='".htmlspecialchars(number_format((float)($it['price'] ?? 0), 2, '.', ''))."' min='0' step='0.01' inputmode='decimal' required />",
+        'shelf_life' => "<input type='number' id='input-shelf_life-{$id}' class='edit-field' value='".htmlspecialchars($it['shelf_life'] ?? '')."' min='0' step='1' inputmode='numeric' placeholder='e.g. 30' />",
     ];
 }
 
@@ -703,15 +711,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <table class="premium-table w-full text-left min-w-[1280px]">
             <thead>
                 <tr>
-                    <th width="8%">SKU</th> <th width="11%">Barcode</th> <th width="14%">Name</th> <th width="9%">Category</th>
-                    <th width="9%">Supplier</th> <th width="8%">Location</th> <th width="6%">Qty</th>
-                    <th width="7%">Price</th> <th width="6%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Status</th>
+                    <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
+                    <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
+                    <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
                     <th width="10%" class="text-right">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$items): ?>
-                    <tr><td colspan="12" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
+                    <tr><td colspan="13" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
                 <?php else: ?>
                     <?php foreach ($items as $it): ?>
                     <?php $low = $it['qty'] <= $it['reorder_point']; ?>
@@ -744,6 +752,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         <td data-field="reorder_point" data-value="<?php echo htmlspecialchars($it['reorder_point']); ?>">
                             <span id="display-reorder_point-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['reorder_point']); ?></span>
                         </td>
+                        <td data-field="shelf_life" data-value="<?php echo htmlspecialchars($it['shelf_life'] ?? ''); ?>">
+                            <span id="display-shelf_life-<?php echo $it['id']; ?>"><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></span>
+                        </td>
                         <td>
                             <?php if ($low): ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Low</span>
@@ -757,7 +768,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 <input type="hidden" name="id" value="<?php echo $it['id']; ?>">
                                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                                 <input type="hidden" name="sync_driver" value="category">
-                                <?php foreach(['name','barcode','category','supplier','location','qty','price','uom','reorder_point'] as $f) echo "<input type='hidden' name='$f'>"; ?>
+                                <?php foreach(['name','barcode','category','supplier','location','qty','price','uom','reorder_point','shelf_life'] as $f) echo "<input type='hidden' name='$f'>"; ?>
                             </form>
 
                             <div id="actions-default-<?php echo $it['id']; ?>" style="display:flex; gap:8px; justify-content:flex-end;">
@@ -873,8 +884,12 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="number" name="reorder_point" id="add-reorder-point" class="premium-input w-full add-form-field" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
                     <p class="add-field-error" id="add-reorder-point-error" hidden></p>
                 </div>
-                <div class="add-save-field-col">
-                    <label class="form-label form-label--spacer" aria-hidden="true">Action</label>
+                <div>
+                    <label class="form-label">Shelf Life (Days)</label>
+                    <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 30" disabled>
+                    <p class="add-field-error" id="add-shelf-life-error" hidden></p>
+                </div>
+                <div class="add-save-field-col" style="grid-column: span 2;">
                     <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
                 </div>
             </div>
@@ -931,7 +946,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 const editInputs = <?php echo json_encode($edit_inputs); ?>;
 const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 
-const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point'];
+const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
 const ADD_FORM_FIELD_ORDER = [
     'add-product-name',
@@ -941,10 +956,11 @@ const ADD_FORM_FIELD_ORDER = [
     'add-price',
     'add-location',
     'add-unit',
-    'add-reorder-point'
+    'add-reorder-point',
+    'add-shelf-life'
 ];
 
-const EDIT_FIELD_ORDER = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point'];
+const EDIT_FIELD_ORDER = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
 var addBarcodeLocked = false;
 var addBarcodeValidating = false;
@@ -1220,6 +1236,13 @@ function validateAddProductForm() {
         setAddFieldError('add-price', 'add-price-error', 'Price must be 0 or greater with up to 2 decimal places.');
         valid = false;
         firstInvalid = firstInvalid || document.getElementById('add-price');
+    }
+
+    var slRaw = document.getElementById('add-shelf-life')?.value ?? '';
+    if (slRaw !== '' && !isValidWholeNumber(slRaw)) {
+        setAddFieldError('add-shelf-life', 'add-shelf-life-error', 'Shelf life must be a whole number of 0 or greater.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-shelf-life');
     }
 
     if (firstInvalid) firstInvalid.focus();

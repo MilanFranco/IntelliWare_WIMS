@@ -103,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $metadata = array_filter([
                         'batch_number' => trim((string)($item['batch_number'] ?? '')),
                         'expiry_date' => trim((string)($item['expiry_date'] ?? '')),
+                        'manufacturing_date' => trim((string)($item['manufacturing_date'] ?? '')),
                         'location' => trim((string)($item['location'] ?? '')),
                         'category' => trim((string)($item['category'] ?? '')),
                     ], static function ($value) {
@@ -839,6 +840,12 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <dt>Batch Number</dt>
                         <dd>
                             <input type="text" id="inv-receive-batch" class="premium-input w-full" style="height:38px; font-size:13px;" placeholder="Optional batch / lot number">
+                        </dd>
+                    </div>
+                    <div class="pos-info-field full-width">
+                        <dt>Manufacturing Date</dt>
+                        <dd>
+                            <input type="date" id="inv-receive-mfg" class="premium-input w-full" style="height:38px; font-size:13px;">
                         </dd>
                     </div>
                     <div class="pos-info-field full-width">

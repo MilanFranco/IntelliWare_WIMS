@@ -1050,3 +1050,33 @@ select.edit-field option,
     overflow-y: auto;
     overflow-x: visible;
 }
+
+/* Custom date picker styles for dark/light themes */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8) sepia(20%) saturate(1000%) hue-rotate(90deg);
+    cursor: pointer;
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: none;
+}
+
+/* Light theme overrides for inventory text buttons */
+[data-theme="light"] .inventory-text-btn.save-btn {
+    background: rgba(16, 185, 129, 0.1) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    color: #059669 !important;
+}
+[data-theme="light"] .inventory-text-btn.save-btn:hover {
+    background: rgba(16, 185, 129, 0.2) !important;
+}
+[data-theme="light"] .inventory-text-btn.cancel-btn {
+    border-color: #cbd5e1 !important;
+    color: #475569 !important;
+    background: transparent !important;
+}
+[data-theme="light"] .inventory-text-btn.cancel-btn:hover {
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+}

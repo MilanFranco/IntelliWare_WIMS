@@ -97,10 +97,12 @@ class StockMovementService
         self::ensureBatchColumn($conn);
 
         $productStmt = $conn->prepare(
-            'SELECT product_id, product_name, barcode, category, location, quantity, unit,
-                    reorder_point, expiry_date, batch_number,
-                    CONCAT(\'P-\', LPAD(product_id, 4, \'0\')) AS sku
-             FROM products WHERE product_id = ? FOR UPDATE'
+            'SELECT p.product_id, p.product_name, p.barcode, p.category, p.location, p.quantity, p.unit,
+                    p.reorder_point,
+                    (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
+                    (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date ASC LIMIT 1) AS batch_number,
+                    CONCAT(\'P-\', LPAD(p.product_id, 4, \'0\')) AS sku
+             FROM products p WHERE p.product_id = ? FOR UPDATE'
         );
         $productStmt->bind_param('i', $productId);
         $productStmt->execute();
@@ -169,6 +171,58 @@ class StockMovementService
         $transactionId = (int)$conn->insert_id;
         $transStmt->close();
 
+        // Record or deduct inventory batches
+        if ($transactionType === 'stock_in') {
+            $batchNo = !empty($metadata['batch_number']) ? trim((string)$metadata['batch_number']) : null;
+            $expDate = !empty($metadata['expiry_date']) ? trim((string)$metadata['expiry_date']) : null;
+            $mfgDate = !empty($metadata['manufacturing_date']) ? trim((string)$metadata['manufacturing_date']) : null;
+
+            $batchStmt = $conn->prepare(
+                'INSERT INTO inventory_batches (product_id, transaction_id, batch_number, quantity, initial_quantity, manufacturing_date, expiry_date)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+            );
+            $batchStmt->bind_param('iisiiss', $productId, $transactionId, $batchNo, $quantity, $quantity, $mfgDate, $expDate);
+            if (!$batchStmt->execute()) {
+                $batchStmt->close();
+                throw new Exception('Failed to record inventory batch.');
+            }
+            $batchStmt->close();
+        } else {
+            // Deduct from batches using FEFO
+            $remainingToDeduct = $quantity;
+
+            $batchQuery = 'SELECT batch_id, quantity FROM inventory_batches WHERE product_id = ? AND quantity > 0 ORDER BY expiry_date IS NULL ASC, expiry_date ASC, date_received ASC, batch_id ASC';
+            $batchStmt = $conn->prepare($batchQuery);
+            $batchStmt->bind_param('i', $productId);
+            $batchStmt->execute();
+            $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $batchStmt->close();
+
+            foreach ($batches as $batch) {
+                if ($remainingToDeduct <= 0) {
+                    break;
+                }
+                $batchId = (int)$batch['batch_id'];
+                $batchQty = (int)$batch['quantity'];
+
+                if ($batchQty >= $remainingToDeduct) {
+                    $newBatchQty = $batchQty - $remainingToDeduct;
+                    $remainingToDeduct = 0;
+                } else {
+                    $newBatchQty = 0;
+                    $remainingToDeduct -= $batchQty;
+                }
+
+                $updateBatchStmt = $conn->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
+                $updateBatchStmt->bind_param('ii', $newBatchQty, $batchId);
+                if (!$updateBatchStmt->execute()) {
+                    $updateBatchStmt->close();
+                    throw new Exception('Failed to update inventory batch quantity.');
+                }
+                $updateBatchStmt->close();
+            }
+        }
+
         $logAction = sprintf(
             'Processed %s (Qty: %d) for %s — stock %d → %d',
             $transactionType,
@@ -201,18 +255,6 @@ class StockMovementService
         $fields = [];
         $params = [];
         $types = '';
-
-        if (!empty($metadata['batch_number'])) {
-            $fields[] = 'batch_number = ?';
-            $params[] = trim((string)$metadata['batch_number']);
-            $types .= 's';
-        }
-
-        if (!empty($metadata['expiry_date'])) {
-            $fields[] = 'expiry_date = ?';
-            $params[] = trim((string)$metadata['expiry_date']);
-            $types .= 's';
-        }
 
         if (!empty($metadata['location'])) {
             $fields[] = 'location = ?';

@@ -31,7 +31,7 @@ class InventoryDataMiner {
         $month = (int)date('m');
 
         // Fetch products
-        $sql = "SELECT product_id, product_name, category, quantity, reorder_point, unit, expiry_date, created_at FROM products";
+        $sql = "SELECT p.product_id, p.product_name, p.category, p.quantity, p.reorder_point, p.unit, (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date, p.created_at FROM products p";
         $res = $this->conn->query($sql);
         if (!$res) return ['error' => $this->conn->error];
 

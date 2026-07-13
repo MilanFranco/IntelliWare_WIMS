@@ -21,7 +21,7 @@ def clean_sales(df: pd.DataFrame) -> pd.DataFrame:
 
 def aggregate_daily_sales(sales_df: pd.DataFrame, product_id: int = None) -> pd.DataFrame:
     """
-    Aggregate sales to daily totals.
+    Aggregate sales to daily totals, padded up to today.
     product_id=None aggregates across all products (system-wide demand).
     """
     if sales_df.empty:
@@ -42,6 +42,14 @@ def aggregate_daily_sales(sales_df: pd.DataFrame, product_id: int = None) -> pd.
     )
     daily.columns = ["date", "quantity"]
     daily["date"] = pd.to_datetime(daily["date"])
+
+    # Pad to today
+    today = pd.to_datetime(pd.Timestamp.now().normalize())
+    if daily["date"].max() < today:
+        extra_dates = pd.date_range(start=daily["date"].max() + pd.Timedelta(days=1), end=today, freq="D")
+        extra_df = pd.DataFrame({"date": extra_dates, "quantity": 0.0})
+        daily = pd.concat([daily, extra_df], ignore_index=True)
+
     return daily
 
 
@@ -66,27 +74,66 @@ def aggregate_monthly_sales(sales_df: pd.DataFrame, product_id: int = None) -> p
 def build_feature_frame(daily: pd.DataFrame) -> pd.DataFrame:
     """
     Build supervised-learning features from daily sales.
-    Used by Random Forest when Prophet is not suitable.
+    Includes richer lags, multi-window rolling statistics, EWM, trend, and calendar features.
+
+    Uses fillna(0) for lag/rolling NaN values rather than dropping rows — this preserves
+    all available data points, which is critical for bootstrap datasets with < 90 days of history.
+    Absence of prior sales = 0 demand, which is the correct representation for new products.
     """
-    if daily.empty or len(daily) < 14:
+    if daily.empty or len(daily) < 7:
         return pd.DataFrame()
 
     frame = daily.copy()
     frame = frame.set_index("date").asfreq("D", fill_value=0).reset_index()
+    n = len(frame)
 
+    # --- Calendar features ---
     frame["day_of_week"] = frame["date"].dt.dayofweek
     frame["month"] = frame["date"].dt.month
     frame["day_of_month"] = frame["date"].dt.day
     frame["week_of_year"] = frame["date"].dt.isocalendar().week.astype(int)
+    frame["quarter"] = frame["date"].dt.quarter
+    frame["is_weekend"] = (frame["day_of_week"] >= 5).astype(int)
+    frame["is_month_end"] = frame["date"].dt.is_month_end.astype(int)
+    frame["is_month_start"] = frame["date"].dt.is_month_start.astype(int)
 
-    for lag in (1, 7, 14, 28):
-        frame[f"lag_{lag}"] = frame["quantity"].shift(lag)
+    # --- Lag features: only include lags shorter than available history ---
+    # fillna(0) = before first sale, quantity was 0 (not unknown)
+    for lag in (1, 2, 3, 7, 14, 21, 28):
+        if lag < n:
+            frame[f"lag_{lag}"] = frame["quantity"].shift(lag).fillna(0)
 
-    frame["rolling_mean_7"] = frame["quantity"].rolling(7, min_periods=1).mean()
-    frame["rolling_mean_30"] = frame["quantity"].rolling(30, min_periods=1).mean()
-    frame["rolling_std_7"] = frame["quantity"].rolling(7, min_periods=1).std().fillna(0)
+    # --- Rolling statistics at multiple windows ---
+    for window in (3, 7, 14, 30):
+        if window <= n:
+            frame[f"rolling_mean_{window}"] = frame["quantity"].rolling(window, min_periods=1).mean()
+            frame[f"rolling_max_{window}"]  = frame["quantity"].rolling(window, min_periods=1).max()
+    frame["rolling_std_7"]  = frame["quantity"].rolling(7,  min_periods=1).std().fillna(0)
+    frame["rolling_std_14"] = frame["quantity"].rolling(14, min_periods=1).std().fillna(0)
 
-    frame = frame.dropna()
+    # --- Exponential weighted mean (recent activity weighted more) ---
+    frame["ewm_7"]  = frame["quantity"].ewm(span=7,  adjust=False).mean()
+    frame["ewm_14"] = frame["quantity"].ewm(span=14, adjust=False).mean()
+
+    # --- Trend: linear slope over rolling 14-day window ---
+    def _slope(series):
+        y = series.values
+        if len(y) < 2:
+            return 0.0
+        x = np.arange(len(y), dtype=float)
+        x -= x.mean()
+        denom = (x * x).sum()
+        return float((x * (y - y.mean())).sum() / denom) if denom != 0 else 0.0
+
+    frame["trend_14"] = (
+        frame["quantity"]
+        .rolling(14, min_periods=2)
+        .apply(_slope, raw=False)
+        .fillna(0)
+    )
+
+    # Fill any remaining NaN (shouldn't happen, but safety net)
+    frame = frame.fillna(0)
     return frame
 
 
