@@ -1549,6 +1549,10 @@ function showToast(msg, type) {
     <?php unset($_SESSION['toast']); ?>
 <?php endif; ?>
 
+<?php if (($_GET['add'] ?? '') === '1'): ?>
+openAddModal();
+<?php endif; ?>
+
 // Barcode scanner integration
 function checkBarcodeDuplicate(barcode, onClear) {
     if (!barcode || !barcode.trim() || !window.BarcodeScanner) return;
