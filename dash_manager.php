@@ -256,9 +256,10 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
                   <div style="text-align:center; color:#9aa6d1; padding:20px 0;">All items are well-stocked!</div>
               <?php else: ?>
                   <?php foreach(array_slice($lowStockItems, 0, 5) as $item): ?>
-                      <div class="low-stock-item">
+                      <?php $isOut = (int)$item['qty'] <= 0; ?>
+                      <div class="low-stock-item" style="border-left: 3px solid <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>; padding-left: 8px;">
                           <span class="low-stock-name"><?php echo htmlspecialchars($item['name']); ?></span>
-                          <span class="low-stock-qty"><?php echo (int)$item['qty']; ?> left</span>
+                          <span class="low-stock-qty" style="color: <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>;"><?php echo (int)$item['qty']; ?> left</span>
                       </div>
                   <?php endforeach; ?>
                   <?php if ($lowStockCount > 5): ?>

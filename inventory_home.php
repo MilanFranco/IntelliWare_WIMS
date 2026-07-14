@@ -147,8 +147,21 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                     <td><?php echo htmlspecialchars($it['uom']); ?></td>
                     <td><?php echo htmlspecialchars($it['location']); ?></td>
                     <td>
-                        <span class="badge <?php echo (int)$it['qty'] < 50 ? 'low' : 'normal'; ?>">
-                            <?php echo (int)$it['qty'] < 50 ? 'Low Stock' : 'In Stock'; ?>
+                        <?php 
+                        $qty = (int)$it['qty'];
+                        if ($qty <= 0) {
+                            $badgeClass = 'out_of_stock';
+                            $badgeLabel = 'Out of Stock';
+                        } elseif ($qty < 50) {
+                            $badgeClass = 'low_stock';
+                            $badgeLabel = 'Low Stock';
+                        } else {
+                            $badgeClass = 'in_stock';
+                            $badgeLabel = 'In Stock';
+                        }
+                        ?>
+                        <span class="badge <?php echo $badgeClass; ?>">
+                            <?php echo $badgeLabel; ?>
                         </span>
                     </td>
                     <td>

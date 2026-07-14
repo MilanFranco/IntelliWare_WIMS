@@ -749,8 +749,10 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
                         <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
                         <td>
-                            <?php if ($low): ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Low</span>
+                            <?php if ((int)$it['qty'] <= 0): ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
+                            <?php elseif ((int)$it['qty'] <= (int)$it['reorder_point']): ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
                             <?php else: ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
                             <?php endif; ?>

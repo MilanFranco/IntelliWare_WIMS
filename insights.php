@@ -381,32 +381,32 @@ if (isset($conn)) {
             if ($stock == 0 && $demand > 0) {
                 $row['type'] = 'Critical Outage';
                 $row['insight'] = $mlPredictionsAvailable 
-                    ? "My ML forecasting model predicts a demand of <strong>" . round($demand) . " units</strong>, but you have <strong>0 stock</strong>. Restock urgently to prevent missed sales."
-                    : "I noticed you have <strong>0 stock</strong> against a historical demand of $demand units. I strongly advise you to restock to avoid missed sales.";
+                    ? "<strong>Critical Alert:</strong> Our predictive model forecasts a demand of <strong>" . round($demand) . " units</strong>, but your current inventory is at <strong>0</strong>. <span style='color: #ef4444; font-weight: 600;'>Immediate restocking</span> is required to prevent lost revenue."
+                    : "<strong>Critical Alert:</strong> Historical data indicates a demand of <strong>$demand units</strong>, but you currently have <strong>0 stock</strong>. <span style='color: #ef4444; font-weight: 600;'>Urgent restocking</span> is advised to avoid missed sales opportunities.";
                 $row['action_needed'] = 'urgent';
             } elseif ($coverage < 50) {
                 $row['type'] = 'High Risk';
                 $row['insight'] = $mlPredictionsAvailable
-                    ? "Your current stock ($stock) covers only " . round($coverage) . "% of my predicted demand (" . round($demand) . " units). I recommend ordering replenishment stock."
-                    : "I calculated that your stock ($stock) only covers " . round($coverage) . "% of expected demand ($demand). I recommend ordering more.";
+                    ? "<strong>High Depletion Risk:</strong> Your current stock of <strong>$stock units</strong> will only cover <strong>" . round($coverage) . "%</strong> of the forecasted demand (<strong>" . round($demand) . " units</strong>). We highly recommend <span style='color: #f59e0b; font-weight: 600;'>ordering replenishments</span> soon."
+                    : "<strong>High Depletion Risk:</strong> Based on past trends, your stock of <strong>$stock units</strong> only meets <strong>" . round($coverage) . "%</strong> of the expected demand (<strong>$demand units</strong>). <span style='color: #f59e0b; font-weight: 600;'>Consider reordering</span> to maintain healthy levels.";
                 $row['action_needed'] = 'restock';
             } elseif ($coverage < 100) {
                 $row['type'] = 'Low Cover';
                 $row['insight'] = $mlPredictionsAvailable
-                    ? "Predicting tight inventory. Forecasted demand (" . round($demand) . ") slightly exceeds your current stock ($stock). Plan replenishment soon."
-                    : "I'm tracking tight inventory here. Demand ($demand) slightly exceeds your stock ($stock). I suggest planning replenishment soon.";
+                    ? "<strong>Inventory Warning:</strong> Forecasted demand of <strong>" . round($demand) . " units</strong> slightly exceeds your on-hand stock of <strong>$stock units</strong>. Please <span style='color: #3b82f6; font-weight: 600;'>monitor closely</span> and plan for upcoming replenishments."
+                    : "<strong>Inventory Warning:</strong> Expected demand of <strong>$demand units</strong> is outpacing your current stock of <strong>$stock units</strong>. It is advisable to <span style='color: #3b82f6; font-weight: 600;'>prepare for restocking</span>.";
                 $row['action_needed'] = 'monitor';
             } elseif ($coverage > 300) {
                 $row['type'] = 'Slow Moving';
                 $row['insight'] = $mlPredictionsAvailable
-                    ? "I predict " . round($demand) . " units of demand, giving you " . round($coverage) . "% coverage. Your stock ($stock) far exceeds this forecast. Pausing orders is advised."
-                    : "I see " . round($coverage) . "% coverage. Your stock ($stock) far exceeds demand ($demand). I advise pausing orders.";
+                    ? "<strong>Overstock Detected:</strong> The predicted demand is only <strong>" . round($demand) . " units</strong>. Your stock of <strong>$stock units</strong> provides a <strong>" . round($coverage) . "%</strong> surplus. <span style='color: #8b5cf6; font-weight: 600;'>Pausing further orders</span> is recommended to optimize storage."
+                    : "<strong>Overstock Detected:</strong> Your inventory of <strong>$stock units</strong> significantly exceeds the historical demand of <strong>$demand units</strong> (<strong>" . round($coverage) . "%</strong> coverage). <span style='color: #8b5cf6; font-weight: 600;'>Hold off on new orders</span> to reduce holding costs.";
                 $row['action_needed'] = 'pause';
             } else {
                 $row['type'] = 'Optimal';
                 $row['insight'] = $mlPredictionsAvailable
-                    ? "My ML model predicts " . round($demand) . " units of demand. Your current inventory ($stock) is perfectly aligned with this projection."
-                    : "I confirm your inventory ($stock) aligns perfectly with my demand projection ($demand). Great job.";
+                    ? "<strong>Status Optimal:</strong> Your current inventory of <strong>$stock units</strong> is <span class='text-accent' style='font-weight: 600;'>perfectly balanced</span> with our predictive demand of <strong>" . round($demand) . " units</strong>. No action is currently needed."
+                    : "<strong>Status Optimal:</strong> Your stock of <strong>$stock units</strong> is <span class='text-accent' style='font-weight: 600;'>ideally aligned</span> with the expected demand of <strong>$demand units</strong>. Keep up the good work!";
                 $row['action_needed'] = 'none';
             }
             
@@ -444,7 +444,7 @@ if (empty($forecastData)) {
         $forecastData[] = [
             'product_name' => $defaultItem['name'],
             'category_name' => $defaultItem['cat'],
-            'insight' => "Based on my market trend data, I predict a surge because: " . strtolower($defaultItem['reason']),
+            'insight' => "<strong>Market Trend Insight:</strong> We anticipate a <span class='text-accent' style='font-weight: 600;'>demand surge</span> for this item. Reason: <em>" . strtolower($defaultItem['reason']) . "</em>",
             'type' => 'System Advisory',
             'action_needed' => 'advisory'
         ];
@@ -740,10 +740,11 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     white-space: nowrap;
     display: inline-block;
 }
-.badge.fast_moving, .badge.normal, .badge.low { background: rgba(22, 163, 74, 0.14); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.2); }
-.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(245, 158, 11, 0.16); color: #c2410c; border: 1px solid rgba(245, 158, 11, 0.22); }
-.badge.slow_moving, .badge.overstocked { background: rgba(59, 130, 246, 0.14); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2); }
-.badge.non_moving, .badge.out_of_stock, .badge.high { background: rgba(248, 113, 113, 0.16); color: #dc2626; border: 1px solid rgba(248, 113, 113, 0.22); }
+.badge.fast_moving, .badge.normal, .badge.low { background: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
+.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(245, 158, 11, 0.15) !important; color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
+.badge.slow_moving { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.3) !important; }
+.badge.overstocked { background: rgba(139, 92, 246, 0.15) !important; color: #a78bfa !important; border: 1px solid rgba(139, 92, 246, 0.3) !important; }
+.badge.non_moving, .badge.out_of_stock, .badge.high { background: rgba(239, 68, 68, 0.15) !important; color: #f87171 !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; }
 
 .btn {
     background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
@@ -1122,7 +1123,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="loading-overlay"><div class="spinner"></div></div>
     
     <div style="color: #E3E3E3; font-weight: 600; font-size: 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-        <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.318 11.318 0 0 1 5.814 5.814L21.75 18M2.25 18V15a2.25 2.25 0 0 1 2.25-2.25h1.5M2.25 18h16.5"/></svg></span>
+        <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg></span>
         Demand Forecasting
     </div>
 

@@ -406,16 +406,17 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
             <?php else: ?>
                 <div class="space-y-2">
                     <?php foreach(array_slice($lowStockItems, 0, 7) as $item): ?>
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-[#13275B]/50 border border-[#2A4484] hover:border-red-500/30 transition-colors">
+                    <?php $isOut = (int)$item['qty'] <= 0; ?>
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-[#13275B]/50 border border-[#2A4484] <?php echo $isOut ? 'hover:border-red-500/30' : 'hover:border-amber-500/30'; ?> transition-colors">
                         <div class="flex items-center gap-3">
-                            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                            <div class="w-2 h-2 rounded-full <?php echo $isOut ? 'bg-red-500' : 'bg-amber-500'; ?> animate-pulse"></div>
                             <div>
                                 <div class="text-[#E3E3E3] text-sm font-medium"><?php echo htmlspecialchars($item['name']); ?></div>
                                 <div class="text-[#9aa6d1] text-xs">Reorder Point: <?php echo $item['reorder_point']; ?></div>
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-red-400 font-bold font-mono text-lg"><?php echo (int)$item['qty']; ?></div>
+                            <div class="<?php echo $isOut ? 'text-red-400' : 'text-amber-400'; ?> font-bold font-mono text-lg"><?php echo (int)$item['qty']; ?></div>
                             <div class="text-[#9aa6d1] text-[10px]">Remaining</div>
                         </div>
                     </div>

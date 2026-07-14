@@ -493,14 +493,27 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                     <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($it['name']); ?></td>
                     <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($it['category'] ?? '-'); ?></td>
                     <td class="text-center">
-                        <span class="font-mono font-semibold <?php echo $isLowStock ? 'text-red-400' : 'text-[#E3E3E3]'; ?>">
-                            <?php echo (int)$it['qty']; ?>
+                        <?php 
+                        $qty = (int)$it['qty'];
+                        $reorder = (int)($it['reorder_point'] ?? 10);
+                        if ($qty <= 0) {
+                            $qtyColor = 'text-red-400';
+                        } elseif ($qty <= $reorder) {
+                            $qtyColor = 'text-amber-400';
+                        } else {
+                            $qtyColor = 'text-[#E3E3E3]';
+                        }
+                        ?>
+                        <span class="font-mono font-semibold <?php echo $qtyColor; ?>">
+                            <?php echo $qty; ?>
                         </span>
                     </td>
                     <td class="text-sm text-[#6b7280]"><?php echo htmlspecialchars($it['uom']); ?></td>
                     <td class="text-right">
-                        <?php if($isLowStock): ?>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Low</span>
+                        <?php if ($qty <= 0): ?>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
+                        <?php elseif ($qty <= $reorder): ?>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
                         <?php else: ?>
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
                         <?php endif; ?>

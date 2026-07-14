@@ -64,52 +64,63 @@
 
 /* Badge Styles */
 .badge { 
-    display: inline-block; 
-    padding: 4px 10px; 
-    border-radius: 12px; 
+    display: inline-flex; 
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px; 
+    border-radius: 999px; 
     font-size: 11px; 
-    font-weight: 500; 
+    font-weight: 600; 
+    font-family: 'Onest', sans-serif;
     white-space: nowrap; 
 }
 
 .badge.high, .badge.out_of_stock { 
-    background: #ef4444; 
-    color: #fff; 
+    background: rgba(239, 68, 68, 0.15) !important; 
+    color: #f87171 !important; 
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
 }
 
 .badge.medium, .badge.low_stock { 
-    background: #f59e0b; 
-    color: #fff; 
+    background: rgba(245, 158, 11, 0.15) !important; 
+    color: #fbbf24 !important; 
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
 }
 
 .badge.low, .badge.normal { 
-    background: #10b981; 
-    color: #fff; 
+    background: rgba(16, 185, 129, 0.15) !important; 
+    color: #34d399 !important; 
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
 }
 
 .badge.fast_moving { 
-    background: #10b981; 
-    color: #fff; 
+    background: rgba(16, 185, 129, 0.15) !important; 
+    color: #34d399 !important; 
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
 }
 
 .badge.medium_moving { 
-    background: #3b82f6; 
-    color: #fff; 
+    background: rgba(59, 130, 246, 0.15) !important; 
+    color: #60a5fa !important; 
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
 }
 
 .badge.slow_moving { 
-    background: #f59e0b; 
-    color: #fff; 
+    background: rgba(245, 158, 11, 0.15) !important; 
+    color: #fbbf24 !important; 
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
 }
 
 .badge.non_moving { 
-    background: #6b7280; 
-    color: #fff; 
+    background: rgba(107, 114, 128, 0.15) !important; 
+    color: #9ca3af !important; 
+    border: 1px solid rgba(107, 114, 128, 0.3) !important;
 }
 
 .badge.overstocked { 
-    background: #8b5cf6; 
-    color: #fff; 
+    background: rgba(139, 92, 246, 0.15) !important; 
+    color: #a78bfa !important; 
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
 }
 
 /* Metric Card Styles */

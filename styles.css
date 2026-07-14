@@ -620,29 +620,29 @@ input.match-border {
     white-space: nowrap;
 }
 
-.badge.low,
-.badge.low_stock,
-.badge.high,
 .badge.out_of_stock,
+.badge.high,
 .badge.high-demand {
-    background: #ef4444;
-    color: #fff;
+    background: #ef4444 !important;
+    color: #fff !important;
 }
 
+.badge.low_stock,
 .badge.medium,
 .badge.medium_moving,
 .badge.attention_needed,
-.badge.medium_demand,
-.badge.normal {
-    background: #f59e0b;
-    color: #fff;
+.badge.medium_demand {
+    background: #f59e0b !important;
+    color: #fff !important;
 }
 
+.badge.in_stock,
+.badge.good,
+.badge.normal,
 .badge.fast_moving,
-.badge.low,
-.badge.normal {
-    background: #10b981;
-    color: #fff;
+.badge.low {
+    background: #10b981 !important;
+    color: #fff !important;
 }
 
 .input,
