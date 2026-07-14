@@ -170,8 +170,8 @@
 .hero-product-card:hover {
   transform: translateY(-2px) translateX(4px);
   border-color: rgba(81, 213, 90, 0.45) !important;
-  box-shadow: 0 8px 24px rgba(81, 213, 90, 0.12);
-  background: rgba(19, 39, 91, 0.75) !important;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.18);
+  background: rgba(245, 158, 11, 0.18) !important;
 }
 
 .hero-product-card:hover .hero-product-arrow {

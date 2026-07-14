@@ -6,6 +6,25 @@ if (($_SESSION['Role'] ?? '') !== 'admin') { header('Location: dash_staff.php');
 require_once 'src/layout.php';
 require_once 'config/db.php';
 
+// Fetch categories and UoMs for the Add Product modal
+$dash_categories = [];
+$cat_q = $conn->query("SELECT DISTINCT category FROM products WHERE category != '' ORDER BY category");
+while ($row = $cat_q->fetch_assoc()) { $dash_categories[] = $row['category']; }
+sort($dash_categories);
+
+$dash_uoms = [];
+$uom_q = $conn->query("SELECT DISTINCT unit FROM products WHERE unit != '' ORDER BY unit");
+while ($row = $uom_q->fetch_assoc()) { $dash_uoms[] = $row['unit']; }
+$defaultUoms = ['pieces', 'packs', 'boxes', 'bottles', 'cans', 'bags', 'jars', 'tubes', 'bars', 'sets', 'units', 'kg', 'g', 'L', 'ml'];
+$dash_uoms = array_values(array_unique(array_merge($dash_uoms, $defaultUoms)));
+sort($dash_uoms, SORT_NATURAL | SORT_FLAG_CASE);
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$dash_csrf_token = $_SESSION['csrf_token'];
+
+
 // 1. Fetch Products
 $items = [];
 $productQuery = "SELECT product_id as id, product_name as name, category, quantity as qty, reorder_point FROM products";
@@ -188,7 +207,7 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 
 <div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
-    <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div class="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div class="flex-1 min-w-0 space-y-4">
             <div>
                 <div class="flex flex-wrap items-center gap-3 mb-1">
@@ -204,15 +223,18 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 
             <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
             <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
-               class="hero-product-card flex items-start gap-3 p-4 rounded-xl bg-[#13275B]/60 border border-amber-500/30 no-underline"
+               class="hero-product-card flex items-start gap-3 p-4 rounded-xl no-underline"
+               style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);"
                title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
-                <div class="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 border border-amber-500/20 flex-shrink-0 mt-0.5">
+                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                     style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.35);">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2 mb-1">
                         <span class="text-[#E3E3E3] font-onest font-semibold text-sm group-hover:text-emerald-400 transition-colors"><?php echo htmlspecialchars($priorityItem); ?></span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold"
+                              style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.35);">
                             <?php echo htmlspecialchars($priorityType); ?>
                         </span>
                         <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -228,10 +250,10 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
                 View Full Forecast
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </a>
-            <a href="products.php" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-[#E3E3E3] bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-400 transition-all whitespace-nowrap">
+            <button type="button" onclick="openDashAddProductModal()" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-[#E3E3E3] bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-400 transition-all whitespace-nowrap cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
                 Add Product
-            </a>
+            </button>
         </div>
     </div>
 </div>
@@ -424,6 +446,9 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 
 </div>
 
+<?php renderLayoutContentEnd(); renderLayoutShellEnd(); ?>
+
+
 <script>
 if (typeof Chart === 'undefined') {
     console.error("Chart.js missing.");
@@ -489,4 +514,295 @@ if (typeof Chart === 'undefined') {
 document.addEventListener('themechange', function() { if (window.IWTheme) IWTheme.refreshAllCharts(); });
 </script>
 
-<?php renderLayoutEnd(); ?>
+<!-- ======================================================
+     ADD PRODUCT MODAL — Dashboard quick-add
+     Posts to products.php for full server-side processing
+     ====================================================== -->
+<style>
+.dash-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 100001;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+    padding: 20px;
+    box-sizing: border-box;
+}
+.dash-modal-overlay.active { display: flex; }
+.dash-modal-box {
+    background: linear-gradient(170deg, #1D387B 0%, #11204a 100%);
+    border: 1px solid rgba(81, 213, 90, 0.25);
+    width: 100%;
+    max-width: 650px;
+    max-height: calc(100vh - 40px);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    margin: auto;
+}
+.dash-modal-header {
+    padding: 24px 30px;
+    background: rgba(13, 22, 56, 0.5);
+    border-bottom: 1px solid rgba(66, 85, 135, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.dash-modal-title h3 {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px 0;
+    font-family: 'Onest', sans-serif;
+}
+.dash-modal-subtitle { color: #9aa6d1; font-size: 13px; font-family: 'Onest', sans-serif; }
+.dash-modal-body-scroll {
+    overflow-y: auto;
+    overflow-x: visible;
+    flex: 1;
+    max-height: min(560px, calc(100vh - 220px));
+    padding: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+.dash-form-label {
+    color: #9aa6d1;
+    font-size: 12px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    font-family: 'Onest', sans-serif;
+}
+.dash-barcode-status {
+    font-size: 12px;
+    margin-top: 8px;
+    font-family: 'Onest', sans-serif;
+}
+.dash-barcode-status--pending { color: #fcd34d; }
+.dash-barcode-status--ready   { color: #51D55A; }
+.dash-barcode-status--error   { color: #f87171; }
+.dash-btn-confirm-barcode {
+    height: 46px;
+    padding: 0 14px;
+    background: linear-gradient(135deg, #51D55A, #4BC052);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Onest', sans-serif;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+.dash-btn-confirm-barcode:hover { opacity: 0.88; }
+.dash-field-error {
+    color: #f87171;
+    font-size: 11px;
+    margin-top: 6px;
+    font-family: 'Onest', sans-serif;
+    line-height: 1.4;
+}
+.dash-field-error[hidden] { display: none; }
+[data-theme="light"] .dash-modal-overlay { background: var(--iw-bg-overlay) !important; }
+[data-theme="light"] .dash-modal-box {
+    background: var(--iw-bg-modal) !important;
+    border-color: var(--iw-border-solid) !important;
+    box-shadow: var(--iw-shadow-dropdown) !important;
+}
+[data-theme="light"] .dash-modal-header {
+    background: var(--iw-bg-panel-header) !important;
+    border-bottom-color: var(--iw-border) !important;
+}
+[data-theme="light"] .dash-modal-title h3 { color: var(--iw-text-header) !important; }
+[data-theme="light"] .dash-modal-subtitle,
+[data-theme="light"] .dash-form-label { color: var(--iw-text-muted) !important; }
+</style>
+
+<div id="dash-add-product-overlay" class="dash-modal-overlay">
+    <div class="dash-modal-box">
+        <div class="dash-modal-header">
+            <div class="dash-modal-title">
+                <h3>Add New Product</h3>
+                <div class="dash-modal-subtitle">Enter product details below to create a new inventory item.</div>
+            </div>
+            <button onclick="closeDashAddProductModal()" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+        </div>
+        <form method="POST" action="products.php" id="dash-add-product-form" autocomplete="off">
+            <input type="hidden" name="action" value="add">
+            <input type="hidden" name="csrf_token" value="<?php echo $dash_csrf_token; ?>">
+            <input type="hidden" name="sync_driver" value="category">
+            <div class="dash-modal-body-scroll">
+                <div style="grid-column: span 2;">
+                    <label class="dash-form-label">Manufacturer Barcode (Product Identifier) *</label>
+                    <div class="flex gap-2">
+                        <input name="barcode" id="dash-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan or type barcode, then press Confirm" autocomplete="off" required maxlength="50">
+                        <button type="button" class="dash-btn-confirm-barcode" id="dash-confirm-barcode-btn" onclick="dashConfirmBarcode()">Confirm</button>
+                    </div>
+                    <p class="dash-barcode-status dash-barcode-status--pending" id="dash-barcode-status">Enter a barcode and click Confirm to unlock the remaining fields.</p>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label class="dash-form-label">Product Name *</label>
+                    <input name="product_name" id="dash-product-name" class="premium-input w-full" style="height:46px;" placeholder="e.g. Wireless Mouse" required maxlength="255" disabled>
+                    <p class="dash-field-error" id="dash-product-name-error" hidden></p>
+                </div>
+                <div>
+                    <label class="dash-form-label">Category</label>
+                    <select name="category" id="dash-category" class="premium-input inventory-select w-full cursor-pointer" style="height:46px;" disabled>
+                        <option value="">Select Category</option>
+                        <?php foreach ($dash_categories as $cat): ?>
+                        <option value="<?php echo htmlspecialchars($cat); ?>"><?php echo htmlspecialchars($cat); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="dash-form-label">Supplier</label>
+                    <input name="supplier" id="dash-supplier" class="premium-input w-full" style="height:46px;" placeholder="Supplier Name" disabled>
+                </div>
+                <div>
+                    <label class="dash-form-label">Quantity *</label>
+                    <input type="number" name="quantity" id="dash-quantity" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric" required disabled>
+                    <p class="dash-field-error" id="dash-quantity-error" hidden></p>
+                </div>
+                <div>
+                    <label class="dash-form-label">Price *</label>
+                    <input type="number" name="price" id="dash-price" class="premium-input w-full" style="height:46px;" min="0" step="0.01" inputmode="decimal" value="0.00" required disabled>
+                </div>
+                <div>
+                    <label class="dash-form-label">Location</label>
+                    <input name="location" id="dash-location" class="premium-input w-full" style="height:46px;" placeholder="e.g. Shelf A1" disabled>
+                </div>
+                <div>
+                    <label class="dash-form-label">Unit (UoM)</label>
+                    <select name="unit" id="dash-unit" class="premium-input inventory-select w-full cursor-pointer" style="height:46px;" disabled>
+                        <option value="">Select Unit</option>
+                        <?php foreach ($dash_uoms as $uom): ?>
+                        <option value="<?php echo htmlspecialchars($uom); ?>"><?php echo htmlspecialchars($uom); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="dash-form-label">Reorder Point</label>
+                    <input type="number" name="reorder_point" id="dash-reorder-point" class="premium-input w-full" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
+                </div>
+                <div style="grid-column: span 2;">
+                    <button type="submit" class="premium-button w-full" id="dash-add-product-submit" disabled>Save Product</button>
+                </div>
+            </div>
+            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: flex-end; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
+                <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeDashAddProductModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ── Dashboard Add Product Modal ─────────────────────────────
+const DASH_FORM_FIELDS = ['dash-product-name','dash-category','dash-supplier','dash-quantity','dash-price','dash-location','dash-unit','dash-reorder-point'];
+
+function openDashAddProductModal() {
+    resetDashAddForm();
+    document.body.style.overflow = 'hidden';
+    document.getElementById('dash-add-product-overlay').classList.add('active');
+    setTimeout(() => { document.getElementById('dash-barcode-input').focus(); }, 60);
+}
+
+function closeDashAddProductModal() {
+    document.getElementById('dash-add-product-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+    resetDashAddForm();
+}
+
+function resetDashAddForm() {
+    const form = document.getElementById('dash-add-product-form');
+    if (form) form.reset();
+    DASH_FORM_FIELDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+    });
+    const submit = document.getElementById('dash-add-product-submit');
+    if (submit) submit.disabled = true;
+    const status = document.getElementById('dash-barcode-status');
+    if (status) {
+        status.textContent = 'Enter a barcode and click Confirm to unlock the remaining fields.';
+        status.className = 'dash-barcode-status dash-barcode-status--pending';
+    }
+    const barcodeInput = document.getElementById('dash-barcode-input');
+    if (barcodeInput) barcodeInput.readOnly = false;
+}
+
+function dashConfirmBarcode() {
+    const barcodeInput = document.getElementById('dash-barcode-input');
+    const barcode = (barcodeInput.value || '').trim();
+    const statusEl = document.getElementById('dash-barcode-status');
+    const submit = document.getElementById('dash-add-product-submit');
+
+    if (!barcode) {
+        statusEl.textContent = 'Please enter a barcode first.';
+        statusEl.className = 'dash-barcode-status dash-barcode-status--error';
+        return;
+    }
+
+    // Check uniqueness via API
+    fetch('api/get_product_by_barcode.php?barcode=' + encodeURIComponent(barcode))
+        .then(r => r.json())
+        .then(data => {
+            if (data.found) {
+                statusEl.textContent = 'This barcode already exists in inventory. Use a unique barcode.';
+                statusEl.className = 'dash-barcode-status dash-barcode-status--error';
+                return;
+            }
+            DASH_FORM_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+            submit.disabled = false;
+            barcodeInput.readOnly = true;
+            statusEl.textContent = '✓ Barcode confirmed. Fill in the product details below.';
+            statusEl.className = 'dash-barcode-status dash-barcode-status--ready';
+            document.getElementById('dash-product-name').focus();
+        })
+        .catch(() => {
+            // Offline fallback — unlock without server check
+            DASH_FORM_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+            submit.disabled = false;
+            barcodeInput.readOnly = true;
+            statusEl.textContent = 'Offline — barcode not verified. Uniqueness will be checked when you save.';
+            statusEl.className = 'dash-barcode-status dash-barcode-status--pending';
+            document.getElementById('dash-product-name').focus();
+        });
+}
+
+// Enter on barcode field triggers confirm; Escape and backdrop click close the modal
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.getElementById('dash-barcode-input');
+    if (barcodeInput) {
+        barcodeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); dashConfirmBarcode(); }
+        });
+    }
+    const overlay = document.getElementById('dash-add-product-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeDashAddProductModal();
+        });
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('dash-add-product-overlay');
+            if (overlay && overlay.classList.contains('active')) closeDashAddProductModal();
+        }
+    });
+});
+</script>
+
+<?php renderLayoutFooter(); ?>

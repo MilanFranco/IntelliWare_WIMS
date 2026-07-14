@@ -723,38 +723,31 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <?php else: ?>
                     <?php foreach ($items as $it): ?>
                     <?php $low = $it['qty'] <= $it['reorder_point']; ?>
-                    <tr id="row-<?php echo $it['id']; ?>" class="hover:bg-[#1D387B]/50 transition-colors">
+                    <tr id="row-<?php echo $it['id']; ?>"
+                        class="hover:bg-[#1D387B]/50 transition-colors"
+                        data-id="<?php echo $it['id']; ?>"
+                        data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
+                        data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
+                        data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
+                        data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
+                        data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
+                        data-qty="<?php echo (int)$it['qty']; ?>"
+                        data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
+                        data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
+                        data-reorder="<?php echo (int)$it['reorder_point']; ?>"
+                        data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
+                        data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
                         <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
-                        <td data-field="barcode" data-value="<?php echo htmlspecialchars($it['barcode'] ?? ''); ?>">
-                            <span id="display-barcode-<?php echo $it['id']; ?>" style="font-family:monospace; font-size:12px; color:#9aa6d1;"><?php echo htmlspecialchars($it['barcode'] ?? '—'); ?></span>
-                        </td>
-                        <td data-field="name" data-value="<?php echo htmlspecialchars($it['name']); ?>">
-                            <span id="display-name-<?php echo $it['id']; ?>" style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span>
-                        </td>
-                        <td data-field="category" data-value="<?php echo htmlspecialchars($it['category']); ?>">
-                            <span id="display-category-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['category']); ?></span>
-                        </td>
-                        <td data-field="supplier" data-value="<?php echo htmlspecialchars($it['supplier']); ?>">
-                            <span id="display-supplier-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['supplier']); ?></span>
-                        </td>
-                        <td data-field="location" data-value="<?php echo htmlspecialchars($it['location']); ?>">
-                            <span id="display-location-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['location']); ?></span>
-                        </td>
-                        <td data-field="qty" data-value="<?php echo htmlspecialchars($it['qty']); ?>">
-                            <span id="display-qty-<?php echo $it['id']; ?>" style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span>
-                        </td>
-                        <td data-field="price" data-value="<?php echo htmlspecialchars(number_format((float)($it['price'] ?? 0), 2, '.', '')); ?>">
-                            <span id="display-price-<?php echo $it['id']; ?>" style="font-family:monospace;"><?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
-                        </td>
-                        <td data-field="uom" data-value="<?php echo htmlspecialchars($it['uom']); ?>">
-                            <span id="display-uom-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['uom']); ?></span>
-                        </td>
-                        <td data-field="reorder_point" data-value="<?php echo htmlspecialchars($it['reorder_point']); ?>">
-                            <span id="display-reorder_point-<?php echo $it['id']; ?>"><?php echo htmlspecialchars($it['reorder_point']); ?></span>
-                        </td>
-                        <td data-field="shelf_life" data-value="<?php echo htmlspecialchars($it['shelf_life'] ?? ''); ?>">
-                            <span id="display-shelf_life-<?php echo $it['id']; ?>"><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></span>
-                        </td>
+                        <td><span style="font-family:monospace; font-size:12px; color:#9aa6d1;"><?php echo htmlspecialchars($it['barcode'] ?? '—'); ?></span></td>
+                        <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
+                        <td><?php echo htmlspecialchars($it['category']); ?></td>
+                        <td><?php echo htmlspecialchars($it['supplier']); ?></td>
+                        <td><?php echo htmlspecialchars($it['location']); ?></td>
+                        <td><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
+                        <td><span style="font-family:monospace;"><?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
+                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
+                        <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
+                        <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
                         <td>
                             <?php if ($low): ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Low</span>
@@ -763,16 +756,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                             <?php endif; ?>
                         </td>
                         <td class="text-right">
-                            <form method="POST" id="edit-form-<?php echo $it['id']; ?>" style="display:none;">
-                                <input type="hidden" name="action" value="edit"> 
-                                <input type="hidden" name="id" value="<?php echo $it['id']; ?>">
-                                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                                <input type="hidden" name="sync_driver" value="category">
-                                <?php foreach(['name','barcode','category','supplier','location','qty','price','uom','reorder_point','shelf_life'] as $f) echo "<input type='hidden' name='$f'>"; ?>
-                            </form>
-
-                            <div id="actions-default-<?php echo $it['id']; ?>" style="display:flex; gap:8px; justify-content:flex-end;">
-                                <button type="button" class="inventory-action-btn edit-btn" onclick="toggleEdit('<?php echo $it['id']; ?>')" title="Edit">
+                            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                                <button type="button" class="inventory-action-btn edit-btn" onclick="openEditModal(this.closest('tr').dataset)" title="Edit">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
                                 <?php if($role!=='staff'): ?>
@@ -780,16 +765,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
                                 <?php endif; ?>
-                            </div>
-                            <div id="actions-edit-<?php echo $it['id']; ?>" style="display:none; gap:8px; justify-content:flex-end; align-items:center;">
-                                <button type="button" class="inventory-text-btn save-btn" onclick="saveEdit('<?php echo $it['id']; ?>')" title="Save changes (Enter)">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                    Save
-                                </button>
-                                <button type="button" class="inventory-text-btn cancel-btn" onclick="cancelEdit('<?php echo $it['id']; ?>')" title="Cancel editing">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                    Cancel
-                                </button>
                             </div>
                         </td>
                     </tr>
@@ -939,6 +914,78 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         </div>
     </div>
 </div>
+
+<div id="edit-modal-overlay" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <div class="modal-title">
+                <h3>Edit Product</h3>
+                <div class="modal-subtitle" id="edit-modal-sku"></div>
+            </div>
+            <button onclick="closeEditModal()" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+        </div>
+        <form method="POST" id="edit-product-form" autocomplete="off">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="id" id="edit-id">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+            <input type="hidden" name="sync_driver" id="edit-sync-driver" value="category">
+            <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <div style="grid-column: span 2;">
+                    <label class="form-label">Product Name *</label>
+                    <input type="text" name="name" id="edit-name" class="premium-input w-full" style="height:46px;" required maxlength="255">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label class="form-label">Barcode</label>
+                    <input type="text" name="barcode" id="edit-barcode" class="premium-input w-full" style="height:46px;" maxlength="50" placeholder="Leave blank to keep existing">
+                </div>
+                <div>
+                    <label class="form-label">Category</label>
+                    <select name="category" id="edit-category" class="premium-input inventory-select w-full cursor-pointer" style="height:46px;">
+                        <?php echo renderOptions($categories, '', 'Select Category'); ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Supplier</label>
+                    <input type="text" name="supplier" id="edit-supplier" class="premium-input w-full" style="height:46px;" placeholder="Supplier Name">
+                </div>
+                <div>
+                    <label class="form-label">Quantity *</label>
+                    <input type="number" name="qty" id="edit-qty" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric" required>
+                </div>
+                <div>
+                    <label class="form-label">Price *</label>
+                    <input type="number" name="price" id="edit-price" class="premium-input w-full" style="height:46px;" min="0" step="0.01" inputmode="decimal" required>
+                </div>
+                <div>
+                    <label class="form-label">Location</label>
+                    <input type="text" name="location" id="edit-location" class="premium-input w-full" style="height:46px;" placeholder="e.g. Shelf A1" list="location-options">
+                </div>
+                <div>
+                    <label class="form-label">Unit (UoM)</label>
+                    <select name="uom" id="edit-uom" class="premium-input inventory-select w-full cursor-pointer" style="height:46px;">
+                        <?php echo renderOptions($uoms, '', 'Select Unit'); ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Reorder Point</label>
+                    <input type="number" name="reorder_point" id="edit-reorder-point" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric">
+                </div>
+                <div>
+                    <label class="form-label">Shelf Life (Days)</label>
+                    <input type="number" name="shelf_life" id="edit-shelf-life" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 30">
+                </div>
+            </div>
+            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
+                <p class="form-keyboard-hint" style="margin:0;">Enter to save · Tab to move between fields</p>
+                <div style="display:flex; gap:12px;">
+                    <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="premium-button" id="edit-product-submit">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 
 <?php require_once 'src/partials/barcode_scanner_modal.php'; ?>
 
@@ -1381,60 +1428,101 @@ function closeDeleteModal() {
     delId = null; 
 }
 
-function toggleEdit(id) {
-    document.getElementById(`actions-default-${id}`).style.display = 'none';
-    document.getElementById(`actions-edit-${id}`).style.display = 'flex';
-    
-    editableFields.forEach(field => {
-        const span = document.getElementById(`display-${field}-${id}`);
-        const cell = span.parentElement;
-        span.style.display = 'none';
-        if (!document.getElementById(`input-${field}-${id}`)) {
-             cell.insertAdjacentHTML('beforeend', editInputs[id][field]);
-        }
-    });
-}
+// ── Edit Product Modal ──────────────────────────────────────
+let editModalSubmitting = false;
 
-function cancelEdit(id) {
-    document.getElementById(`actions-default-${id}`).style.display = 'flex';
-    document.getElementById(`actions-edit-${id}`).style.display = 'none';
-    
-    editableFields.forEach(f => {
-        const input = document.getElementById(`input-${f}-${id}`);
-        if(input) input.remove();
-        
-        const span = document.getElementById(`display-${f}-${id}`);
-        span.style.display = '';
-    });
-}
+function openEditModal(data) {
+    // data is the row's dataset (DOMStringMap)
+    document.getElementById('edit-id').value          = data.id;
+    document.getElementById('edit-name').value        = data.name || '';
+    document.getElementById('edit-barcode').value     = data.barcode || '';
+    document.getElementById('edit-supplier').value    = data.supplier || '';
+    document.getElementById('edit-location').value    = data.location || '';
+    document.getElementById('edit-qty').value         = data.qty || '0';
+    document.getElementById('edit-price').value       = data.price || '0.00';
+    document.getElementById('edit-reorder-point').value = data.reorder || '10';
+    document.getElementById('edit-shelf-life').value  = data.shelf || '';
+    document.getElementById('edit-sync-driver').value = 'category';
+    document.getElementById('edit-modal-sku').textContent = data.sku || '';
 
-function saveEdit(id) {
-    if (editRowSubmitting[id]) return;
-
-    const form = document.getElementById(`edit-form-${id}`);
-    let isValid = true;
-
-    editableFields.forEach(f => {
-        const input = document.getElementById(`input-${f}-${id}`);
-        if(input) {
-            form.elements[f].value = input.value;
-            if (input.required && input.value === '') {
-                 alert(`The ${f} field is required.`);
-                 isValid = false;
-            }
-            if (f === 'price' && input.value !== '' && !isValidPrice(input.value)) {
-                alert('Price must be 0 or greater with up to 2 decimal places.');
-                input.focus();
-                isValid = false;
-            }
-        }
-    });
-    
-    if (isValid) {
-        editRowSubmitting[id] = true;
-        form.submit();
+    // Set category select
+    const catSel = document.getElementById('edit-category');
+    catSel.value = data.category || '';
+    if (catSel.value !== (data.category || '')) {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = data.category;
+        catSel.appendChild(opt);
+        catSel.value = data.category;
     }
+
+    // Set UoM select
+    const uomSel = document.getElementById('edit-uom');
+    uomSel.value = data.uom || '';
+    if (uomSel.value !== (data.uom || '')) {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = data.uom;
+        uomSel.appendChild(opt);
+        uomSel.value = data.uom;
+    }
+
+    editModalSubmitting = false;
+    document.getElementById('edit-product-submit').disabled = false;
+    document.getElementById('edit-product-submit').textContent = 'Save Changes';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('edit-modal-overlay').classList.add('active');
+    setTimeout(() => document.getElementById('edit-name').focus(), 60);
 }
+
+function closeEditModal() {
+    document.getElementById('edit-modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
+    editModalSubmitting = false;
+}
+
+// Category ↔ Location sync for edit modal
+document.addEventListener('DOMContentLoaded', function() {
+    const editCat = document.getElementById('edit-category');
+    const editLoc = document.getElementById('edit-location');
+    const editSync = document.getElementById('edit-sync-driver');
+
+    editCat?.addEventListener('change', function() {
+        syncLocationFromCategory(this.value, editLoc, editSync);
+    });
+    editLoc?.addEventListener('change', function() {
+        syncCategoryFromLocation(this.value, editCat, editSync);
+    });
+    editLoc?.addEventListener('blur', function() {
+        syncCategoryFromLocation(this.value, editCat, editSync);
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('edit-modal-overlay');
+            if (overlay && overlay.classList.contains('active')) closeEditModal();
+        }
+    });
+
+    // Close on backdrop click
+    document.getElementById('edit-modal-overlay')?.addEventListener('click', function(e) {
+        if (e.target === this) closeEditModal();
+    });
+
+    // Prevent double-submit
+    document.getElementById('edit-product-form')?.addEventListener('submit', function(e) {
+        if (editModalSubmitting) { e.preventDefault(); return; }
+        const name = document.getElementById('edit-name').value.trim();
+        const qty  = document.getElementById('edit-qty').value;
+        const price = document.getElementById('edit-price').value;
+        if (!name) { e.preventDefault(); document.getElementById('edit-name').focus(); return; }
+        if (qty === '' || isNaN(qty) || parseInt(qty) < 0) { e.preventDefault(); document.getElementById('edit-qty').focus(); return; }
+        if (price !== '' && !isValidPrice(price)) { e.preventDefault(); document.getElementById('edit-price').focus(); return; }
+        editModalSubmitting = true;
+        const btn = document.getElementById('edit-product-submit');
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+    });
+});
 
 function showToast(msg, type) {
     const t = document.getElementById("toast-container");
