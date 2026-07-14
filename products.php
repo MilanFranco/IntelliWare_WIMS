@@ -1713,7 +1713,7 @@ function initProductBarcodeInputs() {
 </script>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="src/scripts/barcode-scanner.js"></script>
+<script src="src/scripts/barcode-scanner.js?v=<?php echo time(); ?>"></script>
 <script>
 if (window.BarcodeScanner) {
     BarcodeScanner.init();

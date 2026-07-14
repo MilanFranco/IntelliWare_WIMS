@@ -65,23 +65,11 @@ var InventoryTransaction = (function () {
     }
 
     function updateInfoActionButtons() {
-        var increaseBtn = document.getElementById('inv-info-increase');
-        var decreaseBtn = document.getElementById('inv-info-decrease');
         var removeBtn = document.getElementById('inv-info-remove');
-
-        if (!increaseBtn || !decreaseBtn || !removeBtn) return;
+        if (!removeBtn) return;
 
         var inCart = selectedProductId != null && findCartItem(selectedProductId) != null;
-        var disabled = !inCart;
-
-        increaseBtn.disabled = disabled;
-        decreaseBtn.disabled = disabled;
-        removeBtn.disabled = disabled;
-
-        if (inCart) {
-            var item = findCartItem(selectedProductId);
-            increaseBtn.disabled = !canIncreaseQty(item);
-        }
+        removeBtn.disabled = !inCart;
     }
 
     function cacheProduct(rawProduct) {
@@ -124,28 +112,32 @@ var InventoryTransaction = (function () {
     }
 
     function normalizeProduct(raw) {
-        var qty = parseInt(raw.quantity != null ? raw.quantity : raw.qty || '0', 10);
+        if (raw._normalized) return raw;
+
+        var qty = parseInt(raw.quantity != null ? raw.quantity : raw.qty || raw.currentStock || '0', 10);
         var reorderPoint = parseInt(
-            raw.reorder_point != null ? raw.reorder_point : raw.reorder || '10',
+            raw.reorder_point != null ? raw.reorder_point : raw.reorder || raw.reorderPoint || '10',
             10
         );
-        var stockStatus = raw.stock_status || computeStockStatus(qty, reorderPoint);
+        var stockStatus = raw.stock_status || raw.stockStatus || computeStockStatus(qty, reorderPoint);
 
         return {
-            productId: parseInt(raw.product_id || raw.id || '0', 10),
+            _normalized: true,
+            productId: parseInt(raw.product_id || raw.id || raw.productId || '0', 10),
             name: raw.product_name || raw.name || 'Unknown',
             barcode: raw.barcode || '',
             category: raw.category || '',
             location: raw.location || '',
             currentStock: qty,
             reorderPoint: reorderPoint,
-            expiryDate: raw.expiry_date || null,
-            batchNumber: raw.batch_number || '',
-            shelfLife: raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : null,
+            expiryDate: raw.expiry_date || raw.expiryDate || null,
+            batchNumber: raw.batch_number || raw.batchNumber || '',
+            shelfLife: raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : (raw.shelfLife != null ? parseInt(raw.shelfLife, 10) : null),
             stockStatus: stockStatus,
-            stockStatusLabel: raw.stock_status_label || getStockStatusLabel(stockStatus),
-            imageUrl: raw.image_url || null,
+            stockStatusLabel: raw.stock_status_label || raw.stockStatusLabel || getStockStatusLabel(stockStatus),
+            imageUrl: raw.image_url || raw.imageUrl || null,
             unit: raw.unit || raw.uom || '',
+            price: parseFloat(raw.price != null ? raw.price : '0.00'),
             sku: raw.sku || ''
         };
     }
@@ -193,7 +185,8 @@ var InventoryTransaction = (function () {
                 name: cartItem.name,
                 barcode: cartItem.barcode,
                 quantity: cartItem.currentStock,
-                unit: cartItem.unit
+                unit: cartItem.unit,
+                price: cartItem.price
             });
         }
 
@@ -247,13 +240,38 @@ var InventoryTransaction = (function () {
         var locationEl = document.getElementById('inv-info-location');
         if (locationEl) locationEl.textContent = product.location || '—';
 
-        var stockText = String(product.currentStock);
-        if (product.unit) stockText += ' ' + product.unit;
+        var stockText;
+        if (txnMode === 'out') {
+            // Show how many will be left after the current pending release
+            var cartItem = findCartItem(product.productId);
+            var pendingQty = cartItem ? cartItem.qty : 0;
+            var effectiveStock = product.currentStock - pendingQty;
+            stockText = String(effectiveStock);
+            if (product.unit) stockText += ' ' + product.unit;
+            stockText += ' remaining';
+            if (pendingQty > 0) {
+                stockText += ' (' + product.currentStock + ' before release)';
+            }
+        } else {
+            stockText = String(product.currentStock);
+            if (product.unit) stockText += ' ' + product.unit;
+        }
         if (stockEl) stockEl.textContent = stockText;
 
         if (statusEl) {
-            statusEl.innerHTML = '<span class="pos-status-badge pos-status-' + escapeHtml(product.stockStatus) + '">'
-                + escapeHtml(product.stockStatusLabel) + '</span>';
+            var displayStatus, displayStatusLabel;
+            if (txnMode === 'out') {
+                var cartItem2 = findCartItem(product.productId);
+                var pendingQty2 = cartItem2 ? cartItem2.qty : 0;
+                var effectiveStock2 = product.currentStock - pendingQty2;
+                displayStatus = computeStockStatus(effectiveStock2, product.reorderPoint);
+                displayStatusLabel = getStockStatusLabel(displayStatus);
+            } else {
+                displayStatus = product.stockStatus;
+                displayStatusLabel = product.stockStatusLabel;
+            }
+            statusEl.innerHTML = '<span class="pos-status-badge pos-status-' + escapeHtml(displayStatus) + '">'
+                + escapeHtml(displayStatusLabel) + '</span>';
         }
 
         if (reorderEl) reorderEl.textContent = String(product.reorderPoint);
@@ -341,6 +359,7 @@ var InventoryTransaction = (function () {
             location: product.location,
             currentStock: product.currentStock,
             unit: product.unit,
+            price: product.price,
             productExpiryDate: product.expiryDate || '',
             batch_number: product.batchNumber || '',
             manufacturing_date: '',
@@ -375,10 +394,13 @@ var InventoryTransaction = (function () {
         item.qty = newQty;
         renderCart(productId);
 
-        var details = getProductDetails(productId);
-        if (details && selectedProductId === productId) {
-            showProductInfo(details);
+        // Refresh the info panel so "Current Stock" shows live remaining
+        if (selectedProductId === productId) {
+            var details = getProductDetails(productId);
+            if (details) showProductInfo(details);
         } else {
+            var details2 = getProductDetails(productId);
+            if (details2 && selectedProductId === productId) showProductInfo(details2);
             updateInfoActionButtons();
         }
 
@@ -460,6 +482,12 @@ var InventoryTransaction = (function () {
             nameTd.innerHTML = '<div class="font-semibold">' + escapeHtml(item.name) + '</div>'
                 + (item.unit ? '<div class="text-[10px] text-[#9aa6d1]">' + escapeHtml(item.unit) + '</div>' : '');
 
+            var barcodeTd = document.createElement('td');
+            barcodeTd.textContent = item.barcode || '—';
+
+            var stockTd = document.createElement('td');
+            stockTd.textContent = item.currentStock;
+
             var qtyTd = document.createElement('td');
             var qtyControls = document.createElement('div');
             qtyControls.className = 'pos-qty-controls';
@@ -487,18 +515,28 @@ var InventoryTransaction = (function () {
             qtyControls.appendChild(plusBtn);
             qtyTd.appendChild(qtyControls);
 
+            var priceTd = document.createElement('td');
+            priceTd.textContent = '₱' + parseFloat(item.price || 0).toFixed(2);
+
+            var totalTd = document.createElement('td');
+            totalTd.textContent = '₱' + (parseFloat(item.price || 0) * item.qty).toFixed(2);
+
             var actionTd = document.createElement('td');
             var removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'pos-remove-btn';
             removeBtn.title = 'Remove';
-            removeBtn.innerHTML = '&times;';
+            removeBtn.innerHTML = '<svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
             removeBtn.setAttribute('data-action', 'remove');
             removeBtn.setAttribute('data-id', String(item.productId));
             actionTd.appendChild(removeBtn);
 
             tr.appendChild(nameTd);
+            tr.appendChild(barcodeTd);
+            tr.appendChild(stockTd);
             tr.appendChild(qtyTd);
+            tr.appendChild(priceTd);
+            tr.appendChild(totalTd);
             tr.appendChild(actionTd);
             bodyEl.appendChild(tr);
         });
@@ -689,10 +727,7 @@ var InventoryTransaction = (function () {
 
     function handleInfoAction(action) {
         if (selectedProductId == null) return;
-
-        if (action === 'increase') changeQty(selectedProductId, 1);
-        else if (action === 'decrease') changeQty(selectedProductId, -1);
-        else if (action === 'remove') removeFromCart(selectedProductId);
+        if (action === 'remove') removeFromCart(selectedProductId);
     }
     function validateAndSubmit(form) {
         if (cart.length === 0) {
@@ -809,12 +844,6 @@ var InventoryTransaction = (function () {
             document.getElementById('inv-close-camera-btn')?.addEventListener('click', closeInlineCamera);
         }
 
-        document.getElementById('inv-info-increase')?.addEventListener('click', function () {
-            handleInfoAction('increase');
-        });
-        document.getElementById('inv-info-decrease')?.addEventListener('click', function () {
-            handleInfoAction('decrease');
-        });
         document.getElementById('inv-info-remove')?.addEventListener('click', function () {
             handleInfoAction('remove');
         });

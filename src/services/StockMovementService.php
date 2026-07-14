@@ -12,15 +12,6 @@ class StockMovementService
 
     public static function ensureBatchColumn(mysqli $conn): void
     {
-        if (self::$batchColumnChecked) {
-            return;
-        }
-
-        $result = $conn->query("SHOW COLUMNS FROM products LIKE 'batch_number'");
-        if (!$result || $result->num_rows === 0) {
-            $conn->query("ALTER TABLE `products` ADD COLUMN `batch_number` VARCHAR(50) DEFAULT NULL AFTER `expiry_date`");
-        }
-
         self::$batchColumnChecked = true;
         self::$hasBatchColumn = true;
     }

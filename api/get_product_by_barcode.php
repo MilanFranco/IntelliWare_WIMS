@@ -118,7 +118,7 @@ function barcodeLookupCandidates(string $barcode): array
 
 $stmt = $conn->prepare("
     SELECT p.product_id, p.product_name, p.category, p.supplier, p.location,
-           p.quantity, p.reorder_point, p.unit, p.barcode, p.shelf_life,
+           p.quantity, p.reorder_point, p.unit, p.barcode, p.shelf_life, p.price,
            (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
            (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date IS NULL ASC, b.expiry_date ASC LIMIT 1) AS batch_number,
            CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku

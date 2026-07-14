@@ -1009,21 +1009,22 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div class="card">
             <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Category Performance</div>
             <div style="overflow: auto; max-height: 500px;">
-                <table class="table">
-                    <thead><tr><th>Category</th><th>Products</th><th>Total Stock</th><th>Avg Stock</th><th>Low Stock</th><th>Sales</th></tr></thead>
-                    <tbody>
+                <table class="table" id="categoryTable">
+                    <thead><tr><th>Category</th><th class="text-right">Products</th><th class="text-right">Total Stock</th><th class="text-right">Avg Stock</th><th class="text-center">Low Stock</th><th class="text-right">Sales</th></tr></thead>
+                    <tbody id="categoryTableBody">
                         <?php foreach ($categoryPerformance as $category): ?>
                         <tr>
                             <td style="color: #fff; font-weight: 500;"><?php echo htmlspecialchars($category['category_name']); ?></td>
-                            <td><?php echo $category['product_count']; ?></td>
-                            <td><?php echo $category['total_stock']; ?></td>
-                            <td><?php echo number_format($category['avg_stock'], 1); ?></td>
-                            <td><span class="badge <?php echo $category['low_stock_count'] > 0 ? 'medium' : 'low'; ?>"><?php echo $category['low_stock_count']; ?></span></td>
-                            <td><?php echo $category['monthly_sales'] ?? 0; ?></td>
+                            <td class="text-right"><?php echo $category['product_count']; ?></td>
+                            <td class="text-right"><?php echo $category['total_stock']; ?></td>
+                            <td class="text-right"><?php echo number_format($category['avg_stock'], 1); ?></td>
+                            <td class="text-center"><span class="badge <?php echo $category['low_stock_count'] > 0 ? 'medium' : 'low'; ?>"><?php echo $category['low_stock_count']; ?></span></td>
+                            <td class="text-right"><?php echo $category['monthly_sales'] ?? 0; ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <div id="categoryPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
             </div>
         </div>
         <div class="card">
@@ -1040,20 +1041,21 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 Sales Trends (Last <?php echo $daysLookback; ?> Days)
             </div>
             <div style="overflow: auto; max-height: 500px;">
-                <table class="table">
-                    <thead><tr><th>Date</th><th>Day</th><th>Products Sold</th><th>Total Qty</th><th>Avg/Trans</th></tr></thead>
-                    <tbody>
+                <table class="table" id="trendsTable">
+                    <thead><tr><th>Date</th><th>Day</th><th class="text-right">Products Sold</th><th class="text-right">Total Qty</th><th class="text-right">Avg/Trans</th></tr></thead>
+                    <tbody id="trendsTableBody">
                         <?php foreach ($salesTrends as $trend): ?>
                         <tr>
                             <td style="color: #fff;"><?php echo $trend['sale_date']; ?></td>
                             <td style="color: #9aa6d1;"><?php echo $trend['day_name']; ?></td>
-                            <td><?php echo $trend['unique_products_sold']; ?></td>
-                            <td><?php echo $trend['total_quantity_sold']; ?></td>
-                            <td><?php echo number_format($trend['avg_quantity_per_transaction'], 2); ?></td>
+                            <td class="text-right"><?php echo $trend['unique_products_sold']; ?></td>
+                            <td class="text-right"><?php echo $trend['total_quantity_sold']; ?></td>
+                            <td class="text-right"><?php echo number_format($trend['avg_quantity_per_transaction'], 2); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <div id="trendsPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
             </div>
         </div>
         <div class="card">
@@ -1067,18 +1069,18 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="card">
         <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Supplier Performance</div>
         <div style="overflow: auto; max-height: 500px;">
-            <table class="table">
-                <thead><tr><th>Supplier</th><th>Products</th><th>Total Stock</th><th>Avg Stock</th><th>Monthly Sales</th><th>Low Stock</th><th>Status</th></tr></thead>
-                <tbody>
+            <table class="table" id="supplierTable">
+                <thead><tr><th>Supplier</th><th class="text-right">Products</th><th class="text-right">Total Stock</th><th class="text-right">Avg Stock</th><th class="text-right">Monthly Sales</th><th class="text-center">Low Stock</th><th class="text-center">Status</th></tr></thead>
+                <tbody id="supplierTableBody">
                     <?php foreach ($supplierPerformance as $supplier): ?>
                     <tr>
                         <td style="color:#fff; font-weight:500;"><?php echo htmlspecialchars($supplier['supplier']); ?></td>
-                        <td><?php echo $supplier['product_count']; ?></td>
-                        <td><?php echo $supplier['total_stock_value']; ?></td>
-                        <td><?php echo number_format($supplier['avg_stock_per_product'], 1); ?></td>
-                        <td><?php echo $supplier['monthly_sales'] ?? 0; ?></td>
-                        <td><span class="badge <?php echo $supplier['low_stock_count'] > 0 ? 'medium' : 'low'; ?>"><?php echo $supplier['low_stock_count']; ?></span></td>
-                        <td>
+                        <td class="text-right"><?php echo $supplier['product_count']; ?></td>
+                        <td class="text-right"><?php echo $supplier['total_stock_value']; ?></td>
+                        <td class="text-right"><?php echo number_format($supplier['avg_stock_per_product'], 1); ?></td>
+                        <td class="text-right"><?php echo $supplier['monthly_sales'] ?? 0; ?></td>
+                        <td class="text-center"><span class="badge <?php echo $supplier['low_stock_count'] > 0 ? 'medium' : 'low'; ?>"><?php echo $supplier['low_stock_count']; ?></span></td>
+                        <td class="text-center">
                             <?php
                             $performance = 'Good'; $badgeClass = 'low';
                             if ($supplier['low_stock_count'] > $supplier['product_count'] * 0.3) { $performance = 'Needs Attention'; $badgeClass = 'medium'; }
@@ -1090,6 +1092,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            <div id="supplierPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
         </div>
     </div>
 </div>
@@ -1098,23 +1101,24 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="card">
         <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Expiry Risk Analysis</div>
         <div style="overflow: auto; max-height: 500px;">
-            <table class="table">
-                <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Expiry Date</th><th>Days Left</th><th>Sales</th><th>Sell Through</th><th>Risk</th></tr></thead>
-                <tbody>
+            <table class="table" id="expiryTable">
+                <thead><tr><th>Product</th><th>Category</th><th class="text-right">Stock</th><th class="text-right">Expiry Date</th><th class="text-right">Days Left</th><th class="text-right">Sales</th><th class="text-right">Sell Through</th><th class="text-center">Risk</th></tr></thead>
+                <tbody id="expiryTableBody">
                     <?php foreach ($expiryRiskAnalysis as $item): ?>
                     <tr>
                         <td style="color:#fff; font-weight:500;"><?php echo htmlspecialchars($item['product_name']); ?></td>
                         <td style="color:#9aa6d1;"><?php echo htmlspecialchars($item['category_name']); ?></td>
-                        <td><?php echo $item['quantity']; ?></td>
-                        <td><?php echo $item['expiry_date']; ?></td>
-                        <td style="font-weight:700; color: <?php echo ($item['days_until_expiry'] < 30 ? '#f87171' : '#E3E3E3'); ?>;"><?php echo $item['days_until_expiry']; ?></td>
-                        <td><?php echo $item['monthly_sales'] ?? 0; ?></td>
-                        <td><?php echo $item['sell_through_days']; ?></td>
-                        <td><span class="badge <?php echo $item['expiry_risk']; ?>"><?php echo ucfirst($item['expiry_risk']); ?> Risk</span></td>
+                        <td class="text-right"><?php echo $item['quantity']; ?></td>
+                        <td class="text-right"><?php echo $item['expiry_date']; ?></td>
+                        <td class="text-right" style="font-weight:700; color: <?php echo ($item['days_until_expiry'] < 30 ? '#f87171' : '#E3E3E3'); ?>;"><?php echo $item['days_until_expiry']; ?></td>
+                        <td class="text-right"><?php echo $item['monthly_sales'] ?? 0; ?></td>
+                        <td class="text-right"><?php echo $item['sell_through_days']; ?></td>
+                        <td class="text-center"><span class="badge <?php echo $item['expiry_risk']; ?>"><?php echo ucfirst($item['expiry_risk']); ?> Risk</span></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            <div id="expiryPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
         </div>
     </div>
 </div>
@@ -1383,6 +1387,49 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// --- Pagination Logic ---
+const itemsPerPage = 10;
+function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc) {
+    const tableBody = document.getElementById(tableBodyId);
+    if (!tableBody) return;
+    
+    const allRows = Array.from(tableBody.getElementsByTagName('tr'));
+    if (allRows.length === 0) return;
+    
+    const totalPages = Math.ceil(allRows.length / itemsPerPage) || 1;
+    if (pageVar > totalPages) pageVar = totalPages;
+    if (pageVar < 1) pageVar = 1;
+    
+    const start = (pageVar - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    
+    allRows.forEach((row, index) => {
+        row.style.display = (index >= start && index < end) ? '' : 'none';
+    });
+    
+    const pagContainer = document.getElementById(paginationId);
+    if (pagContainer) {
+        pagContainer.innerHTML = `
+            <div class="pagination-info">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
+            <div style="display:flex; gap:8px;">
+                <button class="pagination-btn" ${pageVar === 1 ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar - 1})">Previous</button>
+                <button class="pagination-btn" ${pageVar === totalPages ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar + 1})">Next</button>
+            </div>
+        `;
+    }
+}
+
+let categoryPage = 1, trendsPage = 1, supplierPage = 1, expiryPage = 1;
+window.setCategoryPage = (p) => { categoryPage = p; renderPagination('categoryTableBody', 'categoryPagination', categoryPage, 'setCategoryPage'); };
+window.setTrendsPage = (p) => { trendsPage = p; renderPagination('trendsTableBody', 'trendsPagination', trendsPage, 'setTrendsPage'); };
+window.setSupplierPage = (p) => { supplierPage = p; renderPagination('supplierTableBody', 'supplierPagination', supplierPage, 'setSupplierPage'); };
+window.setExpiryPage = (p) => { expiryPage = p; renderPagination('expiryTableBody', 'expiryPagination', expiryPage, 'setExpiryPage'); };
+
+document.addEventListener('DOMContentLoaded', () => {
+    setCategoryPage(1); setTrendsPage(1); setSupplierPage(1); setExpiryPage(1);
+});
+// ------------------------
+
 const chartTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 Chart.defaults.color = chartTheme === 'light' ? '#64748b' : '#9aa6d1';
 Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)';

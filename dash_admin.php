@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
 if (($_SESSION['Role'] ?? '') !== 'admin') { header('Location: dash_staff.php'); exit(); }
@@ -53,12 +53,12 @@ $totalSKUs = count($items);
 $totalQty = array_sum(array_map(function($i){return (int)$i['qty'];}, $items));
 $totalCategories = count(array_unique(array_map(function($i){return $i['category'];}, $items)));
 
-// 4. Recent Transactions
+// 4. Recent Transactions — use index on transaction_date
 $recentTransactions = [];
-$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, p.product_name, u.username
+$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, p.product_name, COALESCE(u.username, 'System') as username
                FROM transactions t
-               JOIN products p ON t.product_id = p.product_id
-               JOIN users u ON t.user_id = u.user_id
+               STRAIGHT_JOIN products p ON t.product_id = p.product_id
+               LEFT JOIN users u ON t.user_id = u.user_id
                ORDER BY t.transaction_date DESC LIMIT 5";
 $transResult = $conn->query($transQuery);
 if ($transResult && $transResult->num_rows > 0) {
@@ -95,11 +95,14 @@ foreach ($tempData as $dateData) {
     $chartData['stock_out'][] = $dateData['stock_out'];
 }
 
-// 6. Heatmap Data
+// 6. Heatmap Data — limit to last 90 days, use covering index
 $heatmapData = ['labels' => [], 'data' => [], 'ids' => []];
-$heatQuery = "SELECT p.product_id, p.product_name, SUM(t.quantity) as demand_qty FROM transactions t 
-              JOIN products p ON t.product_id = p.product_id WHERE t.transaction_type = 'stock_out' 
-              GROUP BY p.product_id ORDER BY demand_qty DESC LIMIT 7";
+$heatNinetyDaysAgo = date('Y-m-d', strtotime('-90 days'));
+$heatQuery = "SELECT p.product_id, p.product_name, SUM(t.quantity) as demand_qty
+              FROM transactions t USE INDEX (idx_tx_covering_out)
+              JOIN products p ON t.product_id = p.product_id
+              WHERE t.transaction_type = 'stock_out' AND t.transaction_date >= '$heatNinetyDaysAgo'
+              GROUP BY t.product_id ORDER BY demand_qty DESC LIMIT 7";
 $heatResult = $conn->query($heatQuery);
 while($row = $heatResult->fetch_assoc()) {
     $heatmapData['labels'][] = $row['product_name'];
@@ -131,16 +134,22 @@ $priorityType = null;
 $priorityProductId = null;
 
 $nextMonthNum = (int)date('n', strtotime('+1 month'));
+$nextMonthYear = (int)date('Y', strtotime('+1 month'));
+// Use date range instead of MONTH() so the index on transaction_date is used
+$forecastDateStart = sprintf('%04d-%02d-01', $nextMonthYear, $nextMonthNum);
+$forecastDateEnd   = date('Y-m-t', strtotime($forecastDateStart)); // last day of that month
 $forecastPrioQuery = "
     SELECT product_id, product_name, current_stock, category_name, total_historical_sales
     FROM (
         SELECT p.product_id, p.product_name, p.quantity AS current_stock, p.category AS category_name,
                SUM(t.quantity) AS total_historical_sales
-        FROM transactions t
+        FROM transactions t USE INDEX (idx_tx_covering_out)
         JOIN products p ON t.product_id = p.product_id
-        WHERE MONTH(t.transaction_date) = {$nextMonthNum}
-          AND t.transaction_type = 'stock_out'
-        GROUP BY p.product_id
+        WHERE t.transaction_type = 'stock_out'
+          AND t.transaction_date >= DATE_SUB('$forecastDateStart', INTERVAL 1 YEAR)
+          AND t.transaction_date <= '$forecastDateEnd'
+          AND MONTH(t.transaction_date) = {$nextMonthNum}
+        GROUP BY t.product_id
         HAVING SUM(t.quantity) > 0
     ) AS forecast_prio
     ORDER BY (current_stock / total_historical_sales) ASC

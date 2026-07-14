@@ -93,13 +93,10 @@ class PythonHelper {
      */
     public static function getPythonPath($customPath = null) {
         // Manual Python path - SET THIS TO YOUR VENV PYTHON PATH
-        // Example for venv: $manualPath = 'C:\\xampp\\htdocs\\IntelliWare\\venv\\Scripts\\python.exe';
-        // Example for system: $manualPath = 'C:\\Python311\\python.exe';
-        // Uncomment and set your path:
-        // $manualPath = 'C:\xampp\htdocs\IntelliWare\venv\Scripts\python.exe';
-        // if ($manualPath && file_exists($manualPath)) {
-        //     return $manualPath;
-        // }
+        $manualPath = 'C:\\Users\\PLPASIG\\AppData\\Local\\Programs\\Python\\Python310\\python.exe';
+        if ($manualPath && file_exists($manualPath)) {
+            return $manualPath;
+        }
         
         // Check custom path first if provided
         if ($customPath && file_exists($customPath)) {

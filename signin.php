@@ -314,7 +314,7 @@
 
     <div class="auth-wrapper">
         <div class="header">
-            <img src="img/logo.svg" alt="IntelliWare" class="fade-in signin-logo" />
+            <img src="img/main%20logo.png" alt="IntelliWare" class="fade-in signin-logo" />
             <br>   
         </div>
 

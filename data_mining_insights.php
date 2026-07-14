@@ -91,6 +91,10 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 .metric-card.active { border-color: #51D55A; background: var(--iw-bg-surface); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
 .filter-tag { display: inline-block; background: #51D55A; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
 .filter-tag .close { margin-left: 8px; cursor: pointer; font-weight: bold; }
+.pagination-btn { background: var(--iw-bg-surface); border: 1px solid var(--iw-border); color: #E3E3E3; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.pagination-btn:hover:not(:disabled) { border-color: #51D55A; color: #51D55A; }
+.pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pagination-info { font-size: 13px; color: #9aa6d1; }
 </style>
 
 <div class="card" style="margin-bottom:24px;">
@@ -141,10 +145,10 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                         <tr>
                             <th>Product</th>
                             <th>Category</th>
-                            <th>Stock</th>
-                            <th>Sold</th>
-                            <th>Classification</th>
-                            <th>Days Since Restock</th>
+                            <th class="text-right">Stock</th>
+                            <th class="text-right">Sold</th>
+                            <th class="text-center">Classification</th>
+                            <th class="text-right">Days Since Restock</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -152,18 +156,19 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                         <tr data-classification="<?php echo $item['classification']; ?>">
                             <td><?php echo htmlspecialchars($item['product_name']); ?></td>
                             <td><?php echo htmlspecialchars($item['category']); ?></td>
-                            <td><?php echo $item['quantity']; ?></td>
-                            <td><?php echo $item['sold_quantity']; ?></td>
-                            <td>
+                            <td class="text-right"><?php echo $item['quantity']; ?></td>
+                            <td class="text-right"><?php echo $item['sold_quantity']; ?></td>
+                            <td class="text-center">
                                 <span class="badge <?php echo str_replace('_', '-', $item['classification']); ?>">
                                     <?php echo ucfirst(str_replace('_', ' ', $item['classification'])); ?>
                                 </span>
                             </td>
-                            <td><?php echo $item['days_since_restock']; ?></td>
+                            <td class="text-right"><?php echo $item['days_since_restock']; ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <div id="inventoryPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
             <?php endif; ?>
         </div>
     </div>
@@ -202,6 +207,7 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <div id="anomalyPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
             <?php endif; ?>
         </div>
     </div>
@@ -390,21 +396,21 @@ function filterProducts(filterType) {
         const classification = row.getAttribute('data-classification');
         
         if (filterType === 'all') {
-            row.style.display = '';
+            row.classList.remove('filtered-out');
             visibleCount++;
         } else if (filterType === 'urgent') {
             // Show both high_demand and low_stock for urgent
             if (classification === 'high_demand' || classification === 'low_stock') {
-                row.style.display = '';
+                row.classList.remove('filtered-out');
                 visibleCount++;
             } else {
-                row.style.display = 'none';
+                row.classList.add('filtered-out');
             }
         } else if (classification === filterType) {
-            row.style.display = '';
+            row.classList.remove('filtered-out');
             visibleCount++;
         } else {
-            row.style.display = 'none';
+            row.classList.add('filtered-out');
         }
     }
     
@@ -428,7 +434,63 @@ function filterProducts(filterType) {
     
     // Scroll to inventory table
     document.getElementById('inventoryTable').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setInventoryPage(1);
 }
+
+let inventoryPage = 1;
+let anomalyPage = 1;
+const itemsPerPage = 10;
+
+function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc) {
+    const tableBody = document.getElementById(tableBodyId);
+    if (!tableBody) return;
+    
+    // get all visible rows that match filter (ignore empty state rows)
+    const allRows = Array.from(tableBody.getElementsByTagName('tr')).filter(r => r.id !== 'emptyFilterRow' && !r.classList.contains('filtered-out'));
+    
+    const totalPages = Math.ceil(allRows.length / itemsPerPage) || 1;
+    if (pageVar > totalPages) pageVar = totalPages;
+    if (pageVar < 1) pageVar = 1;
+    
+    const start = (pageVar - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    
+    // Hide all, then show only the current page
+    allRows.forEach((row, index) => {
+        if (index >= start && index < end) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    const pagContainer = document.getElementById(paginationId);
+    if (pagContainer) {
+        pagContainer.innerHTML = `
+            <div class="pagination-info">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
+            <div style="display:flex; gap:8px;">
+                <button class="pagination-btn" ${pageVar === 1 ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar - 1})">Previous</button>
+                <button class="pagination-btn" ${pageVar === totalPages ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar + 1})">Next</button>
+            </div>
+        `;
+    }
+}
+
+function setInventoryPage(page) {
+    inventoryPage = page;
+    renderPagination('inventoryTableBody', 'inventoryPagination', inventoryPage, 'setInventoryPage');
+}
+
+function setAnomalyPage(page) {
+    anomalyPage = page;
+    renderPagination('anomalyTableBody', 'anomalyPagination', anomalyPage, 'setAnomalyPage');
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', () => {
+    setInventoryPage(1);
+    setAnomalyPage(1);
+});
 
 function refreshAnalysis() {
     location.reload();

@@ -118,7 +118,6 @@ CREATE TABLE `products` (
   `quantity` int(11) DEFAULT 0,
   `reorder_point` int(11) DEFAULT 10,
   `unit` varchar(20) DEFAULT NULL,
-  `expiry_date` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`product_id`),
   UNIQUE KEY `uq_products_barcode` (`barcode`)

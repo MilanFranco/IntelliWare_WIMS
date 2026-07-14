@@ -672,9 +672,11 @@
     }
 
     function setUsbScannerConnected(connected) {
-        if (usbScannerConnected === connected) {
-            if (connected) setHeaderScannerStatus('ready');
-            return;
+        var el = getHeaderStatusEl();
+        var alreadySet = (usbScannerConnected === connected);
+        if (alreadySet && el) {
+            if (connected && el.classList.contains('header-scanner-status--ready')) return;
+            if (!connected && el.classList.contains('header-scanner-status--disconnected')) return;
         }
 
         usbScannerConnected = connected;

@@ -137,7 +137,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="inventoryHomeTableBody">
                 <?php foreach ($items as $it): ?>
                 <tr>
                     <td><?php echo htmlspecialchars($it['sku']); ?></td>
@@ -179,6 +179,7 @@ renderLayoutStart('Inventory Dashboard', $_SESSION['Role'], $username);
                 <?php endif; ?>
             </tbody>
         </table>
+        <div id="inventoryHomePagination" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
     </div>
 </div>
 
@@ -233,9 +234,54 @@ function fillEdit(id, sku, name, category, qty, uom, location) {
     document.getElementById('edit-location').value = location;
     document.getElementById('edit-modal').style.display = 'flex';
 }
+}
 function closeEdit(){ 
     document.getElementById('edit-modal').style.display = 'none'; 
 }
+
+// Pagination
+const itemsPerPage = 10;
+let currentPage = 1;
+
+function renderPagination() {
+    const tableBody = document.getElementById('inventoryHomeTableBody');
+    if (!tableBody) return;
+    
+    // get all rows except the "no items" row
+    let allRows = Array.from(tableBody.getElementsByTagName('tr'));
+    if (allRows.length === 1 && allRows[0].textContent.includes('No items yet')) return;
+    
+    const totalPages = Math.ceil(allRows.length / itemsPerPage) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+    
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    
+    allRows.forEach((row, index) => {
+        row.style.display = (index >= start && index < end) ? '' : 'none';
+    });
+    
+    const pagContainer = document.getElementById('inventoryHomePagination');
+    if (pagContainer) {
+        pagContainer.innerHTML = `
+            <div style="font-size:13px; color:#9aa6d1;">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
+            <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary" style="padding:4px 10px;" ${currentPage === 1 ? 'disabled' : ''} onclick="setPage(${currentPage - 1})">Previous</button>
+                <button class="btn btn-secondary" style="padding:4px 10px;" ${currentPage === totalPages ? 'disabled' : ''} onclick="setPage(${currentPage + 1})">Next</button>
+            </div>
+        `;
+    }
+}
+
+function setPage(page) {
+    currentPage = page;
+    renderPagination();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setPage(1);
+});
 </script>
 
 <?php

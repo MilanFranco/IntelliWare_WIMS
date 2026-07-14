@@ -14,7 +14,7 @@
     --iw-bg-card: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
     --iw-bg-card-hover: rgba(29, 56, 123, 0.6);
     --iw-bg-modal: rgba(19, 39, 91, 0.95);
-    --iw-bg-table-head: linear-gradient(135deg, #1D387B 0%, #13275B 100%);
+    --iw-bg-table-head: rgba(19, 39, 91, 0.4);
     --iw-bg-table-row-hover: rgba(81, 213, 90, 0.05);
     --iw-bg-dropdown: rgba(255, 255, 255, 0.98);
     --iw-bg-overlay: rgba(0, 0, 0, 0.45);
@@ -58,62 +58,65 @@
 }
 
 [data-theme="light"] {
-    /* Layered blue-gray palette — no pure white, softer on the eyes */
-    --iw-bg-shell: #C4D0DE;
-    --iw-bg-wrapper: #C4D0DE;
-    --iw-bg-content: #CBD5E3;
-    --iw-bg-sidebar: #D2DBE8;
-    --iw-bg-header: linear-gradient(180deg, #DAE2EC 0%, #CDD7E4 100%);
-    --iw-bg-surface: #E0E8F2;
-    --iw-bg-surface-alt: #D2DCE8;
-    --iw-bg-surface-deep: #B3C2D2;
-    --iw-bg-input: #D8E2ED;
-    --iw-bg-input-focus: #E4EBF4;
-    --iw-bg-card: linear-gradient(160deg, #E6EDF5 0%, #D6E2EE 100%);
-    --iw-bg-card-hover: #CAD6E4;
-    --iw-bg-modal: #E0E8F2;
-    --iw-bg-table-head: #C8D5E3;
-    --iw-bg-table-row-hover: rgba(59, 130, 246, 0.09);
-    --iw-bg-dropdown: #E0E8F2;
-    --iw-bg-overlay: rgba(30, 41, 59, 0.32);
-    --iw-bg-backdrop: rgba(30, 41, 59, 0.12);
-    --iw-bg-btn-secondary: #D2DCE8;
-    --iw-bg-btn-secondary-hover: #C4D0DE;
+    /* Main bg = light gray */
+    --iw-bg-shell: #f3f4f6;
+    --iw-bg-wrapper: #f3f4f6;
+    --iw-bg-content: #f3f4f6;
+
+    /* Sidebar and Header = White with subtle blue accents */
+    --iw-bg-sidebar: #ffffff;
+    --iw-bg-header: #ffffff;
+    
+    /* White for surfaces and cards */
+    --iw-bg-surface: #ffffff;
+    --iw-bg-surface-alt: #f8fafc;
+    --iw-bg-surface-deep: #e2e8f0;
+    --iw-bg-input: #f1f5f9;
+    --iw-bg-input-focus: #ffffff;
+    --iw-bg-card: #ffffff;
+    --iw-bg-card-hover: #f8fafc;
+    --iw-bg-modal: #ffffff;
+    --iw-bg-table-head: #f1f5f9;
+    --iw-bg-table-row-hover: rgba(59, 130, 246, 0.05);
+    --iw-bg-dropdown: #ffffff;
+    --iw-bg-overlay: rgba(15, 23, 42, 0.4);
+    --iw-bg-backdrop: rgba(15, 23, 42, 0.1);
+    --iw-bg-btn-secondary: #f1f5f9;
+    --iw-bg-btn-secondary-hover: #e2e8f0;
     --iw-bg-profile: rgba(59, 130, 246, 0.1);
-    --iw-bg-profile-hover: rgba(59, 130, 246, 0.16);
-    --iw-bg-badge: #C8D5E3;
-    --iw-bg-panel-header: #D2DCE8;
-    --iw-bg-scrollbar-track: #A3B4C6;
+    --iw-bg-profile-hover: rgba(59, 130, 246, 0.15);
+    --iw-bg-badge: #e0f2fe;
+    --iw-bg-panel-header: #f8fafc;
+    --iw-bg-scrollbar-track: #e2e8f0;
 
-    --iw-text: #1E293B;
-    --iw-text-muted: #3D5066;
-    --iw-text-subtle: #52657A;
-    --iw-text-header: #0F172A;
+    --iw-text: #1e293b;
+    --iw-text-muted: #64748b;
+    --iw-text-subtle: #94a3b8;
+    --iw-text-header: #0f172a;
     --iw-text-dropdown: #334155;
-    --iw-text-dropdown-title: #0F172A;
-    --iw-text-inverse: #0F172A;
-    --iw-text-profile-name: #0F172A;
-    --iw-text-profile-role: #4A5D72;
+    --iw-text-dropdown-title: #0f172a;
+    --iw-text-inverse: #ffffff;
+    --iw-text-profile-name: #0f172a;
+    --iw-text-profile-role: #64748b;
 
-    /* Stronger blue-gray borders so cards and panels stand out */
-    --iw-border: #7A92A8;
-    --iw-border-subtle: #92A5B8;
-    --iw-border-solid: #6B8399;
-    --iw-border-input: #7A92A8;
-    --iw-border-accent: rgba(59, 130, 246, 0.48);
-    --iw-border-dropdown: #7A92A8;
+    --iw-border: #e2e8f0;
+    --iw-border-subtle: #f1f5f9;
+    --iw-border-solid: #cbd5e1;
+    --iw-border-input: #cbd5e1;
+    --iw-border-accent: rgba(59, 130, 246, 0.3);
+    --iw-border-dropdown: #e2e8f0;
 
-    --iw-shadow-card: 0 2px 6px rgba(55, 75, 99, 0.08), 0 6px 18px rgba(55, 75, 99, 0.1), 0 0 0 1px rgba(107, 131, 153, 0.35);
-    --iw-shadow-dropdown: 0 8px 24px rgba(55, 75, 99, 0.14), 0 0 0 1px rgba(107, 131, 153, 0.4);
+    --iw-shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --iw-shadow-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
-    --iw-chart-text: #475569;
-    --iw-chart-tick: #1E293B;
-    --iw-chart-grid: rgba(148, 163, 184, 0.32);
+    --iw-chart-text: #64748b;
+    --iw-chart-tick: #475569;
+    --iw-chart-grid: rgba(226, 232, 240, 0.8);
 
-    --iw-color-success: #16A34A;
-    --iw-color-warning: #D97706;
-    --iw-color-error: #DC2626;
-    --iw-color-accent: #16A34A;
+    --iw-color-success: #10b981;
+    --iw-color-warning: #f59e0b;
+    --iw-color-error: #ef4444;
+    --iw-color-accent: #3b82f6;
 
     color-scheme: light;
 }
@@ -772,9 +775,18 @@
 
 /* Dashboard light-mode refinements */
 [data-theme="light"] .low-stock-item {
-    background: var(--iw-bg-surface) !important;
     border-color: var(--iw-border-solid) !important;
     box-shadow: 0 1px 3px rgba(71, 85, 105, 0.06);
+}
+
+[data-theme="light"] .premium-menu-item.active {
+    background: #eff6ff !important; /* Lighter shade of blue */
+    color: #2563eb !important;
+    border-right: 3px solid #3b82f6;
+}
+
+[data-theme="light"] .premium-menu-item:hover:not(.active) {
+    background: #f8fafc !important;
 }
 
 [data-theme="light"] .low-stock-item:hover {

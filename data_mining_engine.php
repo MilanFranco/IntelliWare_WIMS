@@ -30,30 +30,43 @@ class InventoryDataMiner {
         $year = (int)date('Y');
         $month = (int)date('m');
 
-        // Fetch products
-        $sql = "SELECT p.product_id, p.product_name, p.category, p.quantity, p.reorder_point, p.unit, (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date, p.created_at FROM products p";
-        $res = $this->conn->query($sql);
+        // Fetch products with bulk aggregations
+        $dateStart = sprintf('%04d-%02d-01 00:00:00', $year, $month);
+        $dateEnd = date('Y-m-d H:i:s', strtotime("+1 month", strtotime($dateStart)));
+
+        $sql = "
+            SELECT 
+                p.product_id, p.product_name, p.category, p.quantity, p.reorder_point, p.unit, p.created_at,
+                (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
+                COALESCE(t_out.sold, 0) as sold_this_month,
+                t_in.last_restock
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as sold 
+                FROM transactions 
+                WHERE transaction_type = 'stock_out' AND transaction_date >= ? AND transaction_date < ?
+                GROUP BY product_id
+            ) t_out ON p.product_id = t_out.product_id
+            LEFT JOIN (
+                SELECT product_id, MAX(transaction_date) as last_restock 
+                FROM transactions 
+                WHERE transaction_type = 'stock_in'
+                GROUP BY product_id
+            ) t_in ON p.product_id = t_in.product_id
+        ";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param('ss', $dateStart, $dateEnd);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        
         if (!$res) return ['error' => $this->conn->error];
 
         while ($p = $res->fetch_assoc()) {
             $pid = (int)$p['product_id'];
             $stock = (int)$p['quantity'];
-
-            // sold this month (stock_out)
-            $stmt = $this->conn->prepare("SELECT COALESCE(SUM(quantity),0) as sold FROM transactions WHERE product_id = ? AND transaction_type = 'stock_out' AND YEAR(transaction_date)=? AND MONTH(transaction_date)=?");
-            $stmt->bind_param('iii', $pid, $year, $month);
-            $stmt->execute();
-            $r = $stmt->get_result()->fetch_assoc();
-            $soldThisMonth = (int)$r['sold'];
-            $stmt->close();
-
-            // last restock date (latest stock_in)
-            $stmt2 = $this->conn->prepare("SELECT MAX(transaction_date) as last_restock FROM transactions WHERE product_id = ? AND transaction_type = 'stock_in'");
-            $stmt2->bind_param('i', $pid);
-            $stmt2->execute();
-            $lr = $stmt2->get_result()->fetch_assoc();
-            $lastRestock = $lr['last_restock'];
-            $stmt2->close();
+            $soldThisMonth = (int)$p['sold_this_month'];
+            $lastRestock = $p['last_restock'];
 
             $daysSinceRestock = $this->calculateDaysSinceRestock($lastRestock);
 

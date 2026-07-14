@@ -186,13 +186,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 <style>
     .pos-layout {
         display: grid;
-        grid-template-columns: minmax(340px, 1fr) minmax(360px, 1.15fr);
+        grid-template-columns: minmax(400px, 1.4fr) minmax(320px, 1fr);
         gap: 16px;
         align-items: stretch;
-        min-height: calc(100vh - 140px);
+        height: calc(100vh - 145px);
+        max-height: calc(100vh - 145px);
+        overflow: hidden;
     }
     @media (max-width: 1100px) {
-        .pos-layout { grid-template-columns: 1fr; min-height: auto; }
+        .pos-layout { grid-template-columns: 1fr; height: auto; max-height: none; overflow: visible; }
     }
 
     .pos-panel {
@@ -208,45 +210,46 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-panel:hover { transform: none; }
 
     .pos-panel-header {
-        padding: 16px 20px;
+        padding: 12px 16px;
         border-bottom: 1px solid var(--iw-border);
         background: var(--iw-bg-panel-header);
         flex-shrink: 0;
     }
 
     .pos-panel-body {
-        padding: 16px 20px;
+        padding: 12px 16px;
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
+        overflow-y: auto;
     }
 
     .pos-barcode-row {
         display: flex;
-        gap: 10px;
+        gap: 8px;
         align-items: stretch;
     }
 
     .pos-barcode-input {
         flex: 1;
-        height: 56px;
-        font-size: 18px;
+        height: 46px;
+        font-size: 16px;
         font-family: 'Onest', sans-serif;
         letter-spacing: 0.02em;
     }
 
     .btn-scan {
-        height: 56px;
-        min-width: 56px;
-        padding: 0 16px;
+        height: 46px;
+        min-width: 46px;
+        padding: 0 12px;
         background: var(--iw-bg-btn-secondary);
         border: 1px solid var(--iw-border-input);
         border-radius: 12px;
         color: var(--iw-text);
         cursor: pointer;
-        font-size: 22px;
+        font-size: 20px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -334,8 +337,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
     .pos-cart-wrap {
         flex: 1;
-        min-height: 180px;
-        max-height: 420px;
+        min-height: 120px;
         overflow-y: auto;
         border: 1px solid var(--iw-border);
         border-radius: 12px;
@@ -348,7 +350,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         align-items: center;
         justify-content: center;
         height: 100%;
-        min-height: 160px;
+        min-height: 120px;
         color: #9aa6d1;
         font-size: 13px;
         text-align: center;
@@ -370,12 +372,12 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        padding: 10px 12px;
+        padding: 8px 10px;
         text-align: left;
         border-bottom: 1px solid var(--iw-border);
     }
     .pos-cart-table td {
-        padding: 10px 12px;
+        padding: 8px 10px;
         color: var(--iw-text);
         border-bottom: 1px solid var(--iw-border);
         vertical-align: middle;
@@ -395,14 +397,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         gap: 4px;
     }
     .pos-qty-btn {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
         border: 1px solid var(--iw-border-input);
         background: var(--iw-bg-btn-secondary);
         color: var(--iw-text);
         cursor: pointer;
-        font-size: 16px;
+        font-size: 14px;
         line-height: 1;
         display: inline-flex;
         align-items: center;
@@ -411,32 +413,33 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
     .pos-qty-btn:hover { border-color: #51D55A; color: #51D55A; }
     .pos-qty-value {
-        min-width: 28px;
+        min-width: 24px;
         text-align: center;
         font-weight: 600;
     }
 
     .pos-remove-btn {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
         border: 1px solid rgba(239, 68, 68, 0.35);
         background: rgba(239, 68, 68, 0.08);
         color: #f87171;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         transition: background 0.15s;
+        padding: 0;
     }
     .pos-remove-btn:hover { background: rgba(239, 68, 68, 0.18); }
 
     .pos-summary {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        padding: 12px;
+        gap: 8px;
+        padding: 10px;
         border-radius: 12px;
         border: 1px solid var(--iw-border);
         background: var(--iw-bg-surface);
@@ -563,83 +566,45 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 12px;
         min-height: 0;
-    }
-
-    .pos-info-image-wrap {
-        width: 100%;
-        max-width: 320px;
-        margin: 0 auto;
-        aspect-ratio: 1;
-        border-radius: 16px;
-        border: 1px solid var(--iw-border);
-        background: var(--iw-bg-surface);
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .pos-info-image-wrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: none;
-    }
-    .pos-info-image-wrap.has-image img { display: block; }
-    .pos-info-image-wrap.has-image .pos-info-image-placeholder { display: none; }
-
-    .pos-info-image-placeholder {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        color: #4a5f9a;
-        padding: 24px;
-    }
-    .pos-info-image-placeholder svg { width: 64px; height: 64px; opacity: 0.7; }
-    .pos-info-image-placeholder span {
-        font-size: 12px;
-        color: #9aa6d1;
     }
 
     .pos-info-name {
         font-family: 'Onest', sans-serif;
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 700;
         color: var(--iw-text);
         line-height: 1.3;
-        text-align: center;
+        text-align: left;
     }
 
     .pos-info-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        gap: 8px;
     }
     @media (max-width: 480px) {
         .pos-info-grid { grid-template-columns: 1fr; }
     }
 
     .pos-info-field {
-        padding: 12px 14px;
-        border-radius: 12px;
+        padding: 8px 10px;
+        border-radius: 10px;
         border: 1px solid var(--iw-border);
         background: var(--iw-bg-surface);
     }
     .pos-info-field.full-width { grid-column: 1 / -1; }
 
     .pos-info-field dt {
-        font-size: 10px;
+        font-size: 9px;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.05em;
         color: #9aa6d1;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     .pos-info-field dd {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: #E3E3E3;
         margin: 0;
@@ -742,7 +707,11 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <thead>
                             <tr>
                                 <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Stock</th>
                                 <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Total Price</th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -790,17 +759,13 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
             </div>
 
             <div class="pos-info-content" id="inv-info-content" style="display:none;">
-                <div class="pos-info-image-wrap" id="inv-info-image-wrap">
-                    <img id="inv-info-image" src="" alt="Product image">
-                    <div class="pos-info-image-placeholder" id="inv-info-image-placeholder">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z"/>
-                        </svg>
-                        <span>No image available</span>
-                    </div>
-                </div>
 
-                <h4 class="pos-info-name" id="inv-info-name"></h4>
+                <div class="flex justify-between items-start gap-4">
+                    <h4 class="pos-info-name" id="inv-info-name" style="text-align: left; margin: 0; flex: 1;"></h4>
+                    <button type="button" class="text-red-500 hover:text-red-400 p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg cursor-pointer transition-all border border-red-500/20 flex-shrink-0" id="inv-info-remove" title="Remove from Transaction" style="width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>
+                    </button>
+                </div>
 
                 <dl class="pos-info-grid">
                     <div class="pos-info-field">
@@ -856,12 +821,6 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                     </div>
                     <?php endif; ?>
                 </dl>
-
-                <div class="pos-info-actions" id="inv-info-actions">
-                    <button type="button" class="pos-info-action-btn" id="inv-info-increase">+ Increase Quantity</button>
-                    <button type="button" class="pos-info-action-btn" id="inv-info-decrease">− Decrease Quantity</button>
-                    <button type="button" class="pos-info-action-btn pos-info-action-remove" id="inv-info-remove">Remove from Transaction</button>
-                </div>
             </div>
         </div>
     </div>
@@ -870,8 +829,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 <?php renderLayoutContentEnd(); ?>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="src/scripts/barcode-scanner.js"></script>
-<script src="src/scripts/inventory-transaction.js"></script>
+<script src="src/scripts/barcode-scanner.js?v=<?php echo time(); ?>"></script>
+<script src="src/scripts/inventory-transaction.js?v=<?php echo time(); ?>"></script>
 <script>
 <?php if (isset($_SESSION['toast'])): ?>
 document.addEventListener('DOMContentLoaded', function() {

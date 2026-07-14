@@ -74,8 +74,8 @@ function renderSidebar($currentPage, $userRole) {
     // UPDATED: Added ID and transition classes for toggling
     echo '<div id="main-sidebar" class="premium-sidebar w-[290px] shrink-0 text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out">';
     echo '<div class="ml-2 mb-4">';
-    echo '<img src="img/logo.svg" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-dark" />';
-    echo '<img src="img/logo-light.svg" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-light" />';
+    echo '<img src="img/iLogo.png" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-dark" style="object-fit: contain; max-height: 50px;" />';
+    echo '<img src="img/darkmode.png" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-light" style="object-fit: contain; max-height: 50px;" />';
     echo '</div>';
     echo '<div class="p-2 flex flex-col gap-[8px]">';
     
@@ -322,7 +322,7 @@ function renderLayoutEnd() {
 function renderLayoutFooter() {
     echo '<div class="dropdown-backdrop" id="dropdownBackdrop"></div>';
     echo '<input type="text" id="global-scanner-wedge-input" class="hid-barcode-capture" autocomplete="off" aria-hidden="true" tabindex="-1">';
-    echo '<script src="src/scripts/barcode-scanner.js"></script>';
+    echo '<script src="src/scripts/barcode-scanner.js?v=' . time() . '"></script>';
     
     echo '<script>';
     ?>
