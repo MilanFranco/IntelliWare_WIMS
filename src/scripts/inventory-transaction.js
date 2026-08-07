@@ -33,35 +33,14 @@ var InventoryTransaction = (function () {
     }
 
     function focusBarcodeInput() {
-        if (window.BarcodeScanner && BarcodeScanner.isInlineActive && BarcodeScanner.isInlineActive()) {
-            focusWedgeInput();
-            return;
-        }
-        if (window.BarcodeScanner && BarcodeScanner.isUsbScannerConnected()) {
-            focusWedgeInput();
-            return;
-        }
-        var input = document.getElementById('inv-barcode-input');
-        if (input) {
-            setTimeout(function () {
-                input.focus();
-                input.select();
-            }, 50);
-        }
+        // No barcode input in AI scanner mode — noop retained for internal compatibility
     }
 
-    function updateScannerUi(connected) {
+    function updateScannerBadge(state, text) {
         var badge = document.getElementById('inv-scanner-badge');
-        var hint = document.getElementById('inv-scanner-hint');
-        if (badge) {
-            badge.textContent = connected ? 'Scanner ready' : 'No barcode scanner detected.';
-            badge.classList.toggle('pos-scanner-badge--off', !connected);
-        }
-        if (hint) {
-            hint.innerHTML = connected
-                ? '<strong>Scan the barcode</strong> printed on product packaging. USB scanners work automatically. If product not found, register it in Products page first.'
-                : 'No barcode scanner detected. Type barcodes manually and press Enter. Connect a USB scanner to enable automatic scanning.';
-        }
+        if (!badge) return;
+        badge.textContent = text;
+        badge.className = 'pos-scanner-badge hidden sm:inline pos-scanner-badge--' + (state || 'idle');
     }
 
     function updateInfoActionButtons() {
@@ -532,7 +511,6 @@ var InventoryTransaction = (function () {
             actionTd.appendChild(removeBtn);
 
             tr.appendChild(nameTd);
-            tr.appendChild(barcodeTd);
             tr.appendChild(stockTd);
             tr.appendChild(qtyTd);
             tr.appendChild(priceTd);
@@ -581,149 +559,168 @@ var InventoryTransaction = (function () {
         if (details) showProductInfo(details);
     }
 
-    function barcodeLookupVariants(code) {
-        var variants = [];
-        var seen = {};
+    // ── AI Scanner: product lookup by integer ID ──────────────────────────────
 
-        function add(value) {
-            value = (value || '').trim();
-            if (!value || seen[value]) return;
-            seen[value] = true;
-            variants.push(value);
-        }
-
-        add(code);
-
-        if (/^\d+$/.test(code)) {
-            if (code.length === 12) {
-                add('0' + code);
-            } else if (code.length === 13 && code.charAt(0) === '0') {
-                add(code.substring(1));
-            } else if (code.length < 13) {
-                add(code.padStart(13, '0'));
-            }
-        }
-
-        return variants;
-    }
-
-    function findInCatalog(code) {
-        var variants = barcodeLookupVariants(code);
-        for (var i = 0; i < variants.length; i++) {
-            var hit = catalogIndex['bc:' + variants[i]];
-            if (hit) return hit;
-        }
-        return null;
-    }
-
-    function lookupProductByBarcode(code) {
-        if (!window.BarcodeScanner) {
-            return Promise.reject(new Error('Barcode scanner module not loaded.'));
-        }
-
-        var variants = barcodeLookupVariants(code);
-        var index = 0;
-
-        function tryNext() {
-            if (index >= variants.length) {
-                return Promise.resolve({ found: false, barcode: code });
-            }
-
-            var candidate = variants[index];
-            index += 1;
-
-            return BarcodeScanner.lookup(candidate).then(function (data) {
-                if (data.found && data.product) {
-                    return data;
-                }
-                return tryNext();
-            });
-        }
-
-        return tryNext();
-    }
-
-    function addProductByBarcode(barcode) {
-        var code = (barcode || '').trim();
-        if (!code) return;
-
-        var cached = findInCatalog(code);
-        if (cached) {
-            addToCart(cached);
+    /**
+     * Called by TMScanner's onAutoConfirm. Fetches product via get_product_by_id.php
+     * and adds it to the cart. Also updates the info panel.
+     * @param {number} productId
+     * @param {number} confidence   0-1
+     * @param {string} classLabel
+     * @param {string} categorySlug
+     */
+    function addProductById(productId, confidence, classLabel, categorySlug) {
+        productId = parseInt(productId, 10);
+        if (productId <= 0) {
+            showToast('Could not resolve product from scan.', 'error');
+            if (window.TMScanner) TMScanner.resumeAfterConfirm();
             return;
         }
 
-        lookupProductByBarcode(code).then(function (data) {
-            if (data.found && data.product) {
-                var product = data.product;
-                if (product.product_id && !product.id) {
-                    product.id = product.product_id;
-                }
-                if (product.quantity != null && product.qty == null) {
-                    product.qty = product.quantity;
-                }
-                cacheProduct(product);
-                addToCart(product);
-            } else {
-                showToast('Product not found. Please register this product first.', 'error');
-                focusBarcodeInput();
-            }
-        }).catch(function () {
-            showToast('Failed to look up barcode.', 'error');
-            focusBarcodeInput();
-        });
-    }
-
-    function processBarcodeInput() {
-        var input = document.getElementById('inv-barcode-input');
-        if (!input) return;
-
-        var code = input.value.trim();
-        input.value = '';
-
-        if (code) {
-            addProductByBarcode(code);
-        } else {
-            focusBarcodeInput();
+        // Check cache first
+        var cached = catalogIndex[String(productId)];
+        if (cached) {
+            addToCart(cached);
+            showToast('Auto-identified: ' + (cached.product_name || cached.name || 'Product') + ' (' + Math.round(confidence * 100) + '% confidence)', 'success');
+            if (window.TMScanner) TMScanner.resumeAfterConfirm();
+            return;
         }
-    }
 
-    function openInlineCamera() {
-        var barcodeMode = document.getElementById('inv-barcode-mode');
-        var cameraMode = document.getElementById('inv-camera-mode');
-        var scanBtn = document.getElementById('inv-scan-btn');
-
-        if (!barcodeMode || !cameraMode || !window.BarcodeScanner) return;
-
-        barcodeMode.style.display = 'none';
-        cameraMode.style.display = '';
-        if (scanBtn) scanBtn.classList.add('is-active');
-
-        focusWedgeInput();
-
-        requestAnimationFrame(function () {
-            requestAnimationFrame(function () {
-                BarcodeScanner.openInline('inv-inline-scanner-reader', function (code) {
-                    addProductByBarcode(code);
-                }, { skipDuplicate: true, statusId: 'inv-inline-scanner-status' });
+        fetch('api/get_product_by_id.php?id=' + productId)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.found && data.product) {
+                    cacheProduct(data.product);
+                    addToCart(data.product);
+                    showToast(
+                        'Auto-identified: ' + (data.product.product_name || 'Product') +
+                        ' (' + Math.round(confidence * 100) + '% confidence)',
+                        'success'
+                    );
+                } else {
+                    showToast('Product ID ' + productId + ' not found in database.', 'error');
+                }
+                if (window.TMScanner) TMScanner.resumeAfterConfirm();
+            })
+            .catch(function () {
+                showToast('Failed to fetch product details.', 'error');
+                if (window.TMScanner) TMScanner.resumeAfterConfirm();
             });
+    }
+
+    /**
+     * Called by TMScanner's onNeedsConfirm.
+     * Fetches product details for each candidate, then populates
+     * the amber candidate drawer so staff can tap to confirm.
+     * @param {Array<{productId, label, confidence}>} candidates
+     * @param {string} categorySlug
+     */
+    function showCandidateDrawer(candidates, categorySlug) {
+        var drawer = document.getElementById('tm-candidate-drawer');
+        var list   = document.getElementById('tm-candidate-list');
+        if (!drawer || !list) {
+            // Drawer not in DOM — fall back to auto with top candidate
+            if (candidates.length > 0) addProductById(candidates[0].productId, candidates[0].confidence, candidates[0].label, categorySlug);
+            return;
+        }
+
+        list.innerHTML = '<div style="padding:12px;text-align:center;color:#9aa6d1;font-size:12px;">Loading candidates…</div>';
+        drawer.classList.add('is-open');
+
+        // Fetch product names/images for each candidate in parallel
+        var fetches = candidates.map(function (c) {
+            var cached = catalogIndex[String(c.productId)];
+            if (cached) {
+                return Promise.resolve({ found: true, product: cached, confidence: c.confidence, label: c.label });
+            }
+            return fetch('api/get_product_by_id.php?id=' + c.productId)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.found && data.product) {
+                        cacheProduct(data.product);
+                    }
+                    return { found: data.found, product: data.product, confidence: c.confidence, label: c.label };
+                })
+                .catch(function () {
+                    return { found: false, product: null, confidence: c.confidence, label: c.label };
+                });
+        });
+
+        Promise.all(fetches).then(function (results) {
+            list.innerHTML = '';
+            var validCount = 0;
+
+            results.forEach(function (res) {
+                if (!res.found || !res.product) return;
+                validCount++;
+
+                var p = res.product;
+                var pId = parseInt(p.product_id || p.id || '0', 10);
+                var pName = p.product_name || p.name || 'Unknown Product';
+                var pConf = Math.round(res.confidence * 100);
+                var pImg  = p.image_url || null;
+
+                var item = document.createElement('div');
+                item.className = 'tm-candidate-item';
+
+                // Thumbnail
+                if (pImg) {
+                    var img = document.createElement('img');
+                    img.className = 'tm-candidate-thumb';
+                    img.src = pImg;
+                    img.alt = pName;
+                    img.onerror = function () {
+                        img.replaceWith(makePlaceholder());
+                    };
+                    item.appendChild(img);
+                } else {
+                    item.appendChild(makePlaceholder());
+                }
+
+                // Info block
+                var info = document.createElement('div');
+                info.className = 'tm-candidate-info';
+                info.innerHTML =
+                    '<div class="tm-candidate-name">' + escapeHtml(pName) + '</div>' +
+                    '<div class="tm-candidate-conf">' + pConf + '% confidence</div>';
+                item.appendChild(info);
+
+                // Pick button
+                var pickBtn = document.createElement('button');
+                pickBtn.type = 'button';
+                pickBtn.className = 'tm-candidate-pick-btn';
+                pickBtn.textContent = 'Select';
+                pickBtn.setAttribute('data-product-id', String(pId));
+                pickBtn.addEventListener('click', function () {
+                    closeCandidateDrawer();
+                    addToCart(p);
+                    showToast('Manually confirmed: ' + pName, 'success');
+                    if (window.TMScanner) TMScanner.resumeAfterConfirm();
+                });
+                item.appendChild(pickBtn);
+
+                list.appendChild(item);
+            });
+
+            if (validCount === 0) {
+                list.innerHTML = '<div style="padding:12px;text-align:center;color:#f87171;font-size:12px;">No recognizable products found. Try again.</div>';
+            }
         });
     }
 
-    function closeInlineCamera() {
-        var barcodeMode = document.getElementById('inv-barcode-mode');
-        var cameraMode = document.getElementById('inv-camera-mode');
-        var scanBtn = document.getElementById('inv-scan-btn');
-
-        if (!window.BarcodeScanner) return;
-
-        BarcodeScanner.closeInline().then(function () {
-            if (cameraMode) cameraMode.style.display = 'none';
-            if (barcodeMode) barcodeMode.style.display = '';
-            if (scanBtn) scanBtn.classList.remove('is-active');
-            focusBarcodeInput();
-        });
+    function makePlaceholder() {
+        var ph = document.createElement('div');
+        ph.className = 'tm-candidate-thumb-placeholder';
+        ph.innerHTML = '&#128722;'; // shopping bag emoji
+        return ph;
     }
+
+    function closeCandidateDrawer() {
+        var drawer = document.getElementById('tm-candidate-drawer');
+        if (drawer) drawer.classList.remove('is-open');
+    }
+
+    // ── End AI Scanner helpers ─────────────────────────────────────────
 
     function handleInfoAction(action) {
         if (selectedProductId == null) return;
@@ -789,6 +786,105 @@ var InventoryTransaction = (function () {
         }
     }
 
+    function initTMScanner() {
+        if (!window.TMScanner) return;
+
+        var videoEl        = document.getElementById('tm-video');
+        var cameraWrap     = document.getElementById('tm-camera-wrap');
+        var toggleBtn      = document.getElementById('tm-toggle-btn');
+        var stopBtn        = document.getElementById('tm-stop-btn');
+        var cameraStatus   = document.getElementById('tm-camera-status');
+        var confFill       = document.getElementById('tm-conf-fill');
+        var confLabelText  = document.getElementById('tm-conf-label-text');
+        var confPct        = document.getElementById('tm-conf-pct');
+
+        updateScannerBadge('idle', 'AI Scanner ready');
+        if (toggleBtn) toggleBtn.disabled = false;
+
+        // ─ TMScanner callbacks ───────────────────────────────────
+        TMScanner.init({
+            onModelLoaded: function (slug) {
+                updateScannerBadge('idle', 'Model loaded: ' + slug);
+                if (cameraStatus) cameraStatus.textContent = 'Model loaded. Starting camera…';
+            },
+            onModelError: function (msg) {
+                updateScannerBadge('off', 'Model error');
+                showToast('Model error: ' + msg, 'error');
+            },
+            onCameraStarted: function () {
+                updateScannerBadge('scanning', 'Scanning…');
+                if (cameraStatus) cameraStatus.textContent = 'Scanning… hold product in view';
+                if (cameraWrap) cameraWrap.style.display = '';
+                if (toggleBtn) { toggleBtn.textContent = 'Stop Camera'; toggleBtn.classList.add('is-active'); }
+            },
+            onCameraError: function (msg) {
+                updateScannerBadge('off', 'Camera error');
+                showToast('Camera error: ' + msg, 'error');
+                if (cameraWrap) cameraWrap.style.display = 'none';
+                if (toggleBtn) { toggleBtn.textContent = 'Start Camera'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
+            },
+            onStopped: function () {
+                updateScannerBadge('idle', 'AI Scanner idle');
+                if (cameraWrap) cameraWrap.style.display = 'none';
+                if (confFill) { confFill.style.width = '0%'; confFill.className = 'tm-conf-fill'; }
+                if (confLabelText) confLabelText.textContent = 'Waiting…';
+                if (confPct) confPct.textContent = '—';
+                if (cameraStatus) cameraStatus.textContent = 'Camera stopped.';
+                if (toggleBtn) { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
+            },
+            onPredicting: function (topLabel, topConf, allSorted) {
+                if (!confFill) return;
+                var pct = Math.round(topConf * 100);
+                confFill.style.width = pct + '%';
+                confFill.className = 'tm-conf-fill' +
+                    (topConf < 0.5 ? ' is-low' : topConf < 0.80 ? ' is-medium' : '');
+                if (confLabelText) confLabelText.textContent = topLabel;
+                if (confPct) confPct.textContent = pct + '%';
+            },
+            onAutoConfirm: function (productId, confidence, classLabel) {
+                if (cameraStatus) cameraStatus.textContent = 'Identified! Adding to transaction…';
+                addProductById(productId, confidence, classLabel, 'global');
+            }
+        });
+
+        // ─ Toggle camera button ───────────────────────────────────
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function () {
+                if (TMScanner.isRunning()) {
+                    TMScanner.stopCamera();
+                    return;
+                }
+
+                toggleBtn.disabled = true;
+                updateScannerBadge('loading', 'Loading model…');
+                if (cameraStatus) cameraStatus.textContent = 'Loading AI model…';
+
+                var loadPromise = TMScanner.loadModel();
+
+                loadPromise
+                    .then(function () {
+                        if (!videoEl) {
+                            showToast('Video element not found.', 'error');
+                            toggleBtn.disabled = false;
+                            return;
+                        }
+                        return TMScanner.startCamera(videoEl);
+                    })
+                    .catch(function (err) {
+                        toggleBtn.disabled = false;
+                    });
+            });
+        }
+
+        // Stop button (inside camera footer)
+        if (stopBtn) {
+            stopBtn.addEventListener('click', function () {
+                TMScanner.stopCamera();
+            });
+        }
+
+    }
+
     function init() {
         var form = document.getElementById('inv-txn-form');
         if (!form) return;
@@ -797,53 +893,10 @@ var InventoryTransaction = (function () {
         renderCart();
         clearProductInfo();
 
-        var barcodeInput = document.getElementById('inv-barcode-input');
-        var wedgeInput = document.getElementById('inv-wedge-input');
+        // ─ Wire up TM Scanner ───────────────────────────────────
+        initTMScanner();
 
-        function onWedgeScan(code) {
-            if (barcodeInput) barcodeInput.value = '';
-            if (wedgeInput) wedgeInput.value = '';
-            addProductByBarcode(code);
-        }
-
-        if (barcodeInput) {
-            barcodeInput.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    processBarcodeInput();
-                }
-            });
-
-            if (window.BarcodeScanner) {
-                BarcodeScanner.attachHidInput(barcodeInput, function (code) {
-                    if (!BarcodeScanner.isUsbScannerConnected()) return;
-                    onWedgeScan(code);
-                }, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
-            }
-        }
-
-        if (wedgeInput && window.BarcodeScanner) {
-            BarcodeScanner.attachHidInput(wedgeInput, function (code) {
-                if (!BarcodeScanner.isUsbScannerConnected()) return;
-                onWedgeScan(code);
-            }, { minLength: 3, maxScanMs: 700, skipDuplicate: true });
-
-            updateScannerUi(BarcodeScanner.isUsbScannerConnected());
-            BarcodeScanner.onStatusChange(updateScannerUi);
-        }
-
-        if (window.BarcodeScanner) {
-            document.getElementById('inv-scan-btn')?.addEventListener('click', function () {
-                if (BarcodeScanner.isInlineActive && BarcodeScanner.isInlineActive()) {
-                    closeInlineCamera();
-                } else {
-                    openInlineCamera();
-                }
-            });
-
-            document.getElementById('inv-close-camera-btn')?.addEventListener('click', closeInlineCamera);
-        }
-
+        // ─ Info panel / Cart events ──────────────────────────────
         document.getElementById('inv-info-remove')?.addEventListener('click', function () {
             handleInfoAction('remove');
         });
@@ -853,10 +906,7 @@ var InventoryTransaction = (function () {
         cartBody?.addEventListener('click', handleCartRowSelect);
 
         document.getElementById('inv-clear-btn')?.addEventListener('click', function () {
-            if (cart.length === 0) {
-                focusBarcodeInput();
-                return;
-            }
+            if (cart.length === 0) return;
             clearCart();
         });
 
@@ -879,18 +929,15 @@ var InventoryTransaction = (function () {
 
         document.getElementById('inv-receive-expiry')?.addEventListener('input', syncReceiveFieldsToCart);
         document.getElementById('inv-receive-expiry')?.addEventListener('change', syncReceiveFieldsToCart);
-
-        document.getElementById('inv-scanner-hint')?.addEventListener('click', focusBarcodeInput);
-
-        focusBarcodeInput();
     }
 
     document.addEventListener('DOMContentLoaded', init);
 
     return {
-        showToast: showToast,
-        addProductByBarcode: addProductByBarcode,
-        addToCart: addToCart,
-        clearCart: clearCart
+        showToast:         showToast,
+        addProductById:    addProductById,
+        addToCart:         addToCart,
+        clearCart:         clearCart,
+        showCandidateDrawer: showCandidateDrawer,
     };
 })();

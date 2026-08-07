@@ -1,4 +1,10 @@
 /**
+ * @deprecated Since 2026-08. Barcode scanning replaced by Teachable Machine AI scanner (tm-scanner.js).
+ * This file is retained for reference and is NO LONGER LOADED by inventory/receive/release pages.
+ * The barcode column in the products and transactions tables is preserved for manual lookup.
+ * Do not delete this file — it may still be referenced by other non-inventory pages.
+ */
+/**
  * IntelliWare Barcode Scanner Module
  * 
  * This module handles reading/scanning manufacturer-assigned barcodes from product packaging

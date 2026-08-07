@@ -91,22 +91,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'add') {
             $product_name = trim($_POST['product_name'] ?? '');
-            $barcode = trim($_POST['barcode'] ?? '');
-            $category = trim($_POST['category'] ?? '');
-            $supplier = trim($_POST['supplier'] ?? '');
-            $location = trim($_POST['location'] ?? '');
-            $unit = trim($_POST['unit'] ?? '');
-            $quantity = parseNonNegativeInt($_POST['quantity'] ?? null);
-            $reorder_point = parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
-            $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
-            $shelf_life = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
+            $barcode      = trim($_POST['barcode'] ?? '');
+            $category     = trim($_POST['category'] ?? '');
+            $supplier     = trim($_POST['supplier'] ?? '');
+            $location     = trim($_POST['location'] ?? '');
+            $unit         = trim($_POST['unit'] ?? '');
+            $quantity     = parseNonNegativeInt($_POST['quantity'] ?? null);
+            $reorder_point= parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
+            $price        = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
+            $shelf_life   = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
+            $ai_class     = trim($_POST['ai_class_label'] ?? '');
+            $product_image_b64 = trim($_POST['product_image_b64'] ?? '');
 
-            if ($barcode === '') {
-                throw new Exception('Barcode is required.');
-            }
-            if (strlen($barcode) > 50) {
-                throw new Exception('Barcode must be 50 characters or fewer.');
-            }
             if ($product_name === '') {
                 throw new Exception('Product name is required.');
             }
@@ -127,35 +123,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
-            $synced = LocationCategoryService::synchronize($category, $location, $changedField, $conn);
+            $synced   = LocationCategoryService::synchronize($category, $location, $changedField, $conn);
             $category = $synced['category'];
             $location = $synced['location'];
 
-            $openingQty = $quantity;
-
-            $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
-            $dupStmt->bind_param("s", $barcode);
-            $dupStmt->execute();
-            $existing = $dupStmt->get_result()->fetch_assoc();
-            $dupStmt->close();
-            if ($existing) {
-                throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
+            // Use AI class label as barcode if no manual barcode provided
+            if ($barcode === '' && $ai_class !== '') {
+                $barcode = $ai_class;
             }
 
+            $openingQty = $quantity;
+
+            // Check barcode duplicate only if barcode provided
+            if ($barcode !== '') {
+                $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
+                $dupStmt->bind_param("s", $barcode);
+                $dupStmt->execute();
+                $existing = $dupStmt->get_result()->fetch_assoc();
+                $dupStmt->close();
+                if ($existing) {
+                    throw new Exception("This barcode is already registered to: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
+                }
+            }
+
+            $barcodeVal = $barcode !== '' ? $barcode : null;
             $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssisdi", $product_name, $barcode, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
+            $stmt->bind_param("sssssisdi", $product_name, $barcodeVal, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
             if ($stmt->execute()) {
                 $newProductId = (int)$conn->insert_id;
                 $stmt->close();
 
+                // Save captured product image if provided
+                if ($product_image_b64 !== '') {
+                    $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $product_image_b64));
+                    if ($imgData !== false) {
+                        $imgDir = __DIR__ . '/uploads/products/';
+                        if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
+                        file_put_contents($imgDir . $newProductId . '.jpg', $imgData);
+                    }
+                }
+
                 if ($openingQty > 0) {
                     StockMovementService::executeMovement(
-                        $conn,
-                        $newProductId,
-                        $openingQty,
-                        'in',
-                        $_SESSION['Username'],
-                        'Opening stock on product create'
+                        $conn, $newProductId, $openingQty, 'in',
+                        $_SESSION['Username'], 'Opening stock on product create'
                     );
                 }
 
@@ -339,6 +350,64 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 ?>
 
 <style>
+    /* ── AI Scanner classes — same as inventory_transaction_view.php ─── */
+    .pos-scanner-zone { flex-shrink: 0; }
+    .tm-category-row { display: flex; gap: 8px; align-items: stretch; }
+    .tm-start-btn {
+        height: 46px; min-width: 46px; padding: 0 14px;
+        background: var(--iw-bg-btn-secondary, rgba(255,255,255,0.05));
+        border: 1px solid var(--iw-border-input, #2A4484);
+        border-radius: 12px; color: var(--iw-text, #c8d4f5);
+        cursor: pointer; font-size: 14px; font-family: 'Onest', sans-serif;
+        font-weight: 600; display: inline-flex; align-items: center;
+        justify-content: center; gap: 6px; flex-shrink: 0;
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .tm-start-btn:hover:not(:disabled) { border-color: #51D55A; color: #51D55A; background: rgba(81,213,90,0.08); }
+    .tm-start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .tm-camera-wrap {
+        position: relative; border: 1px solid var(--iw-border, #1E2D5B);
+        border-radius: 12px; overflow: hidden; background: #0a0c1a;
+    }
+    .tm-camera-wrap video { width: 100%; max-height: 220px; object-fit: cover; display: block; }
+    .tm-camera-overlay {
+        position: absolute; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-end; pointer-events: none;
+        padding: 10px; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+    }
+    .tm-viewfinder-ring {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%);
+        width: 160px; height: 160px; border: 2px solid rgba(81,213,90,0.6);
+        border-radius: 16px; animation: tmRingPulse 2s ease-in-out infinite;
+        pointer-events: none;
+    }
+    @keyframes tmRingPulse {
+        0%, 100% { border-color: rgba(81,213,90,0.5); }
+        50%       { border-color: rgba(81,213,90,0.9); }
+    }
+    .tm-conf-bar-wrap { width: 100%; pointer-events: none; }
+    .tm-conf-label {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 11px; font-family: 'Onest', sans-serif; font-weight: 600;
+        color: #e3e3e3; margin-bottom: 4px;
+    }
+    .tm-conf-pct { font-size: 13px; color: #51D55A; }
+    .tm-conf-track { height: 6px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; }
+    .tm-conf-fill {
+        height: 100%; border-radius: 999px;
+        background: linear-gradient(90deg, #51D55A, #a3f0a8);
+        transition: width 0.25s ease, background 0.25s; width: 0%;
+    }
+    .tm-conf-fill.is-low    { background: linear-gradient(90deg, #f87171, #fca5a5); }
+    .tm-conf-fill.is-medium { background: linear-gradient(90deg, #fbbf24, #fde68a); }
+    .tm-stop-btn {
+        flex-shrink: 0; height: 32px; padding: 0 14px; border-radius: 8px;
+        border: 1px solid rgba(239,68,68,0.4); background: rgba(239,68,68,0.1);
+        color: #f87171; font-family: 'Onest', sans-serif; font-size: 12px;
+        font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .tm-stop-btn:hover { background: rgba(239,68,68,0.2); border-color: #f87171; }
+
     /* Page-specific styles — sidebar/layout come from src/layout.php + styles.css */
     .inventory-action-btn {
         width: 36px;
@@ -812,14 +881,55 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <input type="hidden" name="sync_driver" id="add-sync-driver" value="category">
             <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                 <div style="grid-column: span 2;">
-                    <label class="form-label">Manufacturer Barcode (Product Identifier) *</label>
-                    <div class="flex gap-2">
-                        <input name="barcode" id="add-barcode-input" class="premium-input flex-1" style="height:46px;" placeholder="Scan or type barcode, then press Enter" autocomplete="off" required maxlength="50">
-                        <button type="button" class="btn-scan" id="add-scan-barcode-btn" title="Scan barcode with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
-                        <button type="button" class="btn-confirm-barcode" id="add-confirm-barcode-btn">Confirm</button>
-                        <button type="button" class="btn-clear-barcode" id="add-clear-barcode-btn" style="display:none;" title="Clear barcode and start over">Clear</button>
+                    <!-- Hidden fields for AI result -->
+                    <input type="hidden" name="ai_class_label" id="add-ai-class-label" value="">
+                    <input type="hidden" name="product_image_b64" id="add-product-image-b64" value="">
+                    <input type="hidden" name="barcode" id="add-barcode-hidden" value="">
+
+                    <!-- AI Camera Identification — uses system scanner classes for consistency -->
+                    <div class="pos-scanner-zone" id="ai-capture-block">
+
+                        <!-- Status bar + Scan button -->
+                        <div class="tm-category-row" style="align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                                <div id="ai-status-dot" style="width:9px; height:9px; border-radius:50%; background:#475569; flex-shrink:0; transition:background 0.3s, box-shadow 0.3s;"></div>
+                                <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Click &ldquo;Scan Product&rdquo; to identify with AI camera</span>
+                            </div>
+                            <div style="display:flex; gap:6px; flex-shrink:0;">
+                                <button type="button" id="ai-retake-btn" class="tm-stop-btn" style="display:none;" onclick="aiRetake()">&#x21BA; Retake</button>
+                                <button type="button" id="ai-scan-btn" class="tm-start-btn" style="height:38px;" onclick="aiStartScan()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                                    </svg>
+                                    Scan Product
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Camera feed (hidden until started) -->
+                        <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:8px;">
+                            <video id="ai-video" playsinline muted autoplay></video>
+                            <canvas id="ai-snapshot-canvas" style="display:none; width:100%; max-height:220px; object-fit:cover; display:none;"></canvas>
+                            <div class="tm-camera-overlay">
+                                <div class="tm-viewfinder-ring" id="ai-scan-ring"></div>
+                                <div class="tm-conf-bar-wrap">
+                                    <div class="tm-conf-label">
+                                        <span id="ai-status-scanning">Scanning&hellip;</span>
+                                        <span class="tm-conf-pct" id="ai-conf-pct">&mdash;</span>
+                                    </div>
+                                    <div class="tm-conf-track">
+                                        <div class="tm-conf-fill" id="ai-conf-bar"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Identified success overlay -->
+                            <div id="ai-confirmed-overlay" style="display:none; position:absolute; inset:0; background:rgba(6,95,70,0.85); align-items:center; justify-content:center; flex-direction:column; gap:6px; z-index:5;">
+                                <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                <span id="ai-confirmed-label" style="font-size:13px; font-weight:700; font-family:'Onest',sans-serif; color:#d1fae5;">Product identified!</span>
+                            </div>
+                        </div>
                     </div>
-                    <p class="add-barcode-status add-barcode-status--pending" id="add-barcode-status">Scan or enter a barcode to unlock the remaining fields.</p>
                 </div>
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Name *</label>
@@ -866,13 +976,13 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 30" disabled>
                     <p class="add-field-error" id="add-shelf-life-error" hidden></p>
                 </div>
-                <div class="add-save-field-col" style="grid-column: span 2;">
-                    <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
-                </div>
             </div>
             <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
-                <p class="form-keyboard-hint" style="margin:0;">Enter to save · Shift+Enter for next field</p>
-                <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
+                <p class="form-keyboard-hint" style="margin:0;">Enter to save &middot; Shift+Enter for next field</p>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
+                    <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
+                </div>
             </div>
         </form>
     </div>
@@ -989,7 +1099,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 </div>
 
 
-<?php require_once 'src/partials/barcode_scanner_modal.php'; ?>
+
 
 <script>
 const editInputs = <?php echo json_encode($edit_inputs); ?>;
@@ -1011,8 +1121,9 @@ const ADD_FORM_FIELD_ORDER = [
 
 const EDIT_FIELD_ORDER = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
-var addBarcodeLocked = false;
-var addBarcodeValidating = false;
+var addBarcodeLocked = false;      // kept for legacy compatibility (unused)
+var addBarcodeValidating = false;  // kept for legacy compatibility (unused)
+var aiProductIdentified = false;   // AI gate: true once camera identifies a product
 var addFormSubmitting = false;
 var editRowSubmitting = {};
 var locationCategorySyncLock = false;
@@ -1137,6 +1248,118 @@ function setAddFormFieldsEnabled(enabled) {
     }
 }
 
+function setAiStatus(text, state) {
+    var dot   = document.getElementById('ai-status-dot');
+    var label = document.getElementById('ai-status-text');
+    if (label) label.textContent = text;
+    if (dot) {
+        var styles = {
+            scanning:   { bg: '#fbbf24', shadow: '0 0 8px #fbbf2488' },
+            identified: { bg: '#34d399', shadow: '0 0 8px #34d39988' },
+            error:      { bg: '#f87171', shadow: '0 0 8px #f8717188' },
+            idle:       { bg: '#64748b', shadow: 'none' }
+        };
+        var s = styles[state] || styles.idle;
+        dot.style.background  = s.bg;
+        dot.style.boxShadow   = s.shadow;
+    }
+}
+
+function aiCaptureFrame() {
+    var video    = document.getElementById('ai-video');
+    var canvas   = document.getElementById('ai-snapshot-canvas');
+    var overlay  = document.getElementById('ai-confirmed-overlay');
+    var scanOverlay = document.getElementById('ai-scan-overlay');
+    if (!video || !canvas) return;
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    var b64 = canvas.toDataURL('image/jpeg', 0.85);
+    var imgField = document.getElementById('add-product-image-b64');
+    if (imgField) imgField.value = b64;
+    // Show snapshot, hide video
+    video.style.display  = 'none';
+    canvas.style.display = 'block';
+    if (scanOverlay) scanOverlay.style.display = 'none';
+    if (overlay)    { overlay.style.display = 'flex'; }
+}
+
+function aiOnIdentified(productId, confidence, classLabel) {
+    if (aiProductIdentified) return;
+    aiProductIdentified = true;
+
+    // Store AI class as internal barcode ref
+    var classField = document.getElementById('add-ai-class-label');
+    var barcodeField = document.getElementById('add-barcode-hidden');
+    if (classField) classField.value = classLabel;
+    if (barcodeField) barcodeField.value = classLabel;
+
+    // Capture the video frame
+    aiCaptureFrame();
+
+    // Stop the camera
+    if (window.TMScanner && TMScanner.isRunning()) TMScanner.stopCamera();
+
+    // Show confirmed label
+    var confirmLabel = document.getElementById('ai-confirmed-label');
+    if (confirmLabel) confirmLabel.textContent = 'Identified! Fill in the details below.';
+
+    // Update status bar
+    setAiStatus('Product identified — fill in the details below', 'identified');
+    var retakeBtn = document.getElementById('ai-retake-btn');
+    if (retakeBtn) retakeBtn.style.display = 'inline-block';
+
+    // Update confidence bar to green/full
+    var bar = document.getElementById('ai-conf-bar');
+    if (bar) { bar.style.width = '100%'; bar.style.backgroundColor = '#34d399'; }
+
+    // Unlock form fields
+    setAddFormFieldsEnabled(true);
+    var nameInput = document.getElementById('add-product-name');
+    if (nameInput) setTimeout(function() { nameInput.focus(); }, 100);
+}
+
+function aiRetake() {
+    aiProductIdentified = false;
+
+    // Reset captured image
+    var imgField = document.getElementById('add-product-image-b64');
+    var classField = document.getElementById('add-ai-class-label');
+    var barcodeField = document.getElementById('add-barcode-hidden');
+    if (imgField) imgField.value = '';
+    if (classField) classField.value = '';
+    if (barcodeField) barcodeField.value = '';
+
+    // Show video, hide snapshot
+    var video = document.getElementById('ai-video');
+    var canvas = document.getElementById('ai-snapshot-canvas');
+    var overlay = document.getElementById('ai-confirmed-overlay');
+    var scanOverlay = document.getElementById('ai-scan-overlay');
+    if (video)  video.style.display = 'block';
+    if (canvas) canvas.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    if (scanOverlay) scanOverlay.style.display = 'flex';
+
+    // Reset bar
+    var bar = document.getElementById('ai-conf-bar');
+    if (bar) { bar.style.width = '0%'; bar.style.backgroundColor = '#fbbf24'; }
+
+    // Hide retake btn
+    var retakeBtn = document.getElementById('ai-retake-btn');
+    if (retakeBtn) retakeBtn.style.display = 'none';
+
+    // Re-lock form
+    setAddFormFieldsEnabled(false);
+    setAiStatus('Point camera at product — AI will identify it', 'scanning');
+
+    // Restart camera
+    if (window.TMScanner) {
+        TMScanner.loadModel().then(function() {
+            return TMScanner.startCamera(document.getElementById('ai-video'));
+        }).catch(function(e) { setAiStatus('Camera error: ' + e.message, 'error'); });
+    }
+}
+
 function clearAddFormErrors() {
     document.querySelectorAll('#add-product-form .add-field-error').forEach(function (el) {
         el.textContent = '';
@@ -1171,15 +1394,13 @@ function setAddSubmitState(submitting) {
     addFormSubmitting = submitting;
     var submitBtn = document.getElementById('add-product-submit');
     if (!submitBtn) return;
-
     if (submitting) {
         submitBtn.disabled = true;
         submitBtn.textContent = 'Saving...';
         return;
     }
-
     submitBtn.textContent = ADD_SUBMIT_LABEL;
-    submitBtn.disabled = !addBarcodeLocked;
+    submitBtn.disabled = !aiProductIdentified;
 }
 
 function isValidWholeNumber(value) {
@@ -1233,23 +1454,11 @@ function submitAddProductForm() {
     }
 }
 
+// validateAddProductForm — barcode gate removed
 function validateAddProductForm() {
     clearAddFormErrors();
     var valid = true;
     var firstInvalid = null;
-
-    if (!addBarcodeLocked) {
-        setAddBarcodeStatus('Please scan or enter a valid barcode first.', 'error');
-        valid = false;
-        firstInvalid = document.getElementById('add-barcode-input');
-    }
-
-    var barcode = (document.getElementById('add-barcode-input')?.value || '').trim();
-    if (barcode && barcode.length < ADD_BARCODE_MIN_LENGTH) {
-        setAddBarcodeStatus('Barcode is too short. Please scan again.', 'error');
-        valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-barcode-input');
-    }
 
     var name = (document.getElementById('add-product-name')?.value || '').trim();
     if (!name) {
@@ -1315,105 +1524,74 @@ function resetAddProductForm() {
     if (!form) return;
 
     form.reset();
-    addBarcodeLocked = false;
-    addBarcodeValidating = false;
+    aiProductIdentified = false;
     addFormSubmitting = false;
-    lockAddBarcodeField(false);
     clearAddFormErrors();
     setAddFormFieldsEnabled(false);
     setAddSubmitState(false);
-    setAddBarcodeStatus('Scan or enter a barcode to unlock the remaining fields.', 'pending');
-}
 
-function focusAddBarcodeInput() {
-    if (window.BarcodeScanner) {
-        BarcodeScanner.focusHidInput('add-barcode-input');
-    } else {
-        var input = document.getElementById('add-barcode-input');
-        if (input) setTimeout(function () { input.focus(); }, 50);
-    }
-}
+    // Reset AI camera UI
+    var video      = document.getElementById('ai-video');
+    var canvas     = document.getElementById('ai-snapshot-canvas');
+    var overlay    = document.getElementById('ai-confirmed-overlay');
+    var scanOverlay= document.getElementById('ai-scan-overlay');
+    var retakeBtn  = document.getElementById('ai-retake-btn');
+    var scanBtn    = document.getElementById('ai-scan-btn');
+    var cameraArea = document.getElementById('ai-camera-area');
+    var bar        = document.getElementById('ai-conf-bar');
+    var imgField   = document.getElementById('add-product-image-b64');
+    var classField = document.getElementById('add-ai-class-label');
+    var barcodeField = document.getElementById('add-barcode-hidden');
 
-function acceptAddBarcode(barcode) {
-    var input = document.getElementById('add-barcode-input');
-    if (!input) return;
+    if (video)      video.style.display = 'block';
+    if (canvas)     canvas.style.display = 'none';
+    if (overlay)    overlay.style.display = 'none';
+    if (scanOverlay)scanOverlay.style.display = 'flex';
+    if (retakeBtn)  retakeBtn.style.display = 'none';
+    if (scanBtn)  { scanBtn.disabled = false; }
+    if (cameraArea) cameraArea.style.display = 'none';
+    if (bar)  { bar.style.width = '0%'; bar.style.backgroundColor = '#fbbf24'; }
+    if (imgField)   imgField.value = '';
+    if (classField) classField.value = '';
+    if (barcodeField) barcodeField.value = '';
 
-    input.value = barcode;
-    input.setAttribute('data-locked-value', barcode);
-    lockAddBarcodeField(true);
-    setAddFormFieldsEnabled(true);
-    setAddBarcodeStatus('Barcode locked. Complete the product details below.', 'ready');
-
-    var nameInput = document.getElementById('add-product-name');
-    if (nameInput) setTimeout(function () { nameInput.focus(); }, 80);
-}
-
-function rejectAddBarcode(message) {
-    var input = document.getElementById('add-barcode-input');
-    if (input) {
-        input.value = '';
-        input.readOnly = false;
-        input.classList.remove('add-field-locked');
-    }
-    addBarcodeLocked = false;
-    setAddFormFieldsEnabled(false);
-    setBarcodeConfirmEnabled(!addBarcodeValidating);
-    setAddBarcodeStatus(message || 'Scan or enter a barcode to unlock the remaining fields.', message ? 'error' : 'pending');
-    focusAddBarcodeInput();
-}
-
-function validateAddBarcode(barcode) {
-    if (addBarcodeLocked || addBarcodeValidating) return;
-
-    var code = (barcode || '').trim();
-    if (!code) {
-        rejectAddBarcode('Please scan or enter a barcode first.');
-        return;
-    }
-    if (code.length < ADD_BARCODE_MIN_LENGTH) {
-        rejectAddBarcode('Barcode is too short. Please scan again.');
-        return;
-    }
-
-    if (!window.BarcodeScanner) {
-        acceptAddBarcode(code);
-        return;
-    }
-
-    addBarcodeValidating = true;
-    setAddBarcodeStatus('Checking barcode…', 'pending');
-    setBarcodeConfirmEnabled(false);
-
-    BarcodeScanner.lookup(code).then(function (data) {
-        addBarcodeValidating = false;
-        if (data.found && data.product) {
-            BarcodeScanner.showDuplicate(data.product);
-            rejectAddBarcode('This barcode already exists. Scan a different barcode or click Clear.');
-            return;
-        }
-        acceptAddBarcode(code);
-    }).catch(function () {
-        addBarcodeValidating = false;
-        if (!navigator.onLine) {
-            acceptAddBarcode(code);
-            setAddBarcodeStatus('Offline — barcode not verified online. Uniqueness will be checked when you save.', 'pending');
-            return;
-        }
-        rejectAddBarcode('Could not verify barcode. Check your connection and try again.');
-    });
+    setAiStatus('Click “Scan Product” to identify with AI camera', 'idle');
 }
 
 function openAddModal() {
     resetAddProductForm();
     document.body.style.overflow = 'hidden';
     document.getElementById('add-modal-overlay').classList.add('active');
-    focusAddBarcodeInput();
+    // Camera does NOT auto-start — user clicks "Scan Product" button
 }
 
 function closeAddModal() {
+    if (window.TMScanner && TMScanner.isRunning()) TMScanner.stopCamera();
     document.getElementById('add-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
     resetAddProductForm();
+}
+
+function aiStartScan() {
+    if (!window.TMScanner) {
+        setAiStatus('AI Scanner not available — check script tags', 'error');
+        return;
+    }
+    var scanBtn = document.getElementById('ai-scan-btn');
+    var cameraArea = document.getElementById('ai-camera-area');
+    if (scanBtn) scanBtn.disabled = true;
+    if (cameraArea) cameraArea.style.display = 'block';
+    setAiStatus('Loading AI model…', 'scanning');
+
+    TMScanner.loadModel()
+        .then(function() {
+            return TMScanner.startCamera(document.getElementById('ai-video'));
+        })
+        .catch(function(err) {
+            if (cameraArea) cameraArea.style.display = 'none';
+            if (scanBtn) scanBtn.disabled = false;
+            setAiStatus('Error: ' + (err.message || err), 'error');
+        });
 }
 
 let delId = null;
@@ -1564,35 +1742,8 @@ function checkBarcodeDuplicate(barcode, onClear) {
     });
 }
 
-document.getElementById('add-confirm-barcode-btn')?.addEventListener('click', function () {
-    if (addBarcodeLocked || addBarcodeValidating) return;
-    validateAddBarcode(document.getElementById('add-barcode-input')?.value || '');
-});
 
-document.getElementById('add-clear-barcode-btn')?.addEventListener('click', function () {
-    resetAddProductForm();
-    focusAddBarcodeInput();
-});
 
-document.getElementById('add-scan-barcode-btn')?.addEventListener('click', function () {
-    if (addBarcodeLocked || addBarcodeValidating) return;
-    BarcodeScanner.open(function(code) {
-        validateAddBarcode(code);
-    });
-});
-
-document.getElementById('add-barcode-input')?.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        if (!addBarcodeLocked) validateAddBarcode(this.value);
-    }
-});
-
-document.getElementById('add-barcode-input')?.addEventListener('input', function () {
-    if (!addBarcodeLocked) return;
-    var lockedValue = this.getAttribute('data-locked-value') || '';
-    if (this.value !== lockedValue) this.value = lockedValue;
-});
 
 document.getElementById('add-product-form')?.addEventListener('submit', function (e) {
     if (addFormSubmitting) {
@@ -1600,9 +1751,11 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
         return;
     }
 
-    if (!addBarcodeLocked) {
+    if (!aiProductIdentified) {
         e.preventDefault();
-        validateAddBarcode(document.getElementById('add-barcode-input')?.value || '');
+        setAiStatus('Please scan a product first to unlock the form.', 'error');
+        var scanBtn = document.getElementById('ai-scan-btn');
+        if (scanBtn) scanBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -1712,12 +1865,58 @@ function initProductBarcodeInputs() {
 }
 </script>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="src/scripts/barcode-scanner.js?v=<?php echo time(); ?>"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+<script src="src/scripts/tm-scanner.js?v=<?php echo time(); ?>"></script>
 <script>
-if (window.BarcodeScanner) {
-    BarcodeScanner.init();
-    initProductBarcodeInputs();
-}
+(function() {
+    if (!window.TMScanner) return;
+
+    TMScanner.init({
+        onPredicting: function(topLabel, topConf) {
+            var pct = Math.round(topConf * 100);
+            var bar = document.getElementById('ai-conf-bar');
+            var pctEl = document.getElementById('ai-conf-pct');
+            var statusEl = document.getElementById('ai-status-scanning');
+            if (bar) {
+                bar.style.width = pct + '%';
+                bar.classList.remove('is-low', 'is-medium');
+                if (pct < 40) bar.classList.add('is-low');
+                else if (pct < 70) bar.classList.add('is-medium');
+            }
+            if (pctEl) pctEl.textContent = pct + '%';
+            if (statusEl) statusEl.textContent = topLabel || 'Scanning\u2026';
+        },
+        onAutoConfirm: function(productId, confidence, classLabel) {
+            aiOnIdentified(productId, confidence, classLabel);
+        },
+        onCameraStarted: function() {
+            setAiStatus('Scanning\u2014 hold product steady', 'scanning');
+        },
+        onModelError: function(err) {
+            setAiStatus('Model error: place model files in uploads/tm_models/global/', 'error');
+        },
+        onCameraError: function(err) {
+            setAiStatus('Camera error: ' + err, 'error');
+        },
+        onStopped: function() {
+            // no-op: state managed by aiOnIdentified / aiRetake
+        }
+    });
+
+    // Legacy QR cleanup override
+    if (window.initProductBarcodeInputs) {
+        var originalInit = window.initProductBarcodeInputs;
+        window.initProductBarcodeInputs = function() {
+            document.querySelectorAll('.btn-scan-qr').forEach(function(btn) {
+                btn.style.display = 'none';
+            });
+            var searchScanBtn = document.getElementById('search-scan-barcode-btn');
+            if (searchScanBtn) searchScanBtn.style.display = 'none';
+            originalInit();
+        };
+        window.initProductBarcodeInputs();
+    }
+}());
 </script>
 <?php renderLayoutFooter(); ?>

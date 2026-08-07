@@ -1,5 +1,10 @@
 <?php
 /**
+ * @deprecated Since 2026-08. Product identification replaced by Teachable Machine AI scanner.
+ * This endpoint is retained for backwards-compatibility only (no code changes, barcode column preserved).
+ * Inventory pages (receive.php / release.php) no longer call this endpoint.
+ */
+/**
  * Barcode Lookup API
  * 
  * Searches the database for a product matching a manufacturer-assigned barcode.

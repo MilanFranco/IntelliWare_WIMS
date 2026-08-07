@@ -226,71 +226,138 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         overflow-y: auto;
     }
 
-    .pos-barcode-row {
+    /* ── AI Scanner Zone ──────────────────────────────────────────── */
+    .pos-scanner-zone { flex-shrink: 0; }
+
+    .tm-category-row {
         display: flex;
         gap: 8px;
         align-items: stretch;
     }
-
-    .pos-barcode-input {
+    .tm-category-select {
         flex: 1;
         height: 46px;
-        font-size: 16px;
+        font-size: 14px;
         font-family: 'Onest', sans-serif;
-        letter-spacing: 0.02em;
+        background: var(--iw-bg-surface);
+        border: 1px solid var(--iw-border-input);
+        border-radius: 12px;
+        color: var(--iw-text);
+        padding: 0 12px;
+        cursor: pointer;
+        transition: border-color 0.2s;
     }
+    .tm-category-select:focus { outline: none; border-color: var(--iw-accent); }
+    .tm-category-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .btn-scan {
+    .tm-start-btn {
         height: 46px;
         min-width: 46px;
-        padding: 0 12px;
+        padding: 0 14px;
         background: var(--iw-bg-btn-secondary);
         border: 1px solid var(--iw-border-input);
         border-radius: 12px;
         color: var(--iw-text);
         cursor: pointer;
-        font-size: 20px;
+        font-size: 14px;
+        font-family: 'Onest', sans-serif;
+        font-weight: 600;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 6px;
         flex-shrink: 0;
-        transition: border-color 0.2s, color 0.2s;
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
-    .btn-scan:hover { border-color: var(--iw-accent); color: var(--iw-accent); }
-    .btn-scan.is-active { border-color: var(--iw-accent); color: var(--iw-accent); background: rgba(81, 213, 90, 0.12); }
+    .tm-start-btn:hover:not(:disabled) { border-color: var(--iw-accent); color: var(--iw-accent); background: rgba(81,213,90,0.08); }
+    .tm-start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .tm-start-btn.is-active { border-color: #f87171; color: #f87171; background: rgba(239,68,68,0.08); }
 
-    .pos-scanner-zone { flex-shrink: 0; }
-
-    .pos-inline-scanner {
+    .tm-camera-wrap {
+        position: relative;
         border: 1px solid var(--iw-border);
         border-radius: 12px;
         overflow: hidden;
-        background: var(--iw-bg-surface);
+        background: #0a0c1a;
     }
-
-    .pos-inline-scanner #inv-inline-scanner-reader {
+    .tm-camera-wrap video {
         width: 100%;
-        min-height: 220px;
-        max-height: 280px;
+        max-height: 220px;
+        object-fit: cover;
+        display: block;
+    }
+    .tm-camera-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        pointer-events: none;
+        padding: 10px;
+        background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+    }
+    .tm-viewfinder-ring {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -60%);
+        width: 160px;
+        height: 160px;
+        border: 2px solid rgba(81,213,90,0.6);
+        border-radius: 16px;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.18);
+        animation: tmRingPulse 2s ease-in-out infinite;
+        pointer-events: none;
+    }
+    @keyframes tmRingPulse {
+        0%, 100% { border-color: rgba(81,213,90,0.5); }
+        50%       { border-color: rgba(81,213,90,0.9); }
+    }
+    .tm-conf-bar-wrap {
+        width: 100%;
+        pointer-events: none;
+    }
+    .tm-conf-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11px;
+        font-family: 'Onest', sans-serif;
+        font-weight: 600;
+        color: #e3e3e3;
+        margin-bottom: 4px;
+    }
+    .tm-conf-pct {
+        font-size: 13px;
+        color: #51D55A;
+    }
+    .tm-conf-track {
+        height: 6px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 999px;
         overflow: hidden;
     }
-
-    .pos-inline-scanner #inv-inline-scanner-reader video {
-        border-radius: 0;
-        object-fit: cover;
+    .tm-conf-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #51D55A, #a3f0a8);
+        transition: width 0.25s ease, background 0.25s;
+        width: 0%;
     }
+    .tm-conf-fill.is-low    { background: linear-gradient(90deg, #f87171, #fca5a5); }
+    .tm-conf-fill.is-medium { background: linear-gradient(90deg, #fbbf24, #fde68a); }
 
-    .pos-inline-scanner-footer {
+    .tm-camera-footer {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 10px 12px;
+        padding: 8px 12px;
         border-top: 1px solid var(--iw-border);
         background: var(--iw-bg-panel-header);
     }
-
-    .pos-inline-scanner-status {
+    .tm-camera-status {
         font-size: 12px;
         color: #9aa6d1;
         flex: 1;
@@ -299,14 +366,13 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         overflow: hidden;
         text-overflow: ellipsis;
     }
-
-    .pos-close-camera-btn {
+    .tm-stop-btn {
         flex-shrink: 0;
-        height: 34px;
+        height: 32px;
         padding: 0 14px;
         border-radius: 8px;
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239,68,68,0.4);
+        background: rgba(239,68,68,0.1);
         color: #f87171;
         font-family: 'Onest', sans-serif;
         font-size: 12px;
@@ -314,10 +380,70 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         cursor: pointer;
         transition: background 0.15s, border-color 0.15s;
     }
-    .pos-close-camera-btn:hover {
-        background: rgba(239, 68, 68, 0.2);
-        border-color: #f87171;
+    .tm-stop-btn:hover { background: rgba(239,68,68,0.2); border-color: #f87171; }
+
+    .tm-candidate-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.15s;
     }
+    .tm-candidate-item:last-child { border-bottom: none; }
+    .tm-candidate-item:hover { background: rgba(81,213,90,0.08); }
+    .tm-candidate-thumb {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: var(--iw-bg-surface);
+        border: 1px solid var(--iw-border);
+        flex-shrink: 0;
+    }
+    .tm-candidate-thumb-placeholder {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background: var(--iw-bg-surface);
+        border: 1px solid var(--iw-border);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9aa6d1;
+        font-size: 18px;
+    }
+    .tm-candidate-info { flex: 1; min-width: 0; }
+    .tm-candidate-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e3e3e3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .tm-candidate-conf {
+        font-size: 11px;
+        color: #9aa6d1;
+        margin-top: 2px;
+    }
+    .tm-candidate-pick-btn {
+        flex-shrink: 0;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(81,213,90,0.35);
+        background: rgba(81,213,90,0.08);
+        color: #51D55A;
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .tm-candidate-pick-btn:hover { background: rgba(81,213,90,0.18); }
 
     .pos-scanner-badge {
         font-size: 11px;
@@ -329,10 +455,30 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         border: 1px solid rgba(81, 213, 90, 0.28);
         white-space: nowrap;
     }
+    .pos-scanner-badge--idle {
+        background: rgba(155,161,200,0.12);
+        color: #9aa6d1;
+        border-color: rgba(155,161,200,0.24);
+    }
+    .pos-scanner-badge--scanning {
+        background: rgba(81,213,90,0.12);
+        color: #51D55A;
+        border-color: rgba(81,213,90,0.28);
+        animation: tmBadgePulse 1.5s ease-in-out infinite;
+    }
+    .pos-scanner-badge--loading {
+        background: rgba(251,191,36,0.12);
+        color: #fbbf24;
+        border-color: rgba(251,191,36,0.28);
+    }
     .pos-scanner-badge--off {
         background: rgba(239, 68, 68, 0.1);
         color: #fca5a5;
         border-color: rgba(239, 68, 68, 0.24);
+    }
+    @keyframes tmBadgePulse {
+        0%,100% { opacity: 1; }
+        50%      { opacity: 0.6; }
     }
 
     .pos-cart-wrap {
@@ -660,40 +806,53 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                     <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1">Scan product barcodes to build your transaction. If product not found, register it first in Products page.</p>
+                <p class="text-xs text-[#9aa6d1] mt-1">Point the camera at any product. AI identifies it instantly and adds it to this transaction.</p>
             </div>
-            <span class="pos-scanner-badge pos-scanner-badge--off hidden sm:inline" id="inv-scanner-badge">No barcode scanner detected.</span>
+            <span class="pos-scanner-badge pos-scanner-badge--idle hidden sm:inline" id="inv-scanner-badge">AI Scanner idle</span>
         </div>
 
         <div class="pos-panel-body">
             <form method="POST" id="inv-txn-form" data-txn-mode="<?php echo htmlspecialchars($TXN_MODE); ?>">
                 <input type="hidden" name="items_json" id="inv-items-json" value="">
 
+                <!-- ── AI Scanner Zone ──────────────────────────────── -->
                 <div class="pos-scanner-zone" id="inv-scanner-zone">
-                    <div id="inv-barcode-mode">
-                        <div class="pos-barcode-row">
-                            <input type="text"
-                                   id="inv-barcode-input"
-                                   class="premium-input pos-barcode-input"
-                                   placeholder="Scan manufacturer barcode or type and press Enter…"
-                                   autocomplete="off"
-                                   autofocus>
-                            <button type="button" class="btn-scan" id="inv-scan-btn" title="Scan barcode with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
-                        </div>
-                        <p class="barcode-scan-hint" id="inv-scanner-hint"><strong>Scan the barcode</strong> printed on product packaging. USB/Bluetooth scanners work automatically. If product not found, register it in Products page first.</p>
-                    </div>
-                    <input type="text" id="inv-wedge-input" autocomplete="off" aria-hidden="true" tabindex="-1"
-                           style="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;">
 
-                    <div id="inv-camera-mode" style="display:none;">
-                        <div class="pos-inline-scanner">
-                            <div id="inv-inline-scanner-reader"></div>
-                            <div class="pos-inline-scanner-footer">
-                                <span class="pos-inline-scanner-status" id="inv-inline-scanner-status">Initializing camera…</span>
-                                <button type="button" class="pos-close-camera-btn" id="inv-close-camera-btn">Close Camera</button>
+                    <!-- Start/stop button -->
+                    <div class="tm-category-row">
+                        <button type="button" id="tm-toggle-btn" class="tm-start-btn" style="flex: 1;"
+                                title="Start AI camera scan">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                            </svg>
+                            Start AI Scanner
+                        </button>
+                    </div>
+
+                    <!-- Camera feed (hidden until started) -->
+                    <div id="tm-camera-wrap" class="tm-camera-wrap" style="display:none;">
+                        <video id="tm-video" playsinline muted autoplay></video>
+                        <div class="tm-camera-overlay">
+                            <div class="tm-viewfinder-ring" id="tm-viewfinder-ring"></div>
+                            <div class="tm-conf-bar-wrap" id="tm-conf-bar-wrap">
+                                <div class="tm-conf-label">
+                                    <span id="tm-conf-label-text">Waiting…</span>
+                                    <span class="tm-conf-pct" id="tm-conf-pct">—</span>
+                                </div>
+                                <div class="tm-conf-track">
+                                    <div class="tm-conf-fill" id="tm-conf-fill"></div>
+                                </div>
                             </div>
                         </div>
+                        <div class="tm-camera-footer">
+                            <span class="tm-camera-status" id="tm-camera-status">Initializing…</span>
+                            <button type="button" class="tm-stop-btn" id="tm-stop-btn">Stop Camera</button>
+                        </div>
                     </div>
+
+
+
                 </div>
 
                 <div class="pos-cart-wrap" id="inv-cart-wrap">
@@ -701,13 +860,12 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <svg class="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
                         </svg>
-                        Scan a barcode to add products to this transaction
+                        Point the camera at a product to add it to this transaction
                     </div>
                     <table class="pos-cart-table" id="inv-cart-table" style="display:none;">
                         <thead>
                             <tr>
                                 <th>Product</th>
-                                <th>Barcode</th>
                                 <th>Stock</th>
                                 <th>Qty</th>
                                 <th>Unit Price</th>
@@ -755,7 +913,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <svg class="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
                 </svg>
-                Scan a product barcode to view details and add to transaction.
+                Scan a product with the AI camera to view details and add to transaction.
             </div>
 
             <div class="pos-info-content" id="inv-info-content" style="display:none;">
@@ -828,8 +986,10 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
 <?php renderLayoutContentEnd(); ?>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="src/scripts/barcode-scanner.js?v=<?php echo time(); ?>"></script>
+<!-- TensorFlow.js + Teachable Machine image library (no build step required) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+<script src="src/scripts/tm-scanner.js?v=<?php echo time(); ?>"></script>
 <script src="src/scripts/inventory-transaction.js?v=<?php echo time(); ?>"></script>
 <script>
 <?php if (isset($_SESSION['toast'])): ?>

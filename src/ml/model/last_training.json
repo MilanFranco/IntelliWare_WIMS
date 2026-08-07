@@ -1,12 +1,12 @@
 {
   "model_type": "gradient_boosting",
   "model_version": "2.0.0",
-  "trained_at": "2026-07-14T16:48:55.522674",
+  "trained_at": "2026-07-17T16:46:30.756704",
   "metrics": {
-    "mae": 40.4435,
-    "rmse": 54.5962,
-    "mape": 2.2149,
-    "forecast_accuracy": 97.87,
-    "error_rate": 2.13
+    "mae": 493.2773,
+    "rmse": 692.147,
+    "mape": 2607.6162,
+    "forecast_accuracy": 23.36,
+    "error_rate": 76.64
   }
 }

@@ -1,0 +1,86 @@
+# How to Deploy Your AI Model to IntelliWare
+
+## PART 1 — Export from Google Teachable Machine
+
+### Step 1: Open your Teachable Machine project
+Go to [teachablemachine.withgoogle.com](https://teachablemachine.withgoogle.com) and open the project you already trained.
+
+### Step 2: Click "Export Model"
+At the top-right of the page, click the **Export Model** button.
+
+### Step 3: Choose TensorFlow.js format
+In the popup:
+1. Click the **TensorFlow.js** tab at the top.
+2. Make sure **"Quantized"** conversion type is selected (it's the default).
+3. Click the **"Download my model"** button (NOT "Upload").
+
+> [!IMPORTANT]
+> You must click **Download** — not Upload. Uploading gives you a hosted URL which will NOT work offline or on your local XAMPP server.
+
+### Step 4: Extract the downloaded ZIP
+A file called something like `converted_keras.zip` or `my_model.zip` will download to your `C:\Users\YourName\Downloads` folder.
+
+Right-click the ZIP file → **Extract All** → Click **Extract**.
+
+After extraction, open the folder. You should see exactly **3 files** inside:
+```
+model.json
+metadata.json
+weights.bin
+```
+
+> [!WARNING]
+> If you see a `.h5` file or a `saved_model` folder instead, you chose the **wrong format** (Keras or TensorFlow — not TensorFlow.js). Go back to Step 3 and pick the **TensorFlow.js** tab.
+
+---
+
+## PART 2 — Copy the files into IntelliWare
+
+### Step 5: Open the destination folder
+Open **File Explorer** (Windows key + E).
+
+In the address bar at the top, click it and paste this path exactly:
+```
+C:\xampp\htdocs\IntelliWare\uploads\tm_models\global
+```
+Press **Enter**.
+
+The `global` folder should open and it should be **empty** (I already created it for you).
+
+> [!NOTE]
+> If you get "Folder not found", open `C:\xampp\htdocs\IntelliWare\uploads\tm_models\` and manually create a new folder called `global` inside it.
+
+### Step 6: Copy your 3 model files
+Go back to the folder where you extracted the ZIP in Step 4.
+
+Select all 3 files:
+- `model.json`
+- `metadata.json`
+- `weights.bin`
+
+**Copy them** (Ctrl + C), then go back to the `global` folder and **Paste** (Ctrl + V).
+
+Your folder should now look like this:
+```
+C:\xampp\htdocs\IntelliWare\uploads\tm_models\global\
+    ├── model.json       ✅
+    ├── metadata.json    ✅
+    └── weights.bin      ✅
+```
+
+---
+
+## PART 3 — Test in IntelliWare
+
+### Step 7: Refresh the page
+Go back to your browser and press **F5** (or Ctrl + R) to refresh the Receive Inventory page.
+
+### Step 8: Click "Start AI Scanner"
+Click the green **Start AI Scanner** button.
+
+- The browser will ask for **camera permission** — click **Allow**.
+- The camera will open and start scanning immediately.
+- The moment it sees a product, it will **instantly** identify it and add it to the transaction.
+
+> [!TIP]
+> If you still see "Model error: 404" after refreshing, double-check that the files are in the **exact** path: `global\model.json` — not inside a sub-folder like `global\my_model\model.json`.
