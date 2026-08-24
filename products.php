@@ -63,7 +63,18 @@ function ensurePriceColumn($conn) {
     $checked = true;
 }
 
+function ensureArchivedColumn($conn) {
+    static $checked = false;
+    if ($checked) return;
+    $result = $conn->query("SHOW COLUMNS FROM products LIKE 'archived'");
+    if ($result && $result->num_rows === 0) {
+        $conn->query("ALTER TABLE `products` ADD COLUMN `archived` TINYINT(1) NOT NULL DEFAULT 0 AFTER `price`");
+    }
+    $checked = true;
+}
+
 ensurePriceColumn($conn);
+ensureArchivedColumn($conn);
 
 $locationCategoryMap = LocationCategoryService::buildMap($conn);
 
@@ -246,44 +257,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             setFlashMessage('success', 'Product updated.');
         }
-        if ($action === 'delete') {
-            if ($role === 'staff') throw new Exception("Access Denied. Only Managers and Admins can delete products.");
-            $stmt = $conn->prepare("DELETE FROM products WHERE product_id = ?");
+        if ($action === 'archive') {
+            if ($role === 'staff') throw new Exception("Access Denied. Only Managers and Admins can archive products.");
+            $stmt = $conn->prepare("UPDATE products SET archived = 1 WHERE product_id = ?");
             $stmt->bind_param("i", $_POST['id']);
-            if ($stmt->execute()) setFlashMessage('success', 'Product deleted successfully.');
+            if ($stmt->execute()) setFlashMessage('success', 'Product archived successfully.');
+        }
+        if ($action === 'restore') {
+            if ($role === 'staff') throw new Exception("Access Denied. Only Managers and Admins can restore products.");
+            $stmt = $conn->prepare("UPDATE products SET archived = 0 WHERE product_id = ?");
+            $stmt->bind_param("i", $_POST['id']);
+            if ($stmt->execute()) setFlashMessage('success', 'Product restored successfully.');
         }
     } catch (InvalidArgumentException $e) {
         setFlashMessage('error', $e->getMessage());
     } catch (Exception $e) {
         setFlashMessage('error', $e->getMessage());
     }
-    header("Location: products.php?page=$page&q=$q&category=$category_param");
+    $archived_param = isset($_GET['archived']) ? '&archived=' . (int)$_GET['archived'] : '';
+    header("Location: products.php?page=$page&q=$q&category=$category_param$archived_param");
     exit();
 }
 
-$where = []; 
-$params = []; 
+$show_archived = isset($_GET['archived']) && $_GET['archived'] === '1';
+
+$where = [];
+$params = [];
 $types = '';
+
+// Always filter by archived status
+$where[] = 'archived = ?';
+$params[] = $show_archived ? 1 : 0;
+$types .= 'i';
 
 if ($q) {
     $where[] = "(product_name LIKE ? OR supplier LIKE ? OR barcode LIKE ? OR barcode = ?)";
-    $term = "%$q%"; 
-    array_push($params, $term, $term, $term, $q); 
+    $term = "%$q%";
+    array_push($params, $term, $term, $term, $q);
     $types .= 'ssss';
 }
-if ($category_param) { 
-    $where[] = "category = ?"; 
-    $params[] = $category_param; 
-    $types .= 's'; 
+if ($category_param) {
+    $where[] = "category = ?";
+    $params[] = $category_param;
+    $types .= 's';
 }
 
-$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+$where_sql = 'WHERE ' . implode(' AND ', $where);
 
 $count_stmt = $conn->prepare("SELECT COUNT(*) as total FROM products $where_sql");
 $count_params = $params;
 $count_types = $types;
-
-if ($count_params) { 
+if ($count_params) {
     $count_stmt->bind_param($count_types, ...$count_params);
 }
 $count_stmt->execute();
@@ -293,7 +317,7 @@ $offset = ($page - 1) * $items_per_page;
 $count_stmt->close();
 
 // --- 5. MAIN DATA FETCH ---
-$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price, shelf_life FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
+$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price, shelf_life, archived FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
 
 $main_params = array_merge($params, [$items_per_page, $offset]);
 $main_types = $types . 'ii';
@@ -424,6 +448,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     .inventory-action-btn:hover { transform: translateY(-2px); }
     .inventory-action-btn.edit-btn:hover { border-color: #3b82f6; color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+    .inventory-action-btn.archive-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+    .inventory-action-btn.restore-btn:hover { border-color: #34d399; color: #34d399; background: rgba(52, 211, 153, 0.1); }
     .inventory-action-btn.delete-btn:hover,
     .inventory-action-btn.cancel-btn:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
     .inventory-action-btn.save-btn:hover { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.1); }
@@ -769,10 +795,23 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <a href="products.php" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-4 !bg-[#2A4484] !shadow-none hover:!bg-[#355296]" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
             </form>
+            <?php if (!$show_archived): ?>
             <button type="button" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center gap-2 shrink-0" onclick="openAddModal()">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 Add Product
             </button>
+            <?php endif; ?>
+            <a href="products.php?archived=<?php echo $show_archived ? '0' : '1'; ?>&q=<?php echo urlencode($q); ?>&category=<?php echo urlencode($category_param); ?>"
+               class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center gap-2 shrink-0"
+               style="<?php echo $show_archived ? 'background:linear-gradient(135deg,#059669,#047857)!important;box-shadow:0 4px 14px rgba(5,150,105,0.3)!important;' : 'background:rgba(245,158,11,0.15)!important;border:1px solid rgba(245,158,11,0.35)!important;color:#f59e0b!important;box-shadow:none!important;'; ?>">
+                <?php if ($show_archived): ?>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                Active Products
+                <?php else: ?>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                View Archived
+                <?php endif; ?>
+            </a>
         </div>
     </div>
 
@@ -787,6 +826,17 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </tr>
             </thead>
             <tbody>
+                <?php if ($show_archived): ?>
+                <tr>
+                    <td colspan="13" style="padding:0; border:none;">
+                        <div style="background:linear-gradient(90deg,rgba(245,158,11,0.12),rgba(245,158,11,0.06)); border-bottom:1px solid rgba(245,158,11,0.25); padding:10px 20px; display:flex; align-items:center; gap:10px;">
+                            <svg width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                            <span style="font-size:13px; font-weight:600; color:#f59e0b; font-family:'Onest',sans-serif;">Viewing Archived Products</span>
+                            <span style="font-size:12px; color:#9aa6d1; margin-left:4px;">&mdash; <?php echo $total_items; ?> product<?php echo $total_items !== 1 ? 's' : ''; ?> archived</span>
+                        </div>
+                    </td>
+                </tr>
+                <?php endif; ?>
                 <?php if (!$items): ?>
                     <tr><td colspan="13" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
                 <?php else: ?>
@@ -832,9 +882,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
                                 <?php if($role!=='staff'): ?>
-                                <button type="button" class="inventory-action-btn delete-btn" onclick="promptDelete('<?php echo $it['id']; ?>')" title="Delete">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                <?php if (!$show_archived): ?>
+                                <button type="button" class="inventory-action-btn archive-btn" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Archive">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
                                 </button>
+                                <?php else: ?>
+                                <button type="button" class="inventory-action-btn restore-btn" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Restore">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>
+                                </button>
+                                <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -889,51 +945,67 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <!-- AI Camera Identification — uses system scanner classes for consistency -->
                     <div class="pos-scanner-zone" id="ai-capture-block">
 
-                        <!-- Status bar + Scan button -->
+                        <!-- Status bar + Capture / Upload buttons -->
                         <div class="tm-category-row" style="align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
                                 <div id="ai-status-dot" style="width:9px; height:9px; border-radius:50%; background:#475569; flex-shrink:0; transition:background 0.3s, box-shadow 0.3s;"></div>
-                                <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Click &ldquo;Scan Product&rdquo; to identify with AI camera</span>
+                                <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Add a reference image &mdash; optional but recommended for AI scanning</span>
                             </div>
                             <div style="display:flex; gap:6px; flex-shrink:0;">
-                                <button type="button" id="ai-retake-btn" class="tm-stop-btn" style="display:none;" onclick="aiRetake()">&#x21BA; Retake</button>
-                                <button type="button" id="ai-scan-btn" class="tm-start-btn" style="height:38px;" onclick="aiStartScan()">
+                                <button type="button" id="ai-retake-btn" class="tm-stop-btn" style="display:none;" onclick="aiRetake()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="display:inline-block;vertical-align:middle;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                                    </svg>
+                                    Retake
+                                </button>
+                                <!-- Upload from file -->
+                                <input type="file" id="ai-upload-input" accept="image/*" style="display:none;" onchange="aiUploadImage(this)">
+                                <button type="button" id="ai-upload-btn" class="tm-stop-btn" style="height:38px; display:inline-flex; align-items:center; gap:5px;" onclick="document.getElementById('ai-upload-input').click()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                                    </svg>
+                                    Upload Image
+                                </button>
+                                <!-- Camera capture -->
+                                <button type="button" id="ai-capture-btn" class="tm-start-btn" style="height:38px;" onclick="aiStartScan()">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
                                     </svg>
-                                    Scan Product
+                                    Take Photo
                                 </button>
+                                <button type="button" id="ai-capture-snap-btn" class="premium-button" style="height:38px; display:none;" onclick="aiCaptureFrame()">&#x1F4F7; Capture</button>
+                            </div>
+                        </div>
+
+                        <!-- Uploaded image preview (shown instead of camera area when file is uploaded) -->
+                        <div id="ai-upload-preview-wrap" style="display:none; margin-top:8px; border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative;">
+                            <img id="ai-upload-preview-img" src="" alt="Uploaded reference image" style="width:100%; max-height:220px; object-fit:contain; display:block;">
+                            <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%); pointer-events:none;"></div>
+                            <div style="position:absolute; bottom:10px; left:12px; display:flex; align-items:center; gap:6px;">
+                                <svg width="16" height="16" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                <span style="font-size:12px; font-weight:600; font-family:'Onest',sans-serif; color:#d1fae5;">Image selected</span>
                             </div>
                         </div>
 
                         <!-- Camera feed (hidden until started) -->
-                        <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:8px;">
-                            <video id="ai-video" playsinline muted autoplay></video>
-                            <canvas id="ai-snapshot-canvas" style="display:none; width:100%; max-height:220px; object-fit:cover; display:none;"></canvas>
-                            <div class="tm-camera-overlay">
+                        <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:8px; position:relative;">
+                            <video id="ai-video" playsinline muted autoplay style="width:100%; max-height:220px; object-fit:cover; display:block;"></video>
+                            <canvas id="ai-snapshot-canvas" style="width:100%; max-height:220px; object-fit:cover; display:none;"></canvas>
+                            <div class="tm-camera-overlay" id="ai-scan-overlay">
                                 <div class="tm-viewfinder-ring" id="ai-scan-ring"></div>
-                                <div class="tm-conf-bar-wrap">
-                                    <div class="tm-conf-label">
-                                        <span id="ai-status-scanning">Scanning&hellip;</span>
-                                        <span class="tm-conf-pct" id="ai-conf-pct">&mdash;</span>
-                                    </div>
-                                    <div class="tm-conf-track">
-                                        <div class="tm-conf-fill" id="ai-conf-bar"></div>
-                                    </div>
-                                </div>
                             </div>
-                            <!-- Identified success overlay -->
+                            <!-- Captured success overlay -->
                             <div id="ai-confirmed-overlay" style="display:none; position:absolute; inset:0; background:rgba(6,95,70,0.85); align-items:center; justify-content:center; flex-direction:column; gap:6px; z-index:5;">
                                 <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-                                <span id="ai-confirmed-label" style="font-size:13px; font-weight:700; font-family:'Onest',sans-serif; color:#d1fae5;">Product identified!</span>
+                                <span id="ai-confirmed-label" style="font-size:13px; font-weight:700; font-family:'Onest',sans-serif; color:#d1fae5;">Photo captured!</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Name *</label>
-                    <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Wireless Mouse" required maxlength="255" disabled>
+                    <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Wireless Mouse" required maxlength="255">
                     <p class="add-field-error" id="add-product-name-error" hidden></p>
                 </div>
                 <div>
@@ -1000,28 +1072,58 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     ?>
 </datalist>
 
-<div id="delete-modal-overlay" class="modal-overlay">
-    <div class="modal-box" style="max-width: 400px; text-align: center; padding: 40px;">
-        
+<!-- Archive Confirmation Modal -->
+<div id="archive-modal-overlay" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 40px;">
         <div style="margin-bottom: 16px; display: flex; justify-content: center;">
-            <div style="width: 80px; height: 80px; background: rgba(245, 158, 11, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                    <line x1="12" y1="9" x2="12" y2="13"></line>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            <div style="width: 80px; height: 80px; background: rgba(245,158,11,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(245,158,11,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                    <rect x="1" y="3" width="22" height="5"></rect>
+                    <line x1="10" y1="12" x2="14" y2="12"></line>
                 </svg>
             </div>
         </div>
-        
-        <h3 style="color:#fff; margin-bottom:10px;">Confirm Deletion</h3>
-        <p style="color:#9aa6d1; margin-bottom:30px;">This action cannot be undone. Are you sure you want to delete product ID <span id="del-id-display" style="font-weight: bold; color: #f87171;"></span>?</p>
-        <div style="display:flex; justify-content:center; gap:15px;">
-            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeDeleteModal()">Cancel</button>
-            <form method="POST" id="modal-delete-form" style="display:inline;">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="id" id="modal-delete-id">
+        <h3 style="color:#fff; margin-bottom:8px; font-family:'Onest',sans-serif;">Archive Product?</h3>
+        <p style="color:#9aa6d1; margin-bottom:6px; font-size:14px;"><strong id="archive-product-name" style="color:#e3e3e3;"></strong></p>
+        <p style="color:#9aa6d1; margin-bottom:28px; font-size:13px;">This product will be hidden from the inventory list. You can restore it at any time from the Archived view.</p>
+        <div style="display:flex; justify-content:center; gap:12px;">
+            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeArchiveModal()">Cancel</button>
+            <form method="POST" id="modal-archive-form" style="display:inline;">
+                <input type="hidden" name="action" value="archive">
+                <input type="hidden" name="id" id="modal-archive-id">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <button type="submit" class="premium-button" id="modal-yes-btn" style="background:#ef4444 !important;">Delete</button>
+                <button type="submit" class="premium-button" style="background: linear-gradient(135deg,#d97706,#b45309) !important; box-shadow: 0 4px 14px rgba(217,119,6,0.35) !important;">
+                    Archive Product
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Confirmation Modal -->
+<div id="restore-modal-overlay" class="modal-overlay">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 40px;">
+        <div style="margin-bottom: 16px; display: flex; justify-content: center;">
+            <div style="width: 80px; height: 80px; background: rgba(52,211,153,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(52,211,153,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 .49-3.51"></path>
+                </svg>
+            </div>
+        </div>
+        <h3 style="color:#fff; margin-bottom:8px; font-family:'Onest',sans-serif;">Restore Product?</h3>
+        <p style="color:#9aa6d1; margin-bottom:6px; font-size:14px;"><strong id="restore-product-name" style="color:#e3e3e3;"></strong></p>
+        <p style="color:#9aa6d1; margin-bottom:28px; font-size:13px;">This product will be returned to the active inventory list.</p>
+        <div style="display:flex; justify-content:center; gap:12px;">
+            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeRestoreModal()">Cancel</button>
+            <form method="POST" id="modal-restore-form" style="display:inline;">
+                <input type="hidden" name="action" value="restore">
+                <input type="hidden" name="id" id="modal-restore-id">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                <button type="submit" class="premium-button" style="background: linear-gradient(135deg,#059669,#047857) !important; box-shadow: 0 4px 14px rgba(5,150,105,0.35) !important;">
+                    Restore Product
+                </button>
             </form>
         </div>
     </div>
@@ -1282,82 +1384,34 @@ function aiCaptureFrame() {
     canvas.style.display = 'block';
     if (scanOverlay) scanOverlay.style.display = 'none';
     if (overlay)    { overlay.style.display = 'flex'; }
+    // Stop the camera stream
+    _stopAddProductCamera();
+    // Trigger post-capture UI update
+    aiOnIdentified();
 }
 
-function aiOnIdentified(productId, confidence, classLabel) {
-    if (aiProductIdentified) return;
-    aiProductIdentified = true;
-
-    // Store AI class as internal barcode ref
-    var classField = document.getElementById('add-ai-class-label');
-    var barcodeField = document.getElementById('add-barcode-hidden');
-    if (classField) classField.value = classLabel;
-    if (barcodeField) barcodeField.value = classLabel;
-
-    // Capture the video frame
-    aiCaptureFrame();
-
-    // Stop the camera
-    if (window.TMScanner && TMScanner.isRunning()) TMScanner.stopCamera();
-
-    // Show confirmed label
+function aiOnIdentified() {
+    // Kept for compatibility — now called directly by aiCaptureFrame after photo is taken
     var confirmLabel = document.getElementById('ai-confirmed-label');
-    if (confirmLabel) confirmLabel.textContent = 'Identified! Fill in the details below.';
-
-    // Update status bar
-    setAiStatus('Product identified — fill in the details below', 'identified');
+    if (confirmLabel) confirmLabel.textContent = 'Photo captured!';
+    setAiStatus('Reference photo saved — fill in the product details', 'identified');
     var retakeBtn = document.getElementById('ai-retake-btn');
     if (retakeBtn) retakeBtn.style.display = 'inline-block';
-
-    // Update confidence bar to green/full
-    var bar = document.getElementById('ai-conf-bar');
-    if (bar) { bar.style.width = '100%'; bar.style.backgroundColor = '#34d399'; }
-
-    // Unlock form fields
-    setAddFormFieldsEnabled(true);
-    var nameInput = document.getElementById('add-product-name');
-    if (nameInput) setTimeout(function() { nameInput.focus(); }, 100);
+    var snapBtn = document.getElementById('ai-capture-snap-btn');
+    if (snapBtn) snapBtn.style.display = 'none';
 }
 
 function aiRetake() {
-    aiProductIdentified = false;
-
     // Reset captured image
     var imgField = document.getElementById('add-product-image-b64');
-    var classField = document.getElementById('add-ai-class-label');
-    var barcodeField = document.getElementById('add-barcode-hidden');
     if (imgField) imgField.value = '';
-    if (classField) classField.value = '';
-    if (barcodeField) barcodeField.value = '';
 
-    // Show video, hide snapshot
-    var video = document.getElementById('ai-video');
-    var canvas = document.getElementById('ai-snapshot-canvas');
-    var overlay = document.getElementById('ai-confirmed-overlay');
-    var scanOverlay = document.getElementById('ai-scan-overlay');
-    if (video)  video.style.display = 'block';
-    if (canvas) canvas.style.display = 'none';
-    if (overlay) overlay.style.display = 'none';
-    if (scanOverlay) scanOverlay.style.display = 'flex';
-
-    // Reset bar
-    var bar = document.getElementById('ai-conf-bar');
-    if (bar) { bar.style.width = '0%'; bar.style.backgroundColor = '#fbbf24'; }
-
-    // Hide retake btn
+    // Hide retake btn, show capture snap btn again
     var retakeBtn = document.getElementById('ai-retake-btn');
     if (retakeBtn) retakeBtn.style.display = 'none';
 
-    // Re-lock form
-    setAddFormFieldsEnabled(false);
-    setAiStatus('Point camera at product — AI will identify it', 'scanning');
-
     // Restart camera
-    if (window.TMScanner) {
-        TMScanner.loadModel().then(function() {
-            return TMScanner.startCamera(document.getElementById('ai-video'));
-        }).catch(function(e) { setAiStatus('Camera error: ' + e.message, 'error'); });
-    }
+    aiStartScan();
 }
 
 function clearAddFormErrors() {
@@ -1400,7 +1454,7 @@ function setAddSubmitState(submitting) {
         return;
     }
     submitBtn.textContent = ADD_SUBMIT_LABEL;
-    submitBtn.disabled = !aiProductIdentified;
+    submitBtn.disabled = false;
 }
 
 function isValidWholeNumber(value) {
@@ -1527,85 +1581,174 @@ function resetAddProductForm() {
     aiProductIdentified = false;
     addFormSubmitting = false;
     clearAddFormErrors();
-    setAddFormFieldsEnabled(false);
     setAddSubmitState(false);
+    // Stop any running camera stream
+    _stopAddProductCamera();
 
     // Reset AI camera UI
-    var video      = document.getElementById('ai-video');
-    var canvas     = document.getElementById('ai-snapshot-canvas');
-    var overlay    = document.getElementById('ai-confirmed-overlay');
-    var scanOverlay= document.getElementById('ai-scan-overlay');
-    var retakeBtn  = document.getElementById('ai-retake-btn');
-    var scanBtn    = document.getElementById('ai-scan-btn');
-    var cameraArea = document.getElementById('ai-camera-area');
-    var bar        = document.getElementById('ai-conf-bar');
-    var imgField   = document.getElementById('add-product-image-b64');
-    var classField = document.getElementById('add-ai-class-label');
+    var video        = document.getElementById('ai-video');
+    var canvas       = document.getElementById('ai-snapshot-canvas');
+    var overlay      = document.getElementById('ai-confirmed-overlay');
+    var scanOverlay  = document.getElementById('ai-scan-overlay');
+    var retakeBtn    = document.getElementById('ai-retake-btn');
+    var captureBtn   = document.getElementById('ai-capture-btn');
+    var uploadBtn    = document.getElementById('ai-upload-btn');
+    var snapBtn      = document.getElementById('ai-capture-snap-btn');
+    var cameraArea   = document.getElementById('ai-camera-area');
+    var previewWrap  = document.getElementById('ai-upload-preview-wrap');
+    var previewImg   = document.getElementById('ai-upload-preview-img');
+    var uploadInput  = document.getElementById('ai-upload-input');
+    var imgField     = document.getElementById('add-product-image-b64');
+    var classField   = document.getElementById('add-ai-class-label');
     var barcodeField = document.getElementById('add-barcode-hidden');
 
-    if (video)      video.style.display = 'block';
-    if (canvas)     canvas.style.display = 'none';
-    if (overlay)    overlay.style.display = 'none';
-    if (scanOverlay)scanOverlay.style.display = 'flex';
-    if (retakeBtn)  retakeBtn.style.display = 'none';
-    if (scanBtn)  { scanBtn.disabled = false; }
-    if (cameraArea) cameraArea.style.display = 'none';
-    if (bar)  { bar.style.width = '0%'; bar.style.backgroundColor = '#fbbf24'; }
-    if (imgField)   imgField.value = '';
-    if (classField) classField.value = '';
-    if (barcodeField) barcodeField.value = '';
+    if (video)       video.style.display       = 'block';
+    if (canvas)      canvas.style.display      = 'none';
+    if (overlay)     overlay.style.display     = 'none';
+    if (scanOverlay) scanOverlay.style.display = 'flex';
+    if (retakeBtn)   retakeBtn.style.display   = 'none';
+    if (captureBtn)  { captureBtn.style.display = 'inline-flex'; captureBtn.disabled = false; }
+    if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
+    if (snapBtn)     snapBtn.style.display     = 'none';
+    if (cameraArea)  cameraArea.style.display  = 'none';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewImg)  previewImg.src            = '';
+    if (uploadInput) uploadInput.value         = '';
+    if (imgField)    imgField.value            = '';
+    if (classField)  classField.value          = '';
+    if (barcodeField)barcodeField.value        = '';
 
-    setAiStatus('Click “Scan Product” to identify with AI camera', 'idle');
+    setAiStatus('Add a reference image — optional but recommended for AI scanning', 'idle');
 }
+
+var _addProductStream = null;
 
 function openAddModal() {
     resetAddProductForm();
+    // Unlock form immediately — photo capture is optional
+    setAddFormFieldsEnabled(true);
     document.body.style.overflow = 'hidden';
     document.getElementById('add-modal-overlay').classList.add('active');
-    // Camera does NOT auto-start — user clicks "Scan Product" button
 }
 
 function closeAddModal() {
-    if (window.TMScanner && TMScanner.isRunning()) TMScanner.stopCamera();
+    _stopAddProductCamera();
     document.getElementById('add-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
     resetAddProductForm();
 }
 
-function aiStartScan() {
-    if (!window.TMScanner) {
-        setAiStatus('AI Scanner not available — check script tags', 'error');
-        return;
+function _stopAddProductCamera() {
+    if (_addProductStream) {
+        _addProductStream.getTracks().forEach(function(t) { t.stop(); });
+        _addProductStream = null;
     }
-    var scanBtn = document.getElementById('ai-scan-btn');
-    var cameraArea = document.getElementById('ai-camera-area');
-    if (scanBtn) scanBtn.disabled = true;
-    if (cameraArea) cameraArea.style.display = 'block';
-    setAiStatus('Loading AI model…', 'scanning');
+}
 
-    TMScanner.loadModel()
-        .then(function() {
-            return TMScanner.startCamera(document.getElementById('ai-video'));
+function aiStartScan() {
+    var captureBtn   = document.getElementById('ai-capture-btn');
+    var uploadBtn    = document.getElementById('ai-upload-btn');
+    var snapBtn      = document.getElementById('ai-capture-snap-btn');
+    var cameraArea   = document.getElementById('ai-camera-area');
+    var previewWrap  = document.getElementById('ai-upload-preview-wrap');
+    var video        = document.getElementById('ai-video');
+    var overlay      = document.getElementById('ai-confirmed-overlay');
+    var scanOverlay  = document.getElementById('ai-scan-overlay');
+    var canvas       = document.getElementById('ai-snapshot-canvas');
+
+    if (captureBtn)  captureBtn.style.display  = 'none';
+    if (uploadBtn)   uploadBtn.style.display   = 'none';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (cameraArea)  cameraArea.style.display  = 'block';
+    if (overlay)     overlay.style.display     = 'none';
+    if (canvas)      canvas.style.display      = 'none';
+    if (video)       video.style.display       = 'block';
+    if (scanOverlay) scanOverlay.style.display = 'flex';
+    setAiStatus('Opening camera…', 'scanning');
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(function(stream) {
+            _addProductStream = stream;
+            video.srcObject   = stream;
+            if (snapBtn) snapBtn.style.display = 'inline-flex';
+            setAiStatus('Camera ready — frame the product and click Capture', 'scanning');
         })
         .catch(function(err) {
+            if (captureBtn) captureBtn.style.display = 'inline-flex';
+            if (uploadBtn)  uploadBtn.style.display  = 'inline-flex';
             if (cameraArea) cameraArea.style.display = 'none';
-            if (scanBtn) scanBtn.disabled = false;
-            setAiStatus('Error: ' + (err.message || err), 'error');
+            setAiStatus('Camera error: ' + (err.message || err), 'error');
         });
 }
 
-let delId = null;
-function promptDelete(id) { 
-    delId = id; 
-    document.body.style.overflow = 'hidden';
-    document.getElementById('modal-delete-id').value = id; 
-    document.getElementById('del-id-display').innerText = id; 
-    document.getElementById('delete-modal-overlay').classList.add('active'); 
+function aiUploadImage(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        setAiStatus('Please select a valid image file (JPG, PNG, WEBP…)', 'error');
+        return;
+    }
+    // Warn if file is unusually large (> 8 MB)
+    if (file.size > 8 * 1024 * 1024) {
+        setAiStatus('Image is very large (' + Math.round(file.size / 1024 / 1024) + ' MB) — may be slow to save.', 'scanning');
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var b64 = e.target.result; // data:image/...;base64,...
+        var imgField = document.getElementById('add-product-image-b64');
+        if (imgField) imgField.value = b64;
+
+        // Show preview
+        var previewWrap = document.getElementById('ai-upload-preview-wrap');
+        var previewImg  = document.getElementById('ai-upload-preview-img');
+        var cameraArea  = document.getElementById('ai-camera-area');
+        var captureBtn  = document.getElementById('ai-capture-btn');
+        var uploadBtn   = document.getElementById('ai-upload-btn');
+        var retakeBtn   = document.getElementById('ai-retake-btn');
+        var snapBtn     = document.getElementById('ai-capture-snap-btn');
+
+        // Stop camera if it was running
+        _stopAddProductCamera();
+        if (cameraArea)  cameraArea.style.display  = 'none';
+        if (snapBtn)     snapBtn.style.display      = 'none';
+        if (captureBtn)  captureBtn.style.display   = 'none';
+        if (uploadBtn)   uploadBtn.style.display    = 'none';
+
+        if (previewImg)  previewImg.src             = b64;
+        if (previewWrap) previewWrap.style.display  = 'block';
+        if (retakeBtn)   retakeBtn.style.display    = 'inline-flex';
+
+        setAiStatus('Image uploaded — fill in the product details below', 'identified');
+    };
+    reader.onerror = function() {
+        setAiStatus('Failed to read the selected file. Please try again.', 'error');
+    };
+    reader.readAsDataURL(file);
 }
-function closeDeleteModal() { 
-    document.getElementById('delete-modal-overlay').classList.remove('active'); 
+
+function promptArchive(id, name) {
+    document.body.style.overflow = 'hidden';
+    document.getElementById('modal-archive-id').value = id;
+    document.getElementById('archive-product-name').textContent = name || ('Product #' + id);
+    document.getElementById('archive-modal-overlay').classList.add('active');
+}
+function closeArchiveModal() {
+    document.getElementById('archive-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
-    delId = null; 
+}
+
+function promptRestore(id, name) {
+    document.body.style.overflow = 'hidden';
+    document.getElementById('modal-restore-id').value = id;
+    document.getElementById('restore-product-name').textContent = name || ('Product #' + id);
+    document.getElementById('restore-modal-overlay').classList.add('active');
+}
+function closeRestoreModal() {
+    document.getElementById('restore-modal-overlay').classList.remove('active');
+    document.body.style.overflow = '';
 }
 
 // ── Edit Product Modal ──────────────────────────────────────
@@ -1711,8 +1854,10 @@ function showToast(msg, type) {
     t.className = 'show ' + (type === 'success' ? 'success' : 'error');
 
     const icons = {
-        success: msg.toLowerCase().includes('deleted')
-            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>'
+        success: msg.toLowerCase().includes('archived')
+            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="21 8 21 21 3 21 3 8"></polyline><rect stroke-linecap="round" stroke-linejoin="round" x="1" y="3" width="22" height="5"></rect><line stroke-linecap="round" stroke-linejoin="round" x1="10" y1="12" x2="14" y2="12"></line></svg>'
+            : msg.toLowerCase().includes('restored')
+            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="1 4 1 10 7 10"></polyline><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>'
             : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
         error: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
         warning: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>'
@@ -1751,13 +1896,7 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
         return;
     }
 
-    if (!aiProductIdentified) {
-        e.preventDefault();
-        setAiStatus('Please scan a product first to unlock the form.', 'error');
-        var scanBtn = document.getElementById('ai-scan-btn');
-        if (scanBtn) scanBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
+    // Photo capture is optional — no scan gate required
 
     if (!validateAddProductForm()) {
         e.preventDefault();
@@ -1865,58 +2004,5 @@ function initProductBarcodeInputs() {
 }
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
-<script src="src/scripts/tm-scanner.js?v=<?php echo time(); ?>"></script>
-<script>
-(function() {
-    if (!window.TMScanner) return;
-
-    TMScanner.init({
-        onPredicting: function(topLabel, topConf) {
-            var pct = Math.round(topConf * 100);
-            var bar = document.getElementById('ai-conf-bar');
-            var pctEl = document.getElementById('ai-conf-pct');
-            var statusEl = document.getElementById('ai-status-scanning');
-            if (bar) {
-                bar.style.width = pct + '%';
-                bar.classList.remove('is-low', 'is-medium');
-                if (pct < 40) bar.classList.add('is-low');
-                else if (pct < 70) bar.classList.add('is-medium');
-            }
-            if (pctEl) pctEl.textContent = pct + '%';
-            if (statusEl) statusEl.textContent = topLabel || 'Scanning\u2026';
-        },
-        onAutoConfirm: function(productId, confidence, classLabel) {
-            aiOnIdentified(productId, confidence, classLabel);
-        },
-        onCameraStarted: function() {
-            setAiStatus('Scanning\u2014 hold product steady', 'scanning');
-        },
-        onModelError: function(err) {
-            setAiStatus('Model error: place model files in uploads/tm_models/global/', 'error');
-        },
-        onCameraError: function(err) {
-            setAiStatus('Camera error: ' + err, 'error');
-        },
-        onStopped: function() {
-            // no-op: state managed by aiOnIdentified / aiRetake
-        }
-    });
-
-    // Legacy QR cleanup override
-    if (window.initProductBarcodeInputs) {
-        var originalInit = window.initProductBarcodeInputs;
-        window.initProductBarcodeInputs = function() {
-            document.querySelectorAll('.btn-scan-qr').forEach(function(btn) {
-                btn.style.display = 'none';
-            });
-            var searchScanBtn = document.getElementById('search-scan-barcode-btn');
-            if (searchScanBtn) searchScanBtn.style.display = 'none';
-            originalInit();
-        };
-        window.initProductBarcodeInputs();
-    }
-}());
-</script>
+<!-- No external AI script needed — product photo capture uses native getUserMedia -->
 <?php renderLayoutFooter(); ?>

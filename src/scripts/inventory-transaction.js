@@ -1,175 +1,65 @@
 /**
- * POS-style inventory transaction workflow (Receive / Release pages).
- * Scanner-first: barcode wedge or webcam → cart → confirm.
+ * inventory-transaction.js
+ *
+ * POS-style inventory transaction workflow.
+ * Supports:
+ *   - Product search bar with AJAX dropdown
+ *   - AI camera scanner (image similarity via ImageScanner module)
+ *   - Confirmation modal for medium-confidence scan matches
+ *   - Cart management (add / qty change / remove)
+ *   - Product info panel with reference image
  */
 var InventoryTransaction = (function () {
     'use strict';
 
+    // ── State ────────────────────────────────────────────────────────────────
     var cart = [];
     var txnMode = 'in';
-    var catalogIndex = {};
+    var catalogIndex = {};          // { productId -> rawProduct }
     var selectedProductId = null;
 
+    // ── Search debounce ──────────────────────────────────────────────────────
+    var _searchTimer = null;
+    var _lastQuery   = '';
+
+    // ── Toast ────────────────────────────────────────────────────────────────
+
     function showToast(message, type) {
-        var toast = document.getElementById('toast-container');
+        var toast    = document.getElementById('toast-container');
         var toastMsg = document.getElementById('toast-message');
-        var toastIcon = document.getElementById('toast-icon');
+        var toastIcon= document.getElementById('toast-icon');
         if (!toast || !toastMsg) return;
 
         toastMsg.innerText = message;
         toast.className = 'show ' + (type === 'success' ? 'success' : 'error');
         toastIcon.innerHTML = type === 'success'
-            ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-            : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
+            ? '<svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+            : '<svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
 
-        setTimeout(function () { toast.classList.remove('show'); }, 3500);
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(function () { toast.classList.remove('show'); }, 3500);
     }
 
-    function focusWedgeInput() {
-        var wedge = document.getElementById('inv-wedge-input');
-        if (wedge) {
-            setTimeout(function () { wedge.focus(); }, 50);
-        }
-    }
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
-    function focusBarcodeInput() {
-        // No barcode input in AI scanner mode — noop retained for internal compatibility
-    }
-
-    function updateScannerBadge(state, text) {
-        var badge = document.getElementById('inv-scanner-badge');
-        if (!badge) return;
-        badge.textContent = text;
-        badge.className = 'pos-scanner-badge hidden sm:inline pos-scanner-badge--' + (state || 'idle');
-    }
-
-    function updateInfoActionButtons() {
-        var removeBtn = document.getElementById('inv-info-remove');
-        if (!removeBtn) return;
-
-        var inCart = selectedProductId != null && findCartItem(selectedProductId) != null;
-        removeBtn.disabled = !inCart;
-    }
-
-    function cacheProduct(rawProduct) {
-        if (!rawProduct) return;
-
-        var id = rawProduct.product_id || rawProduct.id;
-        if (id) {
-            catalogIndex[String(id)] = rawProduct;
-        }
-        if (rawProduct.barcode) {
-            catalogIndex['bc:' + rawProduct.barcode] = rawProduct;
-        }
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
     }
 
     function getStockStatusLabel(status) {
         switch (status) {
             case 'out_of_stock': return 'Out of Stock';
-            case 'low_stock': return 'Low Stock';
-            default: return 'In Stock';
+            case 'low_stock':    return 'Low Stock';
+            default:             return 'In Stock';
         }
     }
 
     function computeStockStatus(qty, reorderPoint) {
-        if (qty <= 0) return 'out_of_stock';
-        if (qty <= reorderPoint) return 'low_stock';
+        if (qty <= 0)              return 'out_of_stock';
+        if (qty <= reorderPoint)   return 'low_stock';
         return 'in_stock';
-    }
-
-    function formatDateYMD(date) {
-        var d = new Date(date);
-        if (isNaN(d.getTime())) return '';
-        var month = '' + (d.getMonth() + 1),
-            day = '' + d.getDate(),
-            year = d.getFullYear();
-
-        if (month.length < 2) month = '0' + month;
-        if (day.length < 2) day = '0' + day;
-
-        return [year, month, day].join('-');
-    }
-
-    function normalizeProduct(raw) {
-        if (raw._normalized) return raw;
-
-        var qty = parseInt(raw.quantity != null ? raw.quantity : raw.qty || raw.currentStock || '0', 10);
-        var reorderPoint = parseInt(
-            raw.reorder_point != null ? raw.reorder_point : raw.reorder || raw.reorderPoint || '10',
-            10
-        );
-        var stockStatus = raw.stock_status || raw.stockStatus || computeStockStatus(qty, reorderPoint);
-
-        return {
-            _normalized: true,
-            productId: parseInt(raw.product_id || raw.id || raw.productId || '0', 10),
-            name: raw.product_name || raw.name || 'Unknown',
-            barcode: raw.barcode || '',
-            category: raw.category || '',
-            location: raw.location || '',
-            currentStock: qty,
-            reorderPoint: reorderPoint,
-            expiryDate: raw.expiry_date || raw.expiryDate || null,
-            batchNumber: raw.batch_number || raw.batchNumber || '',
-            shelfLife: raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : (raw.shelfLife != null ? parseInt(raw.shelfLife, 10) : null),
-            stockStatus: stockStatus,
-            stockStatusLabel: raw.stock_status_label || raw.stockStatusLabel || getStockStatusLabel(stockStatus),
-            imageUrl: raw.image_url || raw.imageUrl || null,
-            unit: raw.unit || raw.uom || '',
-            price: parseFloat(raw.price != null ? raw.price : '0.00'),
-            sku: raw.sku || ''
-        };
-    }
-
-    function syncReceiveFieldsToCart() {
-        if (txnMode !== 'in' || selectedProductId == null) return;
-
-        var item = findCartItem(selectedProductId);
-        if (!item) return;
-
-        var batchInput = document.getElementById('inv-receive-batch');
-        var mfgInput = document.getElementById('inv-receive-mfg');
-        var expiryInput = document.getElementById('inv-receive-expiry');
-        if (batchInput) item.batch_number = batchInput.value.trim();
-        if (mfgInput) item.manufacturing_date = mfgInput.value.trim();
-        if (expiryInput) item.expiry_date = expiryInput.value.trim();
-    }
-
-    function loadReceiveFieldsFromCart(productId) {
-        var batchInput = document.getElementById('inv-receive-batch');
-        var mfgInput = document.getElementById('inv-receive-mfg');
-        var expiryInput = document.getElementById('inv-receive-expiry');
-        if (!batchInput && !expiryInput && !mfgInput) return;
-
-        var item = findCartItem(productId);
-        if (batchInput) batchInput.value = item ? (item.batch_number || '') : '';
-        if (mfgInput) mfgInput.value = item ? (item.manufacturing_date || '') : '';
-        if (expiryInput) {
-            expiryInput.value = item && item.expiry_date
-                ? item.expiry_date
-                : (item && item.productExpiryDate ? item.productExpiryDate : '');
-        }
-    }
-
-    function getProductDetails(productId) {
-        var cached = catalogIndex[String(productId)];
-        if (cached) {
-            return normalizeProduct(cached);
-        }
-
-        var cartItem = findCartItem(productId);
-        if (cartItem) {
-            return normalizeProduct({
-                id: cartItem.productId,
-                name: cartItem.name,
-                barcode: cartItem.barcode,
-                quantity: cartItem.currentStock,
-                unit: cartItem.unit,
-                price: cartItem.price
-            });
-        }
-
-        return null;
     }
 
     function formatExpiryDate(value) {
@@ -179,58 +69,132 @@ var InventoryTransaction = (function () {
         return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
+    function formatDateYMD(date) {
+        var d = new Date(date);
+        if (isNaN(d.getTime())) return '';
+        var month = '' + (d.getMonth() + 1),
+            day   = '' + d.getDate(),
+            year  = d.getFullYear();
+        if (month.length < 2) month = '0' + month;
+        if (day.length < 2)   day   = '0' + day;
+        return [year, month, day].join('-');
+    }
+
+    function normalizeProduct(raw) {
+        if (!raw) return null;
+        if (raw._normalized) return raw;
+
+        var qty          = parseInt(raw.quantity != null ? raw.quantity : raw.qty || raw.currentStock || '0', 10);
+        var reorderPoint = parseInt(raw.reorder_point != null ? raw.reorder_point : raw.reorder || raw.reorderPoint || '10', 10);
+        var stockStatus  = raw.stock_status || raw.stockStatus || computeStockStatus(qty, reorderPoint);
+
+        return {
+            _normalized      : true,
+            productId        : parseInt(raw.product_id || raw.id || raw.productId || '0', 10),
+            name             : raw.product_name || raw.name || 'Unknown',
+            category         : raw.category || '',
+            location         : raw.location || '',
+            currentStock     : qty,
+            reorderPoint     : reorderPoint,
+            expiryDate       : raw.expiry_date || raw.expiryDate || null,
+            batchNumber      : raw.batch_number || raw.batchNumber || '',
+            shelfLife        : raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : (raw.shelfLife != null ? parseInt(raw.shelfLife, 10) : null),
+            stockStatus      : stockStatus,
+            stockStatusLabel : raw.stock_status_label || raw.stockStatusLabel || getStockStatusLabel(stockStatus),
+            imageUrl         : raw.image_url || raw.imageUrl || null,
+            unit             : raw.unit || raw.uom || '',
+            price            : parseFloat(raw.price != null ? raw.price : '0.00'),
+        };
+    }
+
+    function cacheProduct(rawProduct) {
+        if (!rawProduct) return;
+        var id = rawProduct.product_id || rawProduct.id;
+        if (id) catalogIndex[String(id)] = rawProduct;
+    }
+
+    function getProductDetails(productId) {
+        var cached = catalogIndex[String(productId)];
+        if (cached) return normalizeProduct(cached);
+
+        var cartItem = findCartItem(productId);
+        if (cartItem) {
+            return normalizeProduct({
+                id: cartItem.productId,
+                name: cartItem.name,
+                category: cartItem.category,
+                quantity: cartItem.currentStock,
+                unit: cartItem.unit,
+                price: cartItem.price,
+                image_url: cartItem.imageUrl,
+            });
+        }
+        return null;
+    }
+
+    // ── Scanner badge ────────────────────────────────────────────────────────
+
+    function updateScannerBadge(state, text) {
+        var badge = document.getElementById('inv-scanner-badge');
+        if (!badge) return;
+        badge.textContent = text;
+        badge.className = 'pos-scanner-status-badge ' + (state || 'idle');
+    }
+
+    // ── Info panel ───────────────────────────────────────────────────────────
+
+    function updateInfoActionButtons() {
+        var removeBtn = document.getElementById('inv-info-remove');
+        if (!removeBtn) return;
+        var inCart = selectedProductId != null && findCartItem(selectedProductId) != null;
+        removeBtn.disabled = !inCart;
+    }
+
     function clearProductInfo() {
         selectedProductId = null;
-        var emptyEl = document.getElementById('inv-info-empty');
+        var emptyEl   = document.getElementById('inv-info-empty');
         var contentEl = document.getElementById('inv-info-content');
-        if (emptyEl) emptyEl.style.display = '';
-        if (contentEl) contentEl.style.display = 'none';
+        if (emptyEl)   emptyEl.style.display   = '';
+        if (contentEl) contentEl.style.display  = 'none';
         updateInfoActionButtons();
     }
 
     function showProductInfo(rawProduct) {
         var product = normalizeProduct(rawProduct);
-        if (product.productId <= 0) {
-            clearProductInfo();
-            return;
-        }
+        if (!product || product.productId <= 0) { clearProductInfo(); return; }
 
         selectedProductId = product.productId;
 
-        var emptyEl = document.getElementById('inv-info-empty');
-        var contentEl = document.getElementById('inv-info-content');
-        var imageWrap = document.getElementById('inv-info-image-wrap');
-        var imageEl = document.getElementById('inv-info-image');
-        var nameEl = document.getElementById('inv-info-name');
-        var barcodeEl = document.getElementById('inv-info-barcode');
-        var categoryEl = document.getElementById('inv-info-category');
-        var stockEl = document.getElementById('inv-info-stock');
-        var statusEl = document.getElementById('inv-info-status');
-        var reorderEl = document.getElementById('inv-info-reorder');
-        var expiryEl = document.getElementById('inv-info-expiry');
-        var batchEl = document.getElementById('inv-info-batch');
+        var emptyEl     = document.getElementById('inv-info-empty');
+        var contentEl   = document.getElementById('inv-info-content');
+        var imageWrap   = document.getElementById('inv-info-image-wrap');
+        var imageEl     = document.getElementById('inv-info-image');
+        var nameEl      = document.getElementById('inv-info-name');
+        var categoryEl  = document.getElementById('inv-info-category');
+        var stockEl     = document.getElementById('inv-info-stock');
+        var statusEl    = document.getElementById('inv-info-status');
+        var reorderEl   = document.getElementById('inv-info-reorder');
+        var expiryEl    = document.getElementById('inv-info-expiry');
+        var batchEl     = document.getElementById('inv-info-batch');
+        var locationEl  = document.getElementById('inv-info-location');
 
-        if (emptyEl) emptyEl.style.display = 'none';
-        if (contentEl) contentEl.style.display = '';
+        if (emptyEl)   emptyEl.style.display   = 'none';
+        if (contentEl) contentEl.style.display  = '';
 
-        if (nameEl) nameEl.textContent = product.name;
-        if (barcodeEl) barcodeEl.textContent = product.barcode || '—';
+        if (nameEl)     nameEl.textContent     = product.name;
         if (categoryEl) categoryEl.textContent = product.category || 'Uncategorized';
-        var locationEl = document.getElementById('inv-info-location');
         if (locationEl) locationEl.textContent = product.location || '—';
 
+        // Stock display — show remaining if release mode
         var stockText;
         if (txnMode === 'out') {
-            // Show how many will be left after the current pending release
-            var cartItem = findCartItem(product.productId);
-            var pendingQty = cartItem ? cartItem.qty : 0;
+            var cartItem    = findCartItem(product.productId);
+            var pendingQty  = cartItem ? cartItem.qty : 0;
             var effectiveStock = product.currentStock - pendingQty;
             stockText = String(effectiveStock);
             if (product.unit) stockText += ' ' + product.unit;
             stockText += ' remaining';
-            if (pendingQty > 0) {
-                stockText += ' (' + product.currentStock + ' before release)';
-            }
+            if (pendingQty > 0) stockText += ' (' + product.currentStock + ' before release)';
         } else {
             stockText = String(product.currentStock);
             if (product.unit) stockText += ' ' + product.unit;
@@ -240,13 +204,13 @@ var InventoryTransaction = (function () {
         if (statusEl) {
             var displayStatus, displayStatusLabel;
             if (txnMode === 'out') {
-                var cartItem2 = findCartItem(product.productId);
-                var pendingQty2 = cartItem2 ? cartItem2.qty : 0;
-                var effectiveStock2 = product.currentStock - pendingQty2;
-                displayStatus = computeStockStatus(effectiveStock2, product.reorderPoint);
+                var cartItem2      = findCartItem(product.productId);
+                var pendingQty2    = cartItem2 ? cartItem2.qty : 0;
+                var effectiveStock2= product.currentStock - pendingQty2;
+                displayStatus      = computeStockStatus(effectiveStock2, product.reorderPoint);
                 displayStatusLabel = getStockStatusLabel(displayStatus);
             } else {
-                displayStatus = product.stockStatus;
+                displayStatus      = product.stockStatus;
                 displayStatusLabel = product.stockStatusLabel;
             }
             statusEl.innerHTML = '<span class="pos-status-badge pos-status-' + escapeHtml(displayStatus) + '">'
@@ -254,10 +218,8 @@ var InventoryTransaction = (function () {
         }
 
         if (reorderEl) reorderEl.textContent = String(product.reorderPoint);
-        if (expiryEl) expiryEl.textContent = formatExpiryDate(product.expiryDate);
-        if (batchEl) batchEl.textContent = product.batchNumber || '—';
-
-        loadReceiveFieldsFromCart(product.productId);
+        if (expiryEl)  expiryEl.textContent  = formatExpiryDate(product.expiryDate);
+        if (batchEl)   batchEl.textContent   = product.batchNumber || '—';
 
         if (imageWrap && imageEl) {
             if (product.imageUrl) {
@@ -271,9 +233,58 @@ var InventoryTransaction = (function () {
             }
         }
 
+        loadReceiveFieldsFromCart(product.productId);
         highlightSelectedCartRow();
         updateInfoActionButtons();
     }
+
+    // ── Receive fields ───────────────────────────────────────────────────────
+
+    function syncReceiveFieldsToCart() {
+        if (txnMode !== 'in' || selectedProductId == null) return;
+        var item = findCartItem(selectedProductId);
+        if (!item) return;
+        var batchInput  = document.getElementById('inv-receive-batch');
+        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (batchInput)  item.batch_number      = batchInput.value.trim();
+        if (mfgInput)    item.manufacturing_date = mfgInput.value.trim();
+        if (expiryInput) item.expiry_date        = expiryInput.value.trim();
+    }
+
+    function loadReceiveFieldsFromCart(productId) {
+        var batchInput  = document.getElementById('inv-receive-batch');
+        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (!batchInput && !expiryInput && !mfgInput) return;
+
+        var item = findCartItem(productId);
+        if (batchInput)  batchInput.value  = item ? (item.batch_number || '') : '';
+        if (mfgInput)    mfgInput.value    = item ? (item.manufacturing_date || '') : '';
+        if (expiryInput) {
+            expiryInput.value = item && item.expiry_date
+                ? item.expiry_date
+                : (item && item.productExpiryDate ? item.productExpiryDate : '');
+        }
+    }
+
+    function calculatePredictedExpiry() {
+        if (selectedProductId == null) return;
+        var item = findCartItem(selectedProductId);
+        if (!item) return;
+        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (!mfgInput || !expiryInput) return;
+        if (item.shelf_life != null && !isNaN(item.shelf_life)) {
+            var refDate = mfgInput.value ? new Date(mfgInput.value + 'T00:00:00') : new Date();
+            if (!isNaN(refDate.getTime())) {
+                refDate.setDate(refDate.getDate() + item.shelf_life);
+                expiryInput.value = formatDateYMD(refDate);
+            }
+        }
+    }
+
+    // ── Cart ─────────────────────────────────────────────────────────────────
 
     function findCartItem(productId) {
         for (var i = 0; i < cart.length; i++) {
@@ -296,7 +307,7 @@ var InventoryTransaction = (function () {
 
     function addToCart(rawProduct, flashExisting) {
         var product = normalizeProduct(rawProduct);
-        if (product.productId <= 0) {
+        if (!product || product.productId <= 0) {
             showToast('Invalid product.', 'error');
             return false;
         }
@@ -307,19 +318,16 @@ var InventoryTransaction = (function () {
         if (existing) {
             if (!canIncreaseQty(existing)) {
                 showToast('Insufficient stock for ' + existing.name + '. Available: ' + existing.currentStock + '.', 'error');
-                focusBarcodeInput();
                 return false;
             }
             existing.qty += 1;
             renderCart(flashExisting !== false ? product.productId : null);
             showProductInfo(product);
-            focusBarcodeInput();
             return true;
         }
 
         if (txnMode === 'out' && product.currentStock <= 0) {
             showToast('Cannot release — ' + product.name + ' is out of stock.', 'error');
-            focusBarcodeInput();
             return false;
         }
 
@@ -331,40 +339,34 @@ var InventoryTransaction = (function () {
         }
 
         cart.push({
-            productId: product.productId,
-            name: product.name,
-            barcode: product.barcode,
-            category: product.category,
-            location: product.location,
-            currentStock: product.currentStock,
-            unit: product.unit,
-            price: product.price,
-            productExpiryDate: product.expiryDate || '',
-            batch_number: product.batchNumber || '',
-            manufacturing_date: '',
-            expiry_date: initialExpiry,
-            shelf_life: product.shelfLife,
-            qty: 1
+            productId           : product.productId,
+            name                : product.name,
+            category            : product.category,
+            location            : product.location,
+            currentStock        : product.currentStock,
+            unit                : product.unit,
+            price               : product.price,
+            imageUrl            : product.imageUrl,
+            productExpiryDate   : product.expiryDate || '',
+            batch_number        : product.batchNumber || '',
+            manufacturing_date  : '',
+            expiry_date         : initialExpiry,
+            shelf_life          : product.shelfLife,
+            qty                 : 1
         });
 
         renderCart(product.productId);
         showProductInfo(product);
-        focusBarcodeInput();
         return true;
     }
 
     function changeQty(productId, delta) {
         var idx = findCartIndex(productId);
         if (idx === -1) return;
-
-        var item = cart[idx];
+        var item   = cart[idx];
         var newQty = item.qty + delta;
 
-        if (newQty <= 0) {
-            removeFromCart(productId);
-            return;
-        }
-
+        if (newQty <= 0) { removeFromCart(productId); return; }
         if (txnMode === 'out' && newQty > item.currentStock) {
             showToast('Insufficient stock. Available: ' + item.currentStock + '.', 'error');
             return;
@@ -373,17 +375,12 @@ var InventoryTransaction = (function () {
         item.qty = newQty;
         renderCart(productId);
 
-        // Refresh the info panel so "Current Stock" shows live remaining
         if (selectedProductId === productId) {
             var details = getProductDetails(productId);
             if (details) showProductInfo(details);
         } else {
-            var details2 = getProductDetails(productId);
-            if (details2 && selectedProductId === productId) showProductInfo(details2);
             updateInfoActionButtons();
         }
-
-        focusBarcodeInput();
     }
 
     function removeFromCart(productId) {
@@ -394,22 +391,19 @@ var InventoryTransaction = (function () {
 
         if (selectedProductId === productId) {
             if (cart.length > 0) {
-                var lastItem = cart[cart.length - 1];
-                var details = getProductDetails(lastItem.productId);
+                var last = cart[cart.length - 1];
+                var details = getProductDetails(last.productId);
                 if (details) showProductInfo(details);
             } else {
                 clearProductInfo();
             }
         }
-
-        focusBarcodeInput();
     }
 
     function clearCart() {
         cart = [];
         renderCart();
         clearProductInfo();
-        focusBarcodeInput();
     }
 
     function highlightSelectedCartRow() {
@@ -421,59 +415,55 @@ var InventoryTransaction = (function () {
     }
 
     function renderCart(flashProductId) {
-        var emptyEl = document.getElementById('inv-cart-empty');
-        var tableEl = document.getElementById('inv-cart-table');
-        var bodyEl = document.getElementById('inv-cart-body');
-        var confirmBtn = document.getElementById('inv-confirm-btn');
-        var summaryProducts = document.getElementById('inv-summary-products');
-        var summaryQty = document.getElementById('inv-summary-qty');
+        var emptyEl   = document.getElementById('inv-cart-empty');
+        var tableEl   = document.getElementById('inv-cart-table');
+        var bodyEl    = document.getElementById('inv-cart-body');
+        var confirmBtn= document.getElementById('inv-confirm-btn');
+        var summaryPr = document.getElementById('inv-summary-products');
+        var summaryQt = document.getElementById('inv-summary-qty');
 
         if (!bodyEl) return;
-
         bodyEl.innerHTML = '';
 
         if (cart.length === 0) {
-            if (emptyEl) emptyEl.style.display = '';
-            if (tableEl) tableEl.style.display = 'none';
-            if (confirmBtn) confirmBtn.disabled = true;
-            if (summaryProducts) summaryProducts.textContent = '0';
-            if (summaryQty) summaryQty.textContent = '0';
+            if (emptyEl)   emptyEl.style.display    = '';
+            if (tableEl)   tableEl.style.display    = 'none';
+            if (confirmBtn) confirmBtn.disabled     = true;
+            if (summaryPr)  summaryPr.textContent   = '0';
+            if (summaryQt)  summaryQt.textContent   = '0';
             return;
         }
 
-        if (emptyEl) emptyEl.style.display = 'none';
-        if (tableEl) tableEl.style.display = '';
-        if (confirmBtn) confirmBtn.disabled = false;
+        if (emptyEl)   emptyEl.style.display   = 'none';
+        if (tableEl)   tableEl.style.display   = '';
+        if (confirmBtn) confirmBtn.disabled    = false;
 
         var totalQty = 0;
-
         cart.forEach(function (item) {
             totalQty += item.qty;
 
             var tr = document.createElement('tr');
             tr.setAttribute('data-product-id', String(item.productId));
-
             if (flashProductId && item.productId === flashProductId) {
                 tr.className = 'pos-cart-row-flash';
             }
 
+            // Product name cell
             var nameTd = document.createElement('td');
             nameTd.innerHTML = '<div class="font-semibold">' + escapeHtml(item.name) + '</div>'
                 + (item.unit ? '<div class="text-[10px] text-[#9aa6d1]">' + escapeHtml(item.unit) + '</div>' : '');
 
-            var barcodeTd = document.createElement('td');
-            barcodeTd.textContent = item.barcode || '—';
-
+            // Current stock
             var stockTd = document.createElement('td');
             stockTd.textContent = item.currentStock;
 
-            var qtyTd = document.createElement('td');
+            // Qty controls
+            var qtyTd       = document.createElement('td');
             var qtyControls = document.createElement('div');
             qtyControls.className = 'pos-qty-controls';
 
             var minusBtn = document.createElement('button');
-            minusBtn.type = 'button';
-            minusBtn.className = 'pos-qty-btn';
+            minusBtn.type = 'button'; minusBtn.className = 'pos-qty-btn';
             minusBtn.textContent = '−';
             minusBtn.setAttribute('data-action', 'decrease');
             minusBtn.setAttribute('data-id', String(item.productId));
@@ -483,8 +473,7 @@ var InventoryTransaction = (function () {
             qtySpan.textContent = String(item.qty);
 
             var plusBtn = document.createElement('button');
-            plusBtn.type = 'button';
-            plusBtn.className = 'pos-qty-btn';
+            plusBtn.type = 'button'; plusBtn.className = 'pos-qty-btn';
             plusBtn.textContent = '+';
             plusBtn.setAttribute('data-action', 'increase');
             plusBtn.setAttribute('data-id', String(item.productId));
@@ -500,12 +489,10 @@ var InventoryTransaction = (function () {
             var totalTd = document.createElement('td');
             totalTd.textContent = '₱' + (parseFloat(item.price || 0) * item.qty).toFixed(2);
 
-            var actionTd = document.createElement('td');
+            var actionTd  = document.createElement('td');
             var removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'pos-remove-btn';
-            removeBtn.title = 'Remove';
-            removeBtn.innerHTML = '<svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
+            removeBtn.type = 'button'; removeBtn.className = 'pos-remove-btn'; removeBtn.title = 'Remove';
+            removeBtn.innerHTML = '<svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
             removeBtn.setAttribute('data-action', 'remove');
             removeBtn.setAttribute('data-id', String(item.productId));
             actionTd.appendChild(removeBtn);
@@ -519,227 +506,393 @@ var InventoryTransaction = (function () {
             bodyEl.appendChild(tr);
         });
 
-        if (summaryProducts) summaryProducts.textContent = String(cart.length);
-        if (summaryQty) summaryQty.textContent = String(totalQty);
+        if (summaryPr) summaryPr.textContent = String(cart.length);
+        if (summaryQt) summaryQt.textContent = String(totalQty);
         highlightSelectedCartRow();
         updateInfoActionButtons();
     }
 
-    function escapeHtml(str) {
-        var div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
+    // ── Cart events ──────────────────────────────────────────────────────────
 
     function handleCartAction(e) {
         var btn = e.target.closest('[data-action]');
         if (!btn) return;
-
         e.stopPropagation();
-
-        var action = btn.getAttribute('data-action');
+        var action    = btn.getAttribute('data-action');
         var productId = parseInt(btn.getAttribute('data-id') || '0', 10);
         if (productId <= 0) return;
-
         if (action === 'increase') changeQty(productId, 1);
         else if (action === 'decrease') changeQty(productId, -1);
-        else if (action === 'remove') removeFromCart(productId);
+        else if (action === 'remove')   removeFromCart(productId);
     }
 
     function handleCartRowSelect(e) {
         if (e.target.closest('[data-action]')) return;
-
         var row = e.target.closest('tr[data-product-id]');
         if (!row) return;
-
         var productId = parseInt(row.getAttribute('data-product-id') || '0', 10);
         if (productId <= 0) return;
-
         var details = getProductDetails(productId);
         if (details) showProductInfo(details);
     }
 
-    // ── AI Scanner: product lookup by integer ID ──────────────────────────────
+    // ── Product search ───────────────────────────────────────────────────────
 
     /**
-     * Called by TMScanner's onAutoConfirm. Fetches product via get_product_by_id.php
-     * and adds it to the cart. Also updates the info panel.
-     * @param {number} productId
-     * @param {number} confidence   0-1
-     * @param {string} classLabel
-     * @param {string} categorySlug
+     * Search products via the dedicated search API.
+     * Returns Promise<Array> of product objects.
      */
-    function addProductById(productId, confidence, classLabel, categorySlug) {
-        productId = parseInt(productId, 10);
-        if (productId <= 0) {
-            showToast('Could not resolve product from scan.', 'error');
-            if (window.TMScanner) TMScanner.resumeAfterConfirm();
-            return;
-        }
-
-        // Check cache first
-        var cached = catalogIndex[String(productId)];
-        if (cached) {
-            addToCart(cached);
-            showToast('Auto-identified: ' + (cached.product_name || cached.name || 'Product') + ' (' + Math.round(confidence * 100) + '% confidence)', 'success');
-            if (window.TMScanner) TMScanner.resumeAfterConfirm();
-            return;
-        }
-
-        fetch('api/get_product_by_id.php?id=' + productId)
+    function searchProducts(query) {
+        return fetch('api/search_products.php?q=' + encodeURIComponent(query) + '&limit=8')
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (data.found && data.product) {
-                    cacheProduct(data.product);
-                    addToCart(data.product);
-                    showToast(
-                        'Auto-identified: ' + (data.product.product_name || 'Product') +
-                        ' (' + Math.round(confidence * 100) + '% confidence)',
-                        'success'
-                    );
-                } else {
-                    showToast('Product ID ' + productId + ' not found in database.', 'error');
-                }
-                if (window.TMScanner) TMScanner.resumeAfterConfirm();
+                if (data && data.success && data.data) return data.data;
+                return [];
             })
-            .catch(function () {
-                showToast('Failed to fetch product details.', 'error');
-                if (window.TMScanner) TMScanner.resumeAfterConfirm();
-            });
+            .catch(function () { return []; });
     }
 
-    /**
-     * Called by TMScanner's onNeedsConfirm.
-     * Fetches product details for each candidate, then populates
-     * the amber candidate drawer so staff can tap to confirm.
-     * @param {Array<{productId, label, confidence}>} candidates
-     * @param {string} categorySlug
-     */
-    function showCandidateDrawer(candidates, categorySlug) {
-        var drawer = document.getElementById('tm-candidate-drawer');
-        var list   = document.getElementById('tm-candidate-list');
-        if (!drawer || !list) {
-            // Drawer not in DOM — fall back to auto with top candidate
-            if (candidates.length > 0) addProductById(candidates[0].productId, candidates[0].confidence, candidates[0].label, categorySlug);
+    function renderSearchDropdown(products, query) {
+        var dropdown = document.getElementById('inv-search-dropdown');
+        if (!dropdown) return;
+
+        if (!products || products.length === 0) {
+            dropdown.innerHTML = '<div class="pos-search-no-results">No products found for "' + escapeHtml(query) + '"</div>';
+            dropdown.classList.add('open');
             return;
         }
 
-        list.innerHTML = '<div style="padding:12px;text-align:center;color:#9aa6d1;font-size:12px;">Loading candidates…</div>';
-        drawer.classList.add('is-open');
+        dropdown.innerHTML = '';
+        products.forEach(function (p) {
+            var id       = parseInt(p.product_id || p.id || '0', 10);
+            var name     = p.product_name || p.name || 'Unknown';
+            var category = p.category || '';
+            var qty      = parseInt(p.quantity || '0', 10);
+            var rp       = parseInt(p.reorder_point || '10', 10);
+            var status   = computeStockStatus(qty, rp);
+            var imageUrl = p.image_url || null;
 
-        // Fetch product names/images for each candidate in parallel
-        var fetches = candidates.map(function (c) {
-            var cached = catalogIndex[String(c.productId)];
-            if (cached) {
-                return Promise.resolve({ found: true, product: cached, confidence: c.confidence, label: c.label });
+            var item = document.createElement('div');
+            item.className = 'pos-search-item';
+            item.setAttribute('data-product-id', String(id));
+
+            // Thumbnail
+            if (imageUrl) {
+                var img = document.createElement('img');
+                img.className = 'pos-search-item-thumb';
+                img.src = imageUrl;
+                img.alt = name;
+                img.onerror = function () {
+                    var ph = makePh();
+                    img.replaceWith(ph);
+                };
+                item.appendChild(img);
+            } else {
+                item.appendChild(makePh());
             }
-            return fetch('api/get_product_by_id.php?id=' + c.productId)
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data.found && data.product) {
-                        cacheProduct(data.product);
-                    }
-                    return { found: data.found, product: data.product, confidence: c.confidence, label: c.label };
-                })
-                .catch(function () {
-                    return { found: false, product: null, confidence: c.confidence, label: c.label };
-                });
-        });
 
-        Promise.all(fetches).then(function (results) {
-            list.innerHTML = '';
-            var validCount = 0;
+            // Info
+            var info = document.createElement('div');
+            info.className = 'pos-search-item-info';
+            info.innerHTML = '<div class="pos-search-item-name">' + escapeHtml(name) + '</div>'
+                + '<div class="pos-search-item-meta">' + escapeHtml(category || '—') + ' · ' + qty + ' in stock</div>';
+            item.appendChild(info);
 
-            results.forEach(function (res) {
-                if (!res.found || !res.product) return;
-                validCount++;
+            // Stock badge
+            var badge = document.createElement('span');
+            badge.className = 'pos-search-item-stock-badge';
+            if (status === 'out_of_stock') {
+                badge.textContent = 'Out';
+                badge.style.cssText = 'background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.25);';
+            } else if (status === 'low_stock') {
+                badge.textContent = 'Low';
+                badge.style.cssText = 'background:rgba(245,158,11,0.1);color:#fbbf24;border:1px solid rgba(245,158,11,0.25);';
+            } else {
+                badge.textContent = 'OK';
+                badge.style.cssText = 'background:rgba(81,213,90,0.1);color:#51D55A;border:1px solid rgba(81,213,90,0.25);';
+            }
+            item.appendChild(badge);
 
-                var p = res.product;
-                var pId = parseInt(p.product_id || p.id || '0', 10);
-                var pName = p.product_name || p.name || 'Unknown Product';
-                var pConf = Math.round(res.confidence * 100);
-                var pImg  = p.image_url || null;
-
-                var item = document.createElement('div');
-                item.className = 'tm-candidate-item';
-
-                // Thumbnail
-                if (pImg) {
-                    var img = document.createElement('img');
-                    img.className = 'tm-candidate-thumb';
-                    img.src = pImg;
-                    img.alt = pName;
-                    img.onerror = function () {
-                        img.replaceWith(makePlaceholder());
-                    };
-                    item.appendChild(img);
-                } else {
-                    item.appendChild(makePlaceholder());
-                }
-
-                // Info block
-                var info = document.createElement('div');
-                info.className = 'tm-candidate-info';
-                info.innerHTML =
-                    '<div class="tm-candidate-name">' + escapeHtml(pName) + '</div>' +
-                    '<div class="tm-candidate-conf">' + pConf + '% confidence</div>';
-                item.appendChild(info);
-
-                // Pick button
-                var pickBtn = document.createElement('button');
-                pickBtn.type = 'button';
-                pickBtn.className = 'tm-candidate-pick-btn';
-                pickBtn.textContent = 'Select';
-                pickBtn.setAttribute('data-product-id', String(pId));
-                pickBtn.addEventListener('click', function () {
-                    closeCandidateDrawer();
-                    addToCart(p);
-                    showToast('Manually confirmed: ' + pName, 'success');
-                    if (window.TMScanner) TMScanner.resumeAfterConfirm();
-                });
-                item.appendChild(pickBtn);
-
-                list.appendChild(item);
+            // Click → add to cart
+            item.addEventListener('click', function () {
+                cacheProduct(p);
+                addToCart(p);
+                closeSearchDropdown();
+                var searchInput = document.getElementById('inv-product-search');
+                if (searchInput) { searchInput.value = ''; }
+                updateSearchClearBtn();
             });
 
-            if (validCount === 0) {
-                list.innerHTML = '<div style="padding:12px;text-align:center;color:#f87171;font-size:12px;">No recognizable products found. Try again.</div>';
-            }
+            dropdown.appendChild(item);
         });
+
+        dropdown.classList.add('open');
     }
 
-    function makePlaceholder() {
+    function makePh() {
         var ph = document.createElement('div');
-        ph.className = 'tm-candidate-thumb-placeholder';
-        ph.innerHTML = '&#128722;'; // shopping bag emoji
+        ph.className = 'pos-search-item-placeholder';
+        ph.textContent = '📦';
         return ph;
     }
 
-    function closeCandidateDrawer() {
-        var drawer = document.getElementById('tm-candidate-drawer');
-        if (drawer) drawer.classList.remove('is-open');
+    function closeSearchDropdown() {
+        var dropdown = document.getElementById('inv-search-dropdown');
+        if (dropdown) dropdown.classList.remove('open');
     }
 
-    // ── End AI Scanner helpers ─────────────────────────────────────────
-
-    function handleInfoAction(action) {
-        if (selectedProductId == null) return;
-        if (action === 'remove') removeFromCart(selectedProductId);
+    function updateSearchClearBtn() {
+        var input = document.getElementById('inv-product-search');
+        var clearBtn = document.getElementById('inv-search-clear');
+        if (!input || !clearBtn) return;
+        if (input.value.trim().length > 0) {
+            clearBtn.classList.add('visible');
+        } else {
+            clearBtn.classList.remove('visible');
+        }
     }
+
+    function initSearch() {
+        var searchInput = document.getElementById('inv-product-search');
+        var clearBtn    = document.getElementById('inv-search-clear');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', function () {
+            var query = searchInput.value.trim();
+            updateSearchClearBtn();
+
+            if (query.length < 1) {
+                closeSearchDropdown();
+                _lastQuery = '';
+                return;
+            }
+
+            if (query === _lastQuery) return;
+            _lastQuery = query;
+
+            clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(function () {
+                searchProducts(query).then(function (products) {
+                    renderSearchDropdown(products, query);
+                });
+            }, 250);
+        });
+
+        searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeSearchDropdown();
+                searchInput.blur();
+            }
+        });
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                updateSearchClearBtn();
+                closeSearchDropdown();
+                _lastQuery = '';
+                searchInput.focus();
+            });
+        }
+
+        // Close dropdown on outside click
+        document.addEventListener('click', function (e) {
+            var wrap = document.getElementById('inv-search-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                closeSearchDropdown();
+            }
+        });
+    }
+
+    // ── Scan Confirmation Modal ───────────────────────────────────────────────
+
+    function openScanModal(candidates) {
+        var backdrop  = document.getElementById('scan-modal-backdrop');
+        var container = document.getElementById('scan-modal-candidates');
+        if (!backdrop || !container) return;
+
+        container.innerHTML = '';
+
+        candidates.forEach(function (c) {
+            var row = document.createElement('div');
+            row.className = 'scan-modal-product-row';
+
+            if (c.imageUrl) {
+                var img = document.createElement('img');
+                img.className = 'scan-modal-thumb';
+                img.src = c.imageUrl;
+                img.alt = c.name;
+                img.onerror = function () { img.replaceWith(makeModalPh()); };
+                row.appendChild(img);
+            } else {
+                row.appendChild(makeModalPh());
+            }
+
+            var info = document.createElement('div');
+            info.className = 'scan-modal-info';
+            info.innerHTML = '<div class="scan-modal-pname">' + escapeHtml(c.name) + '</div>'
+                + '<div class="scan-modal-pcat">' + escapeHtml(c.category || '—') + '</div>'
+                + '<div class="scan-modal-pconf">' + Math.round(c.score * 100) + '% match</div>';
+            row.appendChild(info);
+
+            row.addEventListener('click', function () {
+                closeScanModal();
+                addToCart(c);
+                showToast('Added: ' + c.name, 'success');
+                if (window.ImageScanner) ImageScanner.resumeAfterConfirm();
+            });
+
+            container.appendChild(row);
+        });
+
+        backdrop.classList.add('open');
+    }
+
+    function closeScanModal() {
+        var backdrop = document.getElementById('scan-modal-backdrop');
+        if (backdrop) backdrop.classList.remove('open');
+    }
+
+    function makeModalPh() {
+        var ph = document.createElement('div');
+        ph.className = 'scan-modal-thumb-ph';
+        ph.textContent = '📦';
+        return ph;
+    }
+
+    // ── Image Scanner integration ─────────────────────────────────────────────
+
+    var _needsConfirmDebounce = null;
+
+    function initImageScanner() {
+        var videoEl      = document.getElementById('inv-camera-video');
+        var cameraWrap   = document.getElementById('inv-camera-wrap');
+        var toggleBtn    = document.getElementById('inv-camera-toggle-btn');
+        var stopBtn      = document.getElementById('inv-camera-stop-btn');
+        var cameraStatus = document.getElementById('inv-camera-status');
+        var confFill     = document.getElementById('inv-conf-fill');
+        var confLabel    = document.getElementById('inv-conf-label-text');
+        var confPct      = document.getElementById('inv-conf-pct');
+
+        if (!window.ImageScanner) return;
+
+        ImageScanner.init({
+            onStatusChange: function (state, text) {
+                updateScannerBadge(state === 'scanning' ? 'scanning' : state === 'loading' || state === 'embedding' ? 'loading' : state === 'error' ? 'error' : 'idle', text);
+                if (cameraStatus) cameraStatus.textContent = text;
+
+                if (state === 'ready') {
+                    if (toggleBtn) { toggleBtn.disabled = false; }
+                }
+                if (state === 'error') {
+                    if (cameraWrap) cameraWrap.classList.remove('visible');
+                    if (toggleBtn)  { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
+                }
+            },
+
+            onEmbeddingsReady: function (count) {
+                if (count === 0) {
+                    updateScannerBadge('idle', 'No product images found');
+                    showToast('Add reference photos to your products to enable scanning.', 'error');
+                } else {
+                    updateScannerBadge('idle', count + ' products ready to scan');
+                }
+            },
+
+            onPredicting: function (topName, topScore, allSorted) {
+                var pct = Math.round(topScore * 100);
+                if (confFill) {
+                    confFill.style.width = pct + '%';
+                    confFill.className   = 'pos-conf-fill' + (topScore < 0.40 ? ' low' : topScore < 0.70 ? ' medium' : '');
+                }
+                if (confLabel) confLabel.textContent = topName;
+                if (confPct)   confPct.textContent   = pct + '%';
+            },
+
+            onAutoConfirm: function (entry, score) {
+                // entry = { productId, name, category, imageUrl, price, quantity, reorderPoint, unit, vec }
+                if (cameraStatus) cameraStatus.textContent = 'Match found! Adding…';
+                var raw = {
+                    product_id   : entry.productId,
+                    product_name : entry.name,
+                    category     : entry.category,
+                    image_url    : entry.imageUrl,
+                    price        : entry.price,
+                    quantity     : entry.quantity,
+                    reorder_point: entry.reorderPoint,
+                    unit         : entry.unit,
+                };
+                cacheProduct(raw);
+                addToCart(raw);
+                showToast('Scanned: ' + entry.name + ' (' + Math.round(score * 100) + '% match)', 'success');
+                ImageScanner.resumeAfterConfirm();
+            },
+
+            onStopped: function () {
+                updateScannerBadge('idle', 'AI Scanner idle');
+                if (cameraWrap) cameraWrap.classList.remove('visible');
+                if (confFill)   { confFill.style.width = '0%'; confFill.className = 'pos-conf-fill'; }
+                if (confLabel)  confLabel.textContent = 'Waiting…';
+                if (confPct)    confPct.textContent   = '—';
+                if (cameraStatus) cameraStatus.textContent = 'Camera stopped.';
+                if (toggleBtn) { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
+                closeScanModal();
+            },
+        });
+
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function () {
+                if (ImageScanner.isRunning()) {
+                    ImageScanner.stopCamera();
+                    return;
+                }
+
+                toggleBtn.disabled = true;
+                updateScannerBadge('loading', 'Loading model…');
+                if (cameraStatus) cameraStatus.textContent = 'Loading AI model…';
+
+                ImageScanner.loadModel()
+                    .then(function () {
+                        if (!videoEl) throw new Error('Video element not found.');
+                        return ImageScanner.startCamera(videoEl);
+                    })
+                    .then(function () {
+                        if (cameraWrap) cameraWrap.classList.add('visible');
+                        if (toggleBtn) { toggleBtn.textContent = 'Stop Camera'; toggleBtn.classList.add('is-active'); toggleBtn.disabled = false; }
+                    })
+                    .catch(function (err) {
+                        toggleBtn.disabled = false;
+                        showToast('Scanner error: ' + (err.message || err), 'error');
+                    });
+            });
+        }
+
+        if (stopBtn) {
+            stopBtn.addEventListener('click', function () { ImageScanner.stopCamera(); });
+        }
+
+        // Modal cancel → dismiss and resume
+        var cancelBtn = document.getElementById('scan-modal-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function () {
+                closeScanModal();
+                if (window.ImageScanner) ImageScanner.resumeAfterConfirm();
+            });
+        }
+    }
+
+    // ── Form submit ──────────────────────────────────────────────────────────
+
     function validateAndSubmit(form) {
         if (cart.length === 0) {
             showToast('Add at least one product to the transaction.', 'error');
-            focusBarcodeInput();
             return false;
         }
 
         if (txnMode === 'out') {
             for (var i = 0; i < cart.length; i++) {
                 if (cart[i].qty > cart[i].currentStock) {
-                    showToast(
-                        'Insufficient stock for ' + cart[i].name + '. Available: ' + cart[i].currentStock + '.',
-                        'error'
-                    );
+                    showToast('Insufficient stock for ' + cart[i].name + '. Available: ' + cart[i].currentStock + '.', 'error');
                     return false;
                 }
             }
@@ -748,18 +901,11 @@ var InventoryTransaction = (function () {
         var payload = cart.map(function (item) {
             var row = { product_id: item.productId, qty: item.qty };
             if (txnMode === 'in') {
-                var metadata = {};
-                if (item.batch_number) metadata.batch_number = item.batch_number;
-                if (item.expiry_date) metadata.expiry_date = item.expiry_date;
-                if (item.manufacturing_date) metadata.manufacturing_date = item.manufacturing_date;
-                if (item.location) metadata.location = item.location;
-                if (item.category) metadata.category = item.category;
-
-                if (metadata.batch_number) row.batch_number = metadata.batch_number;
-                if (metadata.expiry_date) row.expiry_date = metadata.expiry_date;
-                if (metadata.manufacturing_date) row.manufacturing_date = metadata.manufacturing_date;
-                if (metadata.location) row.location = metadata.location;
-                if (metadata.category) row.category = metadata.category;
+                if (item.batch_number)       row.batch_number        = item.batch_number;
+                if (item.expiry_date)        row.expiry_date         = item.expiry_date;
+                if (item.manufacturing_date) row.manufacturing_date  = item.manufacturing_date;
+                if (item.location)           row.location            = item.location;
+                if (item.category)           row.category            = item.category;
             }
             return row;
         });
@@ -768,122 +914,7 @@ var InventoryTransaction = (function () {
         return true;
     }
 
-    function calculatePredictedExpiry() {
-        if (selectedProductId == null) return;
-        var item = findCartItem(selectedProductId);
-        if (!item) return;
-
-        var mfgInput = document.getElementById('inv-receive-mfg');
-        var expiryInput = document.getElementById('inv-receive-expiry');
-        if (!mfgInput || !expiryInput) return;
-
-        if (item.shelf_life != null && !isNaN(item.shelf_life)) {
-            var refDate = mfgInput.value ? new Date(mfgInput.value + 'T00:00:00') : new Date();
-            if (!isNaN(refDate.getTime())) {
-                refDate.setDate(refDate.getDate() + item.shelf_life);
-                expiryInput.value = formatDateYMD(refDate);
-            }
-        }
-    }
-
-    function initTMScanner() {
-        if (!window.TMScanner) return;
-
-        var videoEl        = document.getElementById('tm-video');
-        var cameraWrap     = document.getElementById('tm-camera-wrap');
-        var toggleBtn      = document.getElementById('tm-toggle-btn');
-        var stopBtn        = document.getElementById('tm-stop-btn');
-        var cameraStatus   = document.getElementById('tm-camera-status');
-        var confFill       = document.getElementById('tm-conf-fill');
-        var confLabelText  = document.getElementById('tm-conf-label-text');
-        var confPct        = document.getElementById('tm-conf-pct');
-
-        updateScannerBadge('idle', 'AI Scanner ready');
-        if (toggleBtn) toggleBtn.disabled = false;
-
-        // ─ TMScanner callbacks ───────────────────────────────────
-        TMScanner.init({
-            onModelLoaded: function (slug) {
-                updateScannerBadge('idle', 'Model loaded: ' + slug);
-                if (cameraStatus) cameraStatus.textContent = 'Model loaded. Starting camera…';
-            },
-            onModelError: function (msg) {
-                updateScannerBadge('off', 'Model error');
-                showToast('Model error: ' + msg, 'error');
-            },
-            onCameraStarted: function () {
-                updateScannerBadge('scanning', 'Scanning…');
-                if (cameraStatus) cameraStatus.textContent = 'Scanning… hold product in view';
-                if (cameraWrap) cameraWrap.style.display = '';
-                if (toggleBtn) { toggleBtn.textContent = 'Stop Camera'; toggleBtn.classList.add('is-active'); }
-            },
-            onCameraError: function (msg) {
-                updateScannerBadge('off', 'Camera error');
-                showToast('Camera error: ' + msg, 'error');
-                if (cameraWrap) cameraWrap.style.display = 'none';
-                if (toggleBtn) { toggleBtn.textContent = 'Start Camera'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
-            },
-            onStopped: function () {
-                updateScannerBadge('idle', 'AI Scanner idle');
-                if (cameraWrap) cameraWrap.style.display = 'none';
-                if (confFill) { confFill.style.width = '0%'; confFill.className = 'tm-conf-fill'; }
-                if (confLabelText) confLabelText.textContent = 'Waiting…';
-                if (confPct) confPct.textContent = '—';
-                if (cameraStatus) cameraStatus.textContent = 'Camera stopped.';
-                if (toggleBtn) { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
-            },
-            onPredicting: function (topLabel, topConf, allSorted) {
-                if (!confFill) return;
-                var pct = Math.round(topConf * 100);
-                confFill.style.width = pct + '%';
-                confFill.className = 'tm-conf-fill' +
-                    (topConf < 0.5 ? ' is-low' : topConf < 0.80 ? ' is-medium' : '');
-                if (confLabelText) confLabelText.textContent = topLabel;
-                if (confPct) confPct.textContent = pct + '%';
-            },
-            onAutoConfirm: function (productId, confidence, classLabel) {
-                if (cameraStatus) cameraStatus.textContent = 'Identified! Adding to transaction…';
-                addProductById(productId, confidence, classLabel, 'global');
-            }
-        });
-
-        // ─ Toggle camera button ───────────────────────────────────
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', function () {
-                if (TMScanner.isRunning()) {
-                    TMScanner.stopCamera();
-                    return;
-                }
-
-                toggleBtn.disabled = true;
-                updateScannerBadge('loading', 'Loading model…');
-                if (cameraStatus) cameraStatus.textContent = 'Loading AI model…';
-
-                var loadPromise = TMScanner.loadModel();
-
-                loadPromise
-                    .then(function () {
-                        if (!videoEl) {
-                            showToast('Video element not found.', 'error');
-                            toggleBtn.disabled = false;
-                            return;
-                        }
-                        return TMScanner.startCamera(videoEl);
-                    })
-                    .catch(function (err) {
-                        toggleBtn.disabled = false;
-                    });
-            });
-        }
-
-        // Stop button (inside camera footer)
-        if (stopBtn) {
-            stopBtn.addEventListener('click', function () {
-                TMScanner.stopCamera();
-            });
-        }
-
-    }
+    // ── Init ─────────────────────────────────────────────────────────────────
 
     function init() {
         var form = document.getElementById('inv-txn-form');
@@ -893,37 +924,39 @@ var InventoryTransaction = (function () {
         renderCart();
         clearProductInfo();
 
-        // ─ Wire up TM Scanner ───────────────────────────────────
-        initTMScanner();
+        // Search
+        initSearch();
 
-        // ─ Info panel / Cart events ──────────────────────────────
+        // Camera scanner
+        initImageScanner();
+
+        // Info panel remove
         document.getElementById('inv-info-remove')?.addEventListener('click', function () {
-            handleInfoAction('remove');
+            if (selectedProductId != null) removeFromCart(selectedProductId);
         });
 
+        // Cart body
         var cartBody = document.getElementById('inv-cart-body');
         cartBody?.addEventListener('click', handleCartAction);
         cartBody?.addEventListener('click', handleCartRowSelect);
 
+        // Clear transaction
         document.getElementById('inv-clear-btn')?.addEventListener('click', function () {
             if (cart.length === 0) return;
             clearCart();
         });
 
+        // Form submit
         form.addEventListener('submit', function (e) {
             syncReceiveFieldsToCart();
-            if (!validateAndSubmit(form)) {
-                e.preventDefault();
-            }
+            if (!validateAndSubmit(form)) e.preventDefault();
         });
 
+        // Receive field sync
         document.getElementById('inv-receive-batch')?.addEventListener('input', syncReceiveFieldsToCart);
         document.getElementById('inv-receive-batch')?.addEventListener('change', syncReceiveFieldsToCart);
 
-        var mfgListener = function () {
-            calculatePredictedExpiry();
-            syncReceiveFieldsToCart();
-        };
+        var mfgListener = function () { calculatePredictedExpiry(); syncReceiveFieldsToCart(); };
         document.getElementById('inv-receive-mfg')?.addEventListener('input', mfgListener);
         document.getElementById('inv-receive-mfg')?.addEventListener('change', mfgListener);
 
@@ -934,10 +967,8 @@ var InventoryTransaction = (function () {
     document.addEventListener('DOMContentLoaded', init);
 
     return {
-        showToast:         showToast,
-        addProductById:    addProductById,
-        addToCart:         addToCart,
-        clearCart:         clearCart,
-        showCandidateDrawer: showCandidateDrawer,
+        showToast : showToast,
+        addToCart : addToCart,
+        clearCart : clearCart,
     };
 })();
