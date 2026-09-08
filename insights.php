@@ -708,6 +708,8 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 }
 .tab-content { display: none; animation: fadeIn 0.4s ease; }
 .tab-content.active { display: block; }
+/* br helpers inside tab labels — hidden globally, shown only on mobile */
+.tab-br { display: none; }
 
 .table { width: 100%; border-collapse: collapse; }
 .table th {
@@ -888,6 +890,85 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     color: var(--insights-accent);
 }
 .section-heading-icon svg { width: 22px; height: 22px; }
+
+/* ─── Mobile-only fixes (≤ 767 px) ────────────────────────────── */
+@media (max-width: 767px) {
+
+    /* ── 1. STICKY FIRST COLUMN ──────────────────────────────────
+       Tables that need horizontal scroll get a sticky first column.
+       We give it a solid background so scrolling columns never bleed
+       through, and a right-side shadow to show it's "floating". */
+    .table th:first-child,
+    .table td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        /* Solid card background colours matching each theme */
+        background: #12275c;          /* dark theme default */
+        box-shadow: 4px 0 8px rgba(0, 0, 0, 0.35);
+    }
+    [data-theme="light"] .table th:first-child,
+    [data-theme="light"] .table td:first-child {
+        background: #d6e2ee;          /* light theme card colour */
+    }
+    /* Keep hover state readable on the sticky cell */
+    .table tr:hover td:first-child {
+        background: #1b3474;
+    }
+    [data-theme="light"] .table tr:hover td:first-child {
+        background: #c8d5e3;
+    }
+    /* th sticky header also needs a higher z-index so it sits above sticky td */
+    .table th:first-child { z-index: 3; }
+
+    /* ── 2. GREEN SCROLLBARS ──────────────────────────────────────
+       Apply the app's green accent (#51D55A) to all scrollable areas
+       on mobile. Covers tab bar, table wrappers, overflow-auto divs. */
+    ::-webkit-scrollbar              { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track        { background: rgba(42, 68, 132, 0.25); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb        { background: #51D55A; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover  { background: #34b840; }
+    /* Firefox */
+    * { scrollbar-width: thin; scrollbar-color: #51D55A rgba(42, 68, 132, 0.25); }
+
+    /* ── 3. TAB MENU — 5 equal tabs, two-line labels, no scroll ──── */
+    .tab-container {
+        display: flex;
+        flex-wrap: nowrap;          /* single row — all 5 in one line */
+        overflow-x: visible !important;
+        gap: 0;
+        padding-bottom: 0;
+        border-bottom: 1px solid var(--insights-border);
+    }
+    .tab {
+        flex: 1 1 0;                /* equal width, shares 100% */
+        min-width: 0;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 10px 6px 14px;
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
+        color: var(--insights-text-muted);
+        cursor: pointer;
+        position: relative;
+        transition: color 0.2s ease;
+    }
+    .tab-br { display: inline; }    /* show br helpers on mobile */
+    .tab:hover  { color: var(--insights-heading); }
+    .tab.active { color: var(--insights-accent); font-weight: 700; }
+    .tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 10%;
+        width: 80%;
+        height: 3px;
+        background: var(--insights-accent);
+        border-radius: 999px;
+    }
+}
 </style>
 
 <div class="card" style="margin-bottom: 24px;">
@@ -928,11 +1009,11 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 <div class="tab-container">
-    <div class="tab active" data-tab="product-analysis">Product Analysis</div>
-    <div class="tab" data-tab="category-performance">Category Performance</div>
-    <div class="tab" data-tab="sales-trends">Sales Trends</div>
-    <div class="tab" data-tab="supplier-analysis">Supplier Analysis</div>
-    <div class="tab" data-tab="expiry-risk">Expiry Risk</div>
+    <div class="tab active" data-tab="product-analysis">Product<br class="tab-br"> Analysis</div>
+    <div class="tab" data-tab="category-performance">Category<br class="tab-br"> Performance</div>
+    <div class="tab" data-tab="sales-trends">Sales<br class="tab-br"> Trends</div>
+    <div class="tab" data-tab="supplier-analysis">Supplier<br class="tab-br"> Analysis</div>
+    <div class="tab" data-tab="expiry-risk">Expiry<br class="tab-br"> Alerts</div>
 </div>
 
 <div class="tab-content active" id="product-analysis">
@@ -1846,20 +1927,55 @@ document.querySelectorAll('.tab').forEach(tab => {
 let currentProductPage = 1;
 const productsPerPage = 10;
 
-document.getElementById('productSearch').addEventListener('input', () => { currentProductPage = 1; filterProductTable(); });
-document.getElementById('categoryFilter').addEventListener('change', () => { currentProductPage = 1; filterProductTable(); });
-document.getElementById('movementFilter').addEventListener('change', () => { currentProductPage = 1; filterProductTable(); });
-document.getElementById('stockFilter').addEventListener('change', () => { currentProductPage = 1; filterProductTable(); });
+// Bind search/filter controls and pagination inside DOMContentLoaded so that
+// all elements are guaranteed to exist (safe on mobile and when external scripts
+// like Chart.js cause a synchronous delay that can defer inline-script parsing).
+document.addEventListener('DOMContentLoaded', function () {
+    var productSearch   = document.getElementById('productSearch');
+    var categoryFilter  = document.getElementById('categoryFilter');
+    var movementFilter  = document.getElementById('movementFilter');
+    var stockFilter     = document.getElementById('stockFilter');
+    var prevPageBtn     = document.getElementById('prevPageBtn');
+    var nextPageBtn     = document.getElementById('nextPageBtn');
 
-document.getElementById('prevPageBtn').addEventListener('click', () => {
-    if (currentProductPage > 1) {
-        currentProductPage--;
-        filterProductTable();
+    if (productSearch) {
+        productSearch.addEventListener('input', function () { currentProductPage = 1; filterProductTable(); });
     }
-});
 
-document.getElementById('nextPageBtn').addEventListener('click', () => {
-    currentProductPage++;
+    // Helper: bind both 'change' (desktop) and 'touchend' (iOS Safari fallback)
+    // so that native select pickers on mobile correctly trigger the filter.
+    function bindSelectFilter(el) {
+        if (!el) return;
+        el.addEventListener('change', function () { currentProductPage = 1; filterProductTable(); });
+        // iOS Safari sometimes doesn't fire 'change' until focus leaves the select;
+        // 'touchend' on the element itself fires immediately after a pick is confirmed.
+        el.addEventListener('touchend', function () {
+            // Use a tiny delay so the selected value is committed before we read it.
+            setTimeout(function () { currentProductPage = 1; filterProductTable(); }, 0);
+        });
+    }
+
+    bindSelectFilter(categoryFilter);
+    bindSelectFilter(movementFilter);
+    bindSelectFilter(stockFilter);
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', function () {
+            if (currentProductPage > 1) {
+                currentProductPage--;
+                filterProductTable();
+            }
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', function () {
+            currentProductPage++;
+            filterProductTable();
+        });
+    }
+
+    // Initial render — set up pagination and show the first page.
     filterProductTable();
 });
 
@@ -1926,10 +2042,6 @@ function filterProductTable() {
     document.getElementById('nextPageBtn').style.opacity = currentProductPage === totalPages ? '0.45' : '1';
 }
 
-// Initial call to set up initial state
-document.addEventListener('DOMContentLoaded', () => {
-    filterProductTable();
-});
 
 function filterData(filterType) {
     document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));

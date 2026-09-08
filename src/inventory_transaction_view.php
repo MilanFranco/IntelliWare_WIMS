@@ -359,172 +359,6 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         text-align: center;
     }
 
-    /* ── Camera Scanner Zone ─────────────────────────────────────────────── */
-    .pos-camera-zone { flex-shrink: 0; }
-
-    .pos-camera-toggle-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .pos-camera-btn {
-        height: 42px;
-        flex: 1;
-        padding: 0 14px;
-        background: var(--iw-bg-btn-secondary);
-        border: 1px solid var(--iw-border-input);
-        border-radius: 12px;
-        color: var(--iw-text);
-        cursor: pointer;
-        font-size: 13px;
-        font-family: 'Onest', sans-serif;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-    .pos-camera-btn:hover:not(:disabled) {
-        border-color: var(--iw-accent);
-        color: var(--iw-accent);
-        background: rgba(81, 213, 90, 0.08);
-    }
-    .pos-camera-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .pos-camera-btn.is-active {
-        border-color: #f87171;
-        color: #f87171;
-        background: rgba(239, 68, 68, 0.08);
-    }
-
-    .pos-scanner-status-badge {
-        font-size: 11px;
-        font-weight: 600;
-        padding: 5px 11px;
-        border-radius: 999px;
-        white-space: nowrap;
-        flex-shrink: 0;
-        transition: all 0.3s;
-    }
-    .pos-scanner-status-badge.idle    { background: rgba(155,161,200,0.12); color: #9aa6d1; border: 1px solid rgba(155,161,200,0.24); }
-    .pos-scanner-status-badge.loading { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.28); }
-    .pos-scanner-status-badge.scanning {
-        background: rgba(81,213,90,0.12);
-        color: #51D55A;
-        border: 1px solid rgba(81,213,90,0.28);
-        animation: scanBadgePulse 1.5s ease-in-out infinite;
-    }
-    .pos-scanner-status-badge.error  { background: rgba(239,68,68,0.1); color: #fca5a5; border: 1px solid rgba(239,68,68,0.24); }
-    @keyframes scanBadgePulse {
-        0%,100% { opacity: 1; }
-        50%      { opacity: 0.55; }
-    }
-
-    .pos-camera-wrap {
-        position: relative;
-        border: 1px solid var(--iw-border);
-        border-radius: 12px;
-        overflow: hidden;
-        background: #060816;
-        display: none;
-    }
-    .pos-camera-wrap.visible { display: block; }
-    .pos-camera-wrap video {
-        width: 100%;
-        max-height: 210px;
-        object-fit: cover;
-        display: block;
-    }
-
-    /* Viewfinder overlay */
-    .pos-viewfinder-overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-end;
-        pointer-events: none;
-        padding: 10px;
-        background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%);
-    }
-    .pos-viewfinder-ring {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -58%);
-        width: 150px;
-        height: 150px;
-        border: 2px solid rgba(81, 213, 90, 0.65);
-        border-radius: 18px;
-        pointer-events: none;
-        animation: viewRingPulse 2.2s ease-in-out infinite;
-    }
-    @keyframes viewRingPulse {
-        0%, 100% { border-color: rgba(81,213,90,0.5); box-shadow: 0 0 0 0 rgba(81,213,90,0); }
-        50%       { border-color: rgba(81,213,90,1);   box-shadow: 0 0 0 6px rgba(81,213,90,0.1); }
-    }
-    .pos-conf-bar-wrap { width: 100%; pointer-events: none; }
-    .pos-conf-label {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 11px;
-        font-family: 'Onest', sans-serif;
-        font-weight: 600;
-        color: #e3e3e3;
-        margin-bottom: 4px;
-    }
-    .pos-conf-pct { font-size: 13px; color: #51D55A; }
-    .pos-conf-track {
-        height: 5px;
-        background: rgba(255,255,255,0.1);
-        border-radius: 999px;
-        overflow: hidden;
-    }
-    .pos-conf-fill {
-        height: 100%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #51D55A, #a3f0a8);
-        transition: width 0.3s ease, background 0.3s;
-        width: 0%;
-    }
-    .pos-conf-fill.low    { background: linear-gradient(90deg, #f87171, #fca5a5); }
-    .pos-conf-fill.medium { background: linear-gradient(90deg, #fbbf24, #fde68a); }
-
-    .pos-camera-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        padding: 7px 12px;
-        border-top: 1px solid var(--iw-border);
-        background: var(--iw-bg-panel-header);
-    }
-    .pos-camera-status-text {
-        font-size: 12px;
-        color: #9aa6d1;
-        flex: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .pos-camera-stop-btn {
-        flex-shrink: 0;
-        height: 30px;
-        padding: 0 12px;
-        border-radius: 7px;
-        border: 1px solid rgba(239,68,68,0.4);
-        background: rgba(239,68,68,0.1);
-        color: #f87171;
-        font-family: 'Onest', sans-serif;
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
-    }
-    .pos-camera-stop-btn:hover { background: rgba(239,68,68,0.2); border-color: #f87171; }
 
     /* ── Cart ────────────────────────────────────────────────────────────── */
     .pos-cart-wrap {
@@ -722,10 +556,33 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-status-out_of_stock{ background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
 
     /* ── Reference image in info panel ──────────────────────────────────── */
+    .pos-info-image-section { display: flex; flex-direction: column; gap: 6px; }
+    .pos-info-image-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #9aa6d1;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .pos-info-image-expand-btn {
+        display: none;
+        background: none;
+        border: none;
+        color: #9aa6d1;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+    .pos-info-image-expand-btn:hover { color: #E3E3E3; }
     .pos-info-image-wrap {
         width: 100%;
-        aspect-ratio: 16/9;
-        border-radius: 10px;
+        height: 260px;          /* fixed height — same for every product */
+        min-height: unset;
+        border-radius: 12px;
         overflow: hidden;
         border: 1px solid var(--iw-border);
         background: var(--iw-bg-surface);
@@ -735,109 +592,99 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         color: #9aa6d1;
         font-size: 12px;
         position: relative;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .pos-info-image-wrap.has-image {
+        border-color: rgba(81, 213, 90, 0.40);
+        box-shadow: 0 0 0 1px rgba(81, 213, 90, 0.10), 0 6px 24px rgba(0, 0, 0, 0.25);
     }
     .pos-info-image-wrap img {
         width: 100%;
-        height: 100%;
-        object-fit: contain;
+        height: 100%;          /* fills the fixed-height container */
+        min-height: unset;
+        object-fit: contain;   /* letterbox — no cropping of product labels */
         display: none;
+        cursor: zoom-in;
+        transition: transform 0.25s;
     }
+    .pos-info-image-wrap img:hover { transform: scale(1.03); }
     .pos-info-image-wrap.has-image img { display: block; }
-    .pos-info-image-placeholder { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .pos-info-image-placeholder { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
     .pos-info-image-wrap.has-image .pos-info-image-placeholder { display: none; }
 
-    /* ── Scan Confirmation Modal ─────────────────────────────────────────── */
-    .scan-modal-backdrop {
+    /* Lightbox for full-size product image */
+    .pos-img-lightbox {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(4px);
-        z-index: 500;
+        z-index: 9999;
+        background: rgba(0,0,0,0.88);
+        backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.25s;
+        transition: opacity 0.22s;
     }
-    .scan-modal-backdrop.open { opacity: 1; pointer-events: all; }
-
-    .scan-modal {
-        background: var(--iw-bg-card);
-        border: 1px solid var(--iw-border);
-        border-radius: 20px;
-        box-shadow: 0 24px 60px rgba(0,0,0,0.5);
-        padding: 24px;
-        width: 90%;
-        max-width: 420px;
-        transform: translateY(16px) scale(0.97);
-        transition: transform 0.25s;
-    }
-    .scan-modal-backdrop.open .scan-modal { transform: translateY(0) scale(1); }
-
-    .scan-modal-title {
-        font-family: 'Onest', sans-serif;
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--iw-text);
-        margin: 0 0 4px;
-    }
-    .scan-modal-subtitle { font-size: 12px; color: #9aa6d1; margin: 0 0 16px; }
-
-    .scan-modal-product-row {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px;
+    .pos-img-lightbox.open { opacity: 1; pointer-events: auto; }
+    .pos-img-lightbox img {
+        max-width: min(90vw, 900px);
+        max-height: 88vh;
+        object-fit: contain;
         border-radius: 12px;
-        background: var(--iw-bg-surface);
-        border: 1px solid var(--iw-border);
-        margin-bottom: 12px;
-        cursor: pointer;
-        transition: border-color 0.15s, background 0.15s;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+        border: 1px solid rgba(255,255,255,0.07);
     }
-    .scan-modal-product-row:hover { border-color: #51D55A; background: rgba(81,213,90,0.06); }
-    .scan-modal-product-row.selected { border-color: #51D55A; background: rgba(81,213,90,0.1); }
+    .pos-img-lightbox-close {
+        position: absolute;
+        top: 20px; right: 24px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: #fff;
+        border-radius: 50%;
+        width: 38px; height: 38px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+        transition: background 0.15s;
+    }
+    .pos-img-lightbox-close:hover { background: rgba(255,255,255,0.18); }
 
-    .scan-modal-thumb {
-        width: 52px; height: 52px;
-        border-radius: 10px;
+
+    /* ── Thumbnail in cart rows ───────────────────────────────────────────── */
+    .pos-cart-thumb-cell { width: 56px; padding: 5px 4px 5px 10px !important; }
+    .pos-cart-thumb {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
         object-fit: cover;
         border: 1px solid var(--iw-border);
-        background: var(--iw-bg-card);
+        display: block;
+        background: var(--iw-bg-surface);
         flex-shrink: 0;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .scan-modal-thumb-ph {
-        width: 52px; height: 52px;
-        border-radius: 10px;
-        background: var(--iw-bg-card);
-        border: 1px solid var(--iw-border);
-        flex-shrink: 0;
+    .pos-cart-thumb:hover {
+        transform: scale(1.08);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        z-index: 10;
+        position: relative;
+    }
+    .pos-cart-thumb-ph {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1px dashed rgba(155,161,200,0.25);
+        background: var(--iw-bg-surface);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 22px;
+        color: rgba(155,161,200,0.35);
+        font-size: 20px;
+        flex-shrink: 0;
     }
-    .scan-modal-info { flex: 1; min-width: 0; }
-    .scan-modal-pname { font-size: 14px; font-weight: 700; color: #e3e3e3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .scan-modal-pcat  { font-size: 11px; color: #9aa6d1; margin-top: 2px; }
-    .scan-modal-pconf { font-size: 12px; font-weight: 600; color: #51D55A; margin-top: 4px; }
 
-    .scan-modal-actions { display: flex; gap: 8px; margin-top: 16px; }
-    .scan-modal-cancel-btn {
-        flex: 1;
-        height: 44px;
-        border-radius: 10px;
-        border: 1px solid var(--iw-border-input);
-        background: transparent;
-        color: var(--iw-text-muted);
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
-    }
-    .scan-modal-cancel-btn:hover { border-color: #f87171; color: #f87171; }
 
     /* ── Toast ───────────────────────────────────────────────────────────── */
     #toast-container {
@@ -866,17 +713,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
 
-<!-- ── Scan Confirmation Modal ───────────────────────────────────────────── -->
-<div class="scan-modal-backdrop" id="scan-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="scan-modal-title">
-    <div class="scan-modal">
-        <p class="scan-modal-title" id="scan-modal-title">Product Match Found</p>
-        <p class="scan-modal-subtitle">Select the correct product or dismiss to search manually.</p>
-        <div id="scan-modal-candidates"></div>
-        <div class="scan-modal-actions">
-            <button type="button" class="scan-modal-cancel-btn" id="scan-modal-cancel">Dismiss &amp; Search</button>
-        </div>
-    </div>
-</div>
+
 
 <!-- ── Main POS Layout ───────────────────────────────────────────────────── -->
 <div class="pos-layout <?php echo htmlspecialchars($accentClass); ?>">
@@ -888,9 +725,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                     <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1">Search by name, or use the AI camera to identify products automatically.</p>
+                <p class="text-xs text-[#9aa6d1] mt-1">Search by name to add products to the transaction.</p>
             </div>
-            <span class="pos-scanner-status-badge idle" id="inv-scanner-badge">AI Scanner</span>
         </div>
 
         <div class="pos-panel-body">
@@ -916,40 +752,6 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                     <div class="pos-search-dropdown" id="inv-search-dropdown"></div>
                 </div>
 
-                <!-- ── AI Camera Scanner ─────────────────────────────────── -->
-                <div class="pos-camera-zone" id="inv-camera-zone">
-                    <div class="pos-camera-toggle-row">
-                        <button type="button" id="inv-camera-toggle-btn" class="pos-camera-btn" title="Start AI camera scan">
-                            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
-                            </svg>
-                            Start AI Scanner
-                        </button>
-                    </div>
-
-                    <!-- Camera feed (hidden until started) -->
-                    <div id="inv-camera-wrap" class="pos-camera-wrap">
-                        <video id="inv-camera-video" playsinline muted autoplay></video>
-                        <div class="pos-viewfinder-overlay">
-                            <div class="pos-viewfinder-ring" id="inv-viewfinder-ring"></div>
-                            <div class="pos-conf-bar-wrap">
-                                <div class="pos-conf-label">
-                                    <span id="inv-conf-label-text">Waiting…</span>
-                                    <span class="pos-conf-pct" id="inv-conf-pct">—</span>
-                                </div>
-                                <div class="pos-conf-track">
-                                    <div class="pos-conf-fill" id="inv-conf-fill"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="pos-camera-footer">
-                            <span class="pos-camera-status-text" id="inv-camera-status">Initializing…</span>
-                            <button type="button" class="pos-camera-stop-btn" id="inv-camera-stop-btn">Stop Camera</button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- ── Cart / Transaction List ───────────────────────────── -->
                 <div class="pos-cart-wrap" id="inv-cart-wrap">
                     <div class="pos-cart-empty" id="inv-cart-empty">
@@ -961,6 +763,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                     <table class="pos-cart-table" id="inv-cart-table" style="display:none;">
                         <thead>
                             <tr>
+                                <th class="pos-cart-thumb-cell"></th>
                                 <th>Product</th>
                                 <th>Stock</th>
                                 <th>Qty</th>
@@ -1029,13 +832,24 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 </div>
 
                 <!-- Reference image -->
-                <div class="pos-info-image-wrap" id="inv-info-image-wrap">
-                    <img id="inv-info-image" src="" alt="Product reference image">
-                    <div class="pos-info-image-placeholder">
-                        <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2" opacity="0.4">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
-                        </svg>
-                        <span style="font-size:11px; color:#9aa6d1;">No reference image</span>
+                <div class="pos-info-image-section">
+                    <div class="pos-info-image-label">
+                        <span>Reference Photo</span>
+                        <button type="button" class="pos-info-image-expand-btn" id="inv-info-image-expand" title="View full size">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="pos-info-image-wrap" id="inv-info-image-wrap">
+                        <img id="inv-info-image" src="" alt="Product reference image">
+                        <div class="pos-info-image-placeholder">
+                            <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2" opacity="0.3">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
+                            </svg>
+                            <span style="font-size:12px; color:#9aa6d1;">No reference image</span>
+                            <span style="font-size:10px; color:rgba(154,166,209,0.5);">Upload one from the Products page</span>
+                        </div>
                     </div>
                 </div>
 
@@ -1096,11 +910,13 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
 <?php renderLayoutContentEnd(); ?>
 
-<!-- TensorFlow.js (required for image embeddings) -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
+<!-- Image Lightbox -->
+<div class="pos-img-lightbox" id="pos-img-lightbox" role="dialog" aria-modal="true" aria-label="Product image full view">
+    <button class="pos-img-lightbox-close" id="pos-img-lightbox-close" title="Close">&times;</button>
+    <img id="pos-img-lightbox-img" src="" alt="Product reference image full size">
+</div>
 
 <!-- IntelliWare scripts -->
-<script src="src/scripts/image-scanner.js?v=<?php echo time(); ?>"></script>
 <script src="src/scripts/inventory-transaction.js?v=<?php echo time(); ?>"></script>
 
 <script>
@@ -1112,6 +928,63 @@ document.addEventListener('DOMContentLoaded', function() {
     );
 });
 <?php unset($_SESSION['toast']); endif; ?>
+</script>
+
+<script>
+/* ── Reference-image lightbox ───────────────────────────────────────── */
+(function () {
+    var lightbox    = document.getElementById('pos-img-lightbox');
+    var lightboxImg = document.getElementById('pos-img-lightbox-img');
+    var closeBtn    = document.getElementById('pos-img-lightbox-close');
+    var expandBtn   = document.getElementById('inv-info-image-expand');
+    var infoImg     = document.getElementById('inv-info-image');
+    var imageWrap   = document.getElementById('inv-info-image-wrap');
+
+    function openLightbox(src) {
+        if (!lightbox || !src) return;
+        lightboxImg.src = src;
+        lightbox.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+        if (!lightbox) return;
+        lightbox.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    /* Click the image itself to open lightbox */
+    if (infoImg) {
+        infoImg.addEventListener('click', function () {
+            if (infoImg.src && imageWrap && imageWrap.classList.contains('has-image')) {
+                openLightbox(infoImg.src);
+            }
+        });
+    }
+
+    /* Expand button in the label row */
+    if (expandBtn) {
+        expandBtn.addEventListener('click', function () {
+            if (infoImg && infoImg.src) openLightbox(infoImg.src);
+        });
+    }
+
+    /* Close on button or backdrop click */
+    if (closeBtn)  closeBtn.addEventListener('click', closeLightbox);
+    if (lightbox)  lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) closeLightbox();
+    });
+
+    /* Close on Escape */
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeLightbox();
+    });
+
+    /* Show/hide the expand button whenever the info panel updates */
+    var expandInterval = setInterval(function () {
+        if (!expandBtn || !imageWrap) return;
+        expandBtn.style.display = imageWrap.classList.contains('has-image') ? 'inline-flex' : 'none';
+    }, 200);
+}());
 </script>
 
 <?php renderLayoutEnd(); ?>

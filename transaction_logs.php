@@ -69,6 +69,131 @@ require_once 'src/layout.php';
 renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 ?>
 
+<style>
+/* ── Transaction History responsive layout ──────────────────────── */
+.txnlog-desktop { display: block; }
+.txnlog-mobile  { display: none;  }
+@media (max-width: 767px) {
+    .txnlog-desktop { display: none;  }
+    .txnlog-mobile  { display: block; }
+}
+
+/* ── Accordion list ─────────────────────────────────────────────── */
+.txnacc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+}
+
+/* Each accordion item */
+.txnacc-item {
+    background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+    border: 1px solid rgba(42, 68, 132, 0.55);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+.txnacc-item.is-open { border-color: rgba(81, 213, 90, 0.25); }
+
+/* Clickable header — always visible */
+.txnacc-header {
+    display: flex;
+    align-items: stretch;
+    padding: 13px 14px;
+    cursor: pointer;
+    gap: 10px;
+    user-select: none;
+}
+
+/* Left column: badge + date */
+.txnacc-left { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+
+/* Product name */
+.txnacc-product {
+    font-family: 'Onest', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: #e3e3e3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Badge row: badge + date side by side */
+.txnacc-badge-row { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.txnacc-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Onest', sans-serif;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
+    padding: 3px 7px; border-radius: 5px; white-space: nowrap; flex-shrink: 0;
+}
+.txnacc-badge svg { width: 11px; height: 11px; }
+.badge-in  { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+.badge-out { background: rgba(248,113,113,0.14); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+.txnacc-date {
+    font-family: 'Onest', sans-serif;
+    font-size: 11px; color: #9aa6d1;
+    white-space: nowrap;
+}
+
+/* Right column: qty + chevron */
+.txnacc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.txnacc-qty {
+    font-family: 'Onest', sans-serif;
+    font-size: 18px; font-weight: 800; line-height: 1;
+}
+.qty-in  { color: #34d399; }
+.qty-out { color: #f87171; }
+.txnacc-chevron {
+    color: #9aa6d1; line-height: 1; font-size: 14px; transition: transform 0.25s ease;
+}
+.txnacc-item.is-open .txnacc-chevron { transform: rotate(180deg); }
+
+/* Expandable body */
+.txnacc-body {
+    display: none;
+    border-top: 1px solid rgba(42, 68, 132, 0.4);
+    padding: 12px 14px;
+}
+.txnacc-item.is-open .txnacc-body { display: block; }
+
+/* Detail rows inside body */
+.txnacc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(42, 68, 132, 0.2);
+}
+.txnacc-row:last-child { border-bottom: none; }
+.txnacc-row-label {
+    font-family: 'Onest', sans-serif;
+    font-size: 12px; color: #6b7aab;
+}
+.txnacc-row-value {
+    font-family: 'Onest', sans-serif;
+    font-size: 13px; font-weight: 600; color: #e3e3e3;
+    text-align: right; max-width: 65%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.txnacc-row-value.mono { font-family: monospace; }
+
+/* Remarks line */
+.txnacc-remarks-row {
+    margin-top: 8px;
+    font-family: 'Onest', sans-serif;
+    font-size: 12px; color: #9aa6d1; font-style: italic;
+}
+
+/* Light theme overrides */
+[data-theme="light"] .txnacc-item        { background: var(--iw-bg-modal) !important; border-color: var(--iw-border-solid) !important; }
+[data-theme="light"] .txnacc-product     { color: var(--iw-text-header) !important; }
+[data-theme="light"] .txnacc-date        { color: var(--iw-text-muted) !important; }
+[data-theme="light"] .txnacc-row-label   { color: var(--iw-text-muted) !important; }
+[data-theme="light"] .txnacc-row-value   { color: var(--iw-text-header) !important; }
+[data-theme="light"] .txnacc-body        { border-color: var(--iw-border) !important; }
+[data-theme="light"] .txnacc-row         { border-color: var(--iw-border) !important; }
+[data-theme="light"] .txnacc-remarks-row { color: var(--iw-text-muted) !important; }
+</style>
+
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <div class="premium-card p-6 flex items-center justify-between group hover:border-[#51D55A]/50 transition-all cursor-default">
         <div>
@@ -248,58 +373,129 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
         </div>
     </div>
 
-    <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left" id="mainLogTable">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Type</th>
-                    <th>Qty</th>
-                    <th>User</th>
-                    <th>Date</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($historyTransactions)): ?>
-                <tr>
-                    <td colspan="8" class="text-center text-[#9aa6d1] py-6">No transactions found</td>
-                </tr>
-                <?php endif; ?>
-                <?php foreach ($historyTransactions as $trans): ?>
-                <tr class="hover:bg-[#1D387B]/50 transition-colors">
-                    <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo $trans['transaction_id']; ?></td>
-                    <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
-                    <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($trans['category'] ?? '-'); ?></td>
-                    <td>
-                        <?php if($trans['transaction_type'] === 'stock_in'): ?>
-                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-                                STOCK IN
+    <!-- Desktop / Tablet: Table (≥768px) -->
+    <div class="txnlog-desktop">
+        <div class="overflow-x-auto">
+            <table class="premium-table w-full text-left" id="mainLogTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Qty</th>
+                        <th>User</th>
+                        <th>Date</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($historyTransactions)): ?>
+                    <tr>
+                        <td colspan="8" class="text-center text-[#9aa6d1] py-6">No transactions found</td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php foreach ($historyTransactions as $trans): ?>
+                    <tr class="hover:bg-[#1D387B]/50 transition-colors">
+                        <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo $trans['transaction_id']; ?></td>
+                        <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></td>
+                        <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($trans['category'] ?? '-'); ?></td>
+                        <td>
+                            <?php if($trans['transaction_type'] === 'stock_in'): ?>
+                                <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                    STOCK IN
+                                </span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                    STOCK OUT
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="font-mono font-semibold text-[#E3E3E3]"><?php echo $trans['quantity']; ?></td>
+                        <td class="text-sm">
+                            <div class="flex items-center gap-2">
+                                <?php renderUserAvatar($trans['username'] ?? 'U', 20, 'iw-avatar-initials--sm'); ?>
+                                <?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?>
+                            </div>
+                        </td>
+                        <td class="text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo date('M j, Y H:i', strtotime($trans['transaction_date'])); ?></td>
+                        <td class="text-sm text-[#9aa6d1] italic max-w-[200px] truncate"><?php echo htmlspecialchars($trans['remarks'] ?? '-'); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /.txnlog-desktop -->
+
+    <!-- Mobile: Accordion (<768px) -->
+    <div class="txnlog-mobile" id="txnlog-mobile-grid">
+        <?php if (empty($historyTransactions)): ?>
+            <div class="text-center text-[#9aa6d1] py-6">No transactions found</div>
+        <?php else: ?>
+        <div class="txnacc-list">
+            <?php foreach ($historyTransactions as $trans): ?>
+            <?php
+                $isIn      = $trans['transaction_type'] === 'stock_in';
+                $qtySign   = $isIn ? '+' : '−';
+                $qtyClass  = $isIn ? 'qty-in' : 'qty-out';
+                $badgeClass = $isIn ? 'badge-in' : 'badge-out';
+                $badgeText  = $isIn ? 'STOCK IN' : 'STOCK OUT';
+                $remarks    = trim($trans['remarks'] ?? '');
+            ?>
+            <div class="txnacc-item"
+                 data-product="<?php echo htmlspecialchars(strtolower($trans['product_name'] ?? '')); ?>"
+                 data-remarks="<?php echo htmlspecialchars(strtolower($remarks)); ?>">
+
+                <!-- Header (always visible, click to toggle) -->
+                <div class="txnacc-header" onclick="txnToggle(this)">
+                    <div class="txnacc-left">
+                        <div class="txnacc-product"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></div>
+                        <div class="txnacc-badge-row">
+                            <span class="txnacc-badge <?php echo $badgeClass; ?>">
+                                <?php if ($isIn): ?>
+                                <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                                <?php else: ?>
+                                <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                <?php endif; ?>
+                                <?php echo $badgeText; ?>
                             </span>
-                        <?php else: ?>
-                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
-                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                                STOCK OUT
-                            </span>
-                        <?php endif; ?>
-                    </td>
-                    <td class="font-mono font-semibold text-[#E3E3E3]"><?php echo $trans['quantity']; ?></td>
-                    <td class="text-sm">
-                        <div class="flex items-center gap-2">
-                            <?php renderUserAvatar($trans['username'] ?? 'U', 20, 'iw-avatar-initials--sm'); ?>
-                            <?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?>
+                            <span class="txnacc-date"><?php echo date('M j, g:i A', strtotime($trans['transaction_date'])); ?></span>
                         </div>
-                    </td>
-                    <td class="text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo date('M j, Y H:i', strtotime($trans['transaction_date'])); ?></td>
-                    <td class="text-sm text-[#9aa6d1] italic max-w-[200px] truncate"><?php echo htmlspecialchars($trans['remarks'] ?? '-'); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+                    </div>
+                    <div class="txnacc-right">
+                        <span class="txnacc-qty <?php echo $qtyClass; ?>"><?php echo $qtySign . $trans['quantity']; ?></span>
+                        <span class="txnacc-chevron">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Expanded body -->
+                <div class="txnacc-body">
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">ID</span>
+                        <span class="txnacc-row-value mono">#<?php echo $trans['transaction_id']; ?></span>
+                    </div>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">Category</span>
+                        <span class="txnacc-row-value"><?php echo htmlspecialchars($trans['category'] ?? '—'); ?></span>
+                    </div>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">User</span>
+                        <span class="txnacc-row-value"><?php echo htmlspecialchars($trans['username'] ?? '—'); ?></span>
+                    </div>
+                    <?php if ($remarks !== '' && $remarks !== '-'): ?>
+                    <div class="txnacc-remarks-row">"<?php echo htmlspecialchars($remarks); ?>"</div>
+                    <?php endif; ?>
+                </div>
+
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div><!-- /.txnlog-mobile -->
 
     <div class="flex justify-between items-center p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30">
         <span class="text-xs text-[#9aa6d1] font-onest">
@@ -322,29 +518,35 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 </div>
 
 <script>
-// Search only filters within the current page (10 rows) since pagination is server-side
+// Search filters both the desktop table and the mobile accordion
 function filterTable() {
-    var input, filter, table, tr, i;
-    input = document.getElementById("logSearch");
-    filter = input.value.toUpperCase();
-    table = document.getElementById("mainLogTable");
-    tr = table.getElementsByTagName("tr");
+    var filter = document.getElementById("logSearch").value.toUpperCase();
 
-    for (i = 1; i < tr.length; i++) { // Start at 1 to skip header
-        var tdProduct = tr[i].getElementsByTagName("td")[1];
-        var tdRemarks = tr[i].getElementsByTagName("td")[7];
-
-        if (tdProduct || tdRemarks) {
+    // --- Desktop table ---
+    var table = document.getElementById("mainLogTable");
+    if (table) {
+        var tr = table.getElementsByTagName("tr");
+        for (var i = 1; i < tr.length; i++) {
+            var tdProduct = tr[i].getElementsByTagName("td")[1];
+            var tdRemarks = tr[i].getElementsByTagName("td")[7];
             var txtProduct = tdProduct ? (tdProduct.textContent || tdProduct.innerText) : "";
             var txtRemarks = tdRemarks ? (tdRemarks.textContent || tdRemarks.innerText) : "";
-
-            if (txtProduct.toUpperCase().indexOf(filter) > -1 || txtRemarks.toUpperCase().indexOf(filter) > -1) {
-                tr[i].style.display = "";
-            } else {
-                tr[i].style.display = "none";
-            }
+            tr[i].style.display = (txtProduct.toUpperCase().indexOf(filter) > -1 || txtRemarks.toUpperCase().indexOf(filter) > -1) ? "" : "none";
         }
     }
+
+    // --- Mobile accordion items ---
+    document.querySelectorAll("#txnlog-mobile-grid .txnacc-item").forEach(function(item) {
+        var product = (item.dataset.product || "").toUpperCase();
+        var remarks = (item.dataset.remarks || "").toUpperCase();
+        item.style.display = (product.indexOf(filter) > -1 || remarks.indexOf(filter) > -1) ? "" : "none";
+    });
+}
+
+// Accordion toggle
+function txnToggle(header) {
+    var item = header.closest('.txnacc-item');
+    item.classList.toggle('is-open');
 }
 
 function exportLogs() {

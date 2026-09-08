@@ -111,7 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $reorder_point= parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
             $price        = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
             $shelf_life   = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
-            $ai_class     = trim($_POST['ai_class_label'] ?? '');
             $product_image_b64 = trim($_POST['product_image_b64'] ?? '');
 
             if ($product_name === '') {
@@ -138,28 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $category = $synced['category'];
             $location = $synced['location'];
 
-            // Use AI class label as barcode if no manual barcode provided
-            if ($barcode === '' && $ai_class !== '') {
-                $barcode = $ai_class;
-            }
-
             $openingQty = $quantity;
 
-            // Check barcode duplicate only if barcode provided
-            if ($barcode !== '') {
-                $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ?");
-                $dupStmt->bind_param("s", $barcode);
-                $dupStmt->execute();
-                $existing = $dupStmt->get_result()->fetch_assoc();
-                $dupStmt->close();
-                if ($existing) {
-                    throw new Exception("This barcode is already registered to: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
-                }
-            }
-
-            $barcodeVal = $barcode !== '' ? $barcode : null;
-            $stmt = $conn->prepare("INSERT INTO products (product_name, barcode, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssisdi", $product_name, $barcodeVal, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
+            $stmt = $conn->prepare("INSERT INTO products (product_name, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssissdi", $product_name, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
             if ($stmt->execute()) {
                 $newProductId = (int)$conn->insert_id;
                 $stmt->close();
@@ -254,6 +235,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Manual stock adjustment from inventory edit'
                 );
             }
+
+
+            // ── Image handling ──────────────────────────────────────────────────
+            $imgDir     = __DIR__ . '/uploads/products/';
+            $imgPath    = $imgDir . $id . '.jpg';
+            $imgAction  = trim($_POST['edit_image_action'] ?? 'keep');
+            $imgB64     = trim($_POST['edit_image_b64'] ?? '');
+
+            if ($imgAction === 'remove') {
+                // Delete stored image if it exists
+                if (file_exists($imgPath)) {
+                    @unlink($imgPath);
+                }
+            } elseif ($imgAction === 'replace' && $imgB64 !== '') {
+                // Decode and overwrite
+                $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $imgB64));
+                if ($imgData !== false) {
+                    if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
+                    file_put_contents($imgPath, $imgData);
+                }
+            }
+            // 'keep' → no change
 
             setFlashMessage('success', 'Product updated.');
         }
@@ -454,6 +457,222 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inventory-action-btn.cancel-btn:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
     .inventory-action-btn.save-btn:hover { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.1); }
 
+    /* ── Inventory Card Grid ─────────────────────────────────────────── */
+
+    /* Desktop/tablet = table; mobile = cards */
+    .inv-desktop-table { display: block; }
+    .inv-mobile-cards  { display: none; }
+    @media (max-width: 767px) {
+        .inv-desktop-table { display: none; }
+        .inv-mobile-cards  { display: block; }
+    }
+
+    .inv-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+        padding: 20px;
+    }
+    .inv-card {
+        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+        border: 1px solid rgba(42, 68, 132, 0.55);
+        border-radius: 16px;
+        padding: 18px 18px 0 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+        cursor: default;
+    }
+    .inv-card:hover {
+        border-color: rgba(81, 213, 90, 0.25);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        transform: translateY(-2px);
+    }
+
+    /* Top section: thumb | info | badge */
+    .inv-card-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    .inv-card-thumb {
+        width: 54px;
+        height: 54px;
+        border-radius: 12px;
+        background: rgba(13, 22, 56, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .inv-card-info {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+    .inv-card-name {
+        font-family: 'Onest', sans-serif;
+        font-size: 15px;
+        font-weight: 700;
+        color: #e3e3e3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+    }
+    .inv-card-meta {
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        color: #9aa6d1;
+        margin-top: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .inv-card-sku {
+        font-family: monospace;
+        font-size: 11px;
+        color: #6b7aab;
+        margin-top: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Status badge */
+    .inv-card-badge {
+        flex-shrink: 0;
+        font-family: 'Onest', sans-serif;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        padding: 3px 9px;
+        border-radius: 6px;
+        white-space: nowrap;
+        margin-top: 2px;
+    }
+    .badge-out  { background: #c0392b; color: #fff; }
+    .badge-low  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
+    .badge-good { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+
+    /* Divider */
+    .inv-card-divider {
+        height: 1px;
+        background: rgba(42, 68, 132, 0.5);
+        margin: 0 -18px;
+    }
+
+    /* Stats */
+    .inv-card-stats {
+        display: flex;
+        gap: 0;
+        padding: 14px 0;
+    }
+    .inv-card-stat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .inv-stat-label {
+        font-family: 'Onest', sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #6b7aab;
+        text-transform: uppercase;
+    }
+    .inv-stat-value {
+        font-family: 'Onest', sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        color: #e3e3e3;
+        line-height: 1;
+    }
+    .inv-stat-value.stat-out { color: #f87171; }
+    .inv-stat-value.stat-low { color: #fbbf24; }
+
+    /* Action buttons */
+    .inv-card-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 12px 0 14px;
+        margin: 0 -18px;
+        padding-left: 18px;
+        padding-right: 18px;
+        border-top: 1px solid rgba(42, 68, 132, 0.5);
+    }
+    .inv-card-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        height: 38px;
+        border-radius: 10px;
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+    .inv-card-btn--edit {
+        background: rgba(13, 22, 56, 0.65);
+        border-color: rgba(42, 68, 132, 0.6);
+        color: #c8d4f5;
+    }
+    .inv-card-btn--edit:hover {
+        border-color: #3b82f6;
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+    .inv-card-btn--archive {
+        background: rgba(13, 22, 56, 0.65);
+        border-color: rgba(42, 68, 132, 0.6);
+        color: #c8d4f5;
+    }
+    .inv-card-btn--archive:hover {
+        border-color: #f59e0b;
+        color: #f59e0b;
+        background: rgba(245, 158, 11, 0.1);
+    }
+    .inv-card-btn--restore {
+        background: rgba(13, 22, 56, 0.65);
+        border-color: rgba(42, 68, 132, 0.6);
+        color: #c8d4f5;
+    }
+    .inv-card-btn--restore:hover {
+        border-color: #34d399;
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.1);
+    }
+
+    /* Light-theme overrides for cards */
+    [data-theme="light"] .inv-card {
+        background: var(--iw-bg-modal) !important;
+        border-color: var(--iw-border-solid) !important;
+    }
+    [data-theme="light"] .inv-card-thumb {
+        background: var(--iw-bg-panel-header) !important;
+    }
+    [data-theme="light"] .inv-card-name { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .inv-card-meta,
+    [data-theme="light"] .inv-card-sku  { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .inv-stat-label { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .inv-stat-value { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .inv-card-divider { background: var(--iw-border) !important; }
+    [data-theme="light"] .inv-card-actions { border-top-color: var(--iw-border) !important; }
+    [data-theme="light"] .inv-card-btn--edit,
+    [data-theme="light"] .inv-card-btn--archive,
+    [data-theme="light"] .inv-card-btn--restore {
+        background: var(--iw-bg-btn-secondary) !important;
+        border-color: var(--iw-border) !important;
+        color: var(--iw-text) !important;
+    }
+
     .inventory-text-btn {
         height: 34px;
         padding: 0 12px;
@@ -631,7 +850,12 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         gap: 10px;
     }
     .modal-subtitle { color: #9aa6d1; font-size: 13px; font-family: 'Onest', sans-serif; }
-    .modal-body-scroll { overflow-y: auto; overflow-x: visible; flex: 1; max-height: min(560px, calc(100vh - 220px)); }
+    .modal-body-scroll { overflow-y: auto; overflow-x: visible; flex: 1; max-height: min(560px, calc(100vh - 220px)); scrollbar-color: #51D55A rgba(19, 39, 91, 0.3); scrollbar-width: thin; }
+    .modal-body-scroll::-webkit-scrollbar { width: 6px; }
+    .modal-body-scroll::-webkit-scrollbar-track { background: rgba(19, 39, 91, 0.3); border-radius: 4px; }
+    .modal-body-scroll::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); border-radius: 4px; }
+    .modal-body-scroll::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #4BC052 0%, #3EA147 100%); }
+
 
     .form-label {
         color: #9aa6d1;
@@ -763,6 +987,27 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: var(--iw-shadow-dropdown) !important;
         color: var(--iw-text) !important;
     }
+
+    /* ── Mobile: Full-height modal sheet (no outer scrollbar) ────────── */
+    @media (max-width: 767px) {
+        .modal-overlay {
+            padding: 0;
+            align-items: stretch;
+        }
+        .modal-box {
+            max-width: 100%;
+            width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            overflow: hidden;
+        }
+        /* Recalculate scroll area: viewport minus header (~89px) minus footer (~94px) */
+        .modal-body-scroll {
+            max-height: calc(100dvh - 183px);
+            flex: 1;
+        }
+    }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
@@ -815,33 +1060,33 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         </div>
     </div>
 
-    <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left min-w-[1280px]">
-            <thead>
-                <tr>
-                    <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
-                    <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
-                    <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
-                    <th width="10%" class="text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($show_archived): ?>
-                <tr>
-                    <td colspan="13" style="padding:0; border:none;">
-                        <div style="background:linear-gradient(90deg,rgba(245,158,11,0.12),rgba(245,158,11,0.06)); border-bottom:1px solid rgba(245,158,11,0.25); padding:10px 20px; display:flex; align-items:center; gap:10px;">
-                            <svg width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                            <span style="font-size:13px; font-weight:600; color:#f59e0b; font-family:'Onest',sans-serif;">Viewing Archived Products</span>
-                            <span style="font-size:12px; color:#9aa6d1; margin-left:4px;">&mdash; <?php echo $total_items; ?> product<?php echo $total_items !== 1 ? 's' : ''; ?> archived</span>
-                        </div>
-                    </td>
-                </tr>
-                <?php endif; ?>
-                <?php if (!$items): ?>
-                    <tr><td colspan="13" class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</td></tr>
-                <?php else: ?>
+    <!-- ── Archived banner (shared) ──────────────────────────────── -->
+    <?php if ($show_archived): ?>
+    <div style="background:linear-gradient(90deg,rgba(245,158,11,0.12),rgba(245,158,11,0.06)); border-bottom:1px solid rgba(245,158,11,0.25); padding:10px 20px; display:flex; align-items:center; gap:10px;">
+        <svg width="16" height="16" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+        <span style="font-size:13px; font-weight:600; color:#f59e0b; font-family:'Onest',sans-serif;">Viewing Archived Products</span>
+        <span style="font-size:12px; color:#9aa6d1; margin-left:4px;">&mdash; <?php echo $total_items; ?> product<?php echo $total_items !== 1 ? 's' : ''; ?> archived</span>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!$items): ?>
+        <div class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</div>
+    <?php else: ?>
+
+    <!-- ── Desktop / Tablet: Table (≥768 px) ────────────────────── -->
+    <div class="inv-desktop-table">
+        <div class="overflow-x-auto">
+            <table class="premium-table w-full text-left min-w-[1100px]">
+                <thead>
+                    <tr>
+                        <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
+                        <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
+                        <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
+                        <th width="10%" class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
                     <?php foreach ($items as $it): ?>
-                    <?php $low = $it['qty'] <= $it['reorder_point']; ?>
                     <tr id="row-<?php echo $it['id']; ?>"
                         class="hover:bg-[#1D387B]/50 transition-colors"
                         data-id="<?php echo $it['id']; ?>"
@@ -863,7 +1108,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         <td><?php echo htmlspecialchars($it['supplier']); ?></td>
                         <td><?php echo htmlspecialchars($it['location']); ?></td>
                         <td><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
-                        <td><span style="font-family:monospace;"><?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
+                        <td><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
                         <td><?php echo htmlspecialchars($it['uom']); ?></td>
                         <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
                         <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
@@ -896,10 +1141,105 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         </td>
                     </tr>
                     <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /.inv-desktop-table -->
+
+    <!-- ── Mobile: Card Grid (<768 px) ──────────────────────────── -->
+    <div class="inv-mobile-cards">
+        <div class="inv-card-grid">
+            <?php foreach ($items as $it): ?>
+            <?php
+                $qty      = (int)$it['qty'];
+                $reorder  = (int)$it['reorder_point'];
+                $isOut    = $qty <= 0;
+                $isLow    = !$isOut && $qty <= $reorder;
+                $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
+            ?>
+            <div class="inv-card"
+                 data-id="<?php echo $it['id']; ?>"
+                 data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
+                 data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
+                 data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
+                 data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
+                 data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
+                 data-qty="<?php echo $qty; ?>"
+                 data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
+                 data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
+                 data-reorder="<?php echo $reorder; ?>"
+                 data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
+                 data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
+
+                <!-- Top: thumb + info + badge -->
+                <div class="inv-card-top">
+                    <div class="inv-card-thumb">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#9aa6d1;">
+                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                        </svg>
+                    </div>
+                    <div class="inv-card-info">
+                        <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
+                        <div class="inv-card-meta"><?php
+                            $meta = [];
+                            if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
+                            if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
+                            echo implode(' · ', $meta);
+                        ?></div>
+                        <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
+                    </div>
+                    <div class="inv-card-badge <?php echo $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good'); ?>">
+                        <?php echo $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD'); ?>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="inv-card-divider"></div>
+
+                <!-- Stats -->
+                <div class="inv-card-stats">
+                    <div class="inv-card-stat">
+                        <span class="inv-stat-label">STOCK</span>
+                        <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
+                    </div>
+                    <div class="inv-card-stat">
+                        <span class="inv-stat-label">PRICE</span>
+                        <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
+                    </div>
+                    <div class="inv-card-stat">
+                        <span class="inv-stat-label">REORDER</span>
+                        <span class="inv-stat-value"><?php echo $reorder; ?></span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="inv-card-actions">
+                    <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Edit
+                    </button>
+                    <?php if($role !== 'staff'): ?>
+                    <?php if (!$show_archived): ?>
+                    <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                        Archive
+                    </button>
+                    <?php else: ?>
+                    <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                        Restore
+                    </button>
+                    <?php endif; ?>
+                    <?php else: ?>
+                    <div></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div><!-- /.inv-mobile-cards -->
+
+    <?php endif; ?>
 
     <?php if ($total_pages > 1): ?>
     <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2 flex-wrap">
@@ -986,6 +1326,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 <svg width="16" height="16" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
                                 <span style="font-size:12px; font-weight:600; font-family:'Onest',sans-serif; color:#d1fae5;">Image selected</span>
                             </div>
+                            <!-- Remove image button -->
+                            <button type="button" onclick="aiRemoveUploadedImage()" title="Remove image" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.80); border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s, color 0.2s; z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.75)';this.style.color='#fff';" onmouseout="this.style.background='rgba(15,23,42,0.80)';this.style.color='#cbd5e1';">&times;</button>
                         </div>
 
                         <!-- Camera feed (hidden until started) -->
@@ -1143,7 +1485,42 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <input type="hidden" name="id" id="edit-id">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="sync_driver" id="edit-sync-driver" value="category">
+            <input type="hidden" name="edit_image_action" id="edit-image-action" value="keep">
+            <input type="hidden" name="edit_image_b64" id="edit-image-b64" value="">
             <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <!-- Product Image Section -->
+                <div style="grid-column: span 2;">
+                    <label class="form-label">Product Image</label>
+                    <!-- File input (hidden) -->
+                    <input type="file" id="edit-image-file-input" accept="image/*" style="display:none;" onchange="editHandleImageUpload(this)">
+                    <!-- Current / preview image -->
+                    <div id="edit-image-current-wrap" style="border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative; display:none;">
+                        <img id="edit-image-preview-img" src="" alt="Product image" style="width:100%; max-height:200px; object-fit:contain; display:block;">
+                        <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%); pointer-events:none;"></div>
+                        <div style="position:absolute; bottom:10px; left:12px; display:flex; align-items:center; gap:6px;">
+                            <svg width="16" height="16" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                            <span id="edit-image-status-label" style="font-size:12px; font-weight:600; font-family:'Onest',sans-serif; color:#d1fae5;">Current image</span>
+                        </div>
+                        <!-- Remove image button (×) -->
+                        <button type="button" onclick="editRemoveImage()" title="Remove image" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.80); border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s, color 0.2s; z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.75)';this.style.color='#fff';" onmouseout="this.style.background='rgba(15,23,42,0.80)';this.style.color='#cbd5e1';">&times;</button>
+                    </div>
+                    <!-- No image / upload prompt -->
+                    <div id="edit-image-empty-wrap" style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; border:1px dashed rgba(100,116,139,0.4); background:rgba(13,22,56,0.25);">
+                        <svg width="20" height="20" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75 7.5 10.5l3.75 3.75 3-3 4.5 4.5M3.75 21h16.5M21 3.75H3A.75.75 0 0 0 2.25 4.5v15A.75.75 0 0 0 3 20.25h18a.75.75 0 0 0 .75-.75V4.5A.75.75 0 0 0 21 3.75z"/></svg>
+                        <span style="font-size:13px; color:#64748b; font-family:'Onest',sans-serif; flex:1;">No image</span>
+                        <button type="button" class="tm-stop-btn" style="height:34px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                            Upload Image
+                        </button>
+                    </div>
+                    <!-- Replace button shown below when image exists -->
+                    <div id="edit-image-replace-bar" style="display:none; margin-top:8px; align-items:center; gap:8px; justify-content:flex-end;">
+                        <button type="button" class="tm-stop-btn" style="height:32px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
+                            Replace Image
+                        </button>
+                    </div>
+                </div>
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Name *</label>
                     <input type="text" name="name" id="edit-name" class="premium-input w-full" style="height:46px;" required maxlength="255">
@@ -1627,7 +2004,9 @@ function openAddModal() {
     resetAddProductForm();
     // Unlock form immediately — photo capture is optional
     setAddFormFieldsEnabled(true);
-    document.body.style.overflow = 'hidden';
+    if (window.matchMedia('(max-width: 767px)').matches) {
+        document.body.style.overflow = 'hidden';
+    }
     document.getElementById('add-modal-overlay').classList.add('active');
 }
 
@@ -1791,7 +2170,35 @@ function openEditModal(data) {
     editModalSubmitting = false;
     document.getElementById('edit-product-submit').disabled = false;
     document.getElementById('edit-product-submit').textContent = 'Save Changes';
-    document.body.style.overflow = 'hidden';
+
+    // ── Reset image section ──────────────────────────────────────────────────
+    var actionField = document.getElementById('edit-image-action');
+    var imgField    = document.getElementById('edit-image-b64');
+    var fileInput   = document.getElementById('edit-image-file-input');
+    var statusLabel = document.getElementById('edit-image-status-label');
+    var previewImg  = document.getElementById('edit-image-preview-img');
+
+    if (actionField) actionField.value = 'keep';
+    if (imgField)    imgField.value    = '';
+    if (fileInput)   fileInput.value   = '';
+    if (statusLabel) statusLabel.textContent = 'Current image';
+
+    // Probe whether a product image exists on the server
+    var imgUrl = 'uploads/products/' + data.id + '.jpg?_=' + Date.now();
+    var probe  = new Image();
+    probe.onload  = function() {
+        if (previewImg) previewImg.src = imgUrl;
+        editSetImageState(true);
+    };
+    probe.onerror = function() {
+        if (previewImg) previewImg.src = '';
+        editSetImageState(false);
+    };
+    probe.src = imgUrl;
+
+    if (window.matchMedia('(max-width: 767px)').matches) {
+        document.body.style.overflow = 'hidden';
+    }
     document.getElementById('edit-modal-overlay').classList.add('active');
     setTimeout(() => document.getElementById('edit-name').focus(), 60);
 }
@@ -2001,6 +2408,81 @@ function initProductBarcodeInputs() {
             validateAddBarcode(code);
         });
     }
+}
+</script>
+
+<script>
+// ── Add Product: remove uploaded image ──────────────────────────────────────
+function aiRemoveUploadedImage() {
+    var previewWrap = document.getElementById('ai-upload-preview-wrap');
+    var previewImg  = document.getElementById('ai-upload-preview-img');
+    var imgField    = document.getElementById('add-product-image-b64');
+    var uploadInput = document.getElementById('ai-upload-input');
+    var captureBtn  = document.getElementById('ai-capture-btn');
+    var uploadBtn   = document.getElementById('ai-upload-btn');
+
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewImg)  previewImg.src            = '';
+    if (imgField)    imgField.value            = '';
+    if (uploadInput) uploadInput.value         = '';
+    if (captureBtn)  captureBtn.style.display  = 'inline-flex';
+    if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
+
+    setAiStatus('Add a reference image — optional but recommended for AI scanning', 'idle');
+}
+
+// ── Edit Product: image helpers ─────────────────────────────────────────────
+function editSetImageState(hasImage) {
+    var currentWrap  = document.getElementById('edit-image-current-wrap');
+    var emptyWrap    = document.getElementById('edit-image-empty-wrap');
+    var replaceBar   = document.getElementById('edit-image-replace-bar');
+
+    if (hasImage) {
+        if (currentWrap) currentWrap.style.display = 'block';
+        if (emptyWrap)   emptyWrap.style.display   = 'none';
+        if (replaceBar)  replaceBar.style.display  = 'flex';
+    } else {
+        if (currentWrap) currentWrap.style.display = 'none';
+        if (emptyWrap)   emptyWrap.style.display   = 'flex';
+        if (replaceBar)  replaceBar.style.display  = 'none';
+    }
+}
+
+function editHandleImageUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    var file = input.files[0];
+    if (!file.type.startsWith('image/')) return;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var b64 = e.target.result;
+        var imgField   = document.getElementById('edit-image-b64');
+        var actionField = document.getElementById('edit-image-action');
+        var previewImg  = document.getElementById('edit-image-preview-img');
+        var statusLabel = document.getElementById('edit-image-status-label');
+
+        if (imgField)    imgField.value    = b64;
+        if (actionField) actionField.value = 'replace';
+        if (previewImg)  previewImg.src    = b64;
+        if (statusLabel) statusLabel.textContent = 'New image selected';
+
+        editSetImageState(true);
+    };
+    reader.readAsDataURL(file);
+}
+
+function editRemoveImage() {
+    var actionField = document.getElementById('edit-image-action');
+    var imgField    = document.getElementById('edit-image-b64');
+    var fileInput   = document.getElementById('edit-image-file-input');
+    var previewImg  = document.getElementById('edit-image-preview-img');
+
+    if (actionField) actionField.value = 'remove';
+    if (imgField)    imgField.value    = '';
+    if (fileInput)   fileInput.value   = '';
+    if (previewImg)  previewImg.src    = '';
+
+    editSetImageState(false);
 }
 </script>
 

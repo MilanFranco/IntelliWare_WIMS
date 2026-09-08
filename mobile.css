@@ -1,0 +1,1122 @@
+/* ============================================================
+   IntelliWare WIMS — Mobile-Only Responsive Stylesheet
+   Breakpoint: max-width 767px
+   Rules: ONLY additive/override — no desktop styles changed.
+   ============================================================ */
+
+/* ============================================================
+   1. SIDEBAR — Collapsible Overlay Drawer
+      Already partially implemented in styles.css ≤1023px.
+      These rules tighten behaviour specifically for ≤767px.
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Sidebar: fixed overlay from top:0, full viewport height */
+    #main-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100dvh !important;       /* dynamic vh for mobile browsers */
+        min-height: 100vh !important;
+        width: 270px !important;
+        min-width: 270px !important;
+        max-width: 270px !important;
+        z-index: 9999 !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        opacity: 1 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        box-shadow: 4px 0 32px rgba(0, 0, 0, 0.55) !important;
+        pointer-events: none !important;
+        /* Ensure it always starts from the very top */
+        inset-block-start: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    /* When sidebar is open (sidebar-hidden class removed) */
+    #main-sidebar:not(.sidebar-hidden) {
+        transform: translateX(0) !important;
+        pointer-events: all !important;
+    }
+
+    /* Sidebar hidden state — slide out left */
+    #main-sidebar.sidebar-hidden {
+        transform: translateX(-100%) !important;
+        pointer-events: none !important;
+        opacity: 1 !important;
+    }
+
+    /* Content area takes 100% width — sidebar is overlay only */
+    .iw-main-wrapper > div:not(#main-sidebar) {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* Overlay backdrop covers full screen from top */
+    #sidebar-overlay {
+        top: 0 !important;
+        left: 0 !important;
+    }
+
+    #sidebar-overlay.active {
+        display: block !important;
+        opacity: 1 !important;
+    }
+
+    /* Sidebar logo: always visible at top of drawer, with proper padding */
+    #main-sidebar > div:first-child {
+        display: flex !important;
+        align-items: center !important;
+        margin-left: 0 !important;
+        margin-bottom: 8px !important;
+        padding: 16px 12px 8px 12px !important;
+        flex-shrink: 0 !important;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.3) !important;
+    }
+
+    .iw-sidebar-logo {
+        max-width: 180px !important;
+        max-height: 42px !important;
+        width: auto !important;
+        object-fit: contain !important;
+        display: block !important;
+    }
+
+    /* Nav items list: add top padding since logo handles spacing */
+    #main-sidebar > div:nth-child(2) {
+        padding-top: 8px !important;
+    }
+
+    /* Sidebar menu items — comfortable tap targets */
+    .premium-menu-item {
+        padding: 10px 12px !important;
+        min-height: 44px !important;
+        border-radius: 9px !important;
+    }
+
+    .sidebar-icon {
+        width: 18px !important;
+        height: 18px !important;
+        margin-right: 10px !important;
+        flex-shrink: 0 !important;
+    }
+
+    .sidebar-text {
+        font-size: 13px !important;
+    }
+}
+
+
+/* ============================================================
+   2. HEADER TITLES — Prevent truncation on mobile
+   ============================================================ */
+@media (max-width: 767px) {
+
+    .premium-admin-header {
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        min-height: 52px !important;
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+    }
+
+    /* Left section (hamburger + title): allow title to grow */
+    .premium-admin-header > div:first-child {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+        overflow: hidden !important;
+    }
+
+    /* Header title: scale down, wrap instead of truncate */
+    .iw-header-title {
+        font-size: 13px !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        max-width: none !important;
+        line-height: 1.2 !important;
+        word-break: break-word !important;
+    }
+
+    /* Right section (icons + avatar): shrink, no overflow */
+    .admin-user-section {
+        flex-shrink: 0 !important;
+        gap: 6px !important;
+    }
+
+    /* Hide user name/role text — keep avatar only */
+    .user-details {
+        display: none !important;
+    }
+
+    /* Avatar only, smaller */
+    .user-profile {
+        padding: 4px 6px !important;
+        gap: 0 !important;
+        border-radius: 8px !important;
+    }
+
+    .user-avatar,
+    .iw-avatar-initials {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 11px !important;
+        border-width: 1.5px !important;
+    }
+
+    /* Theme toggle + notification bell: compact */
+    .theme-toggle,
+    .notification-bell {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 8px !important;
+    }
+
+    .theme-toggle svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    .notification-bell svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* Hamburger: min tap target */
+    .iw-sidebar-toggle {
+        min-width: 36px !important;
+        min-height: 36px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+    }
+
+    .iw-sidebar-toggle svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+
+    /* Notification dropdown: fits screen */
+    .notification-dropdown {
+        min-width: 260px !important;
+        max-width: calc(100vw - 16px) !important;
+        right: -4px !important;
+    }
+
+    /* User dropdown */
+    .user-dropdown {
+        right: -4px !important;
+        min-width: 170px !important;
+    }
+}
+
+
+/* ============================================================
+   3. TABLES
+      - Inventory (products.php, via .iw-table-scroll): HORIZONTAL SCROLL (reverted from cards)
+      - Inventory Status (transactions.php, via .overflow-x-auto): STACKED CARDS
+      - Other tables inside .iw-table-scroll: also horizontal scroll
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* --- Inventory table (products.php) — restore horizontal scroll --- */
+    .iw-table-scroll {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Undo any card-layout rules on iw-table-scroll tables */
+    .iw-table-scroll .premium-table thead,
+    .iw-table-scroll .table thead {
+        display: table-header-group !important;
+    }
+
+    .iw-table-scroll .premium-table tbody tr,
+    .iw-table-scroll .table tbody tr {
+        display: table-row !important;
+        border-radius: 0 !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    .iw-table-scroll .premium-table tbody td,
+    .iw-table-scroll .table tbody td {
+        display: table-cell !important;
+        padding: 6px 8px !important;
+        border-bottom: 1px solid var(--iw-border-subtle) !important;
+        font-size: 11px !important;
+    }
+
+    .iw-table-scroll .premium-table tbody td::before,
+    .iw-table-scroll .table tbody td::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    /* Keep the min-width so the table scrolls horizontally */
+    .iw-table-scroll .premium-table,
+    .iw-table-scroll .table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    /* --- Inventory Status table (transactions.php .overflow-x-auto) — CARD LAYOUT --- */
+    .overflow-x-auto {
+        overflow-x: unset !important;
+    }
+
+    .overflow-x-auto .premium-table thead {
+        display: none !important;
+    }
+
+    .overflow-x-auto .premium-table tbody tr {
+        display: block !important;
+        background: var(--iw-bg-card) !important;
+        border: 1px solid var(--iw-border) !important;
+        border-radius: 10px !important;
+        margin-bottom: 6px !important;
+        padding: 8px 10px !important;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .overflow-x-auto .premium-table tbody td {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        padding: 3px 0 !important;
+        border-bottom: 1px solid var(--iw-border-subtle) !important;
+        font-size: 11.5px !important;
+        min-height: 24px !important;
+    }
+
+    .overflow-x-auto .premium-table tbody td:last-child {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+    }
+
+    .overflow-x-auto .premium-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600 !important;
+        font-size: 10px !important;
+        color: var(--iw-text-muted) !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-family: 'Onest', 'Inter', sans-serif !important;
+        min-width: 70px !important;
+    }
+
+    .overflow-x-auto .premium-table {
+        min-width: unset !important;
+        width: 100% !important;
+    }
+
+    /* Badge inside card cell */
+    .overflow-x-auto .premium-table tbody td .badge {
+        margin-left: auto !important;
+    }
+}
+
+
+/* ============================================================
+   4. GENERAL SPACING — More vertical breathing room on mobile
+   ============================================================ */
+@media (max-width: 767px) {
+
+    .iw-main-content {
+        padding: 10px 10px 20px !important;
+    }
+
+    .space-y-3 > * + * { margin-top: 8px !important; }
+    .space-y-4 > * + * { margin-top: 10px !important; }
+    .space-y-2 > * + * { margin-top: 6px !important; }
+
+    .premium-card,
+    .card {
+        padding: 12px !important;
+        border-radius: 12px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .premium-card.p-3, .card.p-3,
+    .premium-card.p-4, .card.p-4,
+    .premium-card.p-5, .card.p-5,
+    .premium-card.p-6, .card.p-6,
+    .premium-card.p-8, .card.p-8 {
+        padding: 12px !important;
+    }
+
+    .gap-6 { gap: 10px !important; }
+    .gap-5 { gap: 8px !important; }
+    .gap-4 { gap: 8px !important; }
+    .gap-3 { gap: 6px !important; }
+
+    .low-stock-item {
+        padding: 8px 10px !important;
+        min-height: 44px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .activity-table td {
+        padding: 8px 6px !important;
+    }
+
+    .notification-item {
+        padding: 9px 12px !important;
+        min-height: 44px !important;
+    }
+}
+
+
+/* ============================================================
+   5. TEXT & ELEMENT SCALING
+   ============================================================ */
+@media (max-width: 767px) {
+
+    h1, .text-4xl   { font-size: 1.2rem !important; }
+    h2, .text-3xl   { font-size: 1.05rem !important; }
+    h3, .text-2xl   { font-size: 0.95rem !important; }
+    .text-xl         { font-size: 0.875rem !important; }
+    .text-lg         { font-size: 0.85rem !important; }
+    .text-base       { font-size: 0.8rem !important; }
+    .text-sm         { font-size: 0.75rem !important; }
+    .text-xs         { font-size: 0.7rem !important; }
+
+    /* Arbitrary Tailwind text sizes */
+    .text-\[20px\]   { font-size: 15px !important; }
+    .text-\[18px\]   { font-size: 14px !important; }
+    .text-\[16px\]   { font-size: 13px !important; }
+    .text-\[15px\]   { font-size: 13px !important; }
+    .text-\[14px\]   { font-size: 12px !important; }
+    .text-\[13px\]   { font-size: 12px !important; }
+    .text-\[12px\]   { font-size: 11px !important; }
+    .text-\[11px\]   { font-size: 10.5px !important; }
+    .text-\[10px\]   { font-size: 10px !important; }
+
+    /* Stat / metric numbers */
+    .premium-metric .num,
+    .num.text-3xl {
+        font-size: 1.35rem !important;
+    }
+
+    /* Metric icon boxes */
+    .w-12.h-12 {
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    .w-12.h-12 svg {
+        width: 18px !important;
+        height: 18px !important;
+    }
+
+    .w-9.h-9 {
+        width: 30px !important;
+        height: 30px !important;
+    }
+
+    /* Card titles */
+    .card-title {
+        font-size: 12px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Buttons — min tap target 38px (comfortable) */
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .button-primary,
+    .button-secondary,
+    .button-danger,
+    .premium-button {
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+        border-radius: 8px !important;
+        min-height: 38px !important;
+        gap: 5px !important;
+    }
+
+    /* Inputs / selects */
+    .input,
+    .premium-input,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="search"],
+    select,
+    textarea {
+        padding: 8px 10px !important;
+        font-size: 13px !important;
+        border-radius: 8px !important;
+        min-height: 38px !important;
+    }
+
+    .label,
+    label {
+        font-size: 11px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .badge {
+        padding: 3px 7px !important;
+        font-size: 10px !important;
+        border-radius: 999px !important;
+    }
+
+    /* Stat metric cards: 2-per-row */
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    /* Other multi-column grids → 1 column */
+    .grid-cols-2,
+    .sm\:grid-cols-2,
+    .md\:grid-cols-2,
+    .grid-cols-3,
+    .md\:grid-cols-3,
+    .grid-cols-4,
+    .md\:grid-cols-4,
+    .lg\:grid-cols-2,
+    .lg\:grid-cols-3,
+    .lg\:grid-cols-4 {
+        grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    }
+
+    /* Modals */
+    .modal-box {
+        width: min(97vw, 600px) !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+        border-radius: 12px !important;
+    }
+
+    .modal-box .modal-body   { padding: 12px !important; }
+    .modal-box .modal-header,
+    .modal-box .modal-footer { padding: 12px !important; }
+    .modal-box .modal-footer { flex-wrap: wrap !important; gap: 8px !important; }
+
+    .modal-box .modal-footer .btn,
+    .modal-box .modal-footer .btn-secondary,
+    .modal-box .modal-footer .btn-danger,
+    .modal-box .modal-footer .btn-primary,
+    .modal-box .modal-footer .button-primary,
+    .modal-box .modal-footer .button-secondary,
+    .modal-box .modal-footer .button-danger {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Fixed-height panels → auto */
+    .h-\[400px\],
+    .h-\[380px\],
+    .h-\[350px\],
+    .h-\[320px\],
+    .h-\[300px\] {
+        height: auto !important;
+        min-height: 200px !important;
+        max-height: 300px !important;
+    }
+
+    /* Padding utility reductions */
+    .p-5 { padding: 10px 12px !important; }
+    .p-4 { padding: 9px 11px !important; }
+    .p-3 { padding: 7px 9px !important; }
+    .mb-6  { margin-bottom: 10px !important; }
+    .mb-5  { margin-bottom: 9px !important; }
+    .mb-4  { margin-bottom: 8px !important; }
+    .mb-3  { margin-bottom: 6px !important; }
+}
+
+
+/* ============================================================
+   6. INSIGHTS PAGE — Smart Restock / Demand Forecasting Section
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* forecast-card container */
+    .forecast-card,
+    #forecastWidget {
+        padding: 12px !important;
+        border-radius: 12px !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* Forecast nav bar */
+    .forecast-nav-bar {
+        gap: 5px !important;
+        padding-bottom: 8px !important;
+        margin-bottom: 10px !important;
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .forecast-nav-btn {
+        font-size: 11px !important;
+        padding: 5px 10px !important;
+        border-radius: 999px !important;
+        white-space: nowrap !important;
+    }
+
+    /* Smart Restock banner */
+    .smart-restock-banner {
+        padding: 12px !important;
+        border-radius: 10px !important;
+    }
+
+    /* Forecast table → card layout */
+    .forecast-table {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .forecast-table thead {
+        display: none !important;
+    }
+
+    .forecast-table tbody {
+        display: block !important;
+    }
+
+    .forecast-table tbody tr {
+        display: block !important;
+        background: rgba(29, 56, 123, 0.4) !important;
+        border: 1px solid rgba(42, 68, 132, 0.5) !important;
+        border-radius: 10px !important;
+        margin-bottom: 8px !important;
+        padding: 10px !important;
+    }
+
+    .forecast-table tbody td {
+        display: block !important;
+        padding: 4px 0 !important;
+        font-size: 12px !important;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.25) !important;
+    }
+
+    .forecast-table tbody td:last-child {
+        border-bottom: none !important;
+        padding-top: 6px !important;
+    }
+
+    /* Action button inside forecast table */
+    .action-btn.check-stock-btn {
+        width: 100% !important;
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+        min-height: 34px !important;
+    }
+
+    /* forecast-highlight-card */
+    .forecast-highlight-card,
+    .card.forecast-highlight-card {
+        padding: 12px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Metric cards on insights */
+    .metric-card {
+        padding: 12px !important;
+        border-radius: 10px !important;
+    }
+
+    /* Insights grid layouts → 1 column */
+    .grid-2,
+    .grid-3,
+    .grid-4,
+    .grid-forecast-ml {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Tab bar: smaller, scrollable */
+    .tab-container {
+        gap: 10px !important;
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        padding-bottom: 0 !important;
+        margin-bottom: 12px !important;
+    }
+
+    .tab {
+        font-size: 12px !important;
+        padding: 8px 4px 10px !important;
+        white-space: nowrap !important;
+    }
+
+    /* Search/filter */
+    .search-filter-container {
+        flex-direction: column !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .search-box,
+    .filter-select,
+    .dropdown-select {
+        min-width: 100% !important;
+        height: 40px !important;
+        font-size: 12px !important;
+    }
+
+    /* Recommendation cards */
+    .recommendation-card {
+        padding: 10px 12px !important;
+    }
+
+    .recommendation-card .card-label {
+        font-size: 12px !important;
+    }
+
+    .recommendation-card .card-copy {
+        font-size: 11.5px !important;
+    }
+
+    /* Section heading icons */
+    .section-heading-icon svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* Chart containers */
+    .chart-container     { height: 220px !important; }
+    .chart-container-lg  { height: 240px !important; }
+    .chart-container-xl  { height: 200px !important; }
+
+    /* Insights page table cells */
+    .insights-page .table th,
+    .insights-page .table td {
+        padding: 8px 10px !important;
+        font-size: 11.5px !important;
+    }
+}
+
+
+/* ============================================================
+   7. STOCK TRANSACTIONS PAGE — Action Cards & Inventory Table
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Receive/Release action cards */
+    .txn-action-card {
+        padding: 12px 14px !important;
+        border-radius: 10px !important;
+        min-height: 64px !important;
+        gap: 10px !important;
+    }
+
+    /* Action icon */
+    .txn-action-icon {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 18px !important;
+        border-radius: 8px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Action title & subtitle */
+    .txn-action-title {
+        font-size: 13px !important;
+    }
+
+    .txn-action-sub {
+        font-size: 11px !important;
+    }
+
+    .txn-action-arrow {
+        font-size: 16px !important;
+    }
+
+    /* Transaction form: stack fields vertically */
+    .txn-form-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    /* Card inner padding */
+    .txn-page-card .p-6 {
+        padding: 12px !important;
+    }
+
+    /* Section heading */
+    .txn-page-card h3 {
+        font-size: 14px !important;
+    }
+
+    /* Pagination */
+    .pagination-container {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+}
+
+
+/* ============================================================
+   ADDITIONAL MOBILE POLISH
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Toast */
+    .toast,
+    #toast-container {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        max-width: calc(100vw - 20px) !important;
+        font-size: 12px !important;
+        padding: 10px 14px !important;
+        border-radius: 9px !important;
+        transform: none !important;
+    }
+
+    /* Hero banner */
+    .hero-product-card {
+        padding: 10px !important;
+        gap: 8px !important;
+    }
+
+    .hero-forecast-btn,
+    a.hero-forecast-btn {
+        padding: 7px 12px !important;
+        font-size: 12px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Dropdown items */
+    .dropdown-item {
+        padding: 10px 12px !important;
+        font-size: 12px !important;
+        min-height: 44px !important;
+    }
+
+    /* Low stock list */
+    .low-stock-name { font-size: 11.5px !important; }
+    .low-stock-qty  { font-size: 12px !important; }
+
+    /* Notification items */
+    .notification-message { font-size: 11.5px !important; }
+    .notification-time    { font-size: 10.5px !important; }
+
+    /* Scrollbar: thinner */
+    .premium-scrollbar::-webkit-scrollbar {
+        width: 4px !important;
+    }
+}
+
+
+/* ============================================================
+   ROUND 2 FIXES
+   ============================================================ */
+
+/* ============================================================
+   A. DASHBOARD — Quick Access first, Recent Activity second
+      The two panels sit inside a 2-col grid on desktop.
+      On mobile we use CSS order to swap them.
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* The parent grid containing Recent Activity + Quick Access */
+    /* Line 320 of dash_admin.php: grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6 */
+    /* Recent Activity is first child, Quick Access is second child */
+    /* We swap via order: */
+    .iw-dashboard-grid-swap {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Quick Access card (second child) → show first on mobile */
+    .iw-dashboard-grid-swap > .iw-quick-access {
+        order: -1 !important;
+    }
+
+    /* Recent Activity card (first child) → show second */
+    .iw-dashboard-grid-swap > .iw-recent-activity {
+        order: 0 !important;
+    }
+}
+
+
+/* ============================================================
+   B. DATA MINING & ANALYTICS — Stat cards + Tabbed table sections
+      (Demand Forecasting section UNTOUCHED)
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Stat metric cards row (Total Products, Low & Out of Stock, etc.) */
+    .grid-4 .metric-card {
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+    }
+
+    /* Metric card large number */
+    .grid-4 .metric-card > div:first-child {
+        font-size: 22px !important;
+        margin-bottom: 2px !important;
+    }
+
+    /* Metric card label */
+    .grid-4 .metric-card > div:last-child {
+        font-size: 10px !important;
+    }
+
+    /* Tab content cards */
+    .tab-content .card {
+        padding: 10px !important;
+        margin-bottom: 10px !important;
+        border-radius: 10px !important;
+    }
+
+    /* Tab content card section heading */
+    .tab-content .card > div[style*="font-size: 18px"],
+    .tab-content .card > div[style*="font-size:18px"] {
+        font-size: 13px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Tab content tables (Product Analysis, Category Performance, etc.) */
+    .tab-content .table th,
+    .tab-content .table td {
+        padding: 7px 8px !important;
+        font-size: 11px !important;
+    }
+
+    /* Tab content search/filter row */
+    .tab-content .search-filter-container {
+        margin-bottom: 8px !important;
+        gap: 6px !important;
+    }
+
+    /* Tab content search box */
+    .tab-content .search-box,
+    .tab-content .filter-select {
+        height: 36px !important;
+        font-size: 11.5px !important;
+        padding: 0 10px !important;
+    }
+
+    /* Insights recommendation cards inside tab-content */
+    .tab-content .recommendation-card {
+        padding: 8px 10px !important;
+    }
+
+    .tab-content .recommendation-card .card-label {
+        font-size: 11.5px !important;
+    }
+
+    .tab-content .recommendation-card .card-copy {
+        font-size: 11px !important;
+    }
+
+    /* Badge inside insights tables */
+    .tab-content .badge {
+        padding: 2px 5px !important;
+        font-size: 9.5px !important;
+    }
+}
+
+
+/* ============================================================
+   C. STOCK TRANSACTIONS — Inventory Status compact rows
+      Already using card layout from Section 3.
+      Extra density reduction:
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Already handled in Section 3 with 3px padding / 11.5px font.
+       Additional: make the card label column narrower */
+    .overflow-x-auto .premium-table tbody td::before {
+        min-width: 60px !important;
+        font-size: 9.5px !important;
+    }
+
+    /* Product name (usually first td value) */
+    .overflow-x-auto .premium-table tbody td:nth-child(2) {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+    }
+}
+
+
+/* ============================================================
+   D. TRANSACTION HISTORY (inventory_history.php) — Compact rows
+      Table uses .overflow-x-auto like transactions; same card style
+      but we need more compact row height.
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* The inventory_history page .overflow-x-auto table card rows */
+    /* These are already in the overflow-x-auto card rules above.
+       Add page-specific density via tighter padding: */
+
+    /* The transaction history table is inside .overflow-x-auto on inventory_history.php.
+       We scope by the specific th values (ID, Date & Time, Product, Barcode, Type, Qty...) */
+
+    /* Ensure rows are as compact as possible — override card padding */
+    .iw-history-table .overflow-x-auto .premium-table tbody tr,
+    /* Also target via JS-injected class */
+    .iw-compact-cards .premium-table tbody tr {
+        padding: 6px 8px !important;
+        margin-bottom: 5px !important;
+        border-radius: 8px !important;
+    }
+
+    .iw-compact-cards .premium-table tbody td {
+        padding: 2px 0 !important;
+        font-size: 11px !important;
+        min-height: 20px !important;
+    }
+
+    .iw-compact-cards .premium-table tbody td::before {
+        min-width: 60px !important;
+        font-size: 9.5px !important;
+    }
+}
+
+
+/* ============================================================
+   E. TRANSACTION LOGS — "Full Transaction History" section only
+      The section has id="mainLogTable" and lives in .premium-card.mb-8
+      The rest of the page (System Activity, Recent Stock Moves) is untouched.
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Scope to the Full Transaction History card specifically */
+    /* The card contains .overflow-x-auto > #mainLogTable */
+    #mainLogTable.premium-table,
+    .overflow-x-auto #mainLogTable {
+        min-width: unset !important;
+        width: 100% !important;
+    }
+
+    /* Card rows for #mainLogTable */
+    .overflow-x-auto #mainLogTable thead {
+        display: none !important;
+    }
+
+    .overflow-x-auto #mainLogTable tbody tr {
+        display: block !important;
+        background: var(--iw-bg-card) !important;
+        border: 1px solid var(--iw-border) !important;
+        border-radius: 8px !important;
+        margin-bottom: 5px !important;
+        padding: 6px 8px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .overflow-x-auto #mainLogTable tbody td {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        padding: 2px 0 !important;
+        border-bottom: 1px solid var(--iw-border-subtle) !important;
+        font-size: 11px !important;
+        min-height: 20px !important;
+    }
+
+    .overflow-x-auto #mainLogTable tbody td:last-child {
+        border-bottom: none !important;
+    }
+
+    .overflow-x-auto #mainLogTable tbody td::before {
+        content: attr(data-label) !important;
+        font-weight: 600 !important;
+        font-size: 9.5px !important;
+        color: var(--iw-text-muted) !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        min-width: 58px !important;
+        font-family: 'Onest', 'Inter', sans-serif !important;
+    }
+}
+
+
+/* ============================================================
+   F. USER MANAGEMENT — Active Accounts overflow fix
+      Scoped to body.iw-page-users (class added by JS on mobile)
+      and .iw-users-table-wrap (added by JS on users page).
+   ============================================================ */
+@media (max-width: 767px) {
+
+    /* Users table wrapper: horizontal scroll (not card layout) */
+    .iw-users-table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        max-width: 100% !important;
+    }
+
+    /* Restore table display for users table — undo .overflow-x-auto card rules */
+    .iw-users-table-wrap .premium-table thead {
+        display: table-header-group !important;
+    }
+
+    .iw-users-table-wrap .premium-table tbody tr {
+        display: table-row !important;
+        border-radius: 0 !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    .iw-users-table-wrap .premium-table tbody td {
+        display: table-cell !important;
+        padding: 8px 10px !important;
+        font-size: 11.5px !important;
+        min-height: unset !important;
+        border-bottom: 1px solid var(--iw-border-subtle) !important;
+        white-space: nowrap !important;
+    }
+
+    .iw-users-table-wrap .premium-table tbody td::before {
+        content: none !important;
+        display: none !important;
+    }
+
+    .iw-users-table-wrap .premium-table th {
+        padding: 8px 10px !important;
+        font-size: 11.5px !important;
+        white-space: nowrap !important;
+    }
+
+    /* Page-level scope: users page only */
+    body.iw-page-users .premium-card {
+        overflow: hidden !important;
+        max-width: 100% !important;
+    }
+
+    /* Truncate long user full names inside the table */
+    body.iw-page-users .premium-table td .font-medium {
+        max-width: 110px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        display: block !important;
+    }
+
+    /* Ensure avatar+name flex row doesn't overflow */
+    body.iw-page-users .premium-table td > div.flex {
+        max-width: 100% !important;
+        overflow: hidden !important;
+        min-width: 0 !important;
+    }
+
+    /* Monospace username text */
+    body.iw-page-users .premium-table td.font-mono {
+        font-size: 10.5px !important;
+        max-width: 80px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+}

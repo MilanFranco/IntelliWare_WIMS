@@ -216,9 +216,83 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
         color: #f87171; font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 700;
         background: rgba(239, 68, 68, 0.1); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.2);
     }
+
+    /* ── MOBILE-ONLY OVERRIDES (max-width: 767px) ── */
+    @media (max-width: 767px) {
+
+        /* 1. STAT CARDS — 3-column single row */
+        .stat-cards-row {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+        }
+        /* Each stat card: stack content vertically, centre-aligned */
+        .stat-cards-row .premium-metric-card {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px 6px;
+            gap: 6px;
+        }
+        /* Text block: full width so it centres properly */
+        .stat-cards-row .premium-metric-card > div:first-child {
+            width: 100%;
+        }
+        .stat-cards-row .metric-label {
+            font-size: 9px;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+            line-height: 1.2;
+            white-space: normal;
+            word-break: break-word;
+        }
+        .stat-cards-row .metric-value {
+            font-size: 20px;
+            line-height: 1.1;
+        }
+        /* "My Status" card has inline font-size:24px — override it */
+        .stat-cards-row .metric-value[style*="font-size:24px"],
+        .stat-cards-row .metric-value[style*="font-size: 24px"] {
+            font-size: 11px !important;
+            white-space: normal;
+            line-height: 1.2;
+        }
+        /* Smaller icon on mobile stat cards */
+        .stat-cards-row .icon-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .stat-cards-row .icon-box svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        /* 2. QUICK ACTIONS — equal-width Stock In / Stock Out buttons */
+        .quick-actions-grid {
+            grid-template-columns: 1fr 1fr !important;
+        }
+        /* Make sure "View Full Inventory" still spans full width */
+        .quick-actions-grid .col-span-2 {
+            grid-column: span 2 !important;
+        }
+
+        /* 3. Low Stock Alerts — remove internal scroll, list flows naturally */
+        .low-stock-list {
+            max-height: none;
+            overflow-y: visible;
+            padding-right: 0;
+        }
+
+        /* 4. Hide items beyond position 5 on mobile */
+        .mobile-hidden {
+            display: none;
+        }
+    }
 </style>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 stat-cards-row">
     
     <div class="premium-metric-card">
         <div>
@@ -260,7 +334,7 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
                 <svg width="20" height="20" fill="none" stroke="#51D55A" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 Quick Actions
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-4 quick-actions-grid">
                 <a href="transactions.php?action=in" class="btn-action">
                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
                     Stock In
@@ -288,21 +362,22 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
                         All stock levels are good!
                     </div>
                 <?php else: ?>
-                    <?php foreach(array_slice($lowStockItems, 0, 6) as $item): ?>
+                    <?php $idx = 0; foreach(array_slice($lowStockItems, 0, 6) as $item): $idx++; ?>
                         <?php $isOut = (int)$item['qty'] <= 0; ?>
-                        <div class="low-stock-item" style="border-left: 3px solid <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>; padding-left: 8px;">
+                        <div class="low-stock-item<?php echo $idx > 5 ? ' mobile-hidden' : ''; ?>" style="border-left: 3px solid <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>; padding-left: 8px;">
                             <span class="low-stock-name"><?php echo htmlspecialchars($item['name']); ?></span>
                             <span class="low-stock-qty" style="color: <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>;"><?php echo (int)$item['qty']; ?> left</span>
                         </div>
                     <?php endforeach; ?>
-                    <?php if(count($lowStockItems) > 6): ?>
-                        <a href="products.php?status=low" class="text-xs text-[#51D55A] hover:underline text-center mt-2 block">
-                            View all <?php echo count($lowStockItems); ?> low items &rarr;
-                        </a>
-                    <?php endif; ?>
                 <?php endif; ?>
             </div>
+            <?php if(!empty($lowStockItems)): ?>
+                <a href="products.php?status=low" class="text-xs text-[#51D55A] hover:underline text-center mt-3 block">
+                    View all <?php echo count($lowStockItems); ?> low items &rarr;
+                </a>
+            <?php endif; ?>
         </div>
+
 
     </div>
 

@@ -4,8 +4,6 @@
  * POS-style inventory transaction workflow.
  * Supports:
  *   - Product search bar with AJAX dropdown
- *   - AI camera scanner (image similarity via ImageScanner module)
- *   - Confirmation modal for medium-confidence scan matches
  *   - Cart management (add / qty change / remove)
  *   - Product info panel with reference image
  */
@@ -132,14 +130,6 @@ var InventoryTransaction = (function () {
         return null;
     }
 
-    // ── Scanner badge ────────────────────────────────────────────────────────
-
-    function updateScannerBadge(state, text) {
-        var badge = document.getElementById('inv-scanner-badge');
-        if (!badge) return;
-        badge.textContent = text;
-        badge.className = 'pos-scanner-status-badge ' + (state || 'idle');
-    }
 
     // ── Info panel ───────────────────────────────────────────────────────────
 
@@ -448,6 +438,29 @@ var InventoryTransaction = (function () {
                 tr.className = 'pos-cart-row-flash';
             }
 
+            // Thumbnail cell
+            var thumbTd = document.createElement('td');
+            thumbTd.className = 'pos-cart-thumb-cell';
+            if (item.imageUrl) {
+                var thumbImg = document.createElement('img');
+                thumbImg.className = 'pos-cart-thumb';
+                thumbImg.src   = item.imageUrl;
+                thumbImg.alt   = item.name;
+                thumbImg.title = item.name;
+                thumbImg.onerror = function () {
+                    var ph = document.createElement('div');
+                    ph.className = 'pos-cart-thumb-ph';
+                    ph.textContent = '📦';
+                    thumbImg.replaceWith(ph);
+                };
+                thumbTd.appendChild(thumbImg);
+            } else {
+                var thumbPh = document.createElement('div');
+                thumbPh.className = 'pos-cart-thumb-ph';
+                thumbPh.textContent = '📦';
+                thumbTd.appendChild(thumbPh);
+            }
+
             // Product name cell
             var nameTd = document.createElement('td');
             nameTd.innerHTML = '<div class="font-semibold">' + escapeHtml(item.name) + '</div>'
@@ -497,6 +510,7 @@ var InventoryTransaction = (function () {
             removeBtn.setAttribute('data-id', String(item.productId));
             actionTd.appendChild(removeBtn);
 
+            tr.appendChild(thumbTd);
             tr.appendChild(nameTd);
             tr.appendChild(stockTd);
             tr.appendChild(qtyTd);
@@ -704,182 +718,7 @@ var InventoryTransaction = (function () {
         });
     }
 
-    // ── Scan Confirmation Modal ───────────────────────────────────────────────
 
-    function openScanModal(candidates) {
-        var backdrop  = document.getElementById('scan-modal-backdrop');
-        var container = document.getElementById('scan-modal-candidates');
-        if (!backdrop || !container) return;
-
-        container.innerHTML = '';
-
-        candidates.forEach(function (c) {
-            var row = document.createElement('div');
-            row.className = 'scan-modal-product-row';
-
-            if (c.imageUrl) {
-                var img = document.createElement('img');
-                img.className = 'scan-modal-thumb';
-                img.src = c.imageUrl;
-                img.alt = c.name;
-                img.onerror = function () { img.replaceWith(makeModalPh()); };
-                row.appendChild(img);
-            } else {
-                row.appendChild(makeModalPh());
-            }
-
-            var info = document.createElement('div');
-            info.className = 'scan-modal-info';
-            info.innerHTML = '<div class="scan-modal-pname">' + escapeHtml(c.name) + '</div>'
-                + '<div class="scan-modal-pcat">' + escapeHtml(c.category || '—') + '</div>'
-                + '<div class="scan-modal-pconf">' + Math.round(c.score * 100) + '% match</div>';
-            row.appendChild(info);
-
-            row.addEventListener('click', function () {
-                closeScanModal();
-                addToCart(c);
-                showToast('Added: ' + c.name, 'success');
-                if (window.ImageScanner) ImageScanner.resumeAfterConfirm();
-            });
-
-            container.appendChild(row);
-        });
-
-        backdrop.classList.add('open');
-    }
-
-    function closeScanModal() {
-        var backdrop = document.getElementById('scan-modal-backdrop');
-        if (backdrop) backdrop.classList.remove('open');
-    }
-
-    function makeModalPh() {
-        var ph = document.createElement('div');
-        ph.className = 'scan-modal-thumb-ph';
-        ph.textContent = '📦';
-        return ph;
-    }
-
-    // ── Image Scanner integration ─────────────────────────────────────────────
-
-    var _needsConfirmDebounce = null;
-
-    function initImageScanner() {
-        var videoEl      = document.getElementById('inv-camera-video');
-        var cameraWrap   = document.getElementById('inv-camera-wrap');
-        var toggleBtn    = document.getElementById('inv-camera-toggle-btn');
-        var stopBtn      = document.getElementById('inv-camera-stop-btn');
-        var cameraStatus = document.getElementById('inv-camera-status');
-        var confFill     = document.getElementById('inv-conf-fill');
-        var confLabel    = document.getElementById('inv-conf-label-text');
-        var confPct      = document.getElementById('inv-conf-pct');
-
-        if (!window.ImageScanner) return;
-
-        ImageScanner.init({
-            onStatusChange: function (state, text) {
-                updateScannerBadge(state === 'scanning' ? 'scanning' : state === 'loading' || state === 'embedding' ? 'loading' : state === 'error' ? 'error' : 'idle', text);
-                if (cameraStatus) cameraStatus.textContent = text;
-
-                if (state === 'ready') {
-                    if (toggleBtn) { toggleBtn.disabled = false; }
-                }
-                if (state === 'error') {
-                    if (cameraWrap) cameraWrap.classList.remove('visible');
-                    if (toggleBtn)  { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
-                }
-            },
-
-            onEmbeddingsReady: function (count) {
-                if (count === 0) {
-                    updateScannerBadge('idle', 'No product images found');
-                    showToast('Add reference photos to your products to enable scanning.', 'error');
-                } else {
-                    updateScannerBadge('idle', count + ' products ready to scan');
-                }
-            },
-
-            onPredicting: function (topName, topScore, allSorted) {
-                var pct = Math.round(topScore * 100);
-                if (confFill) {
-                    confFill.style.width = pct + '%';
-                    confFill.className   = 'pos-conf-fill' + (topScore < 0.40 ? ' low' : topScore < 0.70 ? ' medium' : '');
-                }
-                if (confLabel) confLabel.textContent = topName;
-                if (confPct)   confPct.textContent   = pct + '%';
-            },
-
-            onAutoConfirm: function (entry, score) {
-                // entry = { productId, name, category, imageUrl, price, quantity, reorderPoint, unit, vec }
-                if (cameraStatus) cameraStatus.textContent = 'Match found! Adding…';
-                var raw = {
-                    product_id   : entry.productId,
-                    product_name : entry.name,
-                    category     : entry.category,
-                    image_url    : entry.imageUrl,
-                    price        : entry.price,
-                    quantity     : entry.quantity,
-                    reorder_point: entry.reorderPoint,
-                    unit         : entry.unit,
-                };
-                cacheProduct(raw);
-                addToCart(raw);
-                showToast('Scanned: ' + entry.name + ' (' + Math.round(score * 100) + '% match)', 'success');
-                ImageScanner.resumeAfterConfirm();
-            },
-
-            onStopped: function () {
-                updateScannerBadge('idle', 'AI Scanner idle');
-                if (cameraWrap) cameraWrap.classList.remove('visible');
-                if (confFill)   { confFill.style.width = '0%'; confFill.className = 'pos-conf-fill'; }
-                if (confLabel)  confLabel.textContent = 'Waiting…';
-                if (confPct)    confPct.textContent   = '—';
-                if (cameraStatus) cameraStatus.textContent = 'Camera stopped.';
-                if (toggleBtn) { toggleBtn.textContent = 'Start AI Scanner'; toggleBtn.classList.remove('is-active'); toggleBtn.disabled = false; }
-                closeScanModal();
-            },
-        });
-
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', function () {
-                if (ImageScanner.isRunning()) {
-                    ImageScanner.stopCamera();
-                    return;
-                }
-
-                toggleBtn.disabled = true;
-                updateScannerBadge('loading', 'Loading model…');
-                if (cameraStatus) cameraStatus.textContent = 'Loading AI model…';
-
-                ImageScanner.loadModel()
-                    .then(function () {
-                        if (!videoEl) throw new Error('Video element not found.');
-                        return ImageScanner.startCamera(videoEl);
-                    })
-                    .then(function () {
-                        if (cameraWrap) cameraWrap.classList.add('visible');
-                        if (toggleBtn) { toggleBtn.textContent = 'Stop Camera'; toggleBtn.classList.add('is-active'); toggleBtn.disabled = false; }
-                    })
-                    .catch(function (err) {
-                        toggleBtn.disabled = false;
-                        showToast('Scanner error: ' + (err.message || err), 'error');
-                    });
-            });
-        }
-
-        if (stopBtn) {
-            stopBtn.addEventListener('click', function () { ImageScanner.stopCamera(); });
-        }
-
-        // Modal cancel → dismiss and resume
-        var cancelBtn = document.getElementById('scan-modal-cancel');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', function () {
-                closeScanModal();
-                if (window.ImageScanner) ImageScanner.resumeAfterConfirm();
-            });
-        }
-    }
 
     // ── Form submit ──────────────────────────────────────────────────────────
 
@@ -927,8 +766,6 @@ var InventoryTransaction = (function () {
         // Search
         initSearch();
 
-        // Camera scanner
-        initImageScanner();
 
         // Info panel remove
         document.getElementById('inv-info-remove')?.addEventListener('click', function () {

@@ -121,6 +121,78 @@ require_once 'src/layout.php';
 renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
 ?>
 
+<style>
+/* ── Responsive layout ─────────────────────────────────────────── */
+.ih-desktop { display: block; }
+.ih-mobile  { display: none;  }
+@media (max-width: 767px) {
+    .ih-desktop { display: none;  }
+    .ih-mobile  { display: block; }
+}
+
+/* ── Accordion (reuses .txnacc-* from transaction_logs.php) ──── */
+.txnacc-list { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.txnacc-item {
+    background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+    border: 1px solid rgba(42,68,132,0.55);
+    border-radius: 14px; overflow: hidden; transition: border-color 0.2s;
+}
+.txnacc-item.is-open { border-color: rgba(81,213,90,0.25); }
+.txnacc-header {
+    display: flex; align-items: stretch; padding: 13px 14px;
+    cursor: pointer; gap: 10px; user-select: none;
+}
+.txnacc-left  { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.txnacc-product {
+    font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 700; color: #e3e3e3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.txnacc-badge-row { display: flex; align-items: center; gap: 8px; }
+.txnacc-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Onest', sans-serif; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.06em; padding: 3px 7px; border-radius: 5px; white-space: nowrap; flex-shrink: 0;
+}
+.txnacc-badge svg { width: 11px; height: 11px; }
+.badge-in  { background: rgba(52,211,153,0.14); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+.badge-out { background: rgba(248,113,113,0.14); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+.txnacc-date { font-family: 'Onest', sans-serif; font-size: 11px; color: #9aa6d1; white-space: nowrap; }
+.txnacc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.txnacc-qty   { font-family: 'Onest', sans-serif; font-size: 18px; font-weight: 800; line-height: 1; }
+.qty-in  { color: #34d399; }
+.qty-out { color: #f87171; }
+.txnacc-chevron { color: #9aa6d1; line-height: 1; transition: transform 0.25s ease; }
+.txnacc-item.is-open .txnacc-chevron { transform: rotate(180deg); }
+.txnacc-body {
+    display: none; border-top: 1px solid rgba(42,68,132,0.4); padding: 12px 14px;
+}
+.txnacc-item.is-open .txnacc-body { display: block; }
+.txnacc-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 5px 0; border-bottom: 1px solid rgba(42,68,132,0.2);
+}
+.txnacc-row:last-child { border-bottom: none; }
+.txnacc-row-label { font-family: 'Onest', sans-serif; font-size: 12px; color: #6b7aab; }
+.txnacc-row-value {
+    font-family: 'Onest', sans-serif; font-size: 13px; font-weight: 600; color: #e3e3e3;
+    text-align: right; max-width: 65%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.txnacc-row-value.mono { font-family: monospace; }
+.txnacc-remarks-row {
+    margin-top: 8px; font-family: 'Onest', sans-serif;
+    font-size: 12px; color: #9aa6d1; font-style: italic;
+}
+/* Light theme */
+[data-theme="light"] .txnacc-item      { background: var(--iw-bg-modal) !important; border-color: var(--iw-border-solid) !important; }
+[data-theme="light"] .txnacc-product   { color: var(--iw-text-header) !important; }
+[data-theme="light"] .txnacc-date      { color: var(--iw-text-muted) !important; }
+[data-theme="light"] .txnacc-row-label { color: var(--iw-text-muted) !important; }
+[data-theme="light"] .txnacc-row-value { color: var(--iw-text-header) !important; }
+[data-theme="light"] .txnacc-body,
+[data-theme="light"] .txnacc-row       { border-color: var(--iw-border) !important; }
+[data-theme="light"] .txnacc-remarks-row { color: var(--iw-text-muted) !important; }
+</style>
+
 <div class="premium-card mb-8" style="padding:0;overflow:visible;">
     <form method="GET" class="p-6 border-b border-[#2A4484]/50 bg-[#13275B]/30">
         <div class="flex flex-col lg:flex-row lg:items-end gap-4">
@@ -164,64 +236,141 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
         (page <?php echo $page; ?> of <?php echo $totalPages; ?>)
     </div>
 
-    <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Date &amp; Time</th>
-                    <th>Product</th>
-                    <th>Barcode</th>
-                    <th>Type</th>
-                    <th class="text-center">Qty</th>
-                    <?php if ($hasAudit): ?>
-                        <th class="text-center">Prev Stock</th>
-                        <th class="text-center">New Stock</th>
-                    <?php endif; ?>
-                    <th>User</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($transactions)): ?>
+    <!-- Desktop / Tablet: Table (≥768px) -->
+    <div class="ih-desktop">
+        <div class="overflow-x-auto">
+            <table class="premium-table w-full text-left">
+                <thead>
                     <tr>
-                        <td colspan="<?php echo $hasAudit ? 10 : 8; ?>" class="text-center p-8 text-[#9aa6d1]">
-                            No transactions found.
-                        </td>
+                        <th>ID</th>
+                        <th>Date &amp; Time</th>
+                        <th>Product</th>
+                        <th>Barcode</th>
+                        <th>Type</th>
+                        <th class="text-center">Qty</th>
+                        <?php if ($hasAudit): ?>
+                            <th class="text-center">Prev Stock</th>
+                            <th class="text-center">New Stock</th>
+                        <?php endif; ?>
+                        <th>User</th>
+                        <th>Remarks</th>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($transactions as $txn): ?>
-                        <?php
-                        $isIn = $txn['transaction_type'] === 'stock_in';
-                        $barcode = $txn['txn_barcode'] ?? $txn['product_barcode'] ?? '—';
-                        ?>
-                        <tr class="hover:bg-[#1D387B]/50 transition-colors">
-                            <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo (int)$txn['transaction_id']; ?></td>
-                            <td class="text-sm text-[#E3E3E3] whitespace-nowrap"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($txn['transaction_date']))); ?></td>
-                            <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($txn['product_name'] ?? 'Unknown'); ?></td>
-                            <td class="font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($barcode ?: '—'); ?></td>
-                            <td>
-                                <?php if ($isIn): ?>
-                                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IN</span>
-                                <?php else: ?>
-                                    <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">OUT</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="text-center font-mono font-semibold text-[#E3E3E3]"><?php echo (int)$txn['quantity']; ?></td>
-                            <?php if ($hasAudit): ?>
-                                <td class="text-center font-mono text-sm text-[#9aa6d1]"><?php echo $txn['previous_stock'] !== null ? (int)$txn['previous_stock'] : '—'; ?></td>
-                                <td class="text-center font-mono text-sm text-[#E3E3E3]"><?php echo $txn['new_stock'] !== null ? (int)$txn['new_stock'] : '—'; ?></td>
-                            <?php endif; ?>
-                            <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($txn['username'] ?? '—'); ?></td>
-                            <td class="text-sm text-[#6b7280] max-w-[180px] truncate" title="<?php echo htmlspecialchars($txn['remarks'] ?? ''); ?>">
-                                <?php echo htmlspecialchars($txn['remarks'] ?? '—'); ?>
+                </thead>
+                <tbody>
+                    <?php if (empty($transactions)): ?>
+                        <tr>
+                            <td colspan="<?php echo $hasAudit ? 10 : 8; ?>" class="text-center p-8 text-[#9aa6d1]">
+                                No transactions found.
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                    <?php else: ?>
+                        <?php foreach ($transactions as $txn): ?>
+                            <?php
+                            $isIn    = $txn['transaction_type'] === 'stock_in';
+                            $barcode = $txn['txn_barcode'] ?? $txn['product_barcode'] ?? '—';
+                            ?>
+                            <tr class="hover:bg-[#1D387B]/50 transition-colors">
+                                <td class="font-mono text-xs text-[#9aa6d1]">#<?php echo (int)$txn['transaction_id']; ?></td>
+                                <td class="text-sm text-[#E3E3E3] whitespace-nowrap"><?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($txn['transaction_date']))); ?></td>
+                                <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($txn['product_name'] ?? 'Unknown'); ?></td>
+                                <td class="font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($barcode ?: '—'); ?></td>
+                                <td>
+                                    <?php if ($isIn): ?>
+                                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IN</span>
+                                    <?php else: ?>
+                                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">OUT</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center font-mono font-semibold text-[#E3E3E3]"><?php echo (int)$txn['quantity']; ?></td>
+                                <?php if ($hasAudit): ?>
+                                    <td class="text-center font-mono text-sm text-[#9aa6d1]"><?php echo $txn['previous_stock'] !== null ? (int)$txn['previous_stock'] : '—'; ?></td>
+                                    <td class="text-center font-mono text-sm text-[#E3E3E3]"><?php echo $txn['new_stock'] !== null ? (int)$txn['new_stock'] : '—'; ?></td>
+                                <?php endif; ?>
+                                <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($txn['username'] ?? '—'); ?></td>
+                                <td class="text-sm text-[#6b7280] max-w-[180px] truncate" title="<?php echo htmlspecialchars($txn['remarks'] ?? ''); ?>">
+                                    <?php echo htmlspecialchars($txn['remarks'] ?? '—'); ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /.ih-desktop -->
+
+    <!-- Mobile: Accordion (<768px) -->
+    <div class="ih-mobile">
+        <?php if (empty($transactions)): ?>
+            <div class="text-center text-[#9aa6d1] py-6">No transactions found.</div>
+        <?php else: ?>
+        <div class="txnacc-list">
+            <?php foreach ($transactions as $txn): ?>
+            <?php
+                $isIn     = $txn['transaction_type'] === 'stock_in';
+                $qtySign  = $isIn ? '+' : '−';
+                $qtyClass = $isIn ? 'qty-in' : 'qty-out';
+                $badgeClass = $isIn ? 'badge-in' : 'badge-out';
+                $badgeText  = $isIn ? 'IN' : 'OUT';
+                $barcode  = $txn['txn_barcode'] ?? $txn['product_barcode'] ?? '—';
+                $remarks  = trim($txn['remarks'] ?? '');
+            ?>
+            <div class="txnacc-item">
+                <!-- Header -->
+                <div class="txnacc-header" onclick="this.closest('.txnacc-item').classList.toggle('is-open')">
+                    <div class="txnacc-left">
+                        <div class="txnacc-product"><?php echo htmlspecialchars($txn['product_name'] ?? 'Unknown'); ?></div>
+                        <div class="txnacc-badge-row">
+                            <span class="txnacc-badge <?php echo $badgeClass; ?>">
+                                <?php if ($isIn): ?>
+                                <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                                <?php else: ?>
+                                <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                                <?php endif; ?>
+                                STOCK <?php echo $badgeText; ?>
+                            </span>
+                            <span class="txnacc-date"><?php echo date('M j, Y g:i A', strtotime($txn['transaction_date'])); ?></span>
+                        </div>
+                    </div>
+                    <div class="txnacc-right">
+                        <span class="txnacc-qty <?php echo $qtyClass; ?>"><?php echo $qtySign . (int)$txn['quantity']; ?></span>
+                        <span class="txnacc-chevron">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                        </span>
+                    </div>
+                </div>
+                <!-- Expanded body -->
+                <div class="txnacc-body">
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">ID</span>
+                        <span class="txnacc-row-value mono">#<?php echo (int)$txn['transaction_id']; ?></span>
+                    </div>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">Barcode</span>
+                        <span class="txnacc-row-value mono"><?php echo htmlspecialchars($barcode ?: '—'); ?></span>
+                    </div>
+                    <?php if ($hasAudit): ?>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">Prev Stock</span>
+                        <span class="txnacc-row-value mono"><?php echo $txn['previous_stock'] !== null ? (int)$txn['previous_stock'] : '—'; ?></span>
+                    </div>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">New Stock</span>
+                        <span class="txnacc-row-value mono"><?php echo $txn['new_stock'] !== null ? (int)$txn['new_stock'] : '—'; ?></span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">User</span>
+                        <span class="txnacc-row-value"><?php echo htmlspecialchars($txn['username'] ?? '—'); ?></span>
+                    </div>
+                    <?php if ($remarks !== '' && $remarks !== '—' && $remarks !== '-'): ?>
+                    <div class="txnacc-remarks-row">"<?php echo htmlspecialchars($remarks); ?>"</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div><!-- /.ih-mobile -->
 
     <?php if ($totalPages > 1): ?>
         <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2">

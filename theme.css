@@ -1159,3 +1159,85 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     color: #ef4444 !important;
     background: rgba(239, 68, 68, 0.05) !important;
 }
+
+/* ============================================================
+   RESPONSIVE THEME OVERRIDES
+   ============================================================ */
+
+/* Sidebar overlay backdrop — dark theme */
+#sidebar-overlay {
+    background: rgba(0, 0, 0, 0.55);
+}
+
+/* Sidebar overlay backdrop — light theme */
+[data-theme="light"] #sidebar-overlay {
+    background: rgba(15, 23, 42, 0.4);
+}
+
+/* Mobile sidebar drawer — ensure it inherits sidebar gradient */
+@media (max-width: 1023px) {
+    #main-sidebar {
+        background: var(--iw-bg-sidebar) !important;
+    }
+
+    /* Light mode mobile sidebar */
+    [data-theme="light"] #main-sidebar {
+        background: linear-gradient(180deg, #DBEAFE 0%, #BAE6FD 100%) !important;
+        box-shadow: 4px 0 24px rgba(14, 165, 233, 0.2) !important;
+    }
+
+    /* Tablet: tighten metric numbers */
+    .premium-metric .num {
+        font-size: 1.55rem !important;
+    }
+}
+
+/* ---- Mobile (< 640px) — theme-specific overrides ---- */
+@media (max-width: 639px) {
+
+    /* Light mode: ensure iw-body-shell bg is correct */
+    [data-theme="light"] .iw-body-shell {
+        background-color: var(--iw-bg-shell) !important;
+    }
+
+    /* Metric numbers — smaller on mobile (override theme.css defaults) */
+    .premium-metric .num {
+        font-size: 1.3rem !important;
+    }
+
+    /* Card title — smaller + tighter margin */
+    .card-title {
+        font-size: 11px !important;
+        margin-bottom: 7px !important;
+    }
+
+    /* Toast: full width on mobile */
+    .toast {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        transform: none !important;
+        max-width: calc(100vw - 20px) !important;
+        font-size: 12px !important;
+        padding: 10px 14px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Notification items: compact */
+    .notification-item {
+        padding: 8px 12px !important;
+        gap: 8px !important;
+    }
+    .notification-message { font-size: 11px !important; }
+    .notification-time    { font-size: 10px !important; }
+
+    /* Dropdown items: compact */
+    .dropdown-item { font-size: 12px !important; padding: 8px 12px !important; }
+    .dropdown-item svg { width: 13px !important; height: 13px !important; }
+
+    /* Low stock list items */
+    .low-stock-name { font-size: 11px !important; }
+    .low-stock-qty  { font-size: 12px !important; }
+    .low-stock-item { padding: 7px 9px !important; border-radius: 6px !important; }
+}
+

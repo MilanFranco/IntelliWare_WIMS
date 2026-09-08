@@ -352,6 +352,92 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         flex-shrink: 0;
     }
     .btn-scan:hover { border-color: var(--iw-accent); color: var(--iw-accent); }
+
+    /* ── Inventory Status responsive layout ─────────────────────── */
+    .txn-inv-desktop { display: block; }
+    .txn-inv-mobile  { display: none;  }
+    @media (max-width: 767px) {
+        .txn-inv-desktop { display: none;  }
+        .txn-inv-mobile  { display: block; }
+    }
+
+    /* Card grid */
+    .txn-inv-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+        padding: 16px;
+    }
+    .txn-inv-card {
+        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+        border: 1px solid rgba(42, 68, 132, 0.55);
+        border-radius: 16px;
+        padding: 16px 16px 0 16px;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .txn-inv-card:hover {
+        border-color: rgba(81, 213, 90, 0.25);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+        transform: translateY(-2px);
+    }
+
+    /* Top row: thumb · info · badge */
+    .txn-ic-top  { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .txn-ic-thumb {
+        width: 50px; height: 50px; border-radius: 11px;
+        background: rgba(13,22,56,0.7);
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .txn-ic-info  { flex: 1; min-width: 0; overflow: hidden; }
+    .txn-ic-name  {
+        font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 700;
+        color: #e3e3e3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;
+    }
+    .txn-ic-cat   {
+        font-family: 'Onest', sans-serif; font-size: 12px; color: #9aa6d1;
+        margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .txn-ic-sku   {
+        font-family: monospace; font-size: 11px; color: #6b7aab;
+        margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .txn-ic-badge {
+        flex-shrink: 0; font-family: 'Onest', sans-serif;
+        font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+        padding: 3px 8px; border-radius: 6px; white-space: nowrap; margin-top: 2px;
+    }
+    .txn-badge-out  { background: #c0392b; color: #fff; }
+    .txn-badge-low  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
+    .txn-badge-good { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+
+    /* Divider */
+    .txn-ic-divider { height: 1px; background: rgba(42,68,132,0.5); margin: 0 -16px; }
+
+    /* Stats row */
+    .txn-ic-stats { display: flex; padding: 12px 0; }
+    .txn-ic-stat  { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .txn-ic-label {
+        font-family: 'Onest', sans-serif; font-size: 10px; font-weight: 700;
+        letter-spacing: 0.08em; color: #6b7aab; text-transform: uppercase;
+    }
+    .txn-ic-value {
+        font-family: 'Onest', sans-serif; font-size: 20px; font-weight: 700;
+        color: #e3e3e3; line-height: 1;
+    }
+    .txn-ic-value.val-out { color: #f87171; }
+    .txn-ic-value.val-low { color: #fbbf24; }
+
+    /* Light theme overrides */
+    [data-theme="light"] .txn-inv-card       { background: var(--iw-bg-modal) !important; border-color: var(--iw-border-solid) !important; }
+    [data-theme="light"] .txn-ic-thumb       { background: var(--iw-bg-panel-header) !important; }
+    [data-theme="light"] .txn-ic-name        { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .txn-ic-cat,
+    [data-theme="light"] .txn-ic-sku         { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .txn-ic-label       { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .txn-ic-value       { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .txn-ic-divider     { background: var(--iw-border) !important; }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
@@ -473,62 +559,108 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         </div>
     </form>
 
-    <div class="overflow-x-auto">
-        <table class="premium-table w-full text-left">
-            <thead>
-                <tr>
-                    <th width="15%">SKU</th>
-                    <th width="25%">Product Name</th>
-                    <th width="20%">Category</th>
-                    <th width="15%" class="text-center">Quantity</th>
-                    <th width="10%">Unit</th>
-                    <th width="15%" class="text-right">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach($tableItems as $it): ?>
-                <?php $isLowStock = (int)$it['qty'] <= (int)($it['reorder_point'] ?? 10); ?>
-                <tr class="hover:bg-[#1D387B]/50 transition-colors">
-                    <td class="font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($it['sku']); ?></td>
-                    <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($it['name']); ?></td>
-                    <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($it['category'] ?? '-'); ?></td>
-                    <td class="text-center">
-                        <?php 
-                        $qty = (int)$it['qty'];
+    <!-- Desktop / Tablet: Table (≥768px) -->
+    <div class="txn-inv-desktop">
+        <div class="overflow-x-auto">
+            <table class="premium-table w-full text-left">
+                <thead>
+                    <tr>
+                        <th width="15%">SKU</th>
+                        <th width="25%">Product Name</th>
+                        <th width="20%">Category</th>
+                        <th width="15%" class="text-center">Quantity</th>
+                        <th width="10%">Unit</th>
+                        <th width="15%" class="text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach($tableItems as $it): ?>
+                    <?php
+                        $qty    = (int)$it['qty'];
                         $reorder = (int)($it['reorder_point'] ?? 10);
-                        if ($qty <= 0) {
-                            $qtyColor = 'text-red-400';
-                        } elseif ($qty <= $reorder) {
-                            $qtyColor = 'text-amber-400';
-                        } else {
-                            $qtyColor = 'text-[#E3E3E3]';
-                        }
-                        ?>
-                        <span class="font-mono font-semibold <?php echo $qtyColor; ?>">
-                            <?php echo $qty; ?>
-                        </span>
-                    </td>
-                    <td class="text-sm text-[#6b7280]"><?php echo htmlspecialchars($it['uom']); ?></td>
-                    <td class="text-right">
-                        <?php if ($qty <= 0): ?>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
-                        <?php elseif ($qty <= $reorder): ?>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
-                        <?php else: ?>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-                
-                <?php if (empty($tableItems)): ?>
-                <tr>
-                    <td colspan="6" class="text-center p-8 text-[#9aa6d1]">No products found matching your criteria.</td>
-                </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                        $qtyColor = $qty <= 0 ? 'text-red-400' : ($qty <= $reorder ? 'text-amber-400' : 'text-[#E3E3E3]');
+                    ?>
+                    <tr class="hover:bg-[#1D387B]/50 transition-colors">
+                        <td class="font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($it['sku']); ?></td>
+                        <td class="font-medium text-[#E3E3E3]"><?php echo htmlspecialchars($it['name']); ?></td>
+                        <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($it['category'] ?? '-'); ?></td>
+                        <td class="text-center">
+                            <span class="font-mono font-semibold <?php echo $qtyColor; ?>"><?php echo $qty; ?></span>
+                        </td>
+                        <td class="text-sm text-[#6b7280]"><?php echo htmlspecialchars($it['uom']); ?></td>
+                        <td class="text-right">
+                            <?php if ($qty <= 0): ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
+                            <?php elseif ($qty <= $reorder): ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php if (empty($tableItems)): ?>
+                    <tr><td colspan="6" class="text-center p-8 text-[#9aa6d1]">No products found matching your criteria.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /.txn-inv-desktop -->
+
+    <!-- Mobile: Card Grid (<768px) -->
+    <div class="txn-inv-mobile">
+        <?php if (empty($tableItems)): ?>
+            <div class="text-center p-8 text-[#9aa6d1]">No products found matching your criteria.</div>
+        <?php else: ?>
+        <div class="txn-inv-card-grid">
+            <?php foreach($tableItems as $it): ?>
+            <?php
+                $qty     = (int)$it['qty'];
+                $reorder = (int)($it['reorder_point'] ?? 10);
+                $isOut   = $qty <= 0;
+                $isLow   = !$isOut && $qty <= $reorder;
+                $badgeClass = $isOut ? 'txn-badge-out' : ($isLow ? 'txn-badge-low' : 'txn-badge-good');
+                $badgeText  = $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD');
+                $valClass   = $isOut ? 'val-out' : ($isLow ? 'val-low' : '');
+            ?>
+            <div class="txn-inv-card">
+                <!-- Top: icon · info · badge -->
+                <div class="txn-ic-top">
+                    <div class="txn-ic-thumb">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#9aa6d1;">
+                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                        </svg>
+                    </div>
+                    <div class="txn-ic-info">
+                        <div class="txn-ic-name"><?php echo htmlspecialchars($it['name']); ?></div>
+                        <div class="txn-ic-cat"><?php echo htmlspecialchars($it['category'] ?? '—'); ?></div>
+                        <div class="txn-ic-sku"><?php echo htmlspecialchars($it['sku']); ?></div>
+                    </div>
+                    <div class="txn-ic-badge <?php echo $badgeClass; ?>"><?php echo $badgeText; ?></div>
+                </div>
+
+                <div class="txn-ic-divider"></div>
+
+                <!-- Stats: Qty · Unit -->
+                <div class="txn-ic-stats">
+                    <div class="txn-ic-stat">
+                        <span class="txn-ic-label">STOCK</span>
+                        <span class="txn-ic-value <?php echo $valClass; ?>"><?php echo $qty; ?></span>
+                    </div>
+                    <div class="txn-ic-stat">
+                        <span class="txn-ic-label">REORDER AT</span>
+                        <span class="txn-ic-value"><?php echo $reorder; ?></span>
+                    </div>
+                    <div class="txn-ic-stat">
+                        <span class="txn-ic-label">UNIT</span>
+                        <span class="txn-ic-value" style="font-size:14px;padding-top:3px;"><?php echo htmlspecialchars($it['uom']); ?></span>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div><!-- /.txn-inv-mobile -->
 
     <?php if ($totalPages > 1): ?>
     <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2">

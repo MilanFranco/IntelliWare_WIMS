@@ -71,7 +71,7 @@
         }
         
         .header .signin-logo { 
-            width: clamp(300px, 40vw, 550px); 
+            width: clamp(180px, 70vw, 480px); 
             height: auto; 
             display: block; 
             margin-left: auto; 
@@ -308,6 +308,41 @@
         
         @keyframes fadein { from { opacity: 0; bottom: 20px; } to { opacity: 1; bottom: 30px; } }
         @keyframes fadeout { from { opacity: 1; bottom: 30px; } to { opacity: 0; bottom: 20px; } }
+
+        /* ---- Mobile responsive ---- */
+        @media (max-width: 480px) {
+            .auth-wrapper {
+                padding-bottom: 100px;
+                justify-content: flex-start;
+                padding-top: 20px;
+            }
+
+            .header {
+                margin-top: 16px;
+                margin-bottom: 8px;
+            }
+
+            .signinbox {
+                padding: 18px 16px;
+            }
+
+            .footer {
+                bottom: 20px;
+                font-size: 11px;
+            }
+
+            .footer hr {
+                width: 90vw;
+            }
+
+            .toast {
+                left: 12px;
+                right: 12px;
+                transform: none;
+                font-size: 13px;
+                padding: 12px 16px;
+            }
+        }
     </style>
 </head>
 <body>

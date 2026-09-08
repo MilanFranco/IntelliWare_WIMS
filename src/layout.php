@@ -107,7 +107,8 @@ function renderSidebar($currentPage, $userRole) {
 function renderHeader($pageTitle, $userRole, $username) {
     $displayName = trim($_SESSION['full_name'] ?? '') ?: $username;
 
-    echo '<div class="premium-admin-header px-[50px] py-[20px] h-[67px] flex justify-between items-center">';
+    echo '<div class="premium-admin-header px-4 md:px-10 lg:px-[50px] py-[14px] lg:py-[20px] h-auto lg:h-[67px] flex justify-between items-center">';
+
     
     // UPDATED: Added Flex container for Toggle Button + Page Title
     echo '<div class="flex items-center gap-4">';
@@ -186,6 +187,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<script>(function(){var t=localStorage.getItem("iw-theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>';
     echo '<link href="styles.css" rel="stylesheet" />';
     echo '<link href="theme.css" rel="stylesheet" />';
+    echo '<link href="mobile.css" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
     echo '<script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add(\'iw-no-tailwind\')"></script>';
 
@@ -270,7 +272,9 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .iw-sidebar-logo-light { display: block !important; filter: none; opacity: 1; }';
     echo '</style>';
     echo '</head>';
-    echo '<body class="w-full h-screen iw-body-shell px-3 pt-3 flex items-start justify-center">';
+    echo '<body class="w-full h-screen iw-body-shell flex items-start justify-center">';
+    // Mobile sidebar overlay backdrop
+    echo '<div id="sidebar-overlay" onclick="closeSidebar()"></div>';
     echo '<div class="w-full h-full flex flex-row rounded-t-[15px] overflow-hidden iw-main-wrapper shadow-lg">';
     
     renderSidebar($pageTitle, $userRole);
@@ -278,6 +282,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<div class="flex-1 flex flex-col min-w-0">';
     renderHeader($pageTitle, $userRole, $username);
     echo '<div class="p-6 premium-scrollbar iw-main-content min-w-0" style="flex:1; overflow-y:auto; overflow-x:hidden; position:relative; z-index:1; padding:24px 32px;">';
+
 }
 
 /** Close the scrollable page content area. Output modals AFTER renderLayoutShellEnd() so fixed overlays are not clipped. */
@@ -302,22 +307,86 @@ function renderLayoutFooter() {
     echo '<script>';
     ?>
     
+    function isMobile() {
+        return window.innerWidth < 1024;
+    }
+
+    function openSidebar() {
+        const sidebar = document.getElementById('main-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.remove('sidebar-hidden');
+        if (overlay && isMobile()) {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeSidebar() {
+        const sidebar = document.getElementById('main-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.add('sidebar-hidden');
+        if (overlay) {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
     function toggleSidebar() {
-        const sidebar = document.getElementById("main-sidebar");
-        sidebar.classList.toggle("sidebar-hidden");
-        // Save preference
-        const isHidden = sidebar.classList.contains("sidebar-hidden");
-        localStorage.setItem("sidebarHidden", isHidden ? "true" : "false");
+        const sidebar = document.getElementById('main-sidebar');
+        const isHidden = sidebar.classList.contains('sidebar-hidden');
+        if (isHidden) {
+            openSidebar();
+        } else {
+            closeSidebar();
+        }
+        if (!isMobile()) {
+            // Persist preference on desktop only
+            localStorage.setItem('sidebarHidden', sidebar.classList.contains('sidebar-hidden') ? 'true' : 'false');
+        }
     }
     
     // Load sidebar state on start
-    document.addEventListener("DOMContentLoaded", function() {
-        const sidebar = document.getElementById("main-sidebar");
-        const isHidden = localStorage.getItem("sidebarHidden");
-        if (isHidden === "true") {
-            sidebar.classList.add("sidebar-hidden");
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('main-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (isMobile()) {
+            // On mobile: always start closed (overlay drawer)
+            sidebar.classList.add('sidebar-hidden');
+            if (overlay) overlay.classList.remove('active');
+        } else {
+            // On desktop: restore saved preference
+            const isHidden = localStorage.getItem('sidebarHidden');
+            if (isHidden === 'true') {
+                sidebar.classList.add('sidebar-hidden');
+            }
         }
     });
+
+    // Close sidebar if window is resized from mobile to desktop
+    window.addEventListener('resize', function() {
+        const sidebar = document.getElementById('main-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (!isMobile()) {
+            // Desktop: remove overlay
+            if (overlay) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+            // Restore desktop preference
+            const isHidden = localStorage.getItem('sidebarHidden');
+            if (isHidden === 'true') {
+                sidebar.classList.add('sidebar-hidden');
+            } else {
+                sidebar.classList.remove('sidebar-hidden');
+            }
+        } else {
+            // Switched to mobile: close sidebar
+            sidebar.classList.add('sidebar-hidden');
+            if (overlay) overlay.classList.remove('active');
+        }
+    });
+
+
 
     // --------------------------------------------------------
     // REALTIME NOTIFICATION & DROPDOWN LOGIC
@@ -434,6 +503,97 @@ function renderLayoutFooter() {
     }, 5000);
 
     window.addEventListener('online', fetchNotifications);
+
+    // Auto-wrap tables in scrollable containers on narrow screens
+    // AND stamp data-label on every td for the mobile card layout (≤767px)
+    document.addEventListener('DOMContentLoaded', function() {
+        const isMobileCard = window.innerWidth <= 767;
+        const isTablet = window.innerWidth < 1024;
+        const content = document.querySelector('.iw-main-content');
+        if (!content) return;
+
+        content.querySelectorAll('table.premium-table, table.table').forEach(function(tbl) {
+            // Wrap in iw-table-scroll if not already wrapped
+            if (isTablet && tbl.parentElement && !tbl.parentElement.classList.contains('iw-table-scroll')) {
+                var wrapper = document.createElement('div');
+                wrapper.className = 'iw-table-scroll';
+                tbl.parentNode.insertBefore(wrapper, tbl);
+                wrapper.appendChild(tbl);
+            }
+
+            // On mobile (≤767px): stamp each td with data-label from thead th
+            if (isMobileCard) {
+                var headers = [];
+                tbl.querySelectorAll('thead th').forEach(function(th) {
+                    headers.push(th.textContent.trim());
+                });
+                tbl.querySelectorAll('tbody tr').forEach(function(row) {
+                    row.querySelectorAll('td').forEach(function(td, idx) {
+                        if (headers[idx] && !td.getAttribute('data-label')) {
+                            td.setAttribute('data-label', headers[idx]);
+                        }
+                    });
+                });
+            }
+        });
+
+        // Also handle .overflow-x-auto > table.premium-table (transactions.php, inventory_history.php)
+        if (isMobileCard) {
+            document.querySelectorAll('.overflow-x-auto table.premium-table, .overflow-x-auto table.table').forEach(function(tbl) {
+                var headers = [];
+                tbl.querySelectorAll('thead th').forEach(function(th) {
+                    headers.push(th.textContent.trim());
+                });
+                tbl.querySelectorAll('tbody tr').forEach(function(row) {
+                    row.querySelectorAll('td').forEach(function(td, idx) {
+                        if (headers[idx] && !td.getAttribute('data-label')) {
+                            td.setAttribute('data-label', headers[idx]);
+                        }
+                    });
+                });
+            });
+
+            // #mainLogTable (Transaction Logs — Full Transaction History section)
+            var mainLog = document.getElementById('mainLogTable');
+            if (mainLog) {
+                var logHeaders = [];
+                mainLog.querySelectorAll('thead th').forEach(function(th) {
+                    logHeaders.push(th.textContent.trim());
+                });
+                mainLog.querySelectorAll('tbody tr').forEach(function(row) {
+                    row.querySelectorAll('td').forEach(function(td, idx) {
+                        if (logHeaders[idx] && !td.getAttribute('data-label')) {
+                            td.setAttribute('data-label', logHeaders[idx]);
+                        }
+                    });
+                });
+            }
+
+            // Tag <body> with current page slug so CSS can scope page-specific rules
+            var page = document.location.pathname.split('/').pop().replace('.php', '') || 'index';
+            document.body.classList.add('iw-page-' + page);
+
+            // Users page: prevent .overflow-x-auto inside .premium-card from going card-mode
+            // (the users Active Accounts table should scroll, not stack as cards)
+            if (page === 'users') {
+                document.querySelectorAll('.premium-card .overflow-x-auto').forEach(function(wrap) {
+                    wrap.classList.add('iw-users-table-wrap');
+                });
+            }
+        }
+
+        // Sidebar: close drawer when a nav item is tapped on mobile
+        if (isMobileCard) {
+            var sidebar = document.getElementById('main-sidebar');
+            if (sidebar) {
+                sidebar.querySelectorAll('.premium-menu-item').forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        closeSidebar();
+                    });
+                });
+            }
+        }
+    });
     
     // Initial fetch on page load
     document.addEventListener('DOMContentLoaded', fetchNotifications);
