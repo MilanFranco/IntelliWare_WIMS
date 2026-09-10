@@ -71,10 +71,6 @@
     .barcode-modal-box .btn-primary {
         background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
     }
-    .barcode-modal-box .btn-secondary {
-        background: #2A4484;
-        border: 1px solid #355296;
-    }
 </style>
 
 <div id="barcode-scanner-overlay" class="modal-overlay">
@@ -84,14 +80,14 @@
                 <h3>Scan Barcode</h3>
                 <div class="barcode-modal-subtitle">Point your camera at the barcode. Supports EAN-13, UPC, and Code 128.</div>
             </div>
-            <button type="button" id="barcode-scanner-close" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+            <button type="button" id="barcode-scanner-close" class="modal-close-btn" title="Close">&times;</button>
         </div>
         <div style="padding: 20px 30px;">
             <div id="barcode-scanner-reader" style="width:100%; border-radius:12px; overflow:hidden; background:#0B1438;"></div>
             <p id="barcode-scanner-status" style="color:#9aa6d1; font-size:13px; text-align:center; margin-top:12px;">Initializing camera…</p>
         </div>
         <div style="padding: 16px 30px 24px; border-top: 1px solid #2A4484; display:flex; justify-content:flex-end; background:rgba(13,22,56,0.3);">
-            <button type="button" class="btn btn-secondary" id="barcode-scanner-cancel" style="background:transparent; border:1px solid #64748b;">Cancel</button>
+            <button type="button" class="btn btn-secondary" id="barcode-scanner-cancel">Cancel</button>
         </div>
     </div>
 </div>
@@ -107,7 +103,7 @@
         <p style="color:#9aa6d1; margin-bottom:8px;">This barcode already belongs to an existing product.</p>
         <p id="barcode-duplicate-product-name" style="color:#51D55A; font-weight:600; margin-bottom:24px;"></p>
         <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-secondary" id="barcode-duplicate-dismiss" style="background:transparent; border:1px solid #64748b;">Use Different Barcode</button>
+            <button type="button" class="btn btn-secondary" id="barcode-duplicate-dismiss">Use Different Barcode</button>
             <a id="barcode-duplicate-view-link" href="#" class="btn btn-primary" style="text-decoration:none;">View Product</a>
         </div>
     </div>

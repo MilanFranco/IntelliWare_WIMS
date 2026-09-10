@@ -97,6 +97,12 @@ def build_feature_frame(daily: pd.DataFrame) -> pd.DataFrame:
     frame["is_month_end"] = frame["date"].dt.is_month_end.astype(int)
     frame["is_month_start"] = frame["date"].dt.is_month_start.astype(int)
 
+    # --- Fourier Cyclical Seasonality ---
+    frame["sin_dow"] = np.sin(2 * np.pi * frame["day_of_week"] / 7.0)
+    frame["cos_dow"] = np.cos(2 * np.pi * frame["day_of_week"] / 7.0)
+    frame["sin_month"] = np.sin(2 * np.pi * frame["month"] / 12.0)
+    frame["cos_month"] = np.cos(2 * np.pi * frame["month"] / 12.0)
+
     # --- Lag features: only include lags shorter than available history ---
     # fillna(0) = before first sale, quantity was 0 (not unknown)
     for lag in (1, 2, 3, 7, 14, 21, 28):
@@ -110,6 +116,8 @@ def build_feature_frame(daily: pd.DataFrame) -> pd.DataFrame:
             frame[f"rolling_max_{window}"]  = frame["quantity"].rolling(window, min_periods=1).max()
     frame["rolling_std_7"]  = frame["quantity"].rolling(7,  min_periods=1).std().fillna(0)
     frame["rolling_std_14"] = frame["quantity"].rolling(14, min_periods=1).std().fillna(0)
+    frame["rolling_median_7"] = frame["quantity"].rolling(7, min_periods=1).median().fillna(0)
+    frame["rolling_median_14"] = frame["quantity"].rolling(14, min_periods=1).median().fillna(0)
 
     # --- Exponential weighted mean (recent activity weighted more) ---
     frame["ewm_7"]  = frame["quantity"].ewm(span=7,  adjust=False).mean()

@@ -59,7 +59,14 @@ class StockMovementService
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return (int)($row['user_id'] ?? 1);
+        if ($row && !empty($row['user_id'])) {
+            return (int)$row['user_id'];
+        }
+        $fallback = $conn->query('SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1');
+        if ($fallback && $fRow = $fallback->fetch_assoc()) {
+            return (int)$fRow['user_id'];
+        }
+        return 1;
     }
 
     /**
@@ -228,6 +235,7 @@ class StockMovementService
         $logStmt->close();
 
         $product['quantity'] = $newStock;
+        $isOutOfStockTransition = ($transactionType === 'stock_out' && $previousStock > 0 && $newStock === 0);
 
         return [
             'transaction_id' => $transactionId,
@@ -235,6 +243,7 @@ class StockMovementService
             'new_stock' => $newStock,
             'product' => $product,
             'transaction_type' => $transactionType,
+            'is_out_of_stock_transition' => $isOutOfStockTransition,
         ];
     }
 
@@ -292,6 +301,38 @@ class StockMovementService
         try {
             $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks, $metadata);
             $conn->commit();
+
+            // Real-Time Out-of-Stock Alert Trigger (Post-Commit)
+            if (!empty($result['is_out_of_stock_transition'])) {
+                try {
+                    require_once __DIR__ . '/NotificationService.php';
+                    NotificationService::triggerOutOfStockAlert(
+                        $conn,
+                        $result['product'],
+                        $username,
+                        (int)$result['transaction_id']
+                    );
+                } catch (Throwable $notifErr) {
+                    error_log('[StockMovementService] Out of stock notification trigger error: ' . $notifErr->getMessage());
+                }
+            }
+
+            // Asynchronous event ping to Insights Microservice (non-blocking)
+            try {
+                $insightsUrl = 'http://localhost/intelliware/services/insights-service/index.php?action=event';
+                $ch = curl_init($insightsUrl);
+                if ($ch) {
+                    $payload = json_encode(['event' => $type, 'product_id' => $productId, 'timestamp' => time()]);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 250);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
+                    @curl_exec($ch);
+                    curl_close($ch);
+                }
+            } catch (Throwable $ignore) {}
+
             return $result;
         } catch (Exception $e) {
             $conn->rollback();
@@ -334,6 +375,40 @@ class StockMovementService
                 );
             }
             $conn->commit();
+
+            // Post-commit Out-of-Stock dispatch for any transitioning item in this batch
+            foreach ($results as $res) {
+                if (!empty($res['is_out_of_stock_transition'])) {
+                    try {
+                        require_once __DIR__ . '/NotificationService.php';
+                        NotificationService::triggerOutOfStockAlert(
+                            $conn,
+                            $res['product'],
+                            $username,
+                            (int)$res['transaction_id']
+                        );
+                    } catch (Throwable $notifErr) {
+                        error_log('[StockMovementService] Batch out of stock notification trigger error: ' . $notifErr->getMessage());
+                    }
+                }
+            }
+
+            // Asynchronous event ping to Insights Microservice (non-blocking)
+            try {
+                $insightsUrl = 'http://localhost/intelliware/services/insights-service/index.php?action=event';
+                $ch = curl_init($insightsUrl);
+                if ($ch) {
+                    $payload = json_encode(['event' => 'batch_' . $type, 'count' => count($items), 'timestamp' => time()]);
+                    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                    curl_setopt($ch, CURLOPT_TIMEOUT_MS, 250);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_NOSIGNAL, 1);
+                    @curl_exec($ch);
+                    curl_close($ch);
+                }
+            } catch (Throwable $ignore) {}
+
             return $results;
         } catch (Exception $e) {
             $conn->rollback();

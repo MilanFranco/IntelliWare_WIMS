@@ -25,55 +25,62 @@ if (!in_array($role, ['admin', 'manager', 'staff'], true)) {
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/services/StockMovementService.php';
 
-function setInventoryFlash(string $type, string $message): void
-{
-    $_SESSION['toast'] = ['type' => $type, 'message' => $message];
-}
-
-function getStockStatus(int $qty, int $reorderPoint): string
-{
-    if ($qty <= 0) {
-        return 'out_of_stock';
-    }
-    if ($qty <= $reorderPoint) {
-        return 'low_stock';
-    }
-    return 'in_stock';
-}
-
-function getStockStatusLabel(string $status): string
-{
-    switch ($status) {
-        case 'out_of_stock':
-            return 'Out of Stock';
-        case 'low_stock':
-            return 'Low Stock';
-        default:
-            return 'In Stock';
+if (!function_exists('setInventoryFlash')) {
+    function setInventoryFlash(string $type, string $message): void
+    {
+        $_SESSION['toast'] = ['type' => $type, 'message' => $message];
     }
 }
 
-function getProductImageUrl(int $productId): ?string
-{
-    $baseDir = __DIR__ . '/../uploads/products/';
-    $webBase = 'uploads/products/';
-    $patterns = [
-        (string)$productId,
-        'product_' . $productId,
-        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-    ];
-    $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+if (!function_exists('getStockStatus')) {
+    function getStockStatus(int $qty, int $reorderPoint): string
+    {
+        if ($qty <= 0) {
+            return 'out_of_stock';
+        }
+        if ($qty <= $reorderPoint) {
+            return 'low_stock';
+        }
+        return 'in_stock';
+    }
+}
 
-    foreach ($patterns as $name) {
-        foreach ($extensions as $ext) {
-            $path = $baseDir . $name . '.' . $ext;
-            if (is_file($path)) {
-                return $webBase . $name . '.' . $ext;
-            }
+if (!function_exists('getStockStatusLabel')) {
+    function getStockStatusLabel(string $status): string
+    {
+        switch ($status) {
+            case 'out_of_stock':
+                return 'Out of Stock';
+            case 'low_stock':
+                return 'Low Stock';
+            default:
+                return 'In Stock';
         }
     }
+}
 
-    return null;
+if (!function_exists('getProductImageUrl')) {
+    function getProductImageUrl(int $productId): ?string
+    {
+        $baseDir = __DIR__ . '/../uploads/products/';
+        $webBase = 'uploads/products/';
+        $patterns = [
+            (string)$productId,
+            'product_' . $productId,
+            'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
+        ];
+        $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+
+        foreach ($patterns as $name) {
+            foreach ($extensions as $ext) {
+                if (is_file($baseDir . $name . '.' . $ext)) {
+                    return $webBase . $name . '.' . $ext;
+                }
+            }
+        }
+
+        return null;
+    }
 }
 
 $redirectPage = $TXN_MODE === 'in' ? 'receive.php' : 'release.php';
@@ -725,8 +732,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                     <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1">Search by name to add products to the transaction.</p>
+                <p class="text-xs text-[#9aa6d1] mt-1">Search or scan with phone camera to add products to the transaction.</p>
             </div>
+            <button type="button" id="inv-camera-btn" class="tm-start-btn" style="height:36px; padding:0 14px; display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; border-radius:10px; margin:0; flex-shrink:0;">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                </svg>
+                <span id="inv-camera-btn-text">Camera Scanner</span>
+            </button>
         </div>
 
         <div class="pos-panel-body">
@@ -750,6 +764,33 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         </svg>
                     </button>
                     <div class="pos-search-dropdown" id="inv-search-dropdown"></div>
+                </div>
+
+                <!-- ── Camera Scanner Viewfinder (collapsible) ────────── -->
+                <div id="inv-camera-scanner-wrap" style="display:none; margin-top:12px; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative;">
+                    <div style="position:relative; width:100%; height:210px; background:#040714; overflow:hidden;">
+                        <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                        <canvas id="inv-camera-canvas" style="display:none;"></canvas>
+                        
+                        <!-- Scanning Reticle Overlay -->
+                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                            <div style="width:170px; height:130px; border:2px dashed #51D55A; border-radius:12px; box-shadow:0 0 0 9999px rgba(4,7,20,0.5); position:relative;">
+                                <div style="position:absolute; top:-22px; left:0; right:0; text-align:center; color:#51D55A; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Point at product</div>
+                            </div>
+                        </div>
+
+                        <!-- Close button on top-right -->
+                        <button type="button" id="inv-camera-close-btn" title="Close scanner" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.25); color:#cbd5e1; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">&times;</button>
+                    </div>
+
+                    <!-- Status Bar -->
+                    <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(13,22,56,0.95); font-size:12px; border-top:1px solid rgba(42,68,132,0.5);">
+                        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                            <div id="inv-camera-dot" style="width:8px; height:8px; border-radius:50%; background:#fbbf24; flex-shrink:0;"></div>
+                            <span id="inv-camera-status-text" style="color:#9aa6d1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Scanning… point camera at product packaging</span>
+                        </div>
+                        <button type="button" id="inv-camera-snap-manual" class="tm-start-btn" style="padding:4px 12px; font-size:11px; height:28px; border-radius:6px; margin:0; flex-shrink:0;">Snap &amp; Add</button>
+                    </div>
                 </div>
 
                 <!-- ── Cart / Transaction List ───────────────────────────── -->
@@ -917,7 +958,54 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 </div>
 
 <!-- IntelliWare scripts -->
+<script src="src/scripts/tesseract.min.js"></script>
+<script src="src/scripts/product-camera-scanner.js?v=<?php echo time(); ?>"></script>
 <script src="src/scripts/inventory-transaction.js?v=<?php echo time(); ?>"></script>
+
+<!-- TensorFlow.js + Image Similarity Scanner (MobileNetV3-Large, 1280-dim) -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="src/scripts/image-scanner.js?v=<?php echo time(); ?>"></script>
+<script>
+(function () {
+    'use strict';
+    var _imgScannerReady   = false;
+    var _imgScannerLoading = false;
+
+    function ensureImageScannerReady() {
+        if (_imgScannerReady || _imgScannerLoading) return;
+        if (typeof ImageScanner === 'undefined' || typeof tf === 'undefined') return;
+        _imgScannerLoading = true;
+
+        ImageScanner.init({
+            onStatusChange: function (state, msg) {
+                if (state === 'ready')  { _imgScannerReady = true; _imgScannerLoading = false; }
+                if (state === 'error')  { _imgScannerLoading = false; }
+            },
+            onEmbeddingsReady: function (count) {
+                console.info('[ImageScanner] Inventory view: fingerprints ready for', count, 'products');
+            }
+        });
+
+        ImageScanner.loadModel().catch(function (e) {
+            console.warn('[ImageScanner] Model load failed:', e.message || e);
+            _imgScannerLoading = false;
+        });
+    }
+
+    // Expose global hook so inventory-transaction.js can record successes
+    window.notifyImageScannerSuccess = function (productId, score) {
+        if (typeof ImageScanner !== 'undefined') {
+            ImageScanner.recordSuccess(productId, score || 1.0);
+        }
+    };
+
+    // Defer load by 4s — page interaction comes first
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(ensureImageScannerReady, 4000);
+    });
+}());
+</script>
+
 
 <script>
 <?php if (isset($_SESSION['toast'])): ?>

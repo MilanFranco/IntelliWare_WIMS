@@ -39,20 +39,27 @@ $classificationSummary = array_count_values($all_classifications);
 // Get additional insights
 $insights = [
     'total_products' => count($detailedAnalysis),
-    'high_demand' => $classificationSummary['high_demand'] ?? 0, // Now correct
-    'low_demand' => $classificationSummary['low_demand'] ?? 0,    // Now correct
-    'low_stock' => $classificationSummary['low_stock'] ?? 0,      // Now correct
-    'overstocked' => $classificationSummary['overstocked'] ?? 0, // Now correct
-    'inactive' => $classificationSummary['inactive'] ?? 0,        // Now correct
-    'normal' => $classificationSummary['normal'] ?? 0,            // Now correct
-    // This now correctly calculates urgent reorders based on the fixed summary
-    'urgent_reorders' => ($classificationSummary['low_stock'] ?? 0) + ($classificationSummary['high_demand'] ?? 0),
+    'out_of_stock' => $classificationSummary['out_of_stock'] ?? 0,
+    'high_demand' => $classificationSummary['high_demand'] ?? 0,
+    'low_demand' => $classificationSummary['low_demand'] ?? 0,
+    'low_stock' => $classificationSummary['low_stock'] ?? 0,
+    'overstocked' => $classificationSummary['overstocked'] ?? 0,
+    'inactive' => $classificationSummary['inactive'] ?? 0,
+    'normal' => $classificationSummary['normal'] ?? 0,
+    'urgent_reorders' => ($classificationSummary['out_of_stock'] ?? 0) + ($classificationSummary['low_stock'] ?? 0) + ($classificationSummary['high_demand'] ?? 0),
     'anomalies' => []
 ];
 
-// Detect anomalies (items that need attention) - This logic is from your original file
+// Detect anomalies (items that need attention)
 foreach ($detailedAnalysis as $item) {
-    if ($item['classification'] === 'low_stock' ||
+    if ($item['classification'] === 'out_of_stock') {
+        $insights['anomalies'][] = [
+            'product' => $item['product_name'],
+            'issue' => 'Out of Stock Alert (0 on hand)',
+            'severity' => 'critical',
+            'days_since_restock' => $item['days_since_restock']
+        ];
+    } elseif ($item['classification'] === 'low_stock' ||
         ($item['classification'] === 'high_demand' && $item['days_since_restock'] > 30)) {
         $insights['anomalies'][] = [
             'product' => $item['product_name'],
@@ -80,53 +87,135 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 }
 .metric-card {
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     background: var(--iw-bg-card);
     border: 1px solid var(--iw-border);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
 }
-.metric-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); border-color: #51D55A; }
-.metric-card.active { border-color: #51D55A; background: var(--iw-bg-surface); box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); }
+.metric-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35); }
+.metric-card.active { border-color: #51D55A !important; box-shadow: 0 0 0 1px #51D55A, 0 8px 24px rgba(81, 213, 90, 0.3) !important; }
 .filter-tag { display: inline-block; background: #51D55A; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 8px; }
 .filter-tag .close { margin-left: 8px; cursor: pointer; font-weight: bold; }
 .pagination-btn { background: var(--iw-bg-surface); border: 1px solid var(--iw-border); color: #E3E3E3; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
 .pagination-btn:hover:not(:disabled) { border-color: #51D55A; color: #51D55A; }
 .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .pagination-info { font-size: 13px; color: #9aa6d1; }
+
+/* Visual Hierarchy Badge Styles */
+.badge.out-of-stock, .badge.out_of_stock, .badge.critical {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.5) !important;
+}
+.badge.low-stock, .badge.low_stock {
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fbbf24 !important;
+    border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+.badge.high-demand, .badge.high_demand {
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: #34d399 !important;
+    border: 1px solid rgba(16, 185, 129, 0.45) !important;
+}
+.badge.overstocked {
+    background: rgba(168, 85, 247, 0.2) !important;
+    color: #c084fc !important;
+    border: 1px solid rgba(168, 85, 247, 0.45) !important;
+}
+.badge.inactive {
+    background: rgba(107, 114, 128, 0.25) !important;
+    color: #9ca3af !important;
+    border: 1px solid rgba(107, 114, 128, 0.4) !important;
+}
+.badge.normal {
+    background: rgba(56, 189, 248, 0.18) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
 </style>
 
 <div class="card" style="margin-bottom:24px;">
-    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:18px; margin-bottom:12px;">Data Mining Insights Dashboard</div>
-    <div style="color:#E3E3E3; font-family:'Onest'; font-size:14px; margin-bottom:20px; opacity:0.8;">
+    <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:20px; margin-bottom:8px;">Data Mining Insights Dashboard</div>
+    <div style="color:#9aa6d1; font-family:'Onest'; font-size:14px;">
         Advanced analytics powered by rule-based classification algorithms to optimize your inventory management. Click on any metric to filter products.
     </div>
-    
-    <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:20px;">
-        <div class="metric-card" style=" background: #13275B; padding: 20px; border-radius: 12px; border: 2px solid #2A4484; text-align: center;" onclick="filterProducts('all')" data-filter="all">
-            <div style="color:#51D55A; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['total_products']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Total Products</div>
+    <div id="filterDisplay" style="margin-top:12px; min-height:24px;"></div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-[#51D55A]/50 cursor-pointer transition-all active" onclick="filterProducts('all')" data-filter="all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['total_products']); ?></span>
+            </div>
         </div>
-        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('high_demand')" data-filter="high_demand">
-            <div style="color:#10b981; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['high_demand']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">High Demand</div>
-        </div>
-        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('low_stock')" data-filter="low_stock">
-            <div style="color:#ef4444; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['low_stock']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Low Stock</div>
-        </div>
-        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('overstocked')" data-filter="overstocked">
-            <div style="color:#f59e0b; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['overstocked']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Overstocked</div>
-        </div>
-        <div class="metric-card" style="background:#13275B; padding:20px; border-radius:12px; border:2px solid #2A4484; text-align:center;" onclick="filterProducts('urgent')" data-filter="urgent">
-            <div style="color:#ef4444; font-weight:700; font-size:28px; margin-bottom:4px;"><?php echo $insights['urgent_reorders']; ?></div>
-            <div style="color:#E3E3E3; font-size:13px; font-weight:500;">Urgent Actions</div>
+        <div class="w-11 h-11 rounded-xl bg-[#51D55A]/10 border border-[#51D55A]/20 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
     </div>
-    
-    <div id="filterDisplay" style="margin-top:16px; min-height:24px;"></div>
+
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="filterProducts('out_of_stock')" data-filter="out_of_stock">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Out of Stock</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['out_of_stock']); ?></span>
+            </div>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="filterProducts('low_stock')" data-filter="low_stock">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['low_stock']); ?></span>
+            </div>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-emerald-500/50 cursor-pointer transition-all" onclick="filterProducts('high_demand')" data-filter="high_demand">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">High Demand</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['high_demand']); ?></span>
+            </div>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-purple-500/50 cursor-pointer transition-all" onclick="filterProducts('overstocked')" data-filter="overstocked">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Overstocked</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['overstocked']); ?></span>
+            </div>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-5 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="filterProducts('urgent')" data-filter="urgent">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Urgent Actions</div>
+            <div class="premium-metric">
+                <span class="num text-2xl font-bold font-onest" style="background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($insights['urgent_reorders']); ?></span>
+            </div>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+        </div>
+    </div>
 </div>
 
 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
@@ -215,24 +304,30 @@ renderLayoutStart('Data Mining Insights', $role, $_SESSION['Username']);
 
 <div class="card" style="margin-bottom:24px;">
     <div style="color:#E3E3E3; font-weight:600; font-family:'onest'; font-size:16px; margin-bottom:16px;">Classification Rules Applied</div>
-    <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
-        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #ef4444;">
+            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;">Out of Stock</div>
+            <div style="color:#E3E3E3; font-size:12px;">Stock ≤ 0 units (Critical Outage)</div>
+        </div>
+        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #f59e0b;">
+            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;">Low Stock</div>
+            <div style="color:#E3E3E3; font-size:12px;">Stock ≤ Reorder Point</div>
+        </div>
+        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #10b981;">
             <div style="color:#10b981; font-weight:600; font-size:14px; margin-bottom:8px;">High Demand</div>
-            <div style="color:#E3E3E3; font-size:12px;">Sold ≥ 80% of stock</div>
-            
+            <div style="color:#E3E3E3; font-size:12px;">Sold ≥ 80% of stock (Past 30 Days)</div>
         </div>
-        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#ef4444; font-weight:600; font-size:14px; margin-bottom:8px;"> Low Stock</div>
-            <div style="color:#E3E3E3; font-size:12px;">Stock &lt; Reorder Point</div>
-        </div>
-        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#f59e0b; font-weight:600; font-size:14px; margin-bottom:8px;"> Overstocked</div>
+        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #a855f7;">
+            <div style="color:#a855f7; font-weight:600; font-size:14px; margin-bottom:8px;">Overstocked</div>
             <div style="color:#E3E3E3; font-size:12px;">Stock > 200 units</div>
         </div>
         <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
-            <div style="color:#6b7280; font-weight:600; font-size:14px; margin-bottom:8px;">Inactive</div>
+            <div style="color:#9ca3af; font-weight:600; font-size:14px; margin-bottom:8px;">Inactive</div>
             <div style="color:#E3E3E3; font-size:12px;">Days since restock > 90</div>
+        </div>
+        <div style="background:#13275B; padding:16px; border-radius:8px; border:1px solid #2A4484;">
+            <div style="color:#38bdf8; font-weight:600; font-size:14px; margin-bottom:8px;">Normal</div>
+            <div style="color:#E3E3E3; font-size:12px;">Healthy stock & normal sales velocity</div>
         </div>
     </div>
 </div>
@@ -368,11 +463,14 @@ function filterProducts(filterType) {
         case 'all':
             filterLabel = 'Showing All Products';
             break;
-        case 'high_demand':
-            filterLabel = 'High Demand Products';
+        case 'out_of_stock':
+            filterLabel = 'Out of Stock Products';
             break;
         case 'low_stock':
             filterLabel = 'Low Stock Products';
+            break;
+        case 'high_demand':
+            filterLabel = 'High Demand Products';
             break;
         case 'overstocked':
             filterLabel = 'Overstocked Products';
@@ -399,8 +497,8 @@ function filterProducts(filterType) {
             row.classList.remove('filtered-out');
             visibleCount++;
         } else if (filterType === 'urgent') {
-            // Show both high_demand and low_stock for urgent
-            if (classification === 'high_demand' || classification === 'low_stock') {
+            // Show out_of_stock, low_stock and high_demand for urgent
+            if (classification === 'out_of_stock' || classification === 'low_stock' || classification === 'high_demand') {
                 row.classList.remove('filtered-out');
                 visibleCount++;
             } else {

@@ -5,6 +5,7 @@ class InventoryDataMiner {
     private $summary = [
         'high_demand' => 0,
         'low_demand' => 0,
+        'out_of_stock' => 0,
         'low_stock' => 0,
         'overstocked' => 0,
         'inactive' => 0,
@@ -16,9 +17,9 @@ class InventoryDataMiner {
     }
 
     /**
-     * Perform data mining analysis focusing on the current month.
-     * - Computes units sold this month per product from transactions (stock_out)
-     * - Compares sold vs current stock to identify High/Low demand
+     * Perform data mining analysis focusing on the active rolling 30-day period.
+     * - Computes units sold in rolling 30-day window from transactions (stock_out)
+     * - Compares sold vs current stock to identify High/Low demand, Out of Stock, Low Stock
      * - Produces a detailed array stored in $this->detailed and a summary in $this->summary
      */
     public function performDataMining() {
@@ -26,13 +27,9 @@ class InventoryDataMiner {
         // Reset summary counters at the beginning of each run
         $this->summary = array_fill_keys(array_keys($this->summary), 0);
         
-        // Get current month/year
-        $year = (int)date('Y');
-        $month = (int)date('m');
-
-        // Fetch products with bulk aggregations
-        $dateStart = sprintf('%04d-%02d-01 00:00:00', $year, $month);
-        $dateEnd = date('Y-m-d H:i:s', strtotime("+1 month", strtotime($dateStart)));
+        // Dynamic rolling 30-day window (no hardcoded dates or calendar month cutoffs)
+        $dateStart = date('Y-m-d H:i:s', strtotime('-30 days'));
+        $dateEnd = date('Y-m-d H:i:s');
 
         $sql = "
             SELECT 
@@ -44,7 +41,7 @@ class InventoryDataMiner {
             LEFT JOIN (
                 SELECT product_id, SUM(quantity) as sold 
                 FROM transactions 
-                WHERE transaction_type = 'stock_out' AND transaction_date >= ? AND transaction_date < ?
+                WHERE transaction_type = 'stock_out' AND transaction_date >= ? AND transaction_date <= ?
                 GROUP BY product_id
             ) t_out ON p.product_id = t_out.product_id
             LEFT JOIN (
@@ -53,6 +50,7 @@ class InventoryDataMiner {
                 WHERE transaction_type = 'stock_in'
                 GROUP BY product_id
             ) t_in ON p.product_id = t_in.product_id
+            WHERE p.archived = 0
         ";
         
         $stmt = $this->conn->prepare($sql);
@@ -75,39 +73,42 @@ class InventoryDataMiner {
             // --- START ENHANCED CLASSIFICATION ---
 
             // 1. Define all classification rules
+            // Rule 0: Out of Stock (stock is 0 or depleted)
+            $isOutOfStock = $stock <= 0;
+
             // Rule 1: High Demand
-            $isHighDemand = $soldPercentage >= 80;
+            $isHighDemand = $soldPercentage >= 80 && $soldThisMonth > 0;
 
             // Rule 2: Low Demand
             $isLowDemand = $soldPercentage < 20 && $soldThisMonth > 0;
 
-            // Rule 3: Low Stock (Use DB reorder_point, fallback to 10)
-            // This is smarter than the original hardcoded '10'
+            // Rule 3: Low Stock (Stock is > 0 and <= reorder_point)
             $reorderPoint = (int)$p['reorder_point'] > 0 ? (int)$p['reorder_point'] : 10;
-            $isLowStock = $stock < $reorderPoint;
+            $isLowStock = $stock > 0 && $stock <= $reorderPoint;
 
             // Rule 4: Overstocked
-            $isOverstocked = $stock > 200; // Your original rule
+            $isOverstocked = $stock > 200;
 
-            // Rule 5: Inactive (No restock AND no sales for 90+ days)
-            $isInactive = $daysSinceRestock > 90 && $soldThisMonth == 0;
+            // Rule 5: Inactive (No restock AND no sales for 90+ days and not out/low stock)
+            $isInactive = $daysSinceRestock > 90 && $soldThisMonth == 0 && !$isOutOfStock && !$isLowStock;
 
 
             // 2. Update Summary Counters (for Metric Cards)
-            // This is the fix: check each condition independently.
-            // A product can be in multiple summary categories (e.g., Low Stock AND High Demand)
+            if ($isOutOfStock)  $this->summary['out_of_stock']++;
+            if ($isLowStock)    $this->summary['low_stock']++;
             if ($isHighDemand)  $this->summary['high_demand']++;
             if ($isLowDemand)   $this->summary['low_demand']++;
-            if ($isLowStock)    $this->summary['low_stock']++;
             if ($isOverstocked) $this->summary['overstocked']++;
             if ($isInactive)    $this->summary['inactive']++;
 
             
             // 3. Assign a *single* Primary Classification (for Table Display)
-            // We use a priority list. Low stock is the most critical alert.
+            // Priority: out_of_stock > low_stock > high_demand > overstocked > inactive > low_demand > normal
             $classification = 'normal'; // Default
             
-            if ($isLowStock) {
+            if ($isOutOfStock) {
+                $classification = 'out_of_stock';
+            } elseif ($isLowStock) {
                 $classification = 'low_stock';
             } elseif ($isHighDemand) {
                 $classification = 'high_demand';
@@ -142,6 +143,23 @@ class InventoryDataMiner {
             ];
         }
 
+        // Prioritize out_of_stock and low_stock at the top of the detailed list
+        usort($this->detailed, function($a, $b) {
+            $prio = function($c) {
+                if ($c === 'out_of_stock') return 1;
+                if ($c === 'low_stock') return 2;
+                if ($c === 'high_demand') return 3;
+                if ($c === 'overstocked') return 4;
+                if ($c === 'inactive') return 5;
+                if ($c === 'low_demand') return 6;
+                return 7;
+            };
+            $pa = $prio($a['classification']);
+            $pb = $prio($b['classification']);
+            if ($pa !== $pb) return $pa - $pb;
+            return $a['quantity'] - $b['quantity'];
+        });
+
         return [
             'processed' => count($this->detailed),
             'summary' => $this->summary
@@ -158,12 +176,14 @@ class InventoryDataMiner {
 
     private function recommendAction($classification, $stock, $soldThisMonth) {
         switch ($classification) {
+            case 'out_of_stock':
+                return 'Urgent replenishment required (0 units in stock)';
             case 'high_demand':
                 return 'Replenish immediately (high demand)';
             case 'low_demand':
                 return 'Delay or reduce restock (low demand)';
             case 'low_stock':
-                return 'Reorder - stock below threshold';
+                return 'Reorder - stock below reorder threshold';
             case 'overstocked':
                 return 'Hold off restock - overstocked';
             case 'inactive':
@@ -181,5 +201,4 @@ class InventoryDataMiner {
         return $this->summary;
     }
 }
-
 ?>

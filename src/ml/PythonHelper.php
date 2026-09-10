@@ -27,6 +27,7 @@ class PythonHelper {
         // Check for venv Python in project directory first
         $projectRoot = dirname(__DIR__, 2); // Go up from src/ml to project root
         $venvPaths = [
+            $projectRoot . '\\.venv\\Scripts\\python.exe',
             $projectRoot . '\\venv\\Scripts\\python.exe',
             $projectRoot . '\\env\\Scripts\\python.exe',
             $projectRoot . '\\virtualenv\\Scripts\\python.exe',
@@ -92,18 +93,12 @@ class PythonHelper {
      * @throws Exception If Python is not found
      */
     public static function getPythonPath($customPath = null) {
-        // Manual Python path - SET THIS TO YOUR VENV PYTHON PATH
-        $manualPath = 'C:\\Users\\PLPASIG\\AppData\\Local\\Programs\\Python\\Python310\\python.exe';
-        if ($manualPath && file_exists($manualPath)) {
-            return $manualPath;
-        }
-        
         // Check custom path first if provided
         if ($customPath && file_exists($customPath)) {
             return $customPath;
         }
         
-        // Try to auto-detect
+        // Try to auto-detect (finds project .venv first)
         $pythonPath = self::findPython();
         
         if ($pythonPath) {

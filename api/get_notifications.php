@@ -2,36 +2,68 @@
 // api/get_notifications.php
 header('Content-Type: application/json');
 
-// 1. Connect to Database (Adjust path if needed)
-require_once '../config/db.php'; 
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../src/services/NotificationService.php';
 
-// 2. Query for Low Stock Items
-// We check where quantity is less than or equal to reorder_point
-$sql = "SELECT product_name, quantity, reorder_point, unit 
+// Ensure tables are initialized
+NotificationService::ensureTables($conn);
+
+// Query active inventory alerts: Out of stock (0) first, then low stock (> 0 AND <= reorder_point)
+$sql = "SELECT product_id, product_name, quantity, reorder_point, unit, location,
+               CONCAT('P-', LPAD(product_id, 4, '0')) AS sku
         FROM products 
-        WHERE quantity <= reorder_point 
-        ORDER BY quantity ASC";
+        WHERE archived = 0 AND quantity <= reorder_point 
+        ORDER BY 
+            CASE WHEN quantity = 0 THEN 0 ELSE 1 END,
+            quantity ASC,
+            product_name ASC";
 
 $result = $conn->query($sql);
 $notifications = [];
 
 if ($result) {
     while ($row = $result->fetch_assoc()) {
-        $notifications[] = [
-            'type' => 'low_stock',
-            'product' => $row['product_name'],
-            'qty' => $row['quantity'],
-            'unit' => $row['unit'],
-            'message' => "Low stock: <strong>{$row['product_name']}</strong> ({$row['quantity']} {$row['unit']} left)",
-            'time' => 'Action needed' // You could add a timestamp if you track 'updated_at'
-        ];
+        $qty = (int)$row['quantity'];
+        $unit = htmlspecialchars($row['unit'] ?: 'units');
+        $name = htmlspecialchars($row['product_name']);
+
+        if ($qty === 0) {
+            // Distinct Out-of-Stock Alert
+            $notifications[] = [
+                'type'     => 'out_of_stock',
+                'product'  => $row['product_name'],
+                'sku'      => $row['sku'],
+                'qty'      => 0,
+                'unit'     => $row['unit'],
+                'title'    => 'OUT OF STOCK',
+                'headline' => "{$name} is now out of stock.",
+                'message'  => "OUT OF STOCK: <strong>{$name}</strong> is now out of stock. Current stock: 0.",
+                'subtext'  => "Current stock: 0 &bull; Please restock this product.",
+                'time'     => 'Urgent Restock Needed',
+                'badge'    => 'Critical'
+            ];
+        } else {
+            // Existing Low Stock Alert preserved
+            $notifications[] = [
+                'type'     => 'low_stock',
+                'product'  => $row['product_name'],
+                'sku'      => $row['sku'],
+                'qty'      => $qty,
+                'unit'     => $row['unit'],
+                'title'    => 'LOW STOCK',
+                'headline' => "Low stock: {$name}",
+                'message'  => "Low stock: <strong>{$name}</strong> ({$qty} {$unit} left)",
+                'subtext'  => "{$qty} {$unit} left (Reorder point: {$row['reorder_point']})",
+                'time'     => 'Action needed',
+                'badge'    => 'Warning'
+            ];
+        }
     }
 }
 
-// 3. Return JSON
+// Return JSON response
 echo json_encode([
     'count' => count($notifications),
     'items' => $notifications
 ]);
 exit;
-?>

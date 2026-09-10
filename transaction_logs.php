@@ -497,21 +497,61 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
         <?php endif; ?>
     </div><!-- /.txnlog-mobile -->
 
-    <div class="flex justify-between items-center p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30">
-        <span class="text-xs text-[#9aa6d1] font-onest">
-            Page <?php echo $page; ?> of <?php echo $totalPages; ?> &middot; <?php echo $totalRows; ?> records
-        </span>
-        <div class="flex gap-2">
+    <div class="flex flex-col md:flex-row justify-between items-center p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30 gap-4 flex-wrap">
+        <?php 
+            $showing_start = ($totalRows > 0) ? (($page - 1) * $perPage + 1) : 0;
+            $showing_end = min($page * $perPage, $totalRows);
+        ?>
+        <div class="pagination-info-pill">
+            Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $totalRows; ?> entries
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
             <?php if ($page > 1): ?>
-                <a href="?page=<?php echo $page - 1; ?>" class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap">Previous</a>
+                <a href="?page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </a>
             <?php else: ?>
-                <span class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Previous</span>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
             <?php endif; ?>
 
+            <?php
+                $startPage = max(1, $page - 2);
+                $endPage = min($totalPages, $page + 2);
+                if ($startPage > 1) {
+                    echo '<a href="?page=1" class="pagination-btn pagination-num">1</a>';
+                    if ($startPage > 2) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                }
+                for ($p = $startPage; $p <= $endPage; $p++) {
+                    if ($p === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+                    } else {
+                        echo '<a href="?page=' . $p . '" class="pagination-btn pagination-num">' . $p . '</a>';
+                    }
+                }
+                if ($endPage < $totalPages) {
+                    if ($endPage < $totalPages - 1) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                    echo '<a href="?page=' . $totalPages . '" class="pagination-btn pagination-num">' . $totalPages . '</a>';
+                }
+            ?>
+
             <?php if ($page < $totalPages): ?>
-                <a href="?page=<?php echo $page + 1; ?>" class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap">Next</a>
+                <a href="?page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav">
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </a>
             <?php else: ?>
-                <span class="btn btn-secondary text-xs py-2 px-4 whitespace-nowrap opacity-40 cursor-not-allowed pointer-events-none">Next</span>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
             <?php endif; ?>
         </div>
     </div>

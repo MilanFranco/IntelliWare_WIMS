@@ -499,7 +499,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <button type="button" class="btn-scan" id="txn-scan-barcode-btn" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                        <button type="button" class="btn-secondary" id="txn-scan-barcode-btn" style="width:46px; height:46px; padding:0; border-radius:12px; flex-shrink:0;" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                     </div>
                 </div>
 
@@ -532,9 +532,9 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
             <div class="relative w-full md:w-64">
-                <input type="text" name="q" id="txn-search-input" class="premium-input w-full pl-10" placeholder="Search by name or barcode..." 
-                       value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off">
-                <button type="button" id="txn-search-scan-btn" class="absolute right-3 top-3.5 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none" title="Scan barcode to search"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                <input type="text" name="q" id="txn-search-input" class="premium-input w-full pl-10 pr-10" placeholder="Search by name or barcode..." 
+                       value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off" style="height:46px;">
+                <button type="button" id="txn-search-scan-btn" class="btn-secondary absolute right-2 top-1.5 flex items-center justify-center cursor-pointer" style="width:34px; height:34px; padding:0; border-radius:8px;" title="Scan barcode to search"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
             
@@ -663,22 +663,67 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     </div><!-- /.txn-inv-mobile -->
 
     <?php if ($totalPages > 1): ?>
-    <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2">
+    <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
         <?php 
-            // Rebuild URL parameters for pagination links to keep search filters active
             $params = $_GET; 
             unset($params['page']);
             $qs = http_build_query($params);
+            $qsPrefix = $qs ? $qs . '&' : '';
+            $showing_start = ($totalRows > 0) ? (($page - 1) * $limit + 1) : 0;
+            $showing_end = min($page * $limit, $totalRows);
         ?>
-        <?php if ($page > 1): ?>
-            <a href="?<?php echo $qs; ?>&page=<?php echo $page-1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Previous</a>
-        <?php endif; ?>
-        
-        <span class="px-3 py-1 text-[#9aa6d1] text-sm flex items-center">Page <?php echo $page; ?></span>
-        
-        <?php if ($page < $totalPages): ?>
-            <a href="?<?php echo $qs; ?>&page=<?php echo $page+1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Next</a>
-        <?php endif; ?>
+        <div class="pagination-info-pill">
+            Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $totalRows; ?> entries
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+            <?php if ($page > 1): ?>
+                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </a>
+            <?php else: ?>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
+            <?php endif; ?>
+
+            <?php
+                $startPage = max(1, $page - 2);
+                $endPage = min($totalPages, $page + 2);
+                if ($startPage > 1) {
+                    echo '<a href="?' . $qsPrefix . 'page=1" class="pagination-btn pagination-num">1</a>';
+                    if ($startPage > 2) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                }
+                for ($p = $startPage; $p <= $endPage; $p++) {
+                    if ($p === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+                    } else {
+                        echo '<a href="?' . $qsPrefix . 'page=' . $p . '" class="pagination-btn pagination-num">' . $p . '</a>';
+                    }
+                }
+                if ($endPage < $totalPages) {
+                    if ($endPage < $totalPages - 1) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                    echo '<a href="?' . $qsPrefix . 'page=' . $totalPages . '" class="pagination-btn pagination-num">' . $totalPages . '</a>';
+                }
+            ?>
+
+            <?php if ($page < $totalPages): ?>
+                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav">
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </a>
+            <?php else: ?>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            <?php endif; ?>
+        </div>
     </div>
     <?php endif; ?>
 </div>

@@ -15,6 +15,7 @@ require_once 'config/db.php';
 require_once 'src/services/LocationCategoryService.php';
 require_once 'src/ml/ForecastDataService.php';
 require_once 'src/ml/MLForecastManager.php';
+require_once 'src/services/ApiClient.php';
 
 $forecastService = new ForecastDataService($conn);
 $mlManager = new MLForecastManager();
@@ -236,22 +237,20 @@ function getExpiryRiskAnalysis($conn) {
     return $expiryRisks;
 }
 
-$categoryPerformance = getCategoryPerformance($conn);
-$productMovement = getProductMovementAnalysis($conn);
-$salesTrends = getSalesTrends($conn, $daysLookback);
-$supplierPerformance = getSupplierPerformance($conn);
-$expiryRiskAnalysis = getExpiryRiskAnalysis($conn);
+// --- Fetch pre-computed analytics from Insights Microservice ---
+$insightsSummary = ApiClient::getInsightsSummary();
 
-$totalProducts = count($productMovement);
-$attentionNeededCount = count(array_filter($productMovement, function($p) { 
-    return $p['stock_status'] === 'low_stock' || $p['stock_status'] === 'out_of_stock'; 
-}));
-$fastMovingCount = count(array_filter($productMovement, function($p) { 
-    return $p['movement_class'] === 'fast_moving'; 
-}));
-$expiringSoonCount = count(array_filter($expiryRiskAnalysis, function($e) { 
-    return $e['expiry_risk'] === 'high'; 
-}));
+$categoryPerformance = $insightsSummary['category_performance'] ?? [];
+$productMovement     = $insightsSummary['product_movement'] ?? [];
+$salesTrends         = $insightsSummary['sales_trends'] ?? [];
+$supplierPerformance = $insightsSummary['supplier_performance'] ?? [];
+$expiryRiskAnalysis  = $insightsSummary['expiry_risk_analysis'] ?? [];
+
+$totalProducts        = (int)($insightsSummary['total_products'] ?? count($productMovement));
+$attentionNeededCount = (int)($insightsSummary['attention_needed_count'] ?? 0);
+$fastMovingCount      = (int)($insightsSummary['fast_moving_count'] ?? 0);
+$expiringSoonCount    = (int)($insightsSummary['expiring_soon_count'] ?? 0);
+$lastUpdatedTimestamp = $insightsSummary['last_updated_formatted'] ?? date('F j, Y, g:i A');
 
 $forecastPeriod = $_GET['forecast_period'] ?? 'monthly';
 $selectedQuarter = isset($_GET['selected_quarter']) ? intval($_GET['selected_quarter']) : ceil(date('n')/3);
@@ -315,104 +314,9 @@ switch ($forecastPeriod) {
 }
 
 $forecastData = [];
-
-if (isset($conn)) {
-    $mlPredictionsAvailable = false;
-    if ($hasMlModel) {
-        $forecastDays = 30; // default for monthly
-        if ($forecastPeriod === 'weekly') {
-            $forecastDays = 7;
-        } elseif ($forecastPeriod === 'quarterly') {
-            $forecastDays = 90;
-        } elseif ($forecastPeriod === 'semi-annual') {
-            $forecastDays = 180;
-        } elseif ($forecastPeriod === 'annual') {
-            $forecastDays = 365;
-        }
-
-        $query = "
-            SELECT 
-                p.product_id,
-                p.product_name,
-                p.quantity as current_stock,
-                p.category AS category_name,
-                SUM(fr.predicted_quantity) AS total_historical_sales
-            FROM forecast_results fr
-            JOIN products p ON fr.product_id = p.product_id
-            WHERE fr.product_id > 0
-              AND fr.forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-              AND fr.forecast_date < DATE_ADD(CURDATE(), INTERVAL $forecastDays DAY)
-            GROUP BY p.product_id
-            ORDER BY total_historical_sales DESC
-            LIMIT 5
-        ";
-        $result = $conn->query($query);
-        if ($result && $result->num_rows > 0) {
-            $mlPredictionsAvailable = true;
-        }
-    }
-
-    if (!$mlPredictionsAvailable) {
-        $query = "
-            SELECT 
-                p.product_id,
-                p.product_name,
-                p.quantity as current_stock,
-                p.category AS category_name,
-                SUM(t.quantity) AS total_historical_sales
-            FROM transactions t
-            JOIN products p ON t.product_id = p.product_id
-            WHERE $sqlTimeFilter
-            AND t.transaction_type = 'stock_out'
-            GROUP BY p.product_id
-            ORDER BY total_historical_sales DESC
-            LIMIT 5
-        ";
-        $result = $conn->query($query);
-    }
-
-    if ($result && $result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            
-            $stock = $row['current_stock'];
-            $demand = $row['total_historical_sales'];
-            $coverage = ($demand > 0) ? ($stock / $demand) * 100 : 100;
-
-            if ($stock == 0 && $demand > 0) {
-                $row['type'] = 'Critical Outage';
-                $row['insight'] = $mlPredictionsAvailable 
-                    ? "<strong>Critical Alert:</strong> Our predictive model forecasts a demand of <strong>" . round($demand) . " units</strong>, but your current inventory is at <strong>0</strong>. <span style='color: #ef4444; font-weight: 600;'>Immediate restocking</span> is required to prevent lost revenue."
-                    : "<strong>Critical Alert:</strong> Historical data indicates a demand of <strong>$demand units</strong>, but you currently have <strong>0 stock</strong>. <span style='color: #ef4444; font-weight: 600;'>Urgent restocking</span> is advised to avoid missed sales opportunities.";
-                $row['action_needed'] = 'urgent';
-            } elseif ($coverage < 50) {
-                $row['type'] = 'High Risk';
-                $row['insight'] = $mlPredictionsAvailable
-                    ? "<strong>High Depletion Risk:</strong> Your current stock of <strong>$stock units</strong> will only cover <strong>" . round($coverage) . "%</strong> of the forecasted demand (<strong>" . round($demand) . " units</strong>). We highly recommend <span style='color: #f59e0b; font-weight: 600;'>ordering replenishments</span> soon."
-                    : "<strong>High Depletion Risk:</strong> Based on past trends, your stock of <strong>$stock units</strong> only meets <strong>" . round($coverage) . "%</strong> of the expected demand (<strong>$demand units</strong>). <span style='color: #f59e0b; font-weight: 600;'>Consider reordering</span> to maintain healthy levels.";
-                $row['action_needed'] = 'restock';
-            } elseif ($coverage < 100) {
-                $row['type'] = 'Low Cover';
-                $row['insight'] = $mlPredictionsAvailable
-                    ? "<strong>Inventory Warning:</strong> Forecasted demand of <strong>" . round($demand) . " units</strong> slightly exceeds your on-hand stock of <strong>$stock units</strong>. Please <span style='color: #3b82f6; font-weight: 600;'>monitor closely</span> and plan for upcoming replenishments."
-                    : "<strong>Inventory Warning:</strong> Expected demand of <strong>$demand units</strong> is outpacing your current stock of <strong>$stock units</strong>. It is advisable to <span style='color: #3b82f6; font-weight: 600;'>prepare for restocking</span>.";
-                $row['action_needed'] = 'monitor';
-            } elseif ($coverage > 300) {
-                $row['type'] = 'Slow Moving';
-                $row['insight'] = $mlPredictionsAvailable
-                    ? "<strong>Overstock Detected:</strong> The predicted demand is only <strong>" . round($demand) . " units</strong>. Your stock of <strong>$stock units</strong> provides a <strong>" . round($coverage) . "%</strong> surplus. <span style='color: #8b5cf6; font-weight: 600;'>Pausing further orders</span> is recommended to optimize storage."
-                    : "<strong>Overstock Detected:</strong> Your inventory of <strong>$stock units</strong> significantly exceeds the historical demand of <strong>$demand units</strong> (<strong>" . round($coverage) . "%</strong> coverage). <span style='color: #8b5cf6; font-weight: 600;'>Hold off on new orders</span> to reduce holding costs.";
-                $row['action_needed'] = 'pause';
-            } else {
-                $row['type'] = 'Optimal';
-                $row['insight'] = $mlPredictionsAvailable
-                    ? "<strong>Status Optimal:</strong> Your current inventory of <strong>$stock units</strong> is <span class='text-accent' style='font-weight: 600;'>perfectly balanced</span> with our predictive demand of <strong>" . round($demand) . " units</strong>. No action is currently needed."
-                    : "<strong>Status Optimal:</strong> Your stock of <strong>$stock units</strong> is <span class='text-accent' style='font-weight: 600;'>ideally aligned</span> with the expected demand of <strong>$demand units</strong>. Keep up the good work!";
-                $row['action_needed'] = 'none';
-            }
-            
-            $forecastData[] = $row;
-        }
-    }
+$forecastResult = ApiClient::getInsightsForecast($forecastPeriod);
+if (!empty($forecastResult['items'])) {
+    $forecastData = $forecastResult['items'];
 }
 
 if (empty($forecastData)) {
@@ -441,10 +345,18 @@ if (empty($forecastData)) {
     }
 
     if ($defaultItem) {
+        $descriptive = "Seasonal market trend observed for this category.";
+        $predictive = "Anticipating a demand surge in the upcoming period due to <em>" . strtolower($defaultItem['reason']) . "</em>.";
+        $prescriptive = "Review safety stock levels and verify supplier lead times to avoid stockouts during the projected surge.";
         $forecastData[] = [
             'product_name' => $defaultItem['name'],
             'category_name' => $defaultItem['cat'],
-            'insight' => "<strong>Market Trend Insight:</strong> We anticipate a <span class='text-accent' style='font-weight: 600;'>demand surge</span> for this item. Reason: <em>" . strtolower($defaultItem['reason']) . "</em>",
+            'descriptive' => $descriptive,
+            'predictive' => $predictive,
+            'prescriptive' => $prescriptive,
+            'insight' => '<div style="margin-bottom: 4px;"><strong>Current Situation:</strong> ' . $descriptive . '</div>' .
+                         '<div style="margin-bottom: 4px;"><strong>Forecast:</strong> ' . $predictive . '</div>' .
+                         '<div><strong>Recommended Action:</strong> ' . $prescriptive . '</div>',
             'type' => 'System Advisory',
             'action_needed' => 'advisory'
         ];
@@ -480,7 +392,7 @@ if ($highlightProductId && isset($conn)) {
 
     if (!$alreadyListed) {
         $productStmt = $conn->prepare("
-            SELECT product_id, product_name, quantity AS current_stock, category AS category_name
+            SELECT product_id, product_name, quantity AS current_stock, reorder_point, category AS category_name
             FROM products WHERE product_id = ?
         ");
         if ($productStmt) {
@@ -489,10 +401,57 @@ if ($highlightProductId && isset($conn)) {
             $productResult = $productStmt->get_result();
             if ($productRow = $productResult->fetch_assoc()) {
                 $stock = (int)$productRow['current_stock'];
-                $productRow['total_historical_sales'] = 0;
-                $productRow['type'] = $stock <= 0 ? 'Critical Outage' : 'Product Focus';
-                $productRow['insight'] = 'Viewing product selected from dashboard. Review stock levels and demand forecast below.';
-                $productRow['action_needed'] = $stock <= 0 ? 'urgent' : 'monitor';
+                $reorderPoint = isset($productRow['reorder_point']) ? (int)$productRow['reorder_point'] : null;
+
+                // Query historical sales velocity in past 30 days
+                $salesStmt = $conn->prepare("
+                    SELECT COALESCE(SUM(quantity), 0) AS total_sales
+                    FROM transactions
+                    WHERE product_id = ? AND transaction_type = 'stock_out' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                ");
+                $recentSales = 0.0;
+                if ($salesStmt) {
+                    $salesStmt->bind_param("i", $highlightProductId);
+                    $salesStmt->execute();
+                    $salesRes = $salesStmt->get_result()->fetch_assoc();
+                    $recentSales = (float)($salesRes['total_sales'] ?? 0);
+                    $salesStmt->close();
+                }
+
+                // If no sales in past 30 days, check all-time sales average
+                if ($recentSales <= 0) {
+                    $allTimeStmt = $conn->prepare("
+                        SELECT COALESCE(SUM(quantity), 0) AS total_sales, COUNT(*) as cnt
+                        FROM transactions
+                        WHERE product_id = ? AND transaction_type = 'stock_out'
+                    ");
+                    if ($allTimeStmt) {
+                        $allTimeStmt->bind_param("i", $highlightProductId);
+                        $allTimeStmt->execute();
+                        $allRes = $allTimeStmt->get_result()->fetch_assoc();
+                        $cnt = max(1, (int)($allRes['cnt'] ?? 0));
+                        $allTimeSales = (float)($allRes['total_sales'] ?? 0);
+                        if ($allTimeSales > 0) {
+                            $recentSales = round($allTimeSales / $cnt);
+                        }
+                        $allTimeStmt->close();
+                    }
+                }
+
+                // If still zero and reorder point exists, estimate baseline from reorder point
+                if ($recentSales <= 0 && $reorderPoint && $reorderPoint > 0) {
+                    $recentSales = (float)$reorderPoint;
+                }
+
+                $insightData = InsightsEngine::buildSmartInsight($stock, $recentSales, 30, $reorderPoint);
+
+                $productRow['total_historical_sales'] = $recentSales;
+                $productRow['type'] = $insightData['type'];
+                $productRow['action_needed'] = $insightData['action_needed'];
+                $productRow['descriptive'] = $insightData['descriptive'];
+                $productRow['predictive'] = $insightData['predictive'];
+                $productRow['prescriptive'] = $insightData['prescriptive'];
+                $productRow['insight'] = $insightData['insight'];
                 $productRow['highlight'] = true;
                 array_unshift($forecastData, $productRow);
             }
@@ -500,6 +459,7 @@ if ($highlightProductId && isset($conn)) {
         }
     }
 }
+
 
 if (isset($conn)) {
     foreach ($forecastData as &$forecastItem) {
@@ -534,8 +494,7 @@ if ($hasMlModel && !empty($seasonalChartData['month_labels']) && !empty($seasona
     });
     $seasonalHighlights = array_slice($pairs, 0, 3);
 }
-
-$conn->close();
+// $conn is kept open for layout and cleanly closed at end of request
 
 require_once 'src/layout.php';
 renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
@@ -666,25 +625,26 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     background: var(--insights-surface);
     border: 1px solid var(--insights-border);
     border-radius: 16px;
-    padding: 20px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
     box-shadow: var(--insights-shadow);
 }
 .metric-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 34px rgba(81, 213, 90, 0.12);
-    border-color: rgba(81, 213, 90, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.metric-card.active {
+    border-color: #51D55A !important;
+    box-shadow: 0 0 0 1px #51D55A, 0 12px 30px rgba(81, 213, 90, 0.25) !important;
 }
 [data-theme="light"] .metric-card:hover {
-    box-shadow: 0 8px 22px rgba(55, 75, 99, 0.12), 0 0 0 1px var(--insights-border);
-    border-color: var(--insights-border);
+    box-shadow: 0 8px 22px rgba(55, 75, 99, 0.15);
 }
 [data-theme="light"] .metric-card.active {
-    border-color: var(--insights-accent);
-    box-shadow: 0 8px 22px rgba(22, 163, 74, 0.12), 0 0 0 1px rgba(22, 163, 74, 0.25);
+    border-color: var(--insights-accent) !important;
+    box-shadow: 0 8px 22px rgba(22, 163, 74, 0.18), 0 0 0 2px rgba(22, 163, 74, 0.35) !important;
 }
 
 .tab-container {
@@ -742,11 +702,11 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     white-space: nowrap;
     display: inline-block;
 }
-.badge.fast_moving, .badge.normal, .badge.low { background: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
-.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(245, 158, 11, 0.15) !important; color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.3) !important; }
-.badge.slow_moving { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.3) !important; }
-.badge.overstocked { background: rgba(139, 92, 246, 0.15) !important; color: #a78bfa !important; border: 1px solid rgba(139, 92, 246, 0.3) !important; }
+.badge.fast_moving, .badge.normal, .badge.low { background: rgba(81, 213, 90, 0.15) !important; color: #51D55A !important; border: 1px solid rgba(81, 213, 90, 0.3) !important; }
+.badge.medium_moving, .badge.low_stock, .badge.medium { background: rgba(234, 179, 8, 0.15) !important; color: #fde047 !important; border: 1px solid rgba(234, 179, 8, 0.3) !important; }
+.badge.slow_moving, .badge.overstocked { background: rgba(168, 85, 247, 0.15) !important; color: #c084fc !important; border: 1px solid rgba(168, 85, 247, 0.3) !important; }
 .badge.non_moving, .badge.out_of_stock, .badge.high { background: rgba(239, 68, 68, 0.15) !important; color: #f87171 !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; }
+
 
 .btn {
     background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
@@ -767,15 +727,17 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     color: #ffffff;
 }
 .btn-secondary {
-    background: var(--insights-surface);
-    color: var(--insights-text);
-    border: 1px solid var(--insights-border);
-    box-shadow: none;
+    background: rgba(81, 213, 90, 0.12) !important;
+    color: #51D55A !important;
+    border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(81, 213, 90, 0.1) !important;
 }
 .btn-secondary:hover {
-    background: var(--insights-surface-alt);
-    color: var(--insights-text);
-    box-shadow: none;
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+    color: #ffffff !important;
+    border-color: #51D55A !important;
+    box-shadow: 0 4px 16px rgba(81, 213, 90, 0.4) !important;
+    transform: translateY(-1.5px);
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -857,14 +819,286 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 .forecast-table td { padding: 16px 12px; border-bottom: 1px solid var(--insights-border-soft); vertical-align: top; }
 .insight-text { color: var(--insights-text); font-size: 13px; line-height: 1.6; }
 .insight-text strong { color: var(--insights-heading); }
-.action-btn {
-    display: inline-block; padding: 8px 16px; color: var(--insights-accent); border: 1px solid rgba(81, 213, 90, 0.28);
-    border-radius: 10px; text-decoration: none; font-size: 12px; font-weight: 600;
-    transition: 0.2s; white-space: nowrap; cursor: pointer; background: rgba(81, 213, 90, 0.08);
+/* ─── Button Design System & Visual Hierarchy ───────────────── */
+/* Tier 1: Primary Action Buttons */
+.premium-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 20px;
+    background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%) !important;
+    border: 1px solid #51D55A !important;
+    border-radius: 10px;
+    color: #ffffff !important;
+    font-family: 'Onest', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(81, 213, 90, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-decoration: none;
+    user-select: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.action-btn:hover { background: var(--insights-accent); color: #ffffff; box-shadow: 0 10px 20px rgba(81, 213, 90, 0.18); }
+.premium-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(81, 213, 90, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    filter: brightness(1.05);
+}
+.premium-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(81, 213, 90, 0.3);
+}
+.premium-button:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    box-shadow: none !important;
+}
+
+/* Tier 3: Pagination & Navigation Buttons */
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0 12px;
+    background: rgba(19, 39, 91, 0.95) !important;
+    border: 1.5px solid rgba(81, 213, 90, 0.5) !important;
+    border-radius: 10px;
+    color: #51D55A !important;
+    font-family: 'Onest', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    text-decoration: none;
+    user-select: none;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pagination-btn.pagination-num {
+    min-width: 38px !important;
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+}
+.pagination-btn.pagination-nav {
+    height: 38px !important;
+    min-width: 86px !important;
+    padding: 0 16px !important;
+}
+.pagination-btn:hover:not(:disabled):not(.disabled) {
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+    color: #ffffff !important;
+    border-color: #51D55A !important;
+    box-shadow: 0 4px 16px rgba(81, 213, 90, 0.45);
+    transform: translateY(-1.5px);
+}
+.pagination-btn:hover:not(:disabled):not(.disabled) svg {
+    stroke: #ffffff !important;
+}
+.pagination-btn:active:not(:disabled):not(.disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 1px 4px rgba(81, 213, 90, 0.2);
+}
+.pagination-btn.active,
+.pagination-btn.active:disabled {
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+    color: #ffffff !important;
+    border-color: #51D55A !important;
+    box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4) !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    cursor: default !important;
+    font-weight: 800 !important;
+}
+.pagination-btn:disabled:not(.active),
+.pagination-btn.disabled:not(.active) {
+    opacity: 0.35 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    border-color: rgba(42, 68, 132, 0.35) !important;
+    color: #6b7aab !important;
+    background: rgba(19, 39, 91, 0.4) !important;
+    box-shadow: none !important;
+}
+.pagination-info-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(19, 39, 91, 0.6);
+    border: 1px solid rgba(42, 68, 132, 0.45);
+    color: #9aa6d1;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Onest', sans-serif;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 16px;
+    color: #51D55A;
+    border: 1px solid rgba(81, 213, 90, 0.4);
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    cursor: pointer;
+    background: rgba(81, 213, 90, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.action-btn:hover {
+    background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
+    color: #ffffff !important;
+    border-color: #51D55A;
+    box-shadow: 0 4px 14px rgba(81, 213, 90, 0.35);
+    transform: translateY(-1px);
+}
+.action-btn:active {
+    transform: translateY(1px);
+}
+
 .forecast-row--highlighted { background: rgba(81, 213, 90, 0.1) !important; }
 .forecast-row--highlighted td { border-bottom-color: rgba(81, 213, 90, 0.25) !important; }
+
+
+/* ─── Smart Restock Visual Hierarchy ───────────────────────── */
+.forecast-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+.forecast-stock-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    background: rgba(148, 163, 184, 0.12);
+    color: var(--insights-text-muted);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.forecast-stock-pill strong {
+    color: var(--insights-heading);
+}
+.insight-hierarchy {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.insight-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.insight-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    width: 68px;
+    text-align: center;
+    margin-top: 1px;
+}
+.insight-badge--situation {
+    background: rgba(59, 130, 246, 0.14);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.insight-badge--forecast {
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.insight-badge--action {
+    background: rgba(81, 213, 90, 0.16);
+    color: #51D55A;
+    border: 1px solid rgba(81, 213, 90, 0.35);
+}
+.insight-badge--urgent {
+    background: rgba(239, 68, 68, 0.16);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.insight-badge--pause {
+    background: rgba(168, 85, 247, 0.16);
+    color: #c084fc;
+    border: 1px solid rgba(168, 85, 247, 0.35);
+}
+.insight-badge--monitor {
+    background: rgba(234, 179, 8, 0.16);
+    color: #fde047;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+}
+.insight-row--action {
+    background: rgba(81, 213, 90, 0.07);
+    border-left: 3px solid #51D55A;
+    padding: 7px 10px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 2px;
+}
+.insight-row--action.action-urgent {
+    background: rgba(239, 68, 68, 0.08);
+    border-left: 3px solid #ef4444;
+}
+.insight-row--action.action-pause {
+    background: rgba(168, 85, 247, 0.08);
+    border-left: 3px solid #a855f7;
+}
+.insight-row--action.action-monitor {
+    background: rgba(234, 179, 8, 0.08);
+    border-left: 3px solid #eab308;
+}
+.insight-desc {
+    color: var(--insights-text);
+    flex: 1;
+}
+.insight-desc strong {
+    color: var(--insights-heading);
+    font-weight: 600;
+}
+.insight-desc--action {
+    color: var(--insights-heading);
+    font-weight: 500;
+}
+@media (max-width: 767px) {
+    .insight-row {
+        flex-direction: column;
+        gap: 4px;
+    }
+    .insight-badge {
+        width: auto;
+        min-width: 60px;
+    }
+}
+
 .forecast-product-link {
     display: block;
     text-decoration: none;
@@ -972,38 +1206,69 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </style>
 
 <div class="card" style="margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
             <div style="color: #E3E3E3; font-weight: 600; font-size: 26px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
                 <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></span>
                 Data Mining & Analytics
             </div>
-            <div style="color: #9aa6d1; font-size: 14px; margin-bottom: 20px;">
+            <div style="color: #9aa6d1; font-size: 14px;">
                 Advanced analytics and insights powered by data mining algorithms to optimize your warehouse operations.
             </div>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; flex-shrink: 0;">
              <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
              <button class="btn btn-secondary" onclick="exportData()">Export View</button>
         </div>
     </div>
-    
-    <div class="grid-4">
-        <div class="metric-card" onclick="filterData('all')" data-filter="all">
-            <div style="color: #51D55A; font-weight: 700; font-size: 32px; margin-bottom: 4px;"><?php echo $totalProducts; ?></div>
-            <div style="color: #9aa6d1; font-size: 13px; font-weight: 600; text-transform: uppercase;">Total Products</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="premium-card metric-card p-6 flex items-center justify-between group hover:border-[#51D55A]/50 cursor-pointer transition-all active" onclick="filterData('all')" data-filter="all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalProducts); ?></span>
+            </div>
         </div>
-        <div class="metric-card" onclick="filterData('attention_needed')" data-filter="attention_needed">
-            <div style="color: #f59e0b; font-weight: 700; font-size: 32px; margin-bottom: 4px;"><?php echo $attentionNeededCount; ?></div>
-            <div style="color: #9aa6d1; font-size: 13px; font-weight: 600; text-transform: uppercase;">Low & Out of Stock</div>
+        <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 border border-[#51D55A]/20 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
-        <div class="metric-card" onclick="filterData('fast_moving')" data-filter="fast_moving">
-            <div style="color: #10b981; font-weight: 700; font-size: 32px; margin-bottom: 4px;"><?php echo $fastMovingCount; ?></div>
-            <div style="color: #9aa6d1; font-size: 13px; font-weight: 600; text-transform: uppercase;">Fast Moving</div>
+    </div>
+
+    <div class="premium-card metric-card p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="filterData('attention_needed')" data-filter="attention_needed">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low & Out of Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($attentionNeededCount); ?></span>
+            </div>
         </div>
-        <div class="metric-card" onclick="filterData('expiring')" data-filter="expiring">
-            <div style="color: #ef4444; font-weight: 700; font-size: 32px; margin-bottom: 4px;"><?php echo $expiringSoonCount; ?></div>
-            <div style="color: #9aa6d1; font-size: 13px; font-weight: 600; text-transform: uppercase;">Expiring Soon</div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-6 flex items-center justify-between group hover:border-emerald-500/50 cursor-pointer transition-all" onclick="filterData('fast_moving')" data-filter="fast_moving">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Fast Moving</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($fastMovingCount); ?></span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+        </div>
+    </div>
+
+    <div class="premium-card metric-card p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="filterData('expiring')" data-filter="expiring">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Expiring Soon</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($expiringSoonCount); ?></span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         </div>
     </div>
 </div>
@@ -1072,14 +1337,20 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 </tbody>
             </table>
         </div>
-        <div id="productPagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(42, 68, 132, 0.3);">
-            <div style="color: #9aa6d1; font-size: 13px;">
+        <div id="productPagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(42, 68, 132, 0.3); flex-wrap: wrap; gap: 12px;">
+            <div class="pagination-info-pill">
                 Showing <span id="paginationInfoStart">0</span> to <span id="paginationInfoEnd">0</span> of <span id="paginationInfoTotal">0</span> entries
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <button type="button" class="premium-button" id="prevPageBtn" style="padding: 6px 14px; font-size: 13px; height: 34px;">Previous</button>
-                <span style="color: #E3E3E3; font-size: 13px; font-weight: 500; min-width: 80px; text-align: center;">Page <span id="currentPageNum">1</span> of <span id="totalPagesNum">1</span></span>
-                <button type="button" class="premium-button" id="nextPageBtn" style="padding: 6px 14px; font-size: 13px; height: 34px;">Next</button>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <button type="button" class="pagination-btn" id="prevPageBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
+                <div id="productPageNumbers" style="display:flex; gap:6px; align-items:center;"></div>
+                <button type="button" class="pagination-btn" id="nextPageBtn">
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
             </div>
         </div>
     </div>
@@ -1279,29 +1550,83 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <table class="forecast-table">
                 <thead>
                     <tr>
-                        <th width="30%">Top Product / Category</th>
-                        <th width="50%">Smart Insight</th>
-                        <th width="20%">Action</th>
+                        <th width="28%">Top Product / Category</th>
+                        <th width="58%">Smart Insight</th>
+                        <th width="14%">Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="forecastTableBody">
                     <?php foreach ($forecastData as $item): ?>
                     <tr class="<?php echo !empty($item['highlight']) ? 'forecast-row--highlighted' : ''; ?>"<?php echo !empty($item['highlight']) ? ' id="highlighted-product-row"' : ''; ?>>
                         <td>
                             <div class="product-title"><?php echo htmlspecialchars($item['product_name']); ?></div>
                             <div class="product-sub"><?php echo htmlspecialchars($item['category_name']); ?></div>
-                            <?php 
-                                $badgeColor = '#9aa6d1'; 
-                                if(strpos($item['type'], 'Critical') !== false) $badgeColor = '#ef4444';
-                                elseif(strpos($item['type'], 'Risk') !== false) $badgeColor = '#f59e0b';
-                                elseif(strpos($item['type'], 'Optimal') !== false) $badgeColor = '#10b981';
-                            ?>
-                            <span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; margin-top:4px; background-color: <?php echo $badgeColor; ?>20; color: <?php echo $badgeColor; ?>;">
-                                <?php echo htmlspecialchars($item['type']); ?>
-                            </span>
+                            <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+                                <?php 
+                                    $badgeColor = '#9aa6d1'; 
+                                    $badgeBg = 'rgba(154, 166, 209, 0.15)';
+                                    if(strpos($item['type'], 'Critical') !== false) {
+                                        $badgeColor = '#ef4444';
+                                        $badgeBg = 'rgba(239, 68, 68, 0.15)';
+                                    } elseif(strpos($item['type'], 'Risk') !== false) {
+                                        $badgeColor = '#f59e0b';
+                                        $badgeBg = 'rgba(245, 158, 11, 0.15)';
+                                    } elseif(strpos($item['type'], 'Optimal') !== false) {
+                                        $badgeColor = '#10b981';
+                                        $badgeBg = 'rgba(16, 185, 129, 0.15)';
+                                    } elseif(strpos($item['type'], 'Slow') !== false) {
+                                        $badgeColor = '#a855f7';
+                                        $badgeBg = 'rgba(168, 85, 247, 0.15)';
+                                    } elseif(strpos($item['type'], 'Cover') !== false) {
+                                        $badgeColor = '#eab308';
+                                        $badgeBg = 'rgba(234, 179, 8, 0.15)';
+                                    }
+                                ?>
+                                <span class="forecast-status-badge" style="background-color: <?php echo $badgeBg; ?>; color: <?php echo $badgeColor; ?>; border: 1px solid <?php echo $badgeColor; ?>40;">
+                                    <?php echo htmlspecialchars($item['type']); ?>
+                                </span>
+                                <?php if (isset($item['current_stock'])): ?>
+                                <span class="forecast-stock-pill">
+                                    Stock: <strong><?php echo number_format((int)$item['current_stock']); ?></strong>
+                                </span>
+                                <?php endif; ?>
+                            </div>
                         </td>
                         <td>
-                            <div class="insight-text"><?php echo $item['insight']; ?></div>
+                            <?php if (!empty($item['descriptive']) && !empty($item['predictive']) && !empty($item['prescriptive'])): ?>
+                                <?php
+                                    $actionClass = 'action-optimal';
+                                    $actionBadgeClass = 'insight-badge--action';
+                                    if (isset($item['action_needed'])) {
+                                        if ($item['action_needed'] === 'urgent') {
+                                            $actionClass = 'action-urgent';
+                                            $actionBadgeClass = 'insight-badge--urgent';
+                                        } elseif ($item['action_needed'] === 'pause') {
+                                            $actionClass = 'action-pause';
+                                            $actionBadgeClass = 'insight-badge--pause';
+                                        } elseif ($item['action_needed'] === 'restock' || $item['action_needed'] === 'monitor') {
+                                            $actionClass = 'action-monitor';
+                                            $actionBadgeClass = 'insight-badge--monitor';
+                                        }
+                                    }
+                                ?>
+                                <div class="insight-hierarchy">
+                                    <div class="insight-row insight-row--situation">
+                                        <span class="insight-badge insight-badge--situation">Situation</span>
+                                        <div class="insight-desc"><?php echo $item['descriptive']; ?></div>
+                                    </div>
+                                    <div class="insight-row insight-row--forecast">
+                                        <span class="insight-badge insight-badge--forecast">Forecast</span>
+                                        <div class="insight-desc"><?php echo $item['predictive']; ?></div>
+                                    </div>
+                                    <div class="insight-row insight-row--action <?php echo $actionClass; ?>">
+                                        <span class="insight-badge <?php echo $actionBadgeClass; ?>">Action</span>
+                                        <div class="insight-desc insight-desc--action"><?php echo $item['prescriptive']; ?></div>
+                                    </div>
+                                </div>
+                            <?php else: ?>
+                                <div class="insight-text"><?php echo $item['insight']; ?></div>
+                            <?php endif; ?>
                         </td>
                         <td>
                             <button type="button" class="action-btn check-stock-btn"
@@ -1314,7 +1639,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            <div id="forecastPagination" class="pagination-container" style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:0 10px;"></div>
         </div>
+
     </div>
 </div>
 
@@ -1470,19 +1797,20 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 <script>
 // --- Pagination Logic ---
 const itemsPerPage = 10;
-function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc) {
+function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc, customPerPage) {
     const tableBody = document.getElementById(tableBodyId);
     if (!tableBody) return;
     
     const allRows = Array.from(tableBody.getElementsByTagName('tr'));
     if (allRows.length === 0) return;
     
-    const totalPages = Math.ceil(allRows.length / itemsPerPage) || 1;
+    const perPage = customPerPage || itemsPerPage;
+    const totalPages = Math.ceil(allRows.length / perPage) || 1;
     if (pageVar > totalPages) pageVar = totalPages;
     if (pageVar < 1) pageVar = 1;
     
-    const start = (pageVar - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
+    const start = (pageVar - 1) * perPage;
+    const end = start + perPage;
     
     allRows.forEach((row, index) => {
         row.style.display = (index >= start && index < end) ? '' : 'none';
@@ -1490,25 +1818,65 @@ function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc) {
     
     const pagContainer = document.getElementById(paginationId);
     if (pagContainer) {
+        if (allRows.length <= perPage) {
+            pagContainer.innerHTML = '';
+            pagContainer.style.display = 'none';
+            return;
+        }
+        pagContainer.style.display = 'flex';
+        pagContainer.style.alignItems = 'center';
+        pagContainer.style.justifyContent = 'space-between';
+        pagContainer.style.flexWrap = 'wrap';
+        pagContainer.style.gap = '12px';
+        
+        let pageNumbersHtml = '';
+        const startP = Math.max(1, pageVar - 2);
+        const endP = Math.min(totalPages, pageVar + 2);
+        
+        if (startP > 1) {
+            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(1); return false;">1</button>`;
+            if (startP > 2) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
+        }
+        for (let p = startP; p <= endP; p++) {
+            if (p === pageVar) {
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${p}</button>`;
+            } else {
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(${p}); return false;">${p}</button>`;
+            }
+        }
+        if (endP < totalPages) {
+            if (endP < totalPages - 1) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
+            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(${totalPages}); return false;">${totalPages}</button>`;
+        }
+
         pagContainer.innerHTML = `
-            <div class="pagination-info">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
-            <div style="display:flex; gap:8px;">
-                <button class="pagination-btn" ${pageVar === 1 ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar - 1})">Previous</button>
-                <button class="pagination-btn" ${pageVar === totalPages ? 'disabled' : ''} onclick="${setPageFunc}(${pageVar + 1})">Next</button>
+            <div class="pagination-info-pill">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="pagination-btn pagination-nav" ${pageVar === 1 ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar - 1}); return false;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
+                ${pageNumbersHtml}
+                <button type="button" class="pagination-btn pagination-nav" ${pageVar === totalPages ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar + 1}); return false;">
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
             </div>
         `;
     }
 }
 
-let categoryPage = 1, trendsPage = 1, supplierPage = 1, expiryPage = 1;
+let categoryPage = 1, trendsPage = 1, supplierPage = 1, expiryPage = 1, forecastPage = 1;
 window.setCategoryPage = (p) => { categoryPage = p; renderPagination('categoryTableBody', 'categoryPagination', categoryPage, 'setCategoryPage'); };
 window.setTrendsPage = (p) => { trendsPage = p; renderPagination('trendsTableBody', 'trendsPagination', trendsPage, 'setTrendsPage'); };
 window.setSupplierPage = (p) => { supplierPage = p; renderPagination('supplierTableBody', 'supplierPagination', supplierPage, 'setSupplierPage'); };
 window.setExpiryPage = (p) => { expiryPage = p; renderPagination('expiryTableBody', 'expiryPagination', expiryPage, 'setExpiryPage'); };
+window.setForecastPage = (p) => { forecastPage = p; renderPagination('forecastTableBody', 'forecastPagination', forecastPage, 'setForecastPage', 5); };
 
 document.addEventListener('DOMContentLoaded', () => {
-    setCategoryPage(1); setTrendsPage(1); setSupplierPage(1); setExpiryPage(1);
+    setCategoryPage(1); setTrendsPage(1); setSupplierPage(1); setExpiryPage(1); setForecastPage(1);
 });
+
 // ------------------------
 
 const chartTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
@@ -1568,6 +1936,9 @@ function loadForecastContent(e, url) {
         const newWidgetContent = doc.getElementById('forecastWidget').innerHTML;
         
         widget.innerHTML = newWidgetContent;
+        if (typeof setForecastPage === 'function') {
+            setForecastPage(1);
+        }
         
         window.history.pushState({}, '', url);
         
@@ -1705,17 +2076,27 @@ function renderSalesForecastChart() {
 }
 
 function renderDemandHeatmapChart() {
-    const ctx = document.getElementById('demandHeatmapChart').getContext('2d');
+    const canvas = document.getElementById('demandHeatmapChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
-    let productNames, forecastDemand;
+    let productNames = [], forecastDemand = [];
 
-    if (hasMlModel && heatmapForecastData.available) {
+    if (hasMlModel && heatmapForecastData && heatmapForecastData.available && heatmapForecastData.labels.length > 0) {
         productNames = heatmapForecastData.labels.map(n => n.length > 15 ? n.substring(0, 15) + '...' : n);
-        forecastDemand = heatmapForecastData.demand;
-    } else {
-        productNames = topProductsData.map(p => p.product_name.length > 15 ? p.product_name.substring(0, 15) + '...' : p.product_name);
-        forecastDemand = topProductsData.map(p => p.monthly_sales || 0);
+        forecastDemand = heatmapForecastData.demand.map(d => Number(d) || 0);
+    } else if (topProductsData && topProductsData.length > 0) {
+        productNames = topProductsData.map(p => (p.product_name || 'Item').length > 15 ? (p.product_name || 'Item').substring(0, 15) + '...' : (p.product_name || 'Item'));
+        forecastDemand = topProductsData.map(p => Number(p.monthly_sales) || 0);
     }
+
+    if (productNames.length === 0) return;
+
+    // Calculate dynamic demand thresholds based on actual distribution in the dataset
+    const maxDemand = Math.max(...forecastDemand, 1);
+    const highThreshold = maxDemand * 0.75;
+    const medThreshold  = maxDemand * 0.45;
+    const lowThreshold  = maxDemand * 0.20;
 
     new Chart(ctx, {
         type: 'bar',
@@ -1724,7 +2105,13 @@ function renderDemandHeatmapChart() {
             datasets: [{
                 label: 'Forecasted Demand',
                 data: forecastDemand,
-                backgroundColor: forecastDemand.map(d => d > 50 ? '#ef4444' : d > 25 ? '#f59e0b' : d > 10 ? '#3b82f6' : '#51D55A'),
+                backgroundColor: forecastDemand.map(d => {
+                    if (d <= 0) return '#51D55A';
+                    if (d >= highThreshold) return '#ef4444';
+                    if (d >= medThreshold) return '#f59e0b';
+                    if (d >= lowThreshold) return '#3b82f6';
+                    return '#51D55A';
+                }),
                 borderRadius: 4
             }]
         },
@@ -1742,7 +2129,7 @@ function renderDemandHeatmapChart() {
 
 function renderDepletionTrendChart() {
     const canvas = document.getElementById('depletionTrendChart');
-    if (!canvas || !depletionTrendData.available) return;
+    if (!canvas || !depletionTrendData || !depletionTrendData.available) return;
 
     const ctx = canvas.getContext('2d');
     new Chart(ctx, {
@@ -2030,17 +2417,52 @@ function filterProductTable() {
     });
     
     // Update pagination controls UI
-    document.getElementById('paginationInfoStart').textContent = totalMatches > 0 ? startIndex + 1 : 0;
-    document.getElementById('paginationInfoEnd').textContent = endIndex;
-    document.getElementById('paginationInfoTotal').textContent = totalMatches;
-    document.getElementById('currentPageNum').textContent = currentProductPage;
-    document.getElementById('totalPagesNum').textContent = totalPages;
+    const infoStart = document.getElementById('paginationInfoStart');
+    const infoEnd = document.getElementById('paginationInfoEnd');
+    const infoTotal = document.getElementById('paginationInfoTotal');
+    if (infoStart) infoStart.textContent = totalMatches > 0 ? startIndex + 1 : 0;
+    if (infoEnd) infoEnd.textContent = endIndex;
+    if (infoTotal) infoTotal.textContent = totalMatches;
     
-    document.getElementById('prevPageBtn').disabled = currentProductPage === 1;
-    document.getElementById('nextPageBtn').disabled = currentProductPage === totalPages;
-    document.getElementById('prevPageBtn').style.opacity = currentProductPage === 1 ? '0.45' : '1';
-    document.getElementById('nextPageBtn').style.opacity = currentProductPage === totalPages ? '0.45' : '1';
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    if (prevBtn) {
+        prevBtn.disabled = currentProductPage === 1;
+        if (currentProductPage === 1) prevBtn.classList.add('disabled'); else prevBtn.classList.remove('disabled');
+    }
+    if (nextBtn) {
+        nextBtn.disabled = currentProductPage === totalPages;
+        if (currentProductPage === totalPages) nextBtn.classList.add('disabled'); else nextBtn.classList.remove('disabled');
+    }
+
+    const pageNumbersEl = document.getElementById('productPageNumbers');
+    if (pageNumbersEl) {
+        let pagesHtml = '';
+        const startP = Math.max(1, currentProductPage - 2);
+        const endP = Math.min(totalPages, currentProductPage + 2);
+        if (startP > 1) {
+            pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(1)">1</button>`;
+            if (startP > 2) pagesHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
+        }
+        for (let p = startP; p <= endP; p++) {
+            if (p === currentProductPage) {
+                pagesHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${p}</button>`;
+            } else {
+                pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(${p})">${p}</button>`;
+            }
+        }
+        if (endP < totalPages) {
+            if (endP < totalPages - 1) pagesHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
+            pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(${totalPages})">${totalPages}</button>`;
+        }
+        pageNumbersEl.innerHTML = pagesHtml;
+    }
 }
+
+window.setProductPage = function(page) {
+    currentProductPage = page;
+    filterProductTable();
+};
 
 
 function filterData(filterType) {
@@ -2150,7 +2572,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-
 <?php
 renderLayoutEnd();
 ?>

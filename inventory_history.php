@@ -226,7 +226,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="premium-button" style="height:46px;">Filter</button>
-                <a href="inventory_history.php" class="px-4 py-2 border border-[#2A4484] rounded-xl text-[#9aa6d1] text-sm hover:bg-[#2A4484]/30 flex items-center" style="height:46px;">Reset</a>
+                <a href="inventory_history.php" class="btn-secondary flex items-center" style="height:46px;">Reset</a>
             </div>
         </div>
     </form>
@@ -373,19 +373,67 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
     </div><!-- /.ih-mobile -->
 
     <?php if ($totalPages > 1): ?>
-        <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2">
+        <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
             <?php
             $qsParams = $_GET;
             unset($qsParams['page']);
             $qs = http_build_query($qsParams);
+            $qsPrefix = $qs ? $qs . '&' : '';
+            $showing_start = ($totalRows > 0) ? (($page - 1) * $limit + 1) : 0;
+            $showing_end = min($page * $limit, $totalRows);
             ?>
-            <?php if ($page > 1): ?>
-                <a href="?<?php echo $qs; ?>&page=<?php echo $page - 1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Previous</a>
-            <?php endif; ?>
-            <span class="px-3 py-1 text-[#9aa6d1] text-sm flex items-center">Page <?php echo $page; ?></span>
-            <?php if ($page < $totalPages): ?>
-                <a href="?<?php echo $qs; ?>&page=<?php echo $page + 1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484]">Next</a>
-            <?php endif; ?>
+            <div class="pagination-info-pill">
+                Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $totalRows; ?> entries
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <?php if ($page > 1): ?>
+                    <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                        Previous
+                    </a>
+                <?php else: ?>
+                    <button type="button" class="pagination-btn pagination-nav" disabled>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                        Previous
+                    </button>
+                <?php endif; ?>
+
+                <?php
+                    $startPage = max(1, $page - 2);
+                    $endPage = min($totalPages, $page + 2);
+                    if ($startPage > 1) {
+                        echo '<a href="?' . $qsPrefix . 'page=1" class="pagination-btn pagination-num">1</a>';
+                        if ($startPage > 2) {
+                            echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                        }
+                    }
+                    for ($p = $startPage; $p <= $endPage; $p++) {
+                        if ($p === $page) {
+                            echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+                        } else {
+                            echo '<a href="?' . $qsPrefix . 'page=' . $p . '" class="pagination-btn pagination-num">' . $p . '</a>';
+                        }
+                    }
+                    if ($endPage < $totalPages) {
+                        if ($endPage < $totalPages - 1) {
+                            echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                        }
+                        echo '<a href="?' . $qsPrefix . 'page=' . $totalPages . '" class="pagination-btn pagination-num">' . $totalPages . '</a>';
+                    }
+                ?>
+
+                <?php if ($page < $totalPages): ?>
+                    <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav">
+                        Next
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </a>
+                <?php else: ?>
+                    <button type="button" class="pagination-btn pagination-nav" disabled>
+                        Next
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
+                <?php endif; ?>
+            </div>
         </div>
     <?php endif; ?>
 </div>

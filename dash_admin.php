@@ -255,11 +255,11 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
         </div>
 
         <div class="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
-            <a href="insights.php" class="hero-forecast-btn inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-white bg-gradient-to-r from-[#1D387B] to-[#2A4484] border border-[#2A4484] hover:border-[#51D55A]/50 hover:shadow-[0_0_20px_rgba(81,213,90,0.15)] transition-all whitespace-nowrap">
+            <a href="insights.php" class="premium-button whitespace-nowrap !py-3 !px-5 text-sm">
                 View Full Forecast
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </a>
-            <a href="products.php?add=1" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-onest font-semibold text-sm text-[#E3E3E3] bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-400 transition-all whitespace-nowrap">
+            <a href="products.php?add=1" class="btn-secondary whitespace-nowrap !py-3 !px-5 text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
                 Add Product
             </a>

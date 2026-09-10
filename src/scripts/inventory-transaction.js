@@ -799,13 +799,283 @@ var InventoryTransaction = (function () {
 
         document.getElementById('inv-receive-expiry')?.addEventListener('input', syncReceiveFieldsToCart);
         document.getElementById('inv-receive-expiry')?.addEventListener('change', syncReceiveFieldsToCart);
+
+        // Camera scanner
+        initCameraScanner();
+    }
+
+    // ── Camera Scanner ───────────────────────────────────────────────────────
+    var _cameraStream     = null;
+    var _cameraInterval   = null;
+    var _cameraBusy       = false;
+    var _catalogList      = [];
+    var _catalogLoaded    = false;
+    var _lastScannedId    = null;
+    var _lastScanTime     = 0;
+
+    function setCameraStatus(text, type) {
+        var statusEl = document.getElementById('inv-camera-status-text');
+        var dotEl    = document.getElementById('inv-camera-dot');
+        if (statusEl) statusEl.textContent = text;
+        if (dotEl) {
+            dotEl.style.background = type === 'success' ? '#51D55A' : (type === 'scanning' ? '#fbbf24' : '#64748b');
+        }
+    }
+
+    function ensureCatalogLoaded() {
+        if (_catalogLoaded && _catalogList.length > 0) return Promise.resolve(_catalogList);
+        return fetch('api/get_all_products_for_scanner.php')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success && Array.isArray(data.products)) {
+                    _catalogList = data.products;
+                    _catalogLoaded = true;
+                    _catalogList.forEach(function (p) {
+                        cacheProduct(p);
+                    });
+                }
+                return _catalogList;
+            })
+            .catch(function (err) {
+                console.warn('[CameraScanner] Catalog load error:', err);
+                return [];
+            });
+    }
+
+    function toggleCameraScanner() {
+        var wrap = document.getElementById('inv-camera-scanner-wrap');
+        if (!wrap) return;
+
+        if (_cameraStream) {
+            stopCameraScanner();
+        } else {
+            startCameraScanner();
+        }
+    }
+
+    function startCameraScanner() {
+        var wrap    = document.getElementById('inv-camera-scanner-wrap');
+        var video   = document.getElementById('inv-camera-video');
+        var btnText = document.getElementById('inv-camera-btn-text');
+        if (!wrap || !video) return;
+
+        wrap.style.display = 'block';
+        if (btnText) btnText.textContent = 'Close Camera';
+        setCameraStatus('Starting camera…', 'scanning');
+
+        ensureCatalogLoaded();
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setCameraStatus('Camera not supported in this browser.', 'error');
+            return;
+        }
+
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        }).catch(function () {
+            return navigator.mediaDevices.getUserMedia({ video: true });
+        }).then(function (stream) {
+            _cameraStream = stream;
+            video.srcObject = stream;
+            setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+
+            clearInterval(_cameraInterval);
+            _cameraInterval = setInterval(function () {
+                if (!_cameraBusy && _cameraStream) {
+                    processLiveFrame(false);
+                }
+            }, 1600);
+        }).catch(function (err) {
+            console.error('[CameraScanner] getUserMedia error:', err);
+            setCameraStatus('Could not access camera: ' + (err.message || err), 'error');
+        });
+    }
+
+    function stopCameraScanner() {
+        clearInterval(_cameraInterval);
+        _cameraInterval = null;
+        _cameraBusy = false;
+
+        if (_cameraStream) {
+            _cameraStream.getTracks().forEach(function (t) { t.stop(); });
+            _cameraStream = null;
+        }
+
+        var wrap    = document.getElementById('inv-camera-scanner-wrap');
+        var btnText = document.getElementById('inv-camera-btn-text');
+        var video   = document.getElementById('inv-camera-video');
+
+        if (wrap) wrap.style.display = 'none';
+        if (video) video.srcObject = null;
+        if (btnText) btnText.textContent = 'Camera Scanner';
+    }
+
+    function processLiveFrame(isManual) {
+        var video  = document.getElementById('inv-camera-video');
+        var canvas = document.getElementById('inv-camera-canvas');
+        if (!video || !canvas || video.readyState < 2) return;
+
+        _cameraBusy = true;
+        if (isManual) setCameraStatus('🔍 Reading packaging label…', 'scanning');
+
+        var vw = video.videoWidth || 640;
+        var vh = video.videoHeight || 480;
+        var scale = Math.min(1.0, 640 / vw);
+        canvas.width  = Math.round(vw * scale);
+        canvas.height = Math.round(vh * scale);
+
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (typeof ProductCameraScanner === 'undefined') {
+            _cameraBusy = false;
+            return;
+        }
+
+        // ── Priority 1: Cloud AI Vision for Manual Button Clicks ───────────
+        if (isManual && typeof ProductCameraScanner.extractProductWithAiVision === 'function') {
+            setCameraStatus('✨ Google Gemini Vision analyzing packaging…', 'scanning');
+            ProductCameraScanner.extractProductWithAiVision(canvas).then(function (vRes) {
+                if (vRes && vRes.success && vRes.data && vRes.data.product_name) {
+                    var vName = vRes.data.product_name;
+                    ensureCatalogLoaded().then(function (catalog) {
+                        var matched = ProductCameraScanner.matchCatalogItem(vName, catalog);
+                        if (matched && matched.item) {
+                            _cameraBusy = false;
+                            addToCart(matched.item);
+                            ProductCameraScanner.playBeep(true);
+                            setCameraStatus('✨ Added: ' + (matched.item.product_name || matched.item.name) + ' (Qty +1)', 'success');
+                            showToast('✨ Added ' + (matched.item.product_name || matched.item.name) + ' to transaction!', 'success');
+                            return;
+                        }
+
+                        // Search backend by the clean extracted product name
+                        fetch('api/search_products.php?q=' + encodeURIComponent(vName))
+                            .then(function (r) { return r.json(); })
+                            .then(function (res) {
+                                _cameraBusy = false;
+                                if (res.success && res.data && res.data.length > 0) {
+                                    var remoteItem = res.data[0];
+                                    addToCart(remoteItem);
+                                    ProductCameraScanner.playBeep(true);
+                                    setCameraStatus('✨ Added: ' + remoteItem.product_name, 'success');
+                                    showToast('✨ Added ' + remoteItem.product_name + ' to transaction!', 'success');
+                                } else {
+                                    showToast('AI detected: "' + vName + '". No matching product found in stock.', 'error');
+                                    setCameraStatus('No matching product found. Try another item.', 'scanning');
+                                }
+                            }).catch(function () {
+                                _cameraBusy = false;
+                                runOcrFallback();
+                            });
+                    });
+                    return;
+                }
+                runOcrFallback();
+            }).catch(function () {
+                runOcrFallback();
+            });
+            return;
+        } else {
+            runOcrFallback();
+        }
+
+        // ── Priority 2: Local OCR Pipeline ──────────────────────────────────
+        function runOcrFallback() {
+            ProductCameraScanner.runOcr(canvas, function (pct) {
+                if (isManual) setCameraStatus('🔍 Reading label (' + pct + '%)…', 'scanning');
+            }, true).then(function (res) {
+                _cameraBusy = false;
+                var rawText = (typeof res === 'object' && res.text != null) ? res.text : (res || '');
+                var detectedBarcode = (typeof res === 'object' && res.barcode) ? res.barcode : '';
+
+                if (detectedBarcode) {
+                    ensureCatalogLoaded().then(function (catalog) {
+                        var barcodeItem = catalog.find(function (it) {
+                            return it.barcode === detectedBarcode;
+                        });
+                        if (barcodeItem) {
+                            var added = addToCart(barcodeItem);
+                            if (added) {
+                                ProductCameraScanner.playBeep(true);
+                                setCameraStatus('✨ Scanned: ' + (barcodeItem.product_name || barcodeItem.name) + ' (Qty +1)', 'success');
+                                showToast('✨ Added ' + (barcodeItem.product_name || barcodeItem.name) + ' to transaction!', 'success');
+                            }
+                        }
+                    });
+                }
+
+                if (!rawText || !rawText.trim()) {
+                    if (isManual) showToast('No text detected on packaging. Hold closer or adjust lighting.', 'error');
+                    setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+                    return;
+                }
+
+                ensureCatalogLoaded().then(function (catalog) {
+                    var matched = ProductCameraScanner.matchCatalogItem(rawText, catalog);
+                    if (matched && matched.item) {
+                        var now = Date.now();
+                        var pId = matched.item.product_id || matched.item.productId || matched.item.id;
+
+                        if (!isManual && _lastScannedId === pId && (now - _lastScanTime < 2500)) {
+                            return;
+                        }
+
+                        _lastScannedId = pId;
+                        _lastScanTime  = now;
+
+                        var added = addToCart(matched.item);
+                        if (added) {
+                            ProductCameraScanner.playBeep(true);
+                            setCameraStatus('✨ Added: ' + (matched.item.product_name || matched.item.name) + ' (Qty +1)', 'success');
+                            showToast('✨ Added ' + (matched.item.product_name || matched.item.name) + ' to transaction!', 'success');
+                        }
+                    } else if (isManual) {
+                        var parsed = ProductCameraScanner.parseProductLabel(rawText);
+                        var queryTerm = parsed.name || rawText.slice(0, 30).trim();
+                        if (queryTerm) {
+                            fetch('api/search_products.php?q=' + encodeURIComponent(queryTerm))
+                                .then(function (r) { return r.json(); })
+                                .then(function (res) {
+                                    if (res.success && res.data && res.data.length > 0) {
+                                        var remoteItem = res.data[0];
+                                        addToCart(remoteItem);
+                                        ProductCameraScanner.playBeep(true);
+                                        setCameraStatus('✨ Added: ' + remoteItem.product_name, 'success');
+                                        showToast('✨ Added ' + remoteItem.product_name + ' to transaction!', 'success');
+                                    } else {
+                                        showToast('Product label: "' + queryTerm + '". No matching item found in inventory.', 'error');
+                                        setCameraStatus('No matching product found. Try another item.', 'scanning');
+                                    }
+                                });
+                        } else {
+                            showToast('No product recognized on packaging.', 'error');
+                        }
+                    }
+                });
+            }).catch(function (err) {
+                _cameraBusy = false;
+                console.warn('[CameraScanner] OCR error:', err);
+                setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+            });
+        }
+    }
+
+    function initCameraScanner() {
+        document.getElementById('inv-camera-btn')?.addEventListener('click', toggleCameraScanner);
+        document.getElementById('inv-camera-close-btn')?.addEventListener('click', stopCameraScanner);
+        document.getElementById('inv-camera-snap-manual')?.addEventListener('click', function () {
+            processLiveFrame(true);
+        });
     }
 
     document.addEventListener('DOMContentLoaded', init);
 
     return {
-        showToast : showToast,
-        addToCart : addToCart,
-        clearCart : clearCart,
+        showToast         : showToast,
+        addToCart         : addToCart,
+        clearCart         : clearCart,
+        startCameraScanner: startCameraScanner,
+        stopCameraScanner : stopCameraScanner,
     };
 })();

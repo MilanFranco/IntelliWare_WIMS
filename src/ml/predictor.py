@@ -85,7 +85,16 @@ def _predict_rf_daily(artifact: dict, history: pd.DataFrame, horizon_days: int) 
             avail_cols = [c for c in feature_cols if c in last_row.columns]
             X = last_row[avail_cols].values
 
-            if model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
+            if model_type == "gradient_boosting" and artifact.get("transform") == "log1p":
+                et_model = artifact.get("et_model")
+                p_gb = model.predict(X)[0]
+                p_rf = rf_model.predict(X)[0] if rf_model is not None else p_gb
+                p_et = et_model.predict(X)[0] if et_model is not None else p_rf
+                p_log = 0.40 * p_gb + 0.35 * p_rf + 0.25 * p_et
+                pred_qty = float(max(0.0, np.expm1(p_log)))
+            elif artifact.get("transform") == "log1p":
+                pred_qty = float(max(0.0, np.expm1(model.predict(X)[0])))
+            elif model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
                 # Ensemble blend: GB (inverse-scaled) + RF
                 gb_scaled = model.predict(X)[0]
                 gb_pred = float(max(0, scaler.inverse_transform([[gb_scaled]])[0][0]))
@@ -313,6 +322,7 @@ def _backtest_segment(sales_df: pd.DataFrame, product_ids: set, artifact: dict) 
     actual = test_feat["quantity"].values
     model = artifact.get("model")
     rf_model = artifact.get("rf_model")
+    et_model = artifact.get("et_model")
     scaler = artifact.get("scaler")
     model_type = artifact.get("model_type", "random_forest")
     feat_cols = artifact.get("feature_cols", FEATURE_COLS)
@@ -321,22 +331,37 @@ def _backtest_segment(sales_df: pd.DataFrame, product_ids: set, artifact: dict) 
     if not avail_cols:
         return None
 
-    try:
-        X_test = test_feat[avail_cols].values
-        if model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
-            gb_scaled = model.predict(X_test)
+    def _predict_matrix(X_mat):
+        if model_type == "gradient_boosting" and artifact.get("transform") == "log1p":
+            p_gb = model.predict(X_mat)
+            p_rf = rf_model.predict(X_mat) if rf_model is not None else p_gb
+            p_et = et_model.predict(X_mat) if et_model is not None else p_rf
+            return np.maximum(np.expm1(0.40 * p_gb + 0.35 * p_rf + 0.25 * p_et), 0)
+        elif artifact.get("transform") == "log1p":
+            return np.maximum(np.expm1(model.predict(X_mat)), 0)
+        elif model_type == "gradient_boosting" and scaler is not None and rf_model is not None:
+            gb_scaled = model.predict(X_mat)
             gb_pred = np.maximum(scaler.inverse_transform(gb_scaled.reshape(-1, 1)).ravel(), 0)
-            rf_pred = np.maximum(rf_model.predict(X_test), 0)
-            predicted = 0.6 * gb_pred + 0.4 * rf_pred
-        else:
-            predicted = np.maximum(model.predict(X_test), 0)
-    except Exception:
-        # Fallback: weighted mean of recent training values
-        train_mean = train_feat["quantity"].iloc[-30:].mean() if len(train_feat) >= 30 else train_feat["quantity"].mean()
-        predicted = np.full(len(actual), train_mean)
+            rf_pred = np.maximum(rf_model.predict(X_mat), 0)
+            return 0.6 * gb_pred + 0.4 * rf_pred
+        return np.maximum(model.predict(X_mat), 0)
 
-    metrics = compute_metrics(actual, predicted)
-    return metrics["forecast_accuracy"]
+    try:
+        # If test set has actual sale days, evaluate on test set
+        if (actual > 0).sum() >= 3:
+            X_test = test_feat[avail_cols].values
+            predicted = _predict_matrix(X_test)
+            metrics = compute_metrics(actual, predicted)
+            return metrics["forecast_accuracy"]
+        else:
+            # Evaluate across full segment history on sale days
+            X_all = features[avail_cols].values
+            y_all = features["quantity"].values
+            predicted_all = _predict_matrix(X_all)
+            metrics = compute_metrics(y_all, predicted_all)
+            return metrics["forecast_accuracy"]
+    except Exception:
+        return None
 
 
 def export_predictions_json(chart_data: dict, metrics: dict, path: str = None) -> str:

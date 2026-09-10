@@ -8,6 +8,7 @@ if (!in_array($role, ['admin', 'manager', 'staff'])) { header('Location: signin.
 require_once 'config/db.php';
 require_once 'src/services/StockMovementService.php';
 require_once 'src/services/LocationCategoryService.php';
+require_once 'src/services/ApiClient.php';
 
 StockMovementService::ensureBatchColumn($conn);
 
@@ -90,6 +91,16 @@ $defaultUoms = ['pieces', 'packs', 'boxes', 'bottles', 'cans', 'bags', 'jars', '
 $uoms = array_values(array_unique(array_merge($uoms, $defaultUoms)));
 sort($uoms, SORT_NATURAL | SORT_FLAG_CASE);
 
+$brands = [];
+$brand_query = $conn->query("SELECT DISTINCT supplier FROM products WHERE supplier IS NOT NULL AND supplier != '' ORDER BY supplier");
+if ($brand_query) {
+    while ($bRow = $brand_query->fetch_assoc()) {
+        $bTrim = trim($bRow['supplier']);
+        if ($bTrim !== '') $brands[] = $bTrim;
+    }
+}
+$brands = array_values(array_unique($brands));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $csrf_token) {
@@ -140,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $openingQty = $quantity;
 
             $stmt = $conn->prepare("INSERT INTO products (product_name, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssissdi", $product_name, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
+            $stmt->bind_param("ssssisdi", $product_name, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
             if ($stmt->execute()) {
                 $newProductId = (int)$conn->insert_id;
                 $stmt->close();
@@ -156,8 +167,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($openingQty > 0) {
-                    StockMovementService::executeMovement(
-                        $conn, $newProductId, $openingQty, 'in',
+                    ApiClient::receiveInventory(
+                        $newProductId, $openingQty,
                         $_SESSION['Username'], 'Opening stock on product create'
                     );
                 }
@@ -225,15 +236,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             if ($qtyDelta !== 0) {
-                $movementType = $qtyDelta > 0 ? 'in' : 'out';
-                StockMovementService::executeMovement(
-                    $conn,
-                    $id,
-                    abs($qtyDelta),
-                    $movementType,
-                    $_SESSION['Username'],
-                    'Manual stock adjustment from inventory edit'
-                );
+                if ($qtyDelta > 0) {
+                    ApiClient::receiveInventory(
+                        $id, abs($qtyDelta), $_SESSION['Username'], 'Manual stock adjustment from inventory edit'
+                    );
+                } else {
+                    ApiClient::releaseInventory(
+                        $id, abs($qtyDelta), $_SESSION['Username'], 'Manual stock adjustment from inventory edit'
+                    );
+                }
             }
 
 
@@ -307,31 +318,18 @@ if ($category_param) {
 
 $where_sql = 'WHERE ' . implode(' AND ', $where);
 
-$count_stmt = $conn->prepare("SELECT COUNT(*) as total FROM products $where_sql");
-$count_params = $params;
-$count_types = $types;
-if ($count_params) {
-    $count_stmt->bind_param($count_types, ...$count_params);
-}
-$count_stmt->execute();
-$total_items = $count_stmt->get_result()->fetch_assoc()['total'];
-$total_pages = ceil($total_items / $items_per_page);
-$offset = ($page - 1) * $items_per_page;
-$count_stmt->close();
+// --- 5. MAIN DATA FETCH (Via Inventory Microservice) ---
+$inventoryData = ApiClient::getInventoryProducts([
+    'page'     => $page,
+    'limit'    => $items_per_page,
+    'q'        => $q,
+    'category' => $category_param,
+    'archived' => $show_archived ? '1' : '0'
+]);
 
-// --- 5. MAIN DATA FETCH ---
-$stmt = $conn->prepare("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, supplier, location, reorder_point, price, shelf_life, archived FROM products $where_sql ORDER BY product_id DESC LIMIT ? OFFSET ?");
-
-$main_params = array_merge($params, [$items_per_page, $offset]);
-$main_types = $types . 'ii';
-
-if ($main_params) { 
-    $stmt->bind_param($main_types, ...$main_params);
-}
-$stmt->execute();
-$res = $stmt->get_result();
-while ($row = $res->fetch_assoc()) { $items[] = $row; }
-$stmt->close();
+$total_items = (int)($inventoryData['total'] ?? 0);
+$total_pages = (int)($inventoryData['total_pages'] ?? ceil($total_items / $items_per_page));
+$items       = $inventoryData['items'] ?? [];
 
 function renderOptions($list, $currentValue, $placeholder = 'Select') {
     $currentValue = trim((string)$currentValue);
@@ -436,26 +434,110 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .tm-stop-btn:hover { background: rgba(239,68,68,0.2); border-color: #f87171; }
 
     /* Page-specific styles — sidebar/layout come from src/layout.php + styles.css */
+    /* Visual Hierarchy: Tier 2 Table Row Action Buttons */
     .inventory-action-btn {
         width: 36px;
         height: 36px;
         border-radius: 10px;
-        border: 1px solid rgba(42, 68, 132, 0.5);
-        background: rgba(13, 22, 56, 0.5);
-        color: #9aa6d1;
+        border: 1px solid rgba(81, 213, 90, 0.4);
+        background: rgba(81, 213, 90, 0.1);
+        color: #51D55A;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .inventory-action-btn:hover { transform: translateY(-2px); }
-    .inventory-action-btn.edit-btn:hover { border-color: #3b82f6; color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-    .inventory-action-btn.archive-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-    .inventory-action-btn.restore-btn:hover { border-color: #34d399; color: #34d399; background: rgba(52, 211, 153, 0.1); }
-    .inventory-action-btn.delete-btn:hover,
-    .inventory-action-btn.cancel-btn:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.1); }
-    .inventory-action-btn.save-btn:hover { border-color: #51D55A; color: #51D55A; background: rgba(81, 213, 90, 0.1); }
+    .inventory-action-btn:hover {
+        transform: translateY(-2px);
+        background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
+        border-color: #51D55A;
+        color: #ffffff;
+        box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4);
+    }
+    .inventory-action-btn:hover svg { stroke: #ffffff; color: #ffffff; }
+
+    /* Visual Hierarchy: Tier 3 Pagination & Navigation Buttons */
+    .pagination-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 38px;
+        min-width: 38px;
+        padding: 0 12px;
+        background: rgba(19, 39, 91, 0.95) !important;
+        border: 1.5px solid rgba(81, 213, 90, 0.5) !important;
+        border-radius: 10px;
+        color: #51D55A !important;
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        text-decoration: none;
+        user-select: none;
+        white-space: nowrap;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .pagination-btn.pagination-num {
+        min-width: 38px !important;
+        width: 38px !important;
+        height: 38px !important;
+        padding: 0 !important;
+    }
+    .pagination-btn.pagination-nav {
+        height: 38px !important;
+        min-width: 86px !important;
+        padding: 0 16px !important;
+    }
+    .pagination-btn:hover:not(:disabled):not(.disabled) {
+        background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+        color: #ffffff !important;
+        border-color: #51D55A !important;
+        box-shadow: 0 4px 16px rgba(81, 213, 90, 0.45);
+        transform: translateY(-1.5px);
+    }
+    .pagination-btn:hover:not(:disabled):not(.disabled) svg { stroke: #ffffff !important; }
+    .pagination-btn:active:not(:disabled):not(.disabled) {
+        transform: translateY(1px);
+        box-shadow: 0 1px 4px rgba(81, 213, 90, 0.2);
+    }
+    .pagination-btn.active,
+    .pagination-btn.active:disabled {
+        background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+        color: #ffffff !important;
+        border-color: #51D55A !important;
+        box-shadow: 0 4px 14px rgba(81, 213, 90, 0.45) !important;
+        opacity: 1 !important;
+        pointer-events: none !important;
+        cursor: default !important;
+        font-weight: 800 !important;
+    }
+    .pagination-btn:disabled:not(.active),
+    .pagination-btn.disabled:not(.active) {
+        opacity: 0.35 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+        border-color: rgba(42, 68, 132, 0.35) !important;
+        color: #6b7aab !important;
+        background: rgba(19, 39, 91, 0.4) !important;
+        box-shadow: none !important;
+    }
+    .pagination-info-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 14px;
+        border-radius: 8px;
+        background: rgba(19, 39, 91, 0.5);
+        border: 1px solid rgba(42, 68, 132, 0.45);
+        color: #9aa6d1;
+        font-size: 13px;
+        font-weight: 500;
+        font-family: 'Onest', sans-serif;
+    }
 
     /* ── Inventory Card Grid ─────────────────────────────────────────── */
 
@@ -605,6 +687,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         padding-right: 18px;
         border-top: 1px solid rgba(42, 68, 132, 0.5);
     }
+    /* Visual Hierarchy: Tier 2 Mobile Card Action Buttons */
     .inv-card-btn {
         display: flex;
         align-items: center;
@@ -616,38 +699,21 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
-        border: 1px solid transparent;
-        transition: all 0.2s ease;
+        background: rgba(81, 213, 90, 0.1);
+        border: 1px solid rgba(81, 213, 90, 0.4);
+        color: #51D55A;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .inv-card-btn--edit {
-        background: rgba(13, 22, 56, 0.65);
-        border-color: rgba(42, 68, 132, 0.6);
-        color: #c8d4f5;
+    .inv-card-btn:hover {
+        background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
+        border-color: #51D55A;
+        color: #ffffff !important;
+        box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4);
+        transform: translateY(-1px);
     }
-    .inv-card-btn--edit:hover {
-        border-color: #3b82f6;
-        color: #3b82f6;
-        background: rgba(59, 130, 246, 0.1);
-    }
-    .inv-card-btn--archive {
-        background: rgba(13, 22, 56, 0.65);
-        border-color: rgba(42, 68, 132, 0.6);
-        color: #c8d4f5;
-    }
-    .inv-card-btn--archive:hover {
-        border-color: #f59e0b;
-        color: #f59e0b;
-        background: rgba(245, 158, 11, 0.1);
-    }
-    .inv-card-btn--restore {
-        background: rgba(13, 22, 56, 0.65);
-        border-color: rgba(42, 68, 132, 0.6);
-        color: #c8d4f5;
-    }
-    .inv-card-btn--restore:hover {
-        border-color: #34d399;
-        color: #34d399;
-        background: rgba(52, 211, 153, 0.1);
+    .inv-card-btn:hover svg {
+        stroke: #ffffff;
     }
 
     /* Light-theme overrides for cards */
@@ -1029,7 +1095,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <div class="relative flex-1 sm:min-w-[220px]">
                     <input name="q" id="product-search-input" class="premium-input w-full pl-10 pr-10" style="height:46px;" placeholder="Search name or barcode..." value="<?php echo htmlspecialchars($q); ?>">
                     <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <button type="button" id="search-scan-barcode-btn" class="absolute right-3 top-3 text-[#9aa6d1] hover:text-[#51D55A] cursor-pointer bg-transparent border-none leading-none flex items-center justify-center" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                    <button type="button" id="search-scan-barcode-btn" class="btn-secondary absolute right-2 top-1.5 flex items-center justify-center cursor-pointer" style="width:34px; height:34px; padding:0; border-radius:8px;" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 </div>
                 <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-40" style="height:46px;">
                     <option value="">All Categories</option>
@@ -1037,7 +1103,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </select>
                 <button type="submit" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-5">Search</button>
                 <?php if($q||$category_param): ?>
-                    <a href="products.php" class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center px-4 !bg-[#2A4484] !shadow-none hover:!bg-[#355296]" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
+                    <a href="products.php" class="btn-secondary whitespace-nowrap h-[46px] flex items-center justify-center px-4" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
             </form>
             <?php if (!$show_archived): ?>
@@ -1047,8 +1113,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             </button>
             <?php endif; ?>
             <a href="products.php?archived=<?php echo $show_archived ? '0' : '1'; ?>&q=<?php echo urlencode($q); ?>&category=<?php echo urlencode($category_param); ?>"
-               class="premium-button whitespace-nowrap h-[46px] flex items-center justify-center gap-2 shrink-0"
-               style="<?php echo $show_archived ? 'background:linear-gradient(135deg,#059669,#047857)!important;box-shadow:0 4px 14px rgba(5,150,105,0.3)!important;' : 'background:rgba(245,158,11,0.15)!important;border:1px solid rgba(245,158,11,0.35)!important;color:#f59e0b!important;box-shadow:none!important;'; ?>">
+               class="btn-secondary whitespace-nowrap h-[46px] flex items-center justify-center gap-2 shrink-0">
                 <?php if ($show_archived): ?>
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                 Active Products
@@ -1074,7 +1139,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     <?php else: ?>
 
     <!-- ── Desktop / Tablet: Table (≥768 px) ────────────────────── -->
-    <div class="inv-desktop-table">
+    <div class="inv-desktop-table" id="inventory-desktop-table">
         <div class="overflow-x-auto">
             <table class="premium-table w-full text-left min-w-[1100px]">
                 <thead>
@@ -1147,7 +1212,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div><!-- /.inv-desktop-table -->
 
     <!-- ── Mobile: Card Grid (<768 px) ──────────────────────────── -->
-    <div class="inv-mobile-cards">
+    <div class="inv-mobile-cards" id="inventory-mobile-cards">
         <div class="inv-card-grid">
             <?php foreach ($items as $it): ?>
             <?php
@@ -1241,22 +1306,72 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     <?php endif; ?>
 
+    <div id="inventory-pagination-container">
     <?php if ($total_pages > 1): ?>
-    <div class="p-4 border-t border-[#2A4484]/50 flex justify-center gap-2 flex-wrap">
+    <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
         <?php
-            $params = ['q' => $q, 'category' => $category_param];
+            $params = ['q' => $q, 'category' => $category_param, 'archived' => $show_archived ? '1' : null];
             $qs = http_build_query(array_filter($params, function($v) { return $v !== '' && $v !== null; }));
             $qsPrefix = $qs ? $qs . '&' : '';
+            $showing_start = ($total_items > 0) ? (($page - 1) * $items_per_page + 1) : 0;
+            $showing_end = min($page * $items_per_page, $total_items);
         ?>
-        <?php if ($page > 1): ?>
-            <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484] no-underline">Previous</a>
-        <?php endif; ?>
-        <span class="px-3 py-1 text-[#9aa6d1] text-sm flex items-center">Page <?php echo $page; ?> of <?php echo $total_pages; ?></span>
-        <?php if ($page < $total_pages): ?>
-            <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" class="px-3 py-1 bg-[#13275B] border border-[#2A4484] rounded text-[#E3E3E3] text-sm hover:bg-[#2A4484] no-underline">Next</a>
-        <?php endif; ?>
+        <div class="pagination-info-pill">
+            Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $total_items; ?> entries
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+            <?php if ($page > 1): ?>
+                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
+            <?php else: ?>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    Previous
+                </button>
+            <?php endif; ?>
+
+            <?php
+                $startPage = max(1, $page - 2);
+                $endPage = min($total_pages, $page + 2);
+                if ($startPage > 1) {
+                    echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=1">1</button>';
+                    if ($startPage > 2) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                }
+                for ($p = $startPage; $p <= $endPage; $p++) {
+                    if ($p === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+                    } else {
+                        echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=' . $p . '">' . $p . '</button>';
+                    }
+                }
+                if ($endPage < $total_pages) {
+                    if ($endPage < $total_pages - 1) {
+                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
+                    }
+                    echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=' . $total_pages . '">' . $total_pages . '</button>';
+                }
+            ?>
+
+            <?php if ($page < $total_pages): ?>
+                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>">
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            <?php else: ?>
+                <button type="button" class="pagination-btn pagination-nav" disabled>
+                    Next
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            <?php endif; ?>
+        </div>
     </div>
     <?php endif; ?>
+    </div>
 </div>
 
 <?php renderLayoutContentEnd(); ?>
@@ -1269,7 +1384,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <h3>Add New Product</h3>
                 <div class="modal-subtitle">Enter product details below to create a new inventory item.</div>
             </div>
-            <button onclick="closeAddModal()" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+            <button type="button" onclick="closeAddModal()" class="modal-close-btn" title="Close">&times;</button>
         </div>
         <form method="POST" id="add-product-form" autocomplete="off">
             <input type="hidden" name="action" value="add">
@@ -1282,44 +1397,44 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="hidden" name="product_image_b64" id="add-product-image-b64" value="">
                     <input type="hidden" name="barcode" id="add-barcode-hidden" value="">
 
-                    <!-- AI Camera Identification — uses system scanner classes for consistency -->
-                    <div class="pos-scanner-zone" id="ai-capture-block">
+                    <!-- AI Camera Identification — with bottom capture button and clean visual hierarchy -->
+                    <div class="pos-scanner-zone" id="ai-capture-block" style="background:linear-gradient(175deg, rgba(19, 39, 91, 0.4) 0%, rgba(11, 20, 56, 0.6) 100%); border:1px solid rgba(42, 68, 132, 0.5); border-radius:14px; padding:16px;">
 
-                        <!-- Status bar + Capture / Upload buttons -->
+                        <!-- Status bar + Upload / Take Photo buttons -->
                         <div class="tm-category-row" style="align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
                                 <div id="ai-status-dot" style="width:9px; height:9px; border-radius:50%; background:#475569; flex-shrink:0; transition:background 0.3s, box-shadow 0.3s;"></div>
-                                <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Add a reference image &mdash; optional but recommended for AI scanning</span>
+                                <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Take photo or upload packaging &mdash; auto-fills product details</span>
                             </div>
-                            <div style="display:flex; gap:6px; flex-shrink:0;">
-                                <button type="button" id="ai-retake-btn" class="tm-stop-btn" style="display:none;" onclick="aiRetake()">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="display:inline-block;vertical-align:middle;">
+                            <div style="display:flex; gap:8px; flex-shrink:0;">
+                                <button type="button" id="ai-retake-btn" class="btn-secondary" style="display:none; height:38px; padding:0 14px; align-items:center; gap:6px;" onclick="aiRetake()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="display:inline-block;vertical-align:middle;">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
                                     </svg>
                                     Retake
                                 </button>
                                 <!-- Upload from file -->
                                 <input type="file" id="ai-upload-input" accept="image/*" style="display:none;" onchange="aiUploadImage(this)">
-                                <button type="button" id="ai-upload-btn" class="tm-stop-btn" style="height:38px; display:inline-flex; align-items:center; gap:5px;" onclick="document.getElementById('ai-upload-input').click()">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <input type="file" id="ai-mobile-cam-input" accept="image/*" capture="environment" style="display:none;" onchange="aiUploadImage(this)">
+                                <button type="button" id="ai-upload-btn" class="btn-secondary" style="height:38px; padding:0 14px; display:inline-flex; align-items:center; gap:6px;" onclick="document.getElementById('ai-upload-input').click()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
                                     </svg>
                                     Upload Image
                                 </button>
-                                <!-- Camera capture -->
-                                <button type="button" id="ai-capture-btn" class="tm-start-btn" style="height:38px;" onclick="aiStartScan()">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <!-- Camera capture toggle -->
+                                <button type="button" id="ai-capture-btn" class="btn-secondary" style="height:38px; padding:0 14px; display:inline-flex; align-items:center; gap:6px;" onclick="aiStartScan()">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
                                     </svg>
                                     Take Photo
                                 </button>
-                                <button type="button" id="ai-capture-snap-btn" class="premium-button" style="height:38px; display:none;" onclick="aiCaptureFrame()">&#x1F4F7; Capture</button>
                             </div>
                         </div>
 
                         <!-- Uploaded image preview (shown instead of camera area when file is uploaded) -->
-                        <div id="ai-upload-preview-wrap" style="display:none; margin-top:8px; border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative;">
+                        <div id="ai-upload-preview-wrap" style="display:none; margin-top:12px; border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative;">
                             <img id="ai-upload-preview-img" src="" alt="Uploaded reference image" style="width:100%; max-height:220px; object-fit:contain; display:block;">
                             <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%); pointer-events:none;"></div>
                             <div style="position:absolute; bottom:10px; left:12px; display:flex; align-items:center; gap:6px;">
@@ -1330,64 +1445,128 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                             <button type="button" onclick="aiRemoveUploadedImage()" title="Remove image" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.80); border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s, color 0.2s; z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.75)';this.style.color='#fff';" onmouseout="this.style.background='rgba(15,23,42,0.80)';this.style.color='#cbd5e1';">&times;</button>
                         </div>
 
-                        <!-- Camera feed (hidden until started) -->
-                        <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:8px; position:relative;">
-                            <video id="ai-video" playsinline muted autoplay style="width:100%; max-height:220px; object-fit:cover; display:block;"></video>
-                            <canvas id="ai-snapshot-canvas" style="width:100%; max-height:220px; object-fit:cover; display:none;"></canvas>
-                            <div class="tm-camera-overlay" id="ai-scan-overlay">
-                                <div class="tm-viewfinder-ring" id="ai-scan-ring"></div>
+                        <!-- Camera Viewfinder with Capture Button at the Bottom -->
+                        <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:12px; border-radius:12px; overflow:hidden; border:1px solid #2A4484; position:relative; background:#040714;">
+                            <div style="position:relative; width:100%; height:220px; overflow:hidden;">
+                                <video id="ai-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                                <canvas id="ai-snapshot-canvas" style="width:100%; height:100%; object-fit:cover; display:none;"></canvas>
+                                <div class="tm-camera-overlay" id="ai-scan-overlay">
+                                    <div class="tm-viewfinder-ring" id="ai-scan-ring"></div>
+                                </div>
+                                <!-- Captured success overlay -->
+                                <div id="ai-confirmed-overlay" style="display:none; position:absolute; inset:0; background:rgba(6,95,70,0.85); align-items:center; justify-content:center; flex-direction:column; gap:6px; z-index:5;">
+                                    <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                    <span id="ai-confirmed-label" style="font-size:13px; font-weight:700; font-family:'Onest',sans-serif; color:#d1fae5;">Photo captured!</span>
+                                </div>
                             </div>
-                            <!-- Captured success overlay -->
-                            <div id="ai-confirmed-overlay" style="display:none; position:absolute; inset:0; background:rgba(6,95,70,0.85); align-items:center; justify-content:center; flex-direction:column; gap:6px; z-index:5;">
-                                <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-                                <span id="ai-confirmed-label" style="font-size:13px; font-weight:700; font-family:'Onest',sans-serif; color:#d1fae5;">Photo captured!</span>
+
+                            <!-- BOTTOM SHUTTER / CAPTURE BUTTON BAR -->
+                            <div id="ai-camera-bottom-bar" style="display:flex; align-items:center; justify-content:center; gap:12px; padding:10px 16px; background:rgba(13,22,56,0.95); border-top:1px solid rgba(42,68,132,0.5);">
+                                <button type="button" id="ai-camera-cancel-btn" class="btn-secondary" style="height:40px; padding:0 18px; font-size:13px;" onclick="_cancelAddProductCamera()">
+                                    Cancel
+                                </button>
+                                <button type="button" id="ai-capture-snap-btn" class="premium-button" style="height:40px; padding:0 24px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 0 15px rgba(81,213,90,0.35);" onclick="aiCaptureFrame()">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                                    </svg>
+                                    📷 Capture &amp; Auto-fill
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- ── VISUAL HIERARCHY: 1. GENERAL PRODUCT DETAILS ── -->
+                <div style="grid-column: span 2; display:flex; align-items:center; gap:10px; margin-top:4px;">
+                    <span style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#51D55A; font-family:'Onest',sans-serif; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z"/></svg>
+                        1. General Details
+                    </span>
+                    <div style="flex:1; height:1px; background:rgba(42,68,132,0.4);"></div>
+                </div>
+
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Name *</label>
-                    <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Wireless Mouse" required maxlength="255">
+                    <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Barefaced Matte Sunscreen 50g" required maxlength="255">
                     <p class="add-field-error" id="add-product-name-error" hidden></p>
+                    <!-- Quick-Select Suggestion Chips -->
+                    <div id="add-product-name-suggestions" style="display:none; margin-top:8px; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span style="font-size:11px; font-weight:700; color:#51D55A; font-family:'Onest',sans-serif; text-transform:uppercase; letter-spacing:0.04em;">✨ Suggestions:</span>
+                        <div id="add-product-name-chips" style="display:inline-flex; gap:6px; flex-wrap:wrap;"></div>
+                    </div>
+                    <!-- View detected text from packaging -->
+                    <div id="add-ocr-raw-wrap" style="display:none; margin-top:6px;">
+                        <button type="button" id="add-ocr-toggle-btn" onclick="toggleOcrRawText()" class="btn-secondary" style="height:30px; padding:0 14px; font-size:12px;">
+                            Show text read from packaging &darr;
+                        </button>
+                        <div id="add-ocr-raw-box" style="display:none; margin-top:6px; max-height:100px; overflow-y:auto; font-size:11px; background:#070b1e; border:1px solid #2A4484; border-radius:8px; padding:8px 12px; color:#cbd5e1; line-height:1.6;"></div>
+                    </div>
                 </div>
+
                 <div>
                     <label class="form-label">Category</label>
                     <select name="category" id="add-category" class="premium-input inventory-select w-full cursor-pointer add-form-field" style="height:46px;" disabled>
                         <?php echo renderOptions($categories, '', 'Select Category'); ?>
                     </select>
                 </div>
+
                 <div>
-                    <label class="form-label">Supplier</label>
-                    <input name="supplier" id="add-supplier" class="premium-input w-full add-form-field" style="height:46px;" placeholder="Supplier Name" disabled>
+                    <label class="form-label">Supplier / Brand</label>
+                    <input name="supplier" id="add-supplier" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Barefaced" disabled>
                 </div>
+
+                <!-- ── VISUAL HIERARCHY: 2. STOCK & STORAGE ── -->
+                <div style="grid-column: span 2; display:flex; align-items:center; gap:10px; margin-top:8px;">
+                    <span style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#51D55A; font-family:'Onest',sans-serif; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                        2. Stock &amp; Storage
+                    </span>
+                    <div style="flex:1; height:1px; background:rgba(42,68,132,0.4);"></div>
+                </div>
+
                 <div>
-                    <label class="form-label">Quantity *</label>
-                    <input type="number" name="quantity" id="add-quantity" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" required disabled>
+                    <label class="form-label">Opening Stock Quantity *</label>
+                    <input type="number" name="quantity" id="add-quantity" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="0" required disabled>
                     <p class="add-field-error" id="add-quantity-error" hidden></p>
                 </div>
+
                 <div>
-                    <label class="form-label">Price *</label>
-                    <input type="number" name="price" id="add-price" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="0.01" inputmode="decimal" value="0.00" required disabled>
-                    <p class="add-field-error" id="add-price-error" hidden></p>
-                </div>
-                <div>
-                    <label class="form-label">Location</label>
-                    <input name="location" id="add-location" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Shelf A1" list="location-options" disabled>
-                </div>
-                <div>
-                    <label class="form-label">Unit (UoM)</label>
+                    <label class="form-label">Unit of Measure (UoM)</label>
                     <select name="unit" id="add-unit" class="premium-input inventory-select w-full cursor-pointer add-form-field" style="height:46px;" disabled>
                         <?php echo renderOptions($uoms, '', 'Select Unit'); ?>
                     </select>
                 </div>
+
+                <div style="grid-column: span 2;">
+                    <label class="form-label">Storage Location / Shelf</label>
+                    <input name="location" id="add-location" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Shelf A1 or Warehouse Rack 2" list="location-options" disabled>
+                </div>
+
+                <!-- ── VISUAL HIERARCHY: 3. PRICING & SHELF LIFE ── -->
+                <div style="grid-column: span 2; display:flex; align-items:center; gap:10px; margin-top:8px;">
+                    <span style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#51D55A; font-family:'Onest',sans-serif; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        3. Pricing &amp; Inventory Control
+                    </span>
+                    <div style="flex:1; height:1px; background:rgba(42,68,132,0.4);"></div>
+                </div>
+
                 <div>
-                    <label class="form-label">Reorder Point</label>
+                    <label class="form-label">Unit Price (₱) *</label>
+                    <input type="number" name="price" id="add-price" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="0.01" inputmode="decimal" value="0.00" required disabled>
+                    <p class="add-field-error" id="add-price-error" hidden></p>
+                </div>
+
+                <div>
+                    <label class="form-label">Reorder Point (Low Stock Alert)</label>
                     <input type="number" name="reorder_point" id="add-reorder-point" class="premium-input w-full add-form-field" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
                     <p class="add-field-error" id="add-reorder-point-error" hidden></p>
                 </div>
-                <div>
+
+                <div style="grid-column: span 2;">
                     <label class="form-label">Shelf Life (Days)</label>
-                    <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 30" disabled>
+                    <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 365 (leave blank if non-perishable)" disabled>
                     <p class="add-field-error" id="add-shelf-life-error" hidden></p>
                 </div>
             </div>
@@ -1395,7 +1574,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <p class="form-keyboard-hint" style="margin:0;">Enter to save &middot; Shift+Enter for next field</p>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
-                    <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeAddModal()">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="closeAddModal()">Cancel</button>
                 </div>
             </div>
         </form>
@@ -1418,8 +1597,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 <div id="archive-modal-overlay" class="modal-overlay">
     <div class="modal-box" style="max-width: 420px; text-align: center; padding: 40px;">
         <div style="margin-bottom: 16px; display: flex; justify-content: center;">
-            <div style="width: 80px; height: 80px; background: rgba(245,158,11,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(245,158,11,0.25);">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div style="width: 80px; height: 80px; background: rgba(81,213,90,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(81,213,90,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#51D55A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="21 8 21 21 3 21 3 8"></polyline>
                     <rect x="1" y="3" width="22" height="5"></rect>
                     <line x1="10" y1="12" x2="14" y2="12"></line>
@@ -1430,12 +1609,12 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <p style="color:#9aa6d1; margin-bottom:6px; font-size:14px;"><strong id="archive-product-name" style="color:#e3e3e3;"></strong></p>
         <p style="color:#9aa6d1; margin-bottom:28px; font-size:13px;">This product will be hidden from the inventory list. You can restore it at any time from the Archived view.</p>
         <div style="display:flex; justify-content:center; gap:12px;">
-            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeArchiveModal()">Cancel</button>
+            <button type="button" class="btn-secondary" onclick="closeArchiveModal()">Cancel</button>
             <form method="POST" id="modal-archive-form" style="display:inline;">
                 <input type="hidden" name="action" value="archive">
                 <input type="hidden" name="id" id="modal-archive-id">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <button type="submit" class="premium-button" style="background: linear-gradient(135deg,#d97706,#b45309) !important; box-shadow: 0 4px 14px rgba(217,119,6,0.35) !important;">
+                <button type="submit" class="premium-button">
                     Archive Product
                 </button>
             </form>
@@ -1447,8 +1626,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 <div id="restore-modal-overlay" class="modal-overlay">
     <div class="modal-box" style="max-width: 420px; text-align: center; padding: 40px;">
         <div style="margin-bottom: 16px; display: flex; justify-content: center;">
-            <div style="width: 80px; height: 80px; background: rgba(52,211,153,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(52,211,153,0.25);">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <div style="width: 80px; height: 80px; background: rgba(81,213,90,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(81,213,90,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#51D55A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="1 4 1 10 7 10"></polyline>
                     <path d="M3.51 15a9 9 0 1 0 .49-3.51"></path>
                 </svg>
@@ -1458,7 +1637,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <p style="color:#9aa6d1; margin-bottom:6px; font-size:14px;"><strong id="restore-product-name" style="color:#e3e3e3;"></strong></p>
         <p style="color:#9aa6d1; margin-bottom:28px; font-size:13px;">This product will be returned to the active inventory list.</p>
         <div style="display:flex; justify-content:center; gap:12px;">
-            <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b]" onclick="closeRestoreModal()">Cancel</button>
+            <button type="button" class="btn-secondary" onclick="closeRestoreModal()">Cancel</button>
             <form method="POST" id="modal-restore-form" style="display:inline;">
                 <input type="hidden" name="action" value="restore">
                 <input type="hidden" name="id" id="modal-restore-id">
@@ -1478,7 +1657,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <h3>Edit Product</h3>
                 <div class="modal-subtitle" id="edit-modal-sku"></div>
             </div>
-            <button onclick="closeEditModal()" style="background:none; border:none; color:#9aa6d1; font-size:28px; cursor:pointer; line-height:1; padding:0;">&times;</button>
+            <button type="button" onclick="closeEditModal()" class="modal-close-btn" title="Close">&times;</button>
         </div>
         <form method="POST" id="edit-product-form" autocomplete="off">
             <input type="hidden" name="action" value="edit">
@@ -1508,14 +1687,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <div id="edit-image-empty-wrap" style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; border:1px dashed rgba(100,116,139,0.4); background:rgba(13,22,56,0.25);">
                         <svg width="20" height="20" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75 7.5 10.5l3.75 3.75 3-3 4.5 4.5M3.75 21h16.5M21 3.75H3A.75.75 0 0 0 2.25 4.5v15A.75.75 0 0 0 3 20.25h18a.75.75 0 0 0 .75-.75V4.5A.75.75 0 0 0 21 3.75z"/></svg>
                         <span style="font-size:13px; color:#64748b; font-family:'Onest',sans-serif; flex:1;">No image</span>
-                        <button type="button" class="tm-stop-btn" style="height:34px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                        <button type="button" class="btn-secondary" style="height:34px; padding:0 14px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
                             Upload Image
                         </button>
                     </div>
                     <!-- Replace button shown below when image exists -->
                     <div id="edit-image-replace-bar" style="display:none; margin-top:8px; align-items:center; gap:8px; justify-content:flex-end;">
-                        <button type="button" class="tm-stop-btn" style="height:32px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                        <button type="button" class="btn-secondary" style="height:32px; padding:0 12px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
                             Replace Image
                         </button>
@@ -1569,7 +1748,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
                 <p class="form-keyboard-hint" style="margin:0;">Enter to save · Tab to move between fields</p>
                 <div style="display:flex; gap:12px;">
-                    <button type="button" class="premium-button !bg-transparent !shadow-none border border-[#64748b] hover:!bg-[#2A4484]/50" onclick="closeEditModal()">Cancel</button>
+                    <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
                     <button type="submit" class="premium-button" id="edit-product-submit">Save Changes</button>
                 </div>
             </div>
@@ -1583,6 +1762,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 <script>
 const editInputs = <?php echo json_encode($edit_inputs); ?>;
 const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
+const DB_BRANDS = <?php echo json_encode($brands); ?>;
+const DB_CATEGORIES = <?php echo json_encode($categories); ?>;
 
 const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
@@ -1744,6 +1925,113 @@ function setAiStatus(text, state) {
     }
 }
 
+function onLiveBarcodeScanned(barcode) {
+    if (!barcode) return;
+    if (typeof ProductCameraScanner !== 'undefined') {
+        ProductCameraScanner.playBeep(true);
+        ProductCameraScanner.stopLiveBarcodeScanner();
+    }
+
+    // Capture snapshot of current frame for the thumbnail
+    var video  = document.getElementById('ai-video');
+    var canvas = document.getElementById('ai-snapshot-canvas');
+    if (video && canvas) {
+        canvas.width  = video.videoWidth  || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        var b64 = canvas.toDataURL('image/jpeg', 0.85);
+        var imgField = document.getElementById('add-product-image-b64');
+        if (imgField) imgField.value = b64;
+        video.style.display  = 'none';
+        canvas.style.display = 'block';
+    }
+
+    _stopAddProductCamera();
+    aiOnIdentified();
+
+    var barcodeHidden = document.getElementById('add-barcode-hidden');
+    if (barcodeHidden) barcodeHidden.value = barcode;
+
+    var confirmLabel = document.getElementById('ai-confirmed-label');
+    if (confirmLabel) confirmLabel.textContent = '✓ Barcode: ' + barcode;
+    setAiStatus('🔍 Barcode ' + barcode + ' detected — fetching product information…', 'scanning');
+
+    if (typeof ProductCameraScanner !== 'undefined') {
+        ProductCameraScanner.lookupBarcode(barcode).then(function (info) {
+            if (!info) {
+                setAiStatus('✓ Barcode: ' + barcode + ' registered — enter product name below', 'identified');
+                document.getElementById('add-product-name')?.focus();
+                return;
+            }
+
+            var nameInput     = document.getElementById('add-product-name');
+            var catInput      = document.getElementById('add-category');
+            var supplierInput = document.getElementById('add-supplier');
+            var unitInput     = document.getElementById('add-unit');
+            var priceInput    = document.getElementById('add-price');
+            var locInput      = document.getElementById('add-location');
+            var shelfInput    = document.getElementById('add-shelf-life');
+
+            if (info.product_name && nameInput) {
+                nameInput.value = info.product_name;
+                clearAddFieldError('add-product-name', 'add-product-name-error');
+                nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                renderNameSuggestions([info.product_name], info.product_name);
+            }
+            if (info.supplier && supplierInput) {
+                supplierInput.value = info.supplier;
+                supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (info.category && catInput) {
+                for (var c = 0; c < catInput.options.length; c++) {
+                    if (catInput.options[c].value.toLowerCase() === info.category.toLowerCase() ||
+                        catInput.options[c].text.toLowerCase() === info.category.toLowerCase()) {
+                        catInput.selectedIndex = c;
+                        catInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        break;
+                    }
+                }
+            }
+            if (info.unit && unitInput) {
+                for (var u = 0; u < unitInput.options.length; u++) {
+                    if (unitInput.options[u].value.toLowerCase() === info.unit.toLowerCase() ||
+                        unitInput.options[u].text.toLowerCase() === info.unit.toLowerCase()) {
+                        unitInput.selectedIndex = u;
+                        unitInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        break;
+                    }
+                }
+            }
+            if (info.price && priceInput && !priceInput.value) {
+                priceInput.value = info.price;
+            }
+            if (info.location && locInput && !locInput.value) {
+                locInput.value = info.location;
+            }
+            if (info.shelf_life && shelfInput && !shelfInput.value) {
+                shelfInput.value = info.shelf_life;
+            }
+
+            var titleStr = info.product_name || ('Barcode ' + barcode);
+            var statusStr = info.source === 'store_database'
+                ? '✨ Found in inventory: ' + titleStr + ' — details loaded!'
+                : (info.product_name ? '✨ Product identified: ' + titleStr + ' — review or save!' : '✓ Barcode ' + barcode + ' registered — enter name below');
+
+            setAiStatus(statusStr, 'identified');
+            if (confirmLabel && info.product_name) {
+                confirmLabel.textContent = '✨ ' + info.product_name;
+            }
+
+            // Feed confirmed match into ImageScanner adaptive calibration
+            if (info.product_id && typeof window.notifyImageScannerSuccess === 'function') {
+                window.notifyImageScannerSuccess(info.product_id, 1.0);
+            }
+        }).catch(function () {
+            setAiStatus('✓ Barcode: ' + barcode + ' registered — enter product name below', 'identified');
+        });
+    }
+}
+
 function aiCaptureFrame() {
     var video    = document.getElementById('ai-video');
     var canvas   = document.getElementById('ai-snapshot-canvas');
@@ -1765,17 +2053,368 @@ function aiCaptureFrame() {
     _stopAddProductCamera();
     // Trigger post-capture UI update
     aiOnIdentified();
+    // Run OCR label reading to auto-fill product name, category, and unit
+    aiProcessOcr(b64, true);
+}
+
+function aiProcessOcr(imageSource, isCameraSnapshot) {
+    if (typeof ProductCameraScanner === 'undefined') {
+        console.warn('[AI OCR] ProductCameraScanner library not ready yet');
+        setAiStatus('Photo saved — please enter product details below', 'identified');
+        return;
+    }
+
+    var nameInput     = document.getElementById('add-product-name');
+    var catInput      = document.getElementById('add-category');
+    var supplierInput = document.getElementById('add-supplier');
+    var unitInput     = document.getElementById('add-unit');
+    var priceInput    = document.getElementById('add-price');
+
+    // ── Helper: fill a select input by value/text ─────────────────────────
+    function fillSelect(selectEl, value) {
+        if (!selectEl || !value) return false;
+        var lv = value.toLowerCase();
+        for (var s = 0; s < selectEl.options.length; s++) {
+            if (selectEl.options[s].value.toLowerCase() === lv ||
+                selectEl.options[s].text.toLowerCase()  === lv) {
+                selectEl.selectedIndex = s;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ── Priority 1: Cloud Multimodal Vision AI (Google Gemini) ───────────
+    setAiStatus('✨ Google Gemini Vision analyzing packaging…', 'scanning');
+
+    ProductCameraScanner.extractProductWithAiVision(imageSource).then(function(res) {
+        var item = (res && res.data) ? res.data : null;
+        if (!item || !item.product_name) {
+            throw new Error('No product name returned from AI Vision');
+        }
+
+        console.log('[AI Vision] Extracted product details:', item);
+        var autoFilledCount = 0;
+
+        if (nameInput && item.product_name) {
+            nameInput.value = item.product_name;
+            clearAddFieldError('add-product-name', 'add-product-name-error');
+            nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+            renderNameSuggestions([item.product_name], item.product_name);
+            autoFilledCount++;
+        }
+        if (supplierInput && item.brand) {
+            supplierInput.value = item.brand;
+            supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
+            autoFilledCount++;
+        }
+        if (catInput && item.category) {
+            if (fillSelect(catInput, item.category)) autoFilledCount++;
+        }
+        if (unitInput && item.unit) {
+            if (fillSelect(unitInput, item.unit)) autoFilledCount++;
+        }
+
+        var conf = Math.round((item.confidence || 0.95) * 100);
+        ProductCameraScanner.playBeep(true);
+
+        var confirmLabel = document.getElementById('ai-confirmed-label');
+        if (confirmLabel) confirmLabel.textContent = '🟢 ' + item.product_name;
+
+        setAiStatus(
+            '🟢 AI Vision Extracted (' + conf + '%): ' + item.product_name +
+            (item.brand ? ' · ' + item.brand : '') +
+            (item.category ? ' · ' + item.category : '') +
+            ' — verified & ready to save!',
+            'identified'
+        );
+
+        // Check if item already exists in store inventory to auto-populate price
+        ProductCameraScanner.lookupByOcrText(item.product_name).then(function(matches) {
+            if (matches && matches.length > 0) {
+                var top = matches[0];
+                if (top.score >= 0.80) {
+                    if (top.price && priceInput && !priceInput.value) {
+                        priceInput.value = top.price;
+                    }
+                    var altNames = matches.slice(0, 4).map(function(m) { return m.product_name; });
+                    renderNameSuggestions(altNames, item.product_name);
+                }
+            }
+        });
+
+    }).catch(function(err) {
+        console.warn('[AI Vision] Gemini unavailable or fell back, using local OCR engine:', err);
+        runLocalOcrPipeline();
+    });
+
+    // ── Priority 2: Local Tesseract OCR + DB Fuzzy Search Fallback ────────
+    function runLocalOcrPipeline() {
+        setAiStatus('🔍 Reading packaging with local OCR…', 'scanning');
+
+        var catList = (typeof DB_CATEGORIES !== 'undefined' && DB_CATEGORIES.length > 0) ? DB_CATEGORIES : [];
+        if (catList.length === 0 && catSelect) {
+            for (var i = 0; i < catSelect.options.length; i++) {
+                if (catSelect.options[i].value) catList.push(catSelect.options[i].value);
+            }
+        }
+        var brandList = (typeof DB_BRANDS !== 'undefined') ? DB_BRANDS : [];
+
+        ProductCameraScanner.runOcr(imageSource, function(pct, phase) {
+            if (pct != null && pct > 0) {
+                setAiStatus('🔍 Reading packaging (' + pct + '%)…', 'scanning');
+            } else if (phase) {
+                setAiStatus('🔍 ' + phase + '…', 'scanning');
+            }
+        }, !!isCameraSnapshot).then(function(result) {
+            var rawText = (typeof result === 'object' && result.text != null) ? result.text : (result || '');
+            var detectedBarcode = (typeof result === 'object' && result.barcode) ? result.barcode : '';
+
+            console.log('[AI OCR] Detected raw text:', rawText);
+            console.log('[AI OCR] Detected barcode:', detectedBarcode);
+
+            if (detectedBarcode) {
+                onLiveBarcodeScanned(detectedBarcode);
+                return;
+            }
+
+            if (!rawText || !rawText.trim()) {
+                setAiStatus('Photo saved — please enter product name below', 'identified');
+                return;
+            }
+
+            setAiStatus('🔍 Searching inventory database…', 'scanning');
+
+            var dbPromise  = ProductCameraScanner.lookupByOcrText(rawText);
+            var parsed     = ProductCameraScanner.parseProductLabel(rawText, catList, brandList);
+            console.log('[AI OCR] Parsed label result:', parsed);
+
+            dbPromise.then(function(dbMatches) {
+                console.log('[AI OCR] DB fuzzy matches:', dbMatches);
+                var autoFilledCount = 0;
+
+                // Case A: Strong DB match (score >= 0.65)
+                var topMatch = dbMatches && dbMatches.length > 0 ? dbMatches[0] : null;
+                if (topMatch && topMatch.score >= 0.65) {
+                    var confidenceEmoji = topMatch.score >= 0.90 ? '🟢' : '🟡';
+                    var confidencePct   = Math.round(topMatch.score * 100);
+
+                    if (nameInput) {
+                        nameInput.value = topMatch.product_name;
+                        clearAddFieldError('add-product-name', 'add-product-name-error');
+                        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        renderNameSuggestions([topMatch.product_name], topMatch.product_name);
+                        autoFilledCount++;
+                    }
+                    if (fillSelect(catInput, topMatch.category)) autoFilledCount++;
+                    if (topMatch.supplier && supplierInput) {
+                        supplierInput.value = topMatch.supplier;
+                        supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    if (fillSelect(unitInput, topMatch.unit)) autoFilledCount++;
+                    if (topMatch.price && priceInput && !priceInput.value) {
+                        priceInput.value = topMatch.price;
+                    }
+
+                    var altNames = dbMatches.slice(0, 4).map(function(m) { return m.product_name; });
+                    renderNameSuggestions(altNames, topMatch.product_name);
+
+                    ProductCameraScanner.playBeep(true);
+                    var confirmLabel = document.getElementById('ai-confirmed-label');
+                    if (confirmLabel) confirmLabel.textContent = confidenceEmoji + ' ' + topMatch.product_name;
+                    setAiStatus(
+                        confidenceEmoji + ' Found in inventory (' + confidencePct + '% match): ' +
+                        topMatch.product_name +
+                        (topMatch.category ? ' · ' + topMatch.category : '') +
+                        ' — review or save!',
+                        'identified'
+                    );
+                    return;
+                }
+
+                // Case B: Weak DB match (0.35 <= score < 0.65)
+                if (topMatch && topMatch.score >= 0.35) {
+                    var weakNames = dbMatches.slice(0, 4).map(function(m) { return m.product_name; });
+                    renderNameSuggestions(weakNames, parsed.name || '');
+
+                    if (parsed.name && !ProductCameraScanner.isGibberishOrNoise(parsed.name) && nameInput) {
+                        nameInput.value = parsed.name;
+                        clearAddFieldError('add-product-name', 'add-product-name-error');
+                        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        autoFilledCount++;
+                    }
+                    if (parsed.brand && supplierInput) {
+                        supplierInput.value = parsed.brand;
+                        supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                    if (parsed.category) { if (fillSelect(catInput, parsed.category)) autoFilledCount++; }
+                    if (parsed.unit)     fillSelect(unitInput, parsed.unit);
+
+                    renderRawOcrLines(parsed.rawLines);
+                    var confirmLabel2 = document.getElementById('ai-confirmed-label');
+                    if (confirmLabel2) confirmLabel2.textContent = '🟡 ' + (parsed.name || 'Product captured');
+                    setAiStatus('🟡 Possible match: ' + topMatch.product_name + ' (' + Math.round(topMatch.score * 100) + '%) — verify below', 'identified');
+                    return;
+                }
+
+                // Case C: No DB match -> pure label parsing
+                if (parsed.name && !ProductCameraScanner.isGibberishOrNoise(parsed.name) && nameInput) {
+                    nameInput.value = parsed.name;
+                    clearAddFieldError('add-product-name', 'add-product-name-error');
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    autoFilledCount++;
+                }
+                if (parsed.brand && supplierInput) {
+                    supplierInput.value = parsed.brand;
+                    supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                if (parsed.category) { if (fillSelect(catInput, parsed.category)) autoFilledCount++; }
+                if (parsed.unit)     fillSelect(unitInput, parsed.unit);
+
+                renderNameSuggestions(parsed.suggestions, parsed.name);
+                renderRawOcrLines(parsed.rawLines);
+
+                var confirmLabel3 = document.getElementById('ai-confirmed-label');
+                if (autoFilledCount > 0 && parsed.name) {
+                    ProductCameraScanner.playBeep(true);
+                    if (confirmLabel3) confirmLabel3.textContent = '🔴 ' + parsed.name;
+                    setAiStatus('🔴 New product detected: ' + parsed.name + (parsed.category ? ' (' + parsed.category + ')' : '') + ' — review or save!', 'identified');
+                } else {
+                    if (confirmLabel3) confirmLabel3.textContent = 'Photo captured!';
+                    setAiStatus('Photo saved — please enter product name below', 'identified');
+                    if (nameInput) nameInput.focus();
+                }
+            }).catch(function(err) {
+                console.warn('[AI OCR] DB lookup error, falling back to label parse:', err);
+                if (parsed.name && !ProductCameraScanner.isGibberishOrNoise(parsed.name) && nameInput) {
+                    nameInput.value = parsed.name;
+                    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                renderNameSuggestions(parsed.suggestions, parsed.name);
+                renderRawOcrLines(parsed.rawLines);
+                setAiStatus(parsed.name ? '✨ ' + parsed.name + ' — review or save!' : 'Photo saved — enter product name below', 'identified');
+            });
+
+        }).catch(function(err) {
+            console.warn('[AI OCR] scan error:', err);
+            setAiStatus('Photo saved — please enter product name below', 'identified');
+        });
+    }
+}
+
+function renderNameSuggestions(suggestions, activeName) {
+    var container = document.getElementById('add-product-name-suggestions');
+    var chipsWrap = document.getElementById('add-product-name-chips');
+    if (!container || !chipsWrap) return;
+
+    chipsWrap.innerHTML = '';
+    if (!suggestions || suggestions.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    suggestions.forEach(function(sug) {
+        if (!sug) return;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ai-suggestion-chip';
+        btn.textContent = sug;
+        btn.style.cssText = 'background:#13275B; border:1px solid #2A4484; color:#E3E3E3; border-radius:16px; padding:4px 12px; font-size:11px; cursor:pointer; font-family:"Onest",sans-serif; transition:all 0.15s; line-height:1.3; text-align:left;';
+        if (sug === activeName) {
+            btn.style.borderColor = '#51D55A';
+            btn.style.color = '#d1fae5';
+            btn.style.background = 'rgba(6,95,70,0.45)';
+        }
+        btn.onmouseover = function() { this.style.borderColor = '#51D55A'; this.style.color = '#fff'; };
+        btn.onmouseout = function() {
+            var isCurrent = (document.getElementById('add-product-name')?.value === sug);
+            this.style.borderColor = isCurrent ? '#51D55A' : '#2A4484';
+            this.style.color = isCurrent ? '#d1fae5' : '#E3E3E3';
+            this.style.background = isCurrent ? 'rgba(6,95,70,0.45)' : '#13275B';
+        };
+        btn.onclick = function() {
+            applySuggestedName(sug);
+        };
+        chipsWrap.appendChild(btn);
+    });
+
+    container.style.display = 'flex';
+}
+
+function applySuggestedName(name) {
+    var input = document.getElementById('add-product-name');
+    if (input) {
+        input.value = name;
+        clearAddFieldError('add-product-name', 'add-product-name-error');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+    }
+    // Update chip styling
+    var chips = document.querySelectorAll('#add-product-name-chips .ai-suggestion-chip');
+    chips.forEach(function(chip) {
+        var isMatch = chip.textContent === name;
+        chip.style.borderColor = isMatch ? '#51D55A' : '#2A4484';
+        chip.style.color = isMatch ? '#d1fae5' : '#E3E3E3';
+        chip.style.background = isMatch ? 'rgba(6,95,70,0.45)' : '#13275B';
+    });
+}
+
+function renderRawOcrLines(lines) {
+    var wrap = document.getElementById('add-ocr-raw-wrap');
+    var box  = document.getElementById('add-ocr-raw-box');
+    if (!wrap || !box) return;
+
+    box.innerHTML = '';
+    if (!lines || lines.length === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    var hint = document.createElement('div');
+    hint.style.cssText = 'color:#94a3b8; margin-bottom:6px; font-size:10px;';
+    hint.textContent = 'Click any line below to paste it into Product Name:';
+    box.appendChild(hint);
+
+    lines.forEach(function(line) {
+        var item = document.createElement('div');
+        item.style.cssText = 'padding:3px 6px; border-radius:4px; cursor:pointer; transition:background 0.15s; font-family:"Onest",sans-serif;';
+        item.textContent = '• ' + line;
+        item.onmouseover = function() { this.style.background = 'rgba(42,68,132,0.45)'; };
+        item.onmouseout  = function() { this.style.background = 'transparent'; };
+        item.onclick = function() {
+            applySuggestedName(line);
+        };
+        box.appendChild(item);
+    });
+
+    wrap.style.display = 'block';
+}
+
+function toggleOcrRawText() {
+    var box = document.getElementById('add-ocr-raw-box');
+    var btn = document.getElementById('add-ocr-toggle-btn');
+    if (!box || !btn) return;
+    if (box.style.display === 'none') {
+        box.style.display = 'block';
+        btn.innerHTML = 'Hide text read from packaging &uarr;';
+    } else {
+        box.style.display = 'none';
+        btn.innerHTML = 'Show text read from packaging &darr;';
+    }
 }
 
 function aiOnIdentified() {
     // Kept for compatibility — now called directly by aiCaptureFrame after photo is taken
     var confirmLabel = document.getElementById('ai-confirmed-label');
     if (confirmLabel) confirmLabel.textContent = 'Photo captured!';
-    setAiStatus('Reference photo saved — fill in the product details', 'identified');
+    setAiStatus('Reference photo saved — scanning product label...', 'scanning');
     var retakeBtn = document.getElementById('ai-retake-btn');
     if (retakeBtn) retakeBtn.style.display = 'inline-block';
     var snapBtn = document.getElementById('ai-capture-snap-btn');
     if (snapBtn) snapBtn.style.display = 'none';
+    var bottomBar = document.getElementById('ai-camera-bottom-bar');
+    if (bottomBar) bottomBar.style.display = 'none';
 }
 
 function aiRetake() {
@@ -1786,6 +2425,9 @@ function aiRetake() {
     // Hide retake btn, show capture snap btn again
     var retakeBtn = document.getElementById('ai-retake-btn');
     if (retakeBtn) retakeBtn.style.display = 'none';
+
+    var bottomBar = document.getElementById('ai-camera-bottom-bar');
+    if (bottomBar) bottomBar.style.display = 'flex';
 
     // Restart camera
     aiStartScan();
@@ -1975,9 +2617,11 @@ function resetAddProductForm() {
     var previewWrap  = document.getElementById('ai-upload-preview-wrap');
     var previewImg   = document.getElementById('ai-upload-preview-img');
     var uploadInput  = document.getElementById('ai-upload-input');
+    var mobileCamInput = document.getElementById('ai-mobile-cam-input');
     var imgField     = document.getElementById('add-product-image-b64');
     var classField   = document.getElementById('add-ai-class-label');
     var barcodeField = document.getElementById('add-barcode-hidden');
+    var bottomBar    = document.getElementById('ai-camera-bottom-bar');
 
     if (video)       video.style.display       = 'block';
     if (canvas)      canvas.style.display      = 'none';
@@ -1988,14 +2632,25 @@ function resetAddProductForm() {
     if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
     if (snapBtn)     snapBtn.style.display     = 'none';
     if (cameraArea)  cameraArea.style.display  = 'none';
+    if (bottomBar)   bottomBar.style.display   = 'none';
     if (previewWrap) previewWrap.style.display = 'none';
     if (previewImg)  previewImg.src            = '';
     if (uploadInput) uploadInput.value         = '';
+    if (mobileCamInput) mobileCamInput.value   = '';
     if (imgField)    imgField.value            = '';
     if (classField)  classField.value          = '';
     if (barcodeField)barcodeField.value        = '';
 
-    setAiStatus('Add a reference image — optional but recommended for AI scanning', 'idle');
+    var suggestionsContainer = document.getElementById('add-product-name-suggestions');
+    var chipsWrap            = document.getElementById('add-product-name-chips');
+    var rawWrap              = document.getElementById('add-ocr-raw-wrap');
+    var rawBox               = document.getElementById('add-ocr-raw-box');
+    if (suggestionsContainer) suggestionsContainer.style.display = 'none';
+    if (chipsWrap)            chipsWrap.innerHTML = '';
+    if (rawWrap)              rawWrap.style.display = 'none';
+    if (rawBox)             { rawBox.innerHTML = ''; rawBox.style.display = 'none'; }
+
+    setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
 }
 
 var _addProductStream = null;
@@ -2018,10 +2673,27 @@ function closeAddModal() {
 }
 
 function _stopAddProductCamera() {
+    if (typeof ProductCameraScanner !== 'undefined') {
+        ProductCameraScanner.stopLiveBarcodeScanner();
+    }
     if (_addProductStream) {
         _addProductStream.getTracks().forEach(function(t) { t.stop(); });
         _addProductStream = null;
     }
+}
+
+function _cancelAddProductCamera() {
+    _stopAddProductCamera();
+    var cameraArea  = document.getElementById('ai-camera-area');
+    var captureBtn  = document.getElementById('ai-capture-btn');
+    var uploadBtn   = document.getElementById('ai-upload-btn');
+    var bottomBar   = document.getElementById('ai-camera-bottom-bar');
+
+    if (cameraArea) cameraArea.style.display = 'none';
+    if (captureBtn) captureBtn.style.display = 'inline-flex';
+    if (uploadBtn)  uploadBtn.style.display  = 'inline-flex';
+    if (bottomBar)  bottomBar.style.display  = 'none';
+    setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
 }
 
 function aiStartScan() {
@@ -2029,35 +2701,71 @@ function aiStartScan() {
     var uploadBtn    = document.getElementById('ai-upload-btn');
     var snapBtn      = document.getElementById('ai-capture-snap-btn');
     var cameraArea   = document.getElementById('ai-camera-area');
+    var bottomBar    = document.getElementById('ai-camera-bottom-bar');
     var previewWrap  = document.getElementById('ai-upload-preview-wrap');
     var video        = document.getElementById('ai-video');
     var overlay      = document.getElementById('ai-confirmed-overlay');
     var scanOverlay  = document.getElementById('ai-scan-overlay');
     var canvas       = document.getElementById('ai-snapshot-canvas');
 
+    // On non-HTTPS mobile connections (e.g. phone accessing via local IP),
+    // navigator.mediaDevices is blocked by the browser. Seamlessly trigger native phone camera!
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        var mobileCam = document.getElementById('ai-mobile-cam-input');
+        if (mobileCam) {
+            setAiStatus('Opening phone camera…', 'scanning');
+            mobileCam.click();
+            return;
+        }
+        setAiStatus('Camera not supported on this connection. Please use Upload Image.', 'error');
+        alert('Camera requires HTTPS or localhost in modern browsers. Please use "Upload Image" to select or take any photo.');
+        return;
+    }
+
     if (captureBtn)  captureBtn.style.display  = 'none';
     if (uploadBtn)   uploadBtn.style.display   = 'none';
     if (previewWrap) previewWrap.style.display = 'none';
     if (cameraArea)  cameraArea.style.display  = 'block';
+    if (bottomBar)   bottomBar.style.display   = 'flex';
     if (overlay)     overlay.style.display     = 'none';
     if (canvas)      canvas.style.display      = 'none';
     if (video)       video.style.display       = 'block';
     if (scanOverlay) scanOverlay.style.display = 'flex';
     setAiStatus('Opening camera…', 'scanning');
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(function(stream) {
-            _addProductStream = stream;
-            video.srcObject   = stream;
-            if (snapBtn) snapBtn.style.display = 'inline-flex';
-            setAiStatus('Camera ready — frame the product and click Capture', 'scanning');
-        })
-        .catch(function(err) {
-            if (captureBtn) captureBtn.style.display = 'inline-flex';
-            if (uploadBtn)  uploadBtn.style.display  = 'inline-flex';
-            if (cameraArea) cameraArea.style.display = 'none';
-            setAiStatus('Camera error: ' + (err.message || err), 'error');
-        });
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).catch(function() {
+        // Fallback for laptops and desktop webcams that do not support 'environment'
+        return navigator.mediaDevices.getUserMedia({ video: true });
+    }).then(function(stream) {
+        _addProductStream = stream;
+        video.srcObject   = stream;
+        video.setAttribute('playsinline', '');
+        video.muted = true;
+        var playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(e) { console.warn('Video play error:', e); });
+        }
+        if (snapBtn)   snapBtn.style.display   = 'inline-flex';
+        if (bottomBar) bottomBar.style.display = 'flex';
+        if (typeof ProductCameraScanner !== 'undefined') {
+            ProductCameraScanner.startLiveBarcodeScanner(video, onLiveBarcodeScanned);
+        }
+        setAiStatus('Camera ready — point at barcode or label, or click Capture', 'scanning');
+    }).catch(function(err) {
+        // If laptop/phone denied permission or threw error, offer mobile file/camera capture
+        var mobileCam = document.getElementById('ai-mobile-cam-input');
+        if (mobileCam && /NotAllowedError|NotFoundError|OverconstrainedError/i.test(err.name || '')) {
+            mobileCam.click();
+            return;
+        }
+        if (captureBtn) captureBtn.style.display = 'inline-flex';
+        if (uploadBtn)  uploadBtn.style.display  = 'inline-flex';
+        if (cameraArea) cameraArea.style.display = 'none';
+        if (bottomBar)  bottomBar.style.display  = 'none';
+        setAiStatus('Camera: ' + (err.message || err) + ' — please use Upload Image', 'error');
+    });
 }
 
 function aiUploadImage(input) {
@@ -2100,12 +2808,34 @@ function aiUploadImage(input) {
         if (previewWrap) previewWrap.style.display  = 'block';
         if (retakeBtn)   retakeBtn.style.display    = 'inline-flex';
 
-        setAiStatus('Image uploaded — fill in the product details below', 'identified');
+        setAiStatus('Image uploaded — scanning label with AI OCR...', 'scanning');
+        aiProcessOcr(b64, false);
     };
     reader.onerror = function() {
         setAiStatus('Failed to read the selected file. Please try again.', 'error');
     };
     reader.readAsDataURL(file);
+}
+
+function aiRemoveUploadedImage() {
+    var previewWrap    = document.getElementById('ai-upload-preview-wrap');
+    var previewImg     = document.getElementById('ai-upload-preview-img');
+    var uploadInput    = document.getElementById('ai-upload-input');
+    var mobileCamInput = document.getElementById('ai-mobile-cam-input');
+    var imgField       = document.getElementById('add-product-image-b64');
+    var captureBtn     = document.getElementById('ai-capture-btn');
+    var uploadBtn      = document.getElementById('ai-upload-btn');
+    var retakeBtn      = document.getElementById('ai-retake-btn');
+
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewImg)  previewImg.src            = '';
+    if (uploadInput) uploadInput.value         = '';
+    if (mobileCamInput) mobileCamInput.value   = '';
+    if (imgField)    imgField.value            = '';
+    if (retakeBtn)   retakeBtn.style.display   = 'none';
+    if (captureBtn)  captureBtn.style.display  = 'inline-flex';
+    if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
+    setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
 }
 
 function promptArchive(id, name) {
@@ -2484,7 +3214,179 @@ function editRemoveImage() {
 
     editSetImageState(false);
 }
-</script>
 
-<!-- No external AI script needed — product photo capture uses native getUserMedia -->
-<?php renderLayoutFooter(); ?>
+// ── In-place Ajax Pagination (No Full Page Reload) ───────────────────────────
+async function loadInventoryPage(url, pushState = true) {
+    const tableEl = document.getElementById('inventory-desktop-table');
+    const cardsEl = document.getElementById('inventory-mobile-cards');
+    const pagEl   = document.getElementById('inventory-pagination-container');
+
+    if (tableEl) tableEl.style.transition = 'opacity 0.2s ease';
+    if (cardsEl) cardsEl.style.transition = 'opacity 0.2s ease';
+    if (pagEl)   pagEl.style.transition   = 'opacity 0.2s ease';
+
+    if (tableEl) tableEl.style.opacity = '0.4';
+    if (cardsEl) cardsEl.style.opacity = '0.4';
+    if (pagEl)   pagEl.style.opacity   = '0.4';
+
+    try {
+        const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!response.ok) throw new Error('Network response was not ok');
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        const newTable = doc.getElementById('inventory-desktop-table');
+        const newCards = doc.getElementById('inventory-mobile-cards');
+        const newPag   = doc.getElementById('inventory-pagination-container');
+
+        if (tableEl && newTable) {
+            tableEl.innerHTML = newTable.innerHTML;
+        }
+        if (cardsEl && newCards) {
+            cardsEl.innerHTML = newCards.innerHTML;
+        }
+        if (pagEl && newPag) {
+            pagEl.innerHTML = newPag.innerHTML;
+        } else if (pagEl && !newPag) {
+            pagEl.innerHTML = '';
+        }
+
+        // Update items count badge if present in header
+        const currentCountBadge = document.querySelector('h3 span.text-\\[\\#51D55A\\]');
+        const newCountBadge     = doc.querySelector('h3 span.text-\\[\\#51D55A\\]');
+        if (currentCountBadge && newCountBadge) {
+            currentCountBadge.innerHTML = newCountBadge.innerHTML;
+        }
+
+        if (pushState) {
+            window.history.pushState({ url: url }, '', url);
+        }
+
+        // Smooth scroll to top of inventory card
+        const topAnchor = document.querySelector('.premium-card');
+        if (topAnchor) {
+            topAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } catch (err) {
+        console.warn('In-place pagination error, falling back to direct navigation:', err);
+        window.location.href = url;
+    } finally {
+        if (tableEl) tableEl.style.opacity = '1';
+        if (cardsEl) cardsEl.style.opacity = '1';
+        if (pagEl)   pagEl.style.opacity   = '1';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.pagination-link');
+        if (btn && btn.dataset.url) {
+            e.preventDefault();
+            loadInventoryPage(btn.dataset.url);
+        }
+    });
+
+    window.addEventListener('popstate', function(e) {
+        if (e.state && e.state.url) {
+            loadInventoryPage(e.state.url, false);
+        } else {
+            loadInventoryPage(window.location.href, false);
+        }
+    });
+});
+</script>
+<script src="src/scripts/tesseract.min.js"></script>
+<script src="src/scripts/product-camera-scanner.js?v=<?php echo time(); ?>"></script>
+
+<!-- TensorFlow.js + Image Similarity Scanner (MobileNetV3-Large) -->
+<!-- Load TF.js from CDN; defer model initialisation until the add-product panel is opened -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="src/scripts/image-scanner.js?v=<?php echo time(); ?>"></script>
+<script>
+(function () {
+    'use strict';
+
+    var _imgScannerReady = false;
+    var _imgScannerLoading = false;
+
+    /**
+     * Lazily load the MobileNetV3-Large model the first time the AI camera
+     * section becomes visible. Avoids blocking page load with a ~6MB download.
+     */
+    function ensureImageScannerReady() {
+        if (_imgScannerReady || _imgScannerLoading) return;
+        if (typeof ImageScanner === 'undefined' || typeof tf === 'undefined') return;
+        _imgScannerLoading = true;
+
+        ImageScanner.init({
+            onStatusChange: function (state, msg) {
+                // Forward status to the product page AI status bar if visible
+                var dot   = document.getElementById('ai-status-dot');
+                var label = document.getElementById('ai-status-text');
+                if (label && document.getElementById('ai-capture-block') &&
+                    document.getElementById('ai-capture-block').closest('.modal-visible, .panel-open, [style*="display: block"], [style*="display:block"]')) {
+                    if (label && state !== 'idle') label.textContent = msg;
+                }
+                if (state === 'ready') {
+                    _imgScannerReady  = true;
+                    _imgScannerLoading = false;
+                }
+                if (state === 'error') {
+                    _imgScannerLoading = false;
+                }
+            },
+            onEmbeddingsReady: function (count) {
+                console.info('[ImageScanner] Fingerprints ready for', count, 'products');
+            }
+        });
+
+        ImageScanner.loadModel().catch(function (e) {
+            console.warn('[ImageScanner] Model load failed — visual matching unavailable:', e.message || e);
+            _imgScannerLoading = false;
+        });
+    }
+
+    /**
+     * Call this after a product is positively identified (barcode lookup or OCR).
+     * Feeds the match score back to ImageScanner for adaptive threshold calibration.
+     *
+     * @param {number|string} productId
+     * @param {number}        score       raw cosine score (0–1); pass 1.0 for barcode confirms
+     */
+    window.notifyImageScannerSuccess = function (productId, score) {
+        if (typeof ImageScanner !== 'undefined') {
+            ImageScanner.recordSuccess(productId, score || 1.0);
+        }
+    };
+
+    // Trigger lazy model load when the add-product drawer/modal opens
+    document.addEventListener('DOMContentLoaded', function () {
+        // Watch for the add-product panel becoming visible
+        var addPanel = document.getElementById('add-product-panel') ||
+                       document.getElementById('add-product-form')  ||
+                       document.getElementById('ai-capture-block');
+
+        if (addPanel) {
+            // MutationObserver watches for display/class changes that reveal the panel
+            var observer = new MutationObserver(function () {
+                var style = window.getComputedStyle(addPanel);
+                if (style.display !== 'none' && style.visibility !== 'hidden') {
+                    ensureImageScannerReady();
+                }
+            });
+            observer.observe(addPanel, { attributes: true, attributeFilter: ['style', 'class'] });
+        }
+
+        // Also trigger on the "Add Product" button click
+        var addBtns = document.querySelectorAll('[onclick*="openAddModal"], [onclick*="showAddPanel"], [data-action="add-product"], #open-add-product-btn');
+        addBtns.forEach(function (btn) {
+            btn.addEventListener('click', ensureImageScannerReady);
+        });
+
+        // Fallback: load after 3s idle so it's ready before the user clicks
+        setTimeout(ensureImageScannerReady, 3000);
+    });
+}());
+</script>
+<?php renderLayoutFooter(); ?>
