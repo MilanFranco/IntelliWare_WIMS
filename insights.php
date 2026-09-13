@@ -1205,23 +1205,39 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 }
 </style>
 
-<div class="card" style="margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+<!-- Hero Page Header Banner -->
+<div style="background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%); border: 1px solid rgba(42, 68, 132, 0.6); border-radius: 18px; padding: 24px 28px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35); position: relative; overflow: hidden; margin-bottom: 24px;">
+    <div style="position:absolute; top:-60px; right:-40px; width:300px; height:300px; background: radial-gradient(circle, rgba(81,213,90,0.08) 0%, rgba(0,0,0,0) 70%); pointer-events:none;"></div>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <div style="color: #E3E3E3; font-weight: 600; font-size: 26px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg></span>
-                Data Mining & Analytics
+            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
+                <span>IntelliWare Enterprise WIMS</span>
+                <span class="text-[#2A4484]">•</span>
+                <span class="text-[#51D55A]">Data Intelligence</span>
             </div>
-            <div style="color: #9aa6d1; font-size: 14px;">
-                Advanced analytics and insights powered by data mining algorithms to optimize your warehouse operations.
-            </div>
+            <h1 class="text-2xl lg:text-3xl font-bold font-onest text-white tracking-tight flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"></path></svg>
+                </div>
+                Data Mining &amp; Analytics
+            </h1>
+            <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
+                Advanced analytics powered by data mining algorithms — forecast demand, identify movement trends, and optimize warehouse restocking decisions.
+            </p>
         </div>
-        <div style="display: flex; gap: 10px; flex-shrink: 0;">
-             <button class="btn" onclick="refreshAnalysis()">Refresh Analysis</button>
-             <button class="btn btn-secondary" onclick="exportData()">Export View</button>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
+                <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
+                Active: <strong class="text-white"><?php echo htmlspecialchars($_SESSION['Username']); ?></strong>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
+                <svg class="w-3.5 h-3.5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                Engine: <strong class="text-white">AI-Powered</strong>
+            </span>
         </div>
     </div>
 </div>
+
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <div class="premium-card metric-card p-6 flex items-center justify-between group hover:border-[#51D55A]/50 cursor-pointer transition-all active" onclick="filterData('all')" data-filter="all">

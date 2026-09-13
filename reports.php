@@ -303,11 +303,74 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         .print-badge.low { background: #fef3c7 !important; color: #b45309 !important; border: 1px solid #fbbf24 !important; }
         .print-badge.good { background: #d1fae5 !important; color: #047857 !important; border: 1px solid #34d399 !important; }
     }
+
+    /* ── Page Hero Card ────────────────────────────────────────── */
+    .page-hero-card {
+        background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
+        border: 1px solid rgba(42, 68, 132, 0.6);
+        border-radius: 18px;
+        padding: 24px 28px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        position: relative;
+        overflow: hidden;
+    }
+    .page-hero-card::after {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -40px;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(81, 213, 90, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+        pointer-events: none;
+    }
+    [data-theme="light"] .page-hero-card {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-color: #93c5fd;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
 </style>
 
 <div id="toast-container">
     <span id="toast-icon"></span>
     <span id="toast-message"></span>
+</div>
+
+<!-- Hero Page Header Banner -->
+<div class="page-hero-card mb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
+                <span>IntelliWare Enterprise WIMS</span>
+                <span class="text-[#2A4484]">•</span>
+                <span class="text-[#51D55A]">Business Intelligence</span>
+            </div>
+            <h1 class="text-2xl lg:text-3xl font-bold font-onest text-white tracking-tight flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"></path></svg>
+                </div>
+                Inventory Reports &amp; Analytics Export
+            </h1>
+            <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
+                Generate custom inventory statements, export stock datasets to Excel and PDF formats, and inspect real-time valuation and movement metrics.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
+                <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
+                Active: <strong class="text-white"><?php echo htmlspecialchars($_SESSION['Username']); ?></strong>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
+                <svg class="w-3.5 h-3.5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Export: <strong class="text-white">Excel &bull; PDF &bull; Print</strong>
+            </span>
+        </div>
+    </div>
 </div>
 
 <div class="premium-card mb-6" style="overflow:visible;">

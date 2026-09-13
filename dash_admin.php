@@ -214,11 +214,17 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+
 <div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
     <div class="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div class="flex-1 min-w-0 space-y-4">
             <div>
+                <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-3">
+                    <span>IntelliWare Enterprise WIMS</span>
+                    <span class="text-[#2A4484]">•</span>
+                    <span class="text-[#51D55A]">Command Center</span>
+                </div>
                 <div class="flex flex-wrap items-center gap-3 mb-1">
                     <h2 class="font-onest text-xl md:text-2xl font-semibold text-white">
                         <?php echo $greeting; ?>, <?php echo htmlspecialchars($displayName); ?>

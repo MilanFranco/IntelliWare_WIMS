@@ -438,9 +438,73 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     [data-theme="light"] .txn-ic-label       { color: var(--iw-text-muted) !important; }
     [data-theme="light"] .txn-ic-value       { color: var(--iw-text-header) !important; }
     [data-theme="light"] .txn-ic-divider     { background: var(--iw-border) !important; }
+
+    /* ── Page Hero Card ────────────────────────────────────────── */
+    .page-hero-card {
+        background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
+        border: 1px solid rgba(42, 68, 132, 0.6);
+        border-radius: 18px;
+        padding: 24px 28px;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        position: relative;
+        overflow: hidden;
+    }
+    .page-hero-card::after {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -40px;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(81, 213, 90, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+        pointer-events: none;
+    }
+    [data-theme="light"] .page-hero-card {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border-color: #93c5fd;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
+    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
+
+<!-- Hero Page Header Banner -->
+<div class="page-hero-card mb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
+                <span>IntelliWare Enterprise WIMS</span>
+                <span class="text-[#2A4484]">•</span>
+                <span class="text-[#51D55A]">Stock Movements</span>
+            </div>
+            <h1 class="text-2xl lg:text-3xl font-bold font-onest text-white tracking-tight flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"></path></svg>
+                </div>
+                Stock Transactions &amp; Movement
+            </h1>
+            <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
+                Execute verified stock check-in (Receive) and check-out (Release) workflows with real-time barcode verification and audit tracking.
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
+                <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
+                Active: <strong class="text-white"><?php echo htmlspecialchars($_SESSION['Username']); ?></strong>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
+                <svg class="w-3.5 h-3.5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                Mode: <strong class="text-white">Live Inventory</strong>
+            </span>
+        </div>
+    </div>
+</div>
+
 
 <div class="premium-card txn-page-card mb-8">
     <div class="p-6 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
