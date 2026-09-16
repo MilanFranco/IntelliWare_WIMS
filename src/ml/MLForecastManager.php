@@ -88,7 +88,7 @@ class MLForecastManager {
         if ($result && isset($result['result'])) {
             $this->recordForecastSuccess($run_id, $result['result']);
         } else {
-            $query = "UPDATE forecast_runs SET finished_at = NOW(), status = 'completed' WHERE run_id = ?";
+            $query = "UPDATE forecast_runs SET finished_at = NOW(), status = 'completed' WHERE id = ?";
             $stmt = $this->conn->prepare($query);
             $stmt->bind_param("i", $run_id);
             $stmt->execute();
@@ -147,7 +147,7 @@ class MLForecastManager {
                     products_processed = ?,
                     forecasts_generated = ?,
                     anomalies_detected = ?
-                 WHERE run_id = ?";
+                 WHERE id = ?";
 
         $products = $result['products_processed'] ?? 0;
         $forecasts = $result['forecasts_generated'] ?? 0;
@@ -166,7 +166,7 @@ class MLForecastManager {
                     finished_at = NOW(),
                     status = 'error',
                     error_message = ?
-                 WHERE run_id = ?";
+                 WHERE id = ?";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param("si", $error, $run_id);
@@ -202,7 +202,7 @@ class MLForecastManager {
         return $forecasts;
     }
 
-    public function getRecentAnomalies($days = 7) {
+    public function getRecentAnomalies($days = 30) {
         $query = "SELECT
                     a.*,
                     p.product_name,
@@ -211,7 +211,7 @@ class MLForecastManager {
                  FROM anomalies a
                  JOIN products p ON a.product_id = p.product_id
                  WHERE a.detection_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                 ORDER BY a.anomaly_score ASC";
+                 ORDER BY a.anomaly_score DESC, a.detection_date DESC";
 
         $stmt = $this->conn->prepare($query);
         if (!$stmt) {

@@ -250,16 +250,15 @@ class ForecastDataService
             }
         }
 
-        // Forecast: next 6 months from aggregate predictions (product_id = 0)
+        // Forecast: next 6 months from aggregate projections (product_id = 0)
         $forecastResult = $this->conn->query(
             "SELECT DATE_FORMAT(forecast_date, '%b %Y') AS label,
                     MONTH(forecast_date) AS month_num,
                     YEAR(forecast_date) AS year_num,
-                    SUM(predicted_quantity) AS predicted_qty
+                    predicted_quantity AS predicted_qty
              FROM forecast_results
-             WHERE product_id = 0
+             WHERE product_id = 0 AND horizon_type = 'monthly'
                AND forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-             GROUP BY YEAR(forecast_date), MONTH(forecast_date)
              ORDER BY year_num, month_num
              LIMIT 6"
         );
@@ -344,11 +343,11 @@ class ForecastDataService
         }
         $stmt->close();
 
-        // Predicted daily (aggregate product_id = 0)
+        // Predicted daily (aggregate product_id = 0, horizon_type = 'daily')
         $predResult = $this->conn->query(
             "SELECT forecast_date, predicted_quantity
              FROM forecast_results
-             WHERE product_id = 0 AND forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+             WHERE product_id = 0 AND horizon_type = 'daily' AND forecast_date >= CURDATE()
              ORDER BY forecast_date ASC
              LIMIT 30"
         );
@@ -646,8 +645,9 @@ class ForecastDataService
 
         $totalPoints = count($historical) + $forecastCount;
         $trend = [];
+        $minFloor = !empty($values) ? max(100.0, 0.4 * (array_sum($values) / count($values))) : 100.0;
         for ($i = 0; $i < $totalPoints; $i++) {
-            $trend[] = round($intercept + $slope * $i, 2);
+            $trend[] = round(max($minFloor, $intercept + $slope * $i), 2);
         }
         return $trend;
     }
