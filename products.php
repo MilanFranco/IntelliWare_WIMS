@@ -101,6 +101,18 @@ if ($brand_query) {
 }
 $brands = array_values(array_unique($brands));
 
+$active_catalog_products = [];
+$cat_prod_res = $conn->query("SELECT product_id, product_name, unit FROM products WHERE archived = 0");
+if ($cat_prod_res) {
+    while ($cpRow = $cat_prod_res->fetch_assoc()) {
+        $active_catalog_products[] = [
+            'id' => (int)$cpRow['product_id'],
+            'name' => trim($cpRow['product_name']),
+            'unit' => trim($cpRow['unit'] ?? '')
+        ];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $csrf_token) {
@@ -130,6 +142,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (strlen($product_name) > 255) {
                 throw new Exception('Product name must be 255 characters or fewer.');
             }
+
+            // Prevent duplicate products: product name and unit (UoM) combination must be unique among active products
+            $trimmedName = trim($product_name);
+            $trimmedUnit = trim($unit);
+            $dupCheckStmt = $conn->prepare("SELECT product_id FROM products WHERE LOWER(TRIM(product_name)) = LOWER(?) AND LOWER(TRIM(COALESCE(unit, ''))) = LOWER(?) AND archived = 0 LIMIT 1");
+            $dupCheckStmt->bind_param("ss", $trimmedName, $trimmedUnit);
+            $dupCheckStmt->execute();
+            $dupRes = $dupCheckStmt->get_result();
+            if ($dupRes && $dupRes->num_rows > 0) {
+                $dupCheckStmt->close();
+                $uomText = $trimmedUnit !== '' ? " with Unit of Measure (UoM) '{$trimmedUnit}'" : " with no Unit of Measure";
+                throw new Exception("Duplicate Product: A product named '{$trimmedName}'{$uomText} already exists in inventory.");
+            }
+            $dupCheckStmt->close();
+
             if ($quantity === false) {
                 throw new Exception('Quantity must be a whole number of 0 or greater.');
             }
@@ -191,6 +218,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $barcodeVal = $barcode !== '' ? $barcode : null;
             $category = trim($_POST['category'] ?? '');
             $location = trim($_POST['location'] ?? '');
+            $editName = trim($_POST['name'] ?? '');
+            $editUom  = trim($_POST['uom'] ?? '');
+
+            if ($editName === '') {
+                throw new Exception('Product name is required.');
+            }
+            if (strlen($editName) > 255) {
+                throw new Exception('Product name must be 255 characters or fewer.');
+            }
+
+            // Prevent duplicate products: product name and unit (UoM) combination must be unique
+            $dupEditStmt = $conn->prepare("SELECT product_id FROM products WHERE LOWER(TRIM(product_name)) = LOWER(?) AND LOWER(TRIM(COALESCE(unit, ''))) = LOWER(?) AND product_id != ? AND archived = 0 LIMIT 1");
+            $dupEditStmt->bind_param("ssi", $editName, $editUom, $id);
+            $dupEditStmt->execute();
+            $dupEditRes = $dupEditStmt->get_result();
+            if ($dupEditRes && $dupEditRes->num_rows > 0) {
+                $dupEditStmt->close();
+                $uomText = $editUom !== '' ? " with Unit of Measure (UoM) '{$editUom}'" : " with no Unit of Measure";
+                throw new Exception("Duplicate Product: Another product named '{$editName}'{$uomText} already exists in inventory.");
+            }
+            $dupEditStmt->close();
 
             if ($price === false) {
                 throw new Exception('Price must be a number of 0 or greater with up to 2 decimal places.');
@@ -229,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $qtyDelta = $newQty - $currentQty;
 
             $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
-            $stmt->bind_param("sssssisdii", $_POST['name'], $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
+            $stmt->bind_param("sssssisdii", $editName, $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $editUom, $price, $shelf_life, $id);
             if (!$stmt->execute()) {
                 throw new Exception("Update failed: " . $stmt->error);
             }
@@ -279,8 +327,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         if ($action === 'restore') {
             if ($role === 'staff') throw new Exception("Access Denied. Only Managers and Admins can restore products.");
+            $restoreId = (int)$_POST['id'];
+            $chk = $conn->prepare("SELECT product_name, unit FROM products WHERE product_id = ?");
+            $chk->bind_param("i", $restoreId);
+            $chk->execute();
+            $chkRow = $chk->get_result()->fetch_assoc();
+            $chk->close();
+            if ($chkRow) {
+                $chkName = trim($chkRow['product_name']);
+                $chkUnit = trim($chkRow['unit'] ?? '');
+                $dupChk = $conn->prepare("SELECT product_id FROM products WHERE LOWER(TRIM(product_name)) = LOWER(?) AND LOWER(TRIM(COALESCE(unit, ''))) = LOWER(?) AND product_id != ? AND archived = 0 LIMIT 1");
+                $dupChk->bind_param("ssi", $chkName, $chkUnit, $restoreId);
+                $dupChk->execute();
+                if ($dupChk->get_result()->num_rows > 0) {
+                    $dupChk->close();
+                    $uomText = $chkUnit !== '' ? " with Unit of Measure (UoM) '{$chkUnit}'" : " with no Unit of Measure";
+                    throw new Exception("Cannot restore: An active product named '{$chkName}'{$uomText} already exists in inventory.");
+                }
+                $dupChk->close();
+            }
             $stmt = $conn->prepare("UPDATE products SET archived = 0 WHERE product_id = ?");
-            $stmt->bind_param("i", $_POST['id']);
+            $stmt->bind_param("i", $restoreId);
             if ($stmt->execute()) setFlashMessage('success', 'Product restored successfully.');
         }
     } catch (InvalidArgumentException $e) {
@@ -1007,24 +1074,25 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%) translateY(20px);
-        padding: 12px 24px;
+        padding: 13px 24px;
         border-radius: 12px;
         font-family: 'Onest', sans-serif;
         font-size: 14px;
-        z-index: 100002;
+        font-weight: 500;
+        z-index: 100005;
         display: flex;
         gap: 10px;
         align-items: center;
         opacity: 0;
-        transition: all 0.4s;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        background: rgba(29, 56, 123, 0.95);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast-container.success { border-color: #34d399; }
-    #toast-container.error { border-color: #f87171; background: rgba(74, 36, 61, 0.95); }
+    #toast-container.success { background: rgba(6, 44, 28, 0.96); border: 1.5px solid #51D55A; color: #d1fae5; box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25); }
+    #toast-container.error { background: rgba(45, 12, 18, 0.96); border: 1.5px solid #ef4444; color: #fee2e2; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25); }
+    #toast-container.warning { background: rgba(50, 30, 10, 0.96); border: 1.5px solid #f59e0b; color: #fef3c7; }
 
     #barcode-scanner-overlay { z-index: 100003; }
     #barcode-duplicate-overlay { z-index: 100003; }
@@ -1052,6 +1120,18 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: var(--iw-border) !important;
         box-shadow: var(--iw-shadow-dropdown) !important;
         color: var(--iw-text) !important;
+    }
+    [data-theme="light"] #toast-container.error {
+        background: #fef2f2 !important;
+        border-color: #ef4444 !important;
+        color: #991b1b !important;
+        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important;
+    }
+    [data-theme="light"] #toast-container.success {
+        background: #f0fdf4 !important;
+        border-color: #22c55e !important;
+        color: #166534 !important;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important;
     }
 
     /* ── Mobile: Full-height modal sheet (no outer scrollbar) ────────── */
@@ -1569,6 +1649,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <select name="unit" id="add-unit" class="premium-input inventory-select w-full cursor-pointer add-form-field" style="height:46px;" disabled>
                         <?php echo renderOptions($uoms, '', 'Select Unit'); ?>
                     </select>
+                    <p class="add-field-error" id="add-unit-error" hidden></p>
                 </div>
 
                 <div style="grid-column: span 2;">
@@ -1797,6 +1878,8 @@ const editInputs = <?php echo json_encode($edit_inputs); ?>;
 const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 const DB_BRANDS = <?php echo json_encode($brands); ?>;
 const DB_CATEGORIES = <?php echo json_encode($categories); ?>;
+const EXISTING_PRODUCTS = <?php echo json_encode($active_catalog_products); ?>;
+window.EXISTING_PRODUCTS = EXISTING_PRODUCTS;
 
 const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
@@ -2471,15 +2554,19 @@ function clearAddFormErrors() {
         el.textContent = '';
         el.hidden = true;
     });
-    document.querySelectorAll('#add-product-form .add-input-invalid').forEach(function (el) {
+    document.querySelectorAll('#add-product-form .add-input-invalid, #add-product-form .error-border').forEach(function (el) {
         el.classList.remove('add-input-invalid');
+        el.classList.remove('error-border');
     });
 }
 
 function setAddFieldError(inputId, errorId, message) {
     var input = document.getElementById(inputId);
     var errorEl = document.getElementById(errorId);
-    if (input) input.classList.add('add-input-invalid');
+    if (input) {
+        input.classList.add('add-input-invalid');
+        input.classList.add('error-border');
+    }
     if (errorEl) {
         errorEl.textContent = message;
         errorEl.hidden = false;
@@ -2489,7 +2576,10 @@ function setAddFieldError(inputId, errorId, message) {
 function clearAddFieldError(inputId, errorId) {
     var input = document.getElementById(inputId);
     var errorEl = document.getElementById(errorId);
-    if (input) input.classList.remove('add-input-invalid');
+    if (input) {
+        input.classList.remove('add-input-invalid');
+        input.classList.remove('error-border');
+    }
     if (errorEl) {
         errorEl.textContent = '';
         errorEl.hidden = true;
@@ -2560,56 +2650,102 @@ function submitAddProductForm() {
     }
 }
 
-// validateAddProductForm — barcode gate removed
+// validateAddProductForm — barcode gate removed, duplicate product gate added
 function validateAddProductForm() {
     clearAddFormErrors();
     var valid = true;
     var firstInvalid = null;
+    var primaryToastMsg = null;
 
-    var name = (document.getElementById('add-product-name')?.value || '').trim();
+    var nameInput = document.getElementById('add-product-name');
+    var name = (nameInput?.value || '').trim();
     if (!name) {
         setAddFieldError('add-product-name', 'add-product-name-error', 'Product name is required.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-product-name');
+        firstInvalid = firstInvalid || nameInput;
+        primaryToastMsg = primaryToastMsg || 'Product name is required.';
     }
 
-    var qtyRaw = document.getElementById('add-quantity')?.value ?? '';
+    var unitInput = document.getElementById('add-unit');
+    var unit = (unitInput?.value || '').trim();
+
+    // Check duplicate product: cannot add duplicate product unless different in UoM
+    if (name) {
+        var nameLower = name.toLowerCase();
+        var unitLower = unit.toLowerCase();
+        var isDuplicate = Array.isArray(window.EXISTING_PRODUCTS) && window.EXISTING_PRODUCTS.some(function(p) {
+            return (p.name || '').trim().toLowerCase() === nameLower &&
+                   (p.unit || '').trim().toLowerCase() === unitLower;
+        });
+
+        if (isDuplicate) {
+            var unitNotice = unit ? " with Unit of Measure '" + unit + "'" : " with no Unit of Measure";
+            setAddFieldError('add-product-name', 'add-product-name-error', 'Duplicate Product: A product with this name and unit already exists.');
+            if (unitInput) {
+                unitInput.classList.add('error-border');
+                unitInput.classList.add('add-input-invalid');
+            }
+            var unitErrEl = document.getElementById('add-unit-error');
+            if (unitErrEl) {
+                unitErrEl.textContent = 'Change the Unit of Measure or Product Name to avoid duplicates.';
+                unitErrEl.hidden = false;
+            }
+            valid = false;
+            firstInvalid = firstInvalid || nameInput;
+            primaryToastMsg = primaryToastMsg || ('Duplicate Product: "' + name + '"' + unitNotice + ' already exists in inventory.');
+        }
+    }
+
+    var qtyInput = document.getElementById('add-quantity');
+    var qtyRaw = qtyInput?.value ?? '';
     if (qtyRaw === '') {
         setAddFieldError('add-quantity', 'add-quantity-error', 'Quantity is required.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-quantity');
+        firstInvalid = firstInvalid || qtyInput;
+        primaryToastMsg = primaryToastMsg || 'Quantity is required.';
     } else if (!isValidWholeNumber(qtyRaw)) {
         setAddFieldError('add-quantity', 'add-quantity-error', 'Quantity must be a whole number of 0 or greater.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-quantity');
+        firstInvalid = firstInvalid || qtyInput;
+        primaryToastMsg = primaryToastMsg || 'Quantity must be a whole number of 0 or greater.';
     }
 
-    var rpRaw = document.getElementById('add-reorder-point')?.value ?? '';
+    var rpInput = document.getElementById('add-reorder-point');
+    var rpRaw = rpInput?.value ?? '';
     if (rpRaw !== '' && !isValidWholeNumber(rpRaw)) {
         setAddFieldError('add-reorder-point', 'add-reorder-point-error', 'Reorder point must be a whole number of 0 or greater.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-reorder-point');
+        firstInvalid = firstInvalid || rpInput;
+        primaryToastMsg = primaryToastMsg || 'Reorder point must be a whole number of 0 or greater.';
     }
 
-    var priceRaw = document.getElementById('add-price')?.value ?? '';
+    var priceInput = document.getElementById('add-price');
+    var priceRaw = priceInput?.value ?? '';
     if (priceRaw === '') {
         setAddFieldError('add-price', 'add-price-error', 'Price is required.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-price');
+        firstInvalid = firstInvalid || priceInput;
+        primaryToastMsg = primaryToastMsg || 'Price is required.';
     } else if (!isValidPrice(priceRaw)) {
         setAddFieldError('add-price', 'add-price-error', 'Price must be 0 or greater with up to 2 decimal places.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-price');
+        firstInvalid = firstInvalid || priceInput;
+        primaryToastMsg = primaryToastMsg || 'Price must be 0 or greater with up to 2 decimal places.';
     }
 
-    var slRaw = document.getElementById('add-shelf-life')?.value ?? '';
+    var slInput = document.getElementById('add-shelf-life');
+    var slRaw = slInput?.value ?? '';
     if (slRaw !== '' && !isValidWholeNumber(slRaw)) {
         setAddFieldError('add-shelf-life', 'add-shelf-life-error', 'Shelf life must be a whole number of 0 or greater.');
         valid = false;
-        firstInvalid = firstInvalid || document.getElementById('add-shelf-life');
+        firstInvalid = firstInvalid || slInput;
+        primaryToastMsg = primaryToastMsg || 'Shelf life must be a whole number of 0 or greater.';
     }
 
-    if (firstInvalid) firstInvalid.focus();
+    if (!valid) {
+        if (firstInvalid) firstInvalid.focus();
+        showToast(primaryToastMsg || 'Please fix the highlighted fields before saving.', 'error');
+    }
     return valid;
 }
 
@@ -2860,8 +2996,27 @@ function aiRemoveUploadedImage() {
     var uploadBtn      = document.getElementById('ai-upload-btn');
     var retakeBtn      = document.getElementById('ai-retake-btn');
 
+    // Validation 1: Verify whether an image is actually loaded
+    var hasB64 = imgField && imgField.value.trim() !== '';
+    var hasSrc = previewImg && previewImg.getAttribute('src') && previewImg.getAttribute('src').trim() !== '';
+    var hasFiles = (uploadInput && uploadInput.files && uploadInput.files.length > 0) ||
+                   (mobileCamInput && mobileCamInput.files && mobileCamInput.files.length > 0);
+
+    if (!hasB64 && !hasSrc && !hasFiles) {
+        showToast('No product image to remove.', 'error');
+        return;
+    }
+
+    // Validation 2: User confirmation before removing
+    if (!confirm('Are you sure you want to remove the selected product image?')) {
+        return;
+    }
+
     if (previewWrap) previewWrap.style.display = 'none';
-    if (previewImg)  previewImg.src            = '';
+    if (previewImg)  {
+        previewImg.src = '';
+        previewImg.removeAttribute('src');
+    }
     if (uploadInput) uploadInput.value         = '';
     if (mobileCamInput) mobileCamInput.value   = '';
     if (imgField)    imgField.value            = '';
@@ -2869,6 +3024,8 @@ function aiRemoveUploadedImage() {
     if (captureBtn)  captureBtn.style.display  = 'inline-flex';
     if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
     setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
+
+    showToast('Product reference image removed.', 'success');
 }
 
 function promptArchive(id, name) {
@@ -3001,15 +3158,73 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === this) closeEditModal();
     });
 
-    // Prevent double-submit
-    document.getElementById('edit-product-form')?.addEventListener('submit', function(e) {
+    // Prevent double-submit & Validate Edit Form
+    const editForm = document.getElementById('edit-product-form');
+    ['edit-name', 'edit-uom', 'edit-qty', 'edit-price'].forEach(function(id) {
+        var el = document.getElementById(id);
+        el?.addEventListener('input', function() {
+            this.classList.remove('error-border');
+        });
+        el?.addEventListener('change', function() {
+            this.classList.remove('error-border');
+        });
+    });
+
+    editForm?.addEventListener('submit', function(e) {
         if (editModalSubmitting) { e.preventDefault(); return; }
-        const name = document.getElementById('edit-name').value.trim();
-        const qty  = document.getElementById('edit-qty').value;
-        const price = document.getElementById('edit-price').value;
-        if (!name) { e.preventDefault(); document.getElementById('edit-name').focus(); return; }
-        if (qty === '' || isNaN(qty) || parseInt(qty) < 0) { e.preventDefault(); document.getElementById('edit-qty').focus(); return; }
-        if (price !== '' && !isValidPrice(price)) { e.preventDefault(); document.getElementById('edit-price').focus(); return; }
+        const nameEl  = document.getElementById('edit-name');
+        const uomEl   = document.getElementById('edit-uom');
+        const qtyEl   = document.getElementById('edit-qty');
+        const priceEl = document.getElementById('edit-price');
+        const idEl    = document.getElementById('edit-id');
+
+        const name  = nameEl ? nameEl.value.trim() : '';
+        const uom   = uomEl ? uomEl.value.trim() : '';
+        const qty   = qtyEl ? qtyEl.value : '';
+        const price = priceEl ? priceEl.value : '';
+        const editId= parseInt(idEl?.value || '0', 10);
+
+        if (!name) {
+            e.preventDefault();
+            nameEl.classList.add('error-border');
+            nameEl.focus();
+            showToast('Product name is required.', 'error');
+            return;
+        }
+
+        // Duplicate Product Validation for Edit (disallow same name & same UoM)
+        const nameLower = name.toLowerCase();
+        const uomLower  = uom.toLowerCase();
+        const isEditDuplicate = Array.isArray(window.EXISTING_PRODUCTS) && window.EXISTING_PRODUCTS.some(function(p) {
+            return p.id !== editId &&
+                   (p.name || '').trim().toLowerCase() === nameLower &&
+                   (p.unit || '').trim().toLowerCase() === uomLower;
+        });
+
+        if (isEditDuplicate) {
+            e.preventDefault();
+            nameEl.classList.add('error-border');
+            if (uomEl) uomEl.classList.add('error-border');
+            nameEl.focus();
+            const uomNotice = uom ? " with unit '" + uom + "'" : " with no unit";
+            showToast('Duplicate Product! Another item named "' + name + '"' + uomNotice + ' already exists.', 'error');
+            return;
+        }
+
+        if (qty === '' || isNaN(qty) || parseInt(qty, 10) < 0) {
+            e.preventDefault();
+            qtyEl.classList.add('error-border');
+            qtyEl.focus();
+            showToast('Quantity must be a whole number of 0 or greater.', 'error');
+            return;
+        }
+        if (price !== '' && !isValidPrice(price)) {
+            e.preventDefault();
+            priceEl.classList.add('error-border');
+            priceEl.focus();
+            showToast('Price must be a valid non-negative number with up to 2 decimal places.', 'error');
+            return;
+        }
         editModalSubmitting = true;
         const btn = document.getElementById('edit-product-submit');
         btn.disabled = true;
@@ -3066,11 +3281,9 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
         return;
     }
 
-    // Photo capture is optional — no scan gate required
-
+    // Photo capture is optional — validateAddProductForm handles error messages and toast
     if (!validateAddProductForm()) {
         e.preventDefault();
-        showToast('Please fix the highlighted fields before saving.', 'error');
         return;
     }
 
@@ -3079,14 +3292,67 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
 
 [
     ['add-product-name', 'add-product-name-error'],
+    ['add-unit', 'add-unit-error'],
     ['add-quantity', 'add-quantity-error'],
     ['add-reorder-point', 'add-reorder-point-error'],
-    ['add-price', 'add-price-error']
+    ['add-price', 'add-price-error'],
+    ['add-shelf-life', 'add-shelf-life-error']
 ].forEach(function (pair) {
-    document.getElementById(pair[0])?.addEventListener('input', function () {
-        clearAddFieldError(pair[0], pair[1]);
-    });
+    var el = document.getElementById(pair[0]);
+    if (el) {
+        el.addEventListener('input', function () {
+            clearAddFieldError(pair[0], pair[1]);
+        });
+        el.addEventListener('change', function () {
+            clearAddFieldError(pair[0], pair[1]);
+        });
+    }
 });
+
+// Real-time duplicate product checking on Add Product modal
+function checkAddProductDuplicateRealtime() {
+    var nameInput = document.getElementById('add-product-name');
+    var unitInput = document.getElementById('add-unit');
+    var unitErrEl = document.getElementById('add-unit-error');
+    var nameErrEl = document.getElementById('add-product-name-error');
+    if (!nameInput || !unitInput) return;
+
+    var name = nameInput.value.trim();
+    var unit = unitInput.value.trim();
+
+    if (!name) return;
+
+    var nameLower = name.toLowerCase();
+    var unitLower = unit.toLowerCase();
+    var isDuplicate = Array.isArray(window.EXISTING_PRODUCTS) && window.EXISTING_PRODUCTS.some(function(p) {
+        return (p.name || '').trim().toLowerCase() === nameLower &&
+               (p.unit || '').trim().toLowerCase() === unitLower;
+    });
+
+    if (isDuplicate) {
+        var uomNotice = unit ? " with unit '" + unit + "'" : " with the same unit";
+        setAddFieldError('add-product-name', 'add-product-name-error', 'Duplicate Product: An item with this name and unit already exists.');
+        unitInput.classList.add('error-border');
+        unitInput.classList.add('add-input-invalid');
+        if (unitErrEl) {
+            unitErrEl.textContent = 'Change the Unit of Measure or Product Name to avoid duplicates.';
+            unitErrEl.hidden = false;
+        }
+    } else {
+        if (nameErrEl && nameErrEl.textContent.includes('Duplicate Product')) {
+            clearAddFieldError('add-product-name', 'add-product-name-error');
+            unitInput.classList.remove('error-border');
+            unitInput.classList.remove('add-input-invalid');
+            if (unitErrEl) {
+                unitErrEl.textContent = '';
+                unitErrEl.hidden = true;
+            }
+        }
+    }
+}
+
+document.getElementById('add-product-name')?.addEventListener('input', checkAddProductDuplicateRealtime);
+document.getElementById('add-unit')?.addEventListener('change', checkAddProductDuplicateRealtime);
 
 ['add-quantity', 'add-reorder-point'].forEach(function (fieldId) {
     document.getElementById(fieldId)?.addEventListener('keydown', function (e) {
@@ -3175,25 +3441,6 @@ function initProductBarcodeInputs() {
 </script>
 
 <script>
-// ── Add Product: remove uploaded image ──────────────────────────────────────
-function aiRemoveUploadedImage() {
-    var previewWrap = document.getElementById('ai-upload-preview-wrap');
-    var previewImg  = document.getElementById('ai-upload-preview-img');
-    var imgField    = document.getElementById('add-product-image-b64');
-    var uploadInput = document.getElementById('ai-upload-input');
-    var captureBtn  = document.getElementById('ai-capture-btn');
-    var uploadBtn   = document.getElementById('ai-upload-btn');
-
-    if (previewWrap) previewWrap.style.display = 'none';
-    if (previewImg)  previewImg.src            = '';
-    if (imgField)    imgField.value            = '';
-    if (uploadInput) uploadInput.value         = '';
-    if (captureBtn)  captureBtn.style.display  = 'inline-flex';
-    if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
-
-    setAiStatus('Add a reference image — optional but recommended for AI scanning', 'idle');
-}
-
 // ── Edit Product: image helpers ─────────────────────────────────────────────
 function editSetImageState(hasImage) {
     var currentWrap  = document.getElementById('edit-image-current-wrap');
@@ -3240,12 +3487,17 @@ function editRemoveImage() {
     var fileInput   = document.getElementById('edit-image-file-input');
     var previewImg  = document.getElementById('edit-image-preview-img');
 
+    if (!confirm('Are you sure you want to remove the product image?')) {
+        return;
+    }
+
     if (actionField) actionField.value = 'remove';
     if (imgField)    imgField.value    = '';
     if (fileInput)   fileInput.value   = '';
     if (previewImg)  previewImg.src    = '';
 
     editSetImageState(false);
+    showToast('Product reference image removed.', 'success');
 }
 
 // ── In-place Ajax Pagination (No Full Page Reload) ───────────────────────────

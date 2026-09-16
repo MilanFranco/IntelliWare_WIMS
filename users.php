@@ -420,30 +420,61 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%) translateY(20px);
-        z-index: 9999;
+        z-index: 100005;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 10px;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: auto;
     }
     #toast-container.show { visibility: visible; transform: translateX(-50%) translateY(0); }
 
     .toast-box {
         background: rgba(19, 39, 91, 0.95);
-        border: 1px solid rgba(81, 213, 90, 0.3);
-        backdrop-filter: blur(10px);
-        padding: 14px 22px;
+        border: 1.5px solid rgba(81, 213, 90, 0.3);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 13px 22px;
         border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 12px;
         min-width: 320px;
+        max-width: 90vw;
         color: #fff;
         font-family: 'Onest', sans-serif;
     }
     .toast-box.confirm { border-color: #f87171; }
+    
+    /* Error Toast (Red) */
+    .toast-box.toast-error {
+        background: rgba(45, 12, 18, 0.96);
+        border-color: #ef4444;
+        color: #fee2e2;
+        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25);
+    }
+    /* Success Toast (Green) */
+    .toast-box.toast-success {
+        background: rgba(6, 44, 28, 0.96);
+        border-color: #51D55A;
+        color: #d1fae5;
+        box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25);
+    }
+
+    [data-theme="light"] .toast-box.toast-error {
+        background: #fef2f2 !important;
+        border-color: #ef4444 !important;
+        color: #991b1b !important;
+        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important;
+    }
+    [data-theme="light"] .toast-box.toast-success {
+        background: #f0fdf4 !important;
+        border-color: #22c55e !important;
+        color: #166534 !important;
+        box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important;
+    }
     .toast-actions { display: flex; gap: 8px; margin-left: auto; }
     .toast-btn {
         padding: 6px 14px;
@@ -462,22 +493,21 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
 
 <div id="toast-container"></div>
 
-<!-- Status Alerts -->
 <?php if (isset($_SESSION['success'])): ?>
-    <div class="alert alert-success">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-        <span><?php echo htmlspecialchars($_SESSION['success']); ?></span>
-    </div>
-    <?php unset($_SESSION['success']); ?>
-<?php endif; ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
+    });
+</script>
+<?php unset($_SESSION['success']); endif; ?>
 
 <?php if (isset($_SESSION['error'])): ?>
-    <div class="alert alert-error">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span><?php echo htmlspecialchars($_SESSION['error']); ?></span>
-    </div>
-    <?php unset($_SESSION['error']); ?>
-<?php endif; ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast(<?php echo json_encode($_SESSION['error']); ?>, 'error');
+    });
+</script>
+<?php unset($_SESSION['error']); endif; ?>
 
 <!-- 1. Hero Page Header Banner -->
 <div class="user-hero-card mb-6">
@@ -582,7 +612,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             </div>
             
             <div class="p-6">
-                <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form method="POST" id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="hidden" name="action" value="add">
                     
                     <div>
@@ -845,7 +875,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             </button>
         </div>
 
-        <form method="POST" class="space-y-4">
+        <form method="POST" id="editUserForm" class="space-y-4">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="user_id" id="editUserId">
 
@@ -961,6 +991,28 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         document.getElementById('editUserModal').classList.remove('show');
     }
 
+    // Standardized Bottom-Center Toast Notification (Color-Coded)
+    function showToast(message, type = 'error') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        container.innerHTML = ''; 
+        
+        const toast = document.createElement('div');
+        toast.className = 'toast-box ' + (type === 'success' ? 'toast-success' : 'toast-error');
+        const icon = type === 'success'
+            ? '<svg class="w-5 h-5 text-[#51D55A] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>'
+            : '<svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
+        
+        toast.innerHTML = icon + '<span style="font-weight:500; font-size:13.5px;">' + message + '</span>';
+        container.appendChild(toast);
+        container.classList.add('show');
+        
+        clearTimeout(container._timer);
+        container._timer = setTimeout(() => {
+            container.classList.remove('show');
+        }, 3500);
+    }
+
     // Delete Confirmation Toast
     function confirmDelete(userId, username) {
         const container = document.getElementById('toast-container');
@@ -987,6 +1039,118 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
     function submitDelete(userId) {
         document.getElementById('deleteUserId').value = userId;
         document.getElementById('deleteForm').submit();
+    }
+
+    // Client-side Validation: Provision New User
+    const createUserForm = document.getElementById('createUserForm');
+    if (createUserForm) {
+        const fullNameInput = createUserForm.querySelector('input[name="full_name"]');
+        const usernameInput = createUserForm.querySelector('input[name="username"]');
+        const passwordInput = createUserForm.querySelector('input[name="password"]');
+        const confirmInput  = createUserForm.querySelector('input[name="confirm_password"]');
+
+        [fullNameInput, usernameInput, passwordInput, confirmInput].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+        });
+
+        createUserForm.addEventListener('submit', function(e) {
+            if (!fullNameInput.value.trim()) {
+                e.preventDefault();
+                fullNameInput.classList.add('error-border');
+                fullNameInput.focus();
+                showToast('Full name is required.', 'error');
+                return;
+            }
+            if (!usernameInput.value.trim()) {
+                e.preventDefault();
+                usernameInput.classList.add('error-border');
+                usernameInput.focus();
+                showToast('Username is required.', 'error');
+                return;
+            }
+            if (!passwordInput.value) {
+                e.preventDefault();
+                passwordInput.classList.add('error-border');
+                passwordInput.focus();
+                showToast('Password is required.', 'error');
+                return;
+            }
+            if (passwordInput.value.length < 4) {
+                e.preventDefault();
+                passwordInput.classList.add('error-border');
+                passwordInput.focus();
+                showToast('Password must be at least 4 characters long.', 'error');
+                return;
+            }
+            if (passwordInput.value !== confirmInput.value) {
+                e.preventDefault();
+                confirmInput.classList.add('error-border');
+                confirmInput.focus();
+                showToast('Passwords do not match.', 'error');
+                return;
+            }
+        });
+    }
+
+    // Client-side Validation: Reset Password
+    const resetPassForm = document.getElementById('resetPassForm');
+    if (resetPassForm) {
+        const userSelect   = document.getElementById('resetUserSelect');
+        const newPassInput = resetPassForm.querySelector('input[name="new_password"]');
+        const confirmInput = resetPassForm.querySelector('input[name="confirm_new_password"]');
+
+        [userSelect, newPassInput, confirmInput].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+            el?.addEventListener('change', () => el.classList.remove('error-border'));
+        });
+
+        resetPassForm.addEventListener('submit', function(e) {
+            if (!userSelect.value) {
+                e.preventDefault();
+                userSelect.classList.add('error-border');
+                userSelect.focus();
+                showToast('Please select a target account.', 'error');
+                return;
+            }
+            if (!newPassInput.value) {
+                e.preventDefault();
+                newPassInput.classList.add('error-border');
+                newPassInput.focus();
+                showToast('New password cannot be empty.', 'error');
+                return;
+            }
+            if (newPassInput.value.length < 4) {
+                e.preventDefault();
+                newPassInput.classList.add('error-border');
+                newPassInput.focus();
+                showToast('Password must be at least 4 characters long.', 'error');
+                return;
+            }
+            if (newPassInput.value !== confirmInput.value) {
+                e.preventDefault();
+                confirmInput.classList.add('error-border');
+                confirmInput.focus();
+                showToast('New passwords do not match.', 'error');
+                return;
+            }
+        });
+    }
+
+    // Client-side Validation: Edit User Modal
+    const editUserForm = document.getElementById('editUserForm');
+    if (editUserForm) {
+        const editFullName = document.getElementById('editFullName');
+        editFullName?.addEventListener('input', () => editFullName.classList.remove('error-border'));
+
+        editUserForm.addEventListener('submit', function(e) {
+            if (!editFullName.value.trim()) {
+                e.preventDefault();
+                editFullName.classList.add('error-border');
+                editFullName.focus();
+                showToast('Full name cannot be empty.', 'error');
+                return;
+            }
+        });
     }
 </script>
 

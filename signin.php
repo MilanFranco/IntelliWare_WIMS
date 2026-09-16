@@ -303,9 +303,11 @@
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
             padding: 15px 25px; border-radius: 10px; font-family: 'Onest', sans-serif; 
             font-size: 14px; color: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            z-index: 1000; animation: fadein 0.5s, fadeout 0.5s 3s;
+            z-index: 100005; animation: fadein 0.5s, fadeout 0.5s 3s;
+            pointer-events: auto;
         }
         .toast.error { background-color: #dc3545; }
+        .toast.success { background-color: #51D55A; }
         
         @keyframes fadein { from { opacity: 0; bottom: 20px; } to { opacity: 1; bottom: 30px; } }
         @keyframes fadeout { from { opacity: 1; bottom: 30px; } to { opacity: 0; bottom: 20px; } }
@@ -428,6 +430,8 @@
                 if (username === '') usernameField.classList.add('error-border');
                 if (password === '') passwordField.classList.add('error-border');
 
+                document.querySelectorAll('.toast').forEach(t => t.remove());
+
                 const toast = document.createElement('div');
                 toast.className = 'toast error';
                 toast.innerText = 'Please fill in all fields.';
@@ -440,9 +444,24 @@
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('error') === 'invalid') {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
             const toast = document.createElement('div');
             toast.className = 'toast error';
             toast.innerText = 'Invalid username or password.';
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        } else if (urlParams.get('error') === 'empty') {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
+            const toast = document.createElement('div');
+            toast.className = 'toast error';
+            toast.innerText = 'Please fill in all fields.';
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        } else if (urlParams.get('success')) {
+            document.querySelectorAll('.toast').forEach(t => t.remove());
+            const toast = document.createElement('div');
+            toast.className = 'toast success';
+            toast.innerText = urlParams.get('success');
             document.body.appendChild(toast);
             setTimeout(() => { toast.remove(); }, 3000);
         }

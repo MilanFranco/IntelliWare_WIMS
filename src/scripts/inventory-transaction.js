@@ -672,6 +672,7 @@ var InventoryTransaction = (function () {
         if (!searchInput) return;
 
         searchInput.addEventListener('input', function () {
+            searchInput.classList.remove('error-border');
             var query = searchInput.value.trim();
             updateSearchClearBtn();
 
@@ -702,6 +703,7 @@ var InventoryTransaction = (function () {
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
                 searchInput.value = '';
+                searchInput.classList.remove('error-border');
                 updateSearchClearBtn();
                 closeSearchDropdown();
                 _lastQuery = '';
@@ -724,6 +726,11 @@ var InventoryTransaction = (function () {
 
     function validateAndSubmit(form) {
         if (cart.length === 0) {
+            var searchInput = document.getElementById('inv-product-search');
+            if (searchInput) {
+                searchInput.classList.add('error-border');
+                searchInput.focus();
+            }
             showToast('Add at least one product to the transaction.', 'error');
             return false;
         }

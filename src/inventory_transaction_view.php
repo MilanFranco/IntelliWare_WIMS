@@ -700,22 +700,26 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%) translateY(20px);
-        padding: 12px 24px;
+        padding: 13px 24px;
         border-radius: 12px;
         font-family: 'Onest', sans-serif;
         font-size: 14px;
-        z-index: 2000;
+        font-weight: 500;
+        z-index: 100005;
         opacity: 0;
-        transition: all 0.4s;
-        border: 1px solid rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
+        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
     }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast-container.success { background-color: rgba(6,95,70,0.9); border-color: #34d399; color: #d1fae5; }
-    #toast-container.error   { background-color: rgba(127,29,29,0.9); border-color: #f87171; color: #fee2e2; }
+    #toast-container.success { background-color: rgba(6,44,28,0.96); border: 1.5px solid #51D55A; color: #d1fae5; box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25); }
+    #toast-container.error   { background-color: rgba(45,12,18,0.96); border: 1.5px solid #ef4444; color: #fee2e2; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25); }
+    [data-theme="light"] #toast-container.error { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important; }
+    [data-theme="light"] #toast-container.success { background: #f0fdf4 !important; border-color: #22c55e !important; color: #166534 !important; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important; }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>

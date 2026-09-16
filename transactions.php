@@ -317,11 +317,13 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     }
     .btn-scan:hover { border-color: #51D55A; color: #51D55A; }
 
-    /* Toast Notification CSS */
-    #toast-container { visibility: hidden; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 12px 24px; border-radius: 12px; font-family: 'Onest', sans-serif; font-size: 14px; z-index: 2000; display: flex; gap: 12px; opacity: 0; transition: all 0.4s; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+    /* Toast Notification CSS — Unified Color-Coded */
+    #toast-container { visibility: hidden; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 13px 24px; border-radius: 12px; font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 500; z-index: 100005; display: flex; gap: 10px; align-items: center; opacity: 0; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast-container.success { background-color: rgba(6, 95, 70, 0.9); border-color: #34d399; color: #d1fae5; }
-    #toast-container.error { background-color: rgba(127, 29, 29, 0.9); border-color: #f87171; color: #fee2e2; }
+    #toast-container.success { background-color: rgba(6, 44, 28, 0.96); border: 1.5px solid #51D55A; color: #d1fae5; box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25); }
+    #toast-container.error { background-color: rgba(45, 12, 18, 0.96); border: 1.5px solid #ef4444; color: #fee2e2; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25); }
+    [data-theme="light"] #toast-container.error { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important; }
+    [data-theme="light"] #toast-container.success { background: #f0fdf4 !important; border-color: #22c55e !important; color: #166534 !important; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important; }
 
     /* Action card grid (Receive / Release) */
     .txn-action-grid { display:grid; grid-template-columns:1fr; gap:12px; }
@@ -547,7 +549,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 
     <?php if ($action): ?>
     <div class="p-6 border-t border-[#2A4484]/30">
-        <form method="POST">
+        <form method="POST" id="txnSingleForm">
             <input type="hidden" name="type" value="<?php echo htmlspecialchars($action); ?>">
             <div class="txn-form-grid">
                 <div class="txn-field">
@@ -880,6 +882,27 @@ function showToast(message, type) {
     }
     setTimeout(function() { toast.classList.remove('show'); }, 3500);
 }
+
+document.getElementById('txnSingleForm')?.addEventListener('submit', function(e) {
+    const sel = document.getElementById('productSelect');
+    const qty = document.getElementById('txn-qty-input');
+    if (sel && !sel.value) {
+        e.preventDefault();
+        sel.classList.add('error-border');
+        sel.focus();
+        showToast('Please select a product first.', 'error');
+        return;
+    }
+    if (qty && (!qty.value || parseInt(qty.value, 10) < 1)) {
+        e.preventDefault();
+        qty.classList.add('error-border');
+        qty.focus();
+        showToast('Quantity must be at least 1.', 'error');
+        return;
+    }
+});
+document.getElementById('productSelect')?.addEventListener('change', function() { this.classList.remove('error-border'); });
+document.getElementById('txn-qty-input')?.addEventListener('input', function() { this.classList.remove('error-border'); });
 
 function initTransactionBarcodeInputs() {
     if (!window.BarcodeScanner) return;

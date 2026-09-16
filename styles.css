@@ -429,55 +429,95 @@ body::before {
 }
 
 
-/*TOAST or notifffff :D reuse it if uu can @ED AND @MILAN*/
-.toast {
+/* ============================================================
+   GLOBAL TOAST & VALIDATION SYSTEM
+   Harmonized to Login Page Position & Color-Coded Validation:
+   Error = Red (#ef4444) | Success = Green (#51D55A)
+   Position: Fixed Bottom-Center (bottom: 30px; left: 50%)
+   ============================================================ */
+#toast-container {
     position: fixed;
     bottom: 30px;
     left: 50%;
-    transform: translateX(-50%);
-    padding: 15px 25px;
-    color: #fff;
-    border-radius: 10px;
+    transform: translateX(-50%) translateY(20px);
+    padding: 13px 24px;
+    border-radius: 12px;
     font-family: 'Onest', sans-serif;
     font-size: 14px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    z-index: 1000;
-    animation: fadein 0.5s, fadeout 0.5s 3s;
+    font-weight: 500;
+    z-index: 100005;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+    max-width: 90vw;
 }
 
-.toast.success {
-    background-color: #28a745;
+#toast-container.show {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
-.toast.error {
-    background-color: #dc3545;
+/* Error: Color-Coded RED */
+#toast-container.error {
+    background: rgba(45, 12, 18, 0.95);
+    border: 1.5px solid #ef4444;
+    color: #fee2e2;
+    box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25);
 }
 
-.toast.success {
-    background-color: #4CAF50; /* Green */
-    color: white;
+/* Success: Color-Coded GREEN */
+#toast-container.success {
+    background: rgba(6, 44, 28, 0.95);
+    border: 1.5px solid #51D55A;
+    color: #d1fae5;
+    box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25);
 }
 
-@keyframes fadein {
-    from { opacity: 0; bottom: 20px; }
-    to { opacity: 1; bottom: 30px; }
+/* Light Theme Overrides for Toasts */
+[data-theme="light"] #toast-container.error {
+    background: #fef2f2 !important;
+    border-color: #ef4444 !important;
+    color: #991b1b !important;
+    box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important;
 }
 
-@keyframes fadeout {
-    from { opacity: 1; bottom: 30px; }
-    to { opacity: 0; bottom: 20px; }
+[data-theme="light"] #toast-container.success {
+    background: #f0fdf4 !important;
+    border-color: #22c55e !important;
+    color: #166534 !important;
+    box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important;
 }
 
-
-.tf input.error-border {
-    border: 1px solid #dc3545 !important;
-    box-shadow: 0 0 1px #dc3545 !important;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    
+/* Field Validation Border: Color-Coded RED for Error */
+.error-border,
+.premium-input.error-border,
+.tf input.error-border,
+input.error-border,
+select.error-border,
+textarea.error-border {
+    border: 1.5px solid #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25) !important;
+    outline: none !important;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
+/* Field Validation Border: Color-Coded GREEN for Success / Match */
+.success-border,
+.match-border,
+.premium-input.success-border,
 input.match-border {
-    border: 2px solid #4CAF50; 
+    border: 1.5px solid #51D55A !important;
+    box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.25) !important;
+    outline: none !important;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 @keyframes shake {

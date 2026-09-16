@@ -505,18 +505,22 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
     }
 </style>
 
-<!-- Flash Notifications -->
+<!-- Bottom-Center Toast Notifications -->
+<div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
+
 <?php if ($success): ?>
-    <div class="alert alert-success">
-        <svg class="w-5 h-5 flex-shrink-0 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-        <span><?php echo htmlspecialchars($success); ?></span>
-    </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast(<?php echo json_encode($success); ?>, 'success');
+    });
+</script>
 <?php endif; ?>
 <?php if ($error): ?>
-    <div class="alert alert-error">
-        <svg class="w-5 h-5 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <span><?php echo htmlspecialchars($error); ?></span>
-    </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast(<?php echo json_encode($error); ?>, 'error');
+    });
+</script>
 <?php endif; ?>
 
 <!-- Header Banner Card -->
@@ -651,7 +655,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
             </div>
 
             <div class="p-6">
-                <form method="POST" class="space-y-5">
+                <form method="POST" id="rulesForm" class="space-y-5">
                     <input type="hidden" name="update_rules" value="1">
 
                     <div>
@@ -775,7 +779,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                 </div>
 
                 <div class="p-6">
-                    <form method="POST" class="space-y-6">
+                    <form method="POST" id="notifForm" class="space-y-6">
                         <input type="hidden" name="update_notifications" value="1">
 
                         <!-- Channels Grid -->
@@ -1158,7 +1162,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                 </div>
 
                 <div class="p-6">
-                    <form method="POST" class="space-y-5">
+                    <form method="POST" id="profileForm" class="space-y-5">
                         <input type="hidden" name="update_profile" value="1">
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1497,6 +1501,139 @@ document.addEventListener('DOMContentLoaded', function() {
                 visionFeedback.className = 'p-3.5 rounded-xl border text-xs font-onest flex items-center gap-3 bg-red-500/15 text-red-300 border-red-500/30';
                 visionFeedback.innerHTML = '🔴 Request error: ' + err.message;
             });
+        });
+    }
+
+    // Standardized Bottom-Center Toast Notification (Color-Coded)
+    window.showToast = function(message, type = 'error') {
+        let t = document.getElementById('toast-container');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'toast-container';
+            document.body.appendChild(t);
+        }
+        let icon = document.getElementById('toast-icon');
+        let msgEl = document.getElementById('toast-message');
+        if (!icon || !msgEl) {
+            t.innerHTML = '<span id="toast-icon"></span><span id="toast-message"></span>';
+            icon = document.getElementById('toast-icon');
+            msgEl = document.getElementById('toast-message');
+        }
+        msgEl.innerText = message;
+        t.className = 'show ' + (type === 'success' ? 'success' : 'error');
+
+        icon.innerHTML = type === 'success'
+            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>'
+            : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
+
+        clearTimeout(t._timer);
+        t._timer = setTimeout(() => t.classList.remove('show'), 3500);
+    };
+
+    // Client-side Validation: Operator Profile
+    const profileForm = document.getElementById('profileForm');
+    if (profileForm) {
+        const usernameInput = profileForm.querySelector('input[name="new_username"]');
+        const emailInput    = profileForm.querySelector('input[name="email"]');
+        const newPassInput  = profileForm.querySelector('input[name="new_password"]');
+        const confPassInput = profileForm.querySelector('input[name="confirm_password"]');
+
+        [usernameInput, emailInput, newPassInput, confPassInput].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+        });
+
+        profileForm.addEventListener('submit', function(e) {
+            if (!usernameInput.value.trim()) {
+                e.preventDefault();
+                usernameInput.classList.add('error-border');
+                usernameInput.focus();
+                showToast('Username cannot be empty.', 'error');
+                return;
+            }
+            if (emailInput.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
+                e.preventDefault();
+                emailInput.classList.add('error-border');
+                emailInput.focus();
+                showToast('Please enter a valid email address.', 'error');
+                return;
+            }
+            if (newPassInput.value) {
+                if (newPassInput.value.length < 6) {
+                    e.preventDefault();
+                    newPassInput.classList.add('error-border');
+                    newPassInput.focus();
+                    showToast('New password must be at least 6 characters long.', 'error');
+                    return;
+                }
+                if (newPassInput.value !== confPassInput.value) {
+                    e.preventDefault();
+                    confPassInput.classList.add('error-border');
+                    confPassInput.focus();
+                    showToast('New passwords do not match.', 'error');
+                    return;
+                }
+            }
+        });
+    }
+
+    // Client-side Validation: Rules & Thresholds
+    const rulesForm = document.getElementById('rulesForm');
+    if (rulesForm) {
+        const lowStock  = rulesForm.querySelector('input[name="low_stock"]');
+        const overStock = rulesForm.querySelector('input[name="over_stock"]');
+
+        [lowStock, overStock].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+        });
+
+        rulesForm.addEventListener('submit', function(e) {
+            const lowVal  = parseInt(lowStock.value, 10);
+            const overVal = parseInt(overStock.value, 10);
+
+            if (isNaN(lowVal) || lowVal < 1) {
+                e.preventDefault();
+                lowStock.classList.add('error-border');
+                lowStock.focus();
+                showToast('Low stock threshold must be at least 1.', 'error');
+                return;
+            }
+            if (isNaN(overVal) || overVal <= lowVal) {
+                e.preventDefault();
+                overStock.classList.add('error-border');
+                overStock.focus();
+                showToast('Overstock threshold must be greater than low stock threshold.', 'error');
+                return;
+            }
+        });
+    }
+
+    // Client-side Validation: Notification Alerts
+    const notifForm = document.getElementById('notifForm');
+    if (notifForm) {
+        const smsToggle = notifForm.querySelector('input[name="notif_sms_enabled"]');
+        const smsInput  = notifForm.querySelector('input[name="notif_sms_recipients"]');
+        const emailToggle = notifForm.querySelector('input[name="notif_email_enabled"]');
+        const emailInput  = notifForm.querySelector('input[name="notif_email_recipients"]');
+
+        [smsInput, emailInput].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+        });
+
+        notifForm.addEventListener('submit', function(e) {
+            if (smsToggle?.checked && !smsInput.value.trim()) {
+                e.preventDefault();
+                smsInput.classList.add('error-border');
+                smsInput.focus();
+                showToast('Please enter at least one recipient mobile number for SMS alerts.', 'error');
+                return;
+            }
+            if (emailToggle?.checked && !emailInput.value.trim()) {
+                e.preventDefault();
+                emailInput.classList.add('error-border');
+                emailInput.focus();
+                showToast('Please enter at least one recipient email address for Email alerts.', 'error');
+                return;
+            }
         });
     }
 });
