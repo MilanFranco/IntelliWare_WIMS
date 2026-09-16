@@ -35,11 +35,20 @@ try {
         exit();
     }
 
-    // 2. GET /forecast?period=monthly
+    // 2. GET /forecast?period=monthly&month=9
     if ($endpoint === 'forecast' && $method === 'GET') {
         $period = trim((string)($_GET['period'] ?? 'monthly'));
-        $data = $engine->getForecast($period);
+        $month = isset($_GET['month']) ? (int)$_GET['month'] : (isset($_GET['selected_month']) ? (int)$_GET['selected_month'] : null);
+        $data = $engine->getForecast($period, $month);
         echo json_encode(array_merge(['success' => true], $data));
+        exit();
+    }
+
+    // 2b. GET /philippine_seasonal?month=9
+    if (($endpoint === 'philippine_seasonal' || $endpoint === 'seasonal') && $method === 'GET') {
+        $month = isset($_GET['month']) ? (int)$_GET['month'] : (isset($_GET['selected_month']) ? (int)$_GET['selected_month'] : (int)date('n'));
+        $data = $engine->getPhilippineSeasonalForecast($month);
+        echo json_encode($data);
         exit();
     }
 

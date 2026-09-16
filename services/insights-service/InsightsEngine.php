@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/../../src/services/PhilippineSeasonalService.php';
 
 class InsightsEngine
 {
@@ -45,13 +46,34 @@ class InsightsEngine
     }
 
     /**
-     * Get period forecast (weekly, monthly, quarterly, semi-annual, annual).
-     * Reads directly from pre-calculated cache (<15ms).
+     * Get Philippine dynamic seasonal forecast for any specific month (1 to 12).
      */
-    public function getForecast(string $period = 'monthly', bool $autoGenerateIfEmpty = true): array
+    public function getPhilippineSeasonalForecast(int $month = 0): array
+    {
+        if ($month < 1 || $month > 12) {
+            $month = (int)date('n');
+        }
+
+        $seasonalData = PhilippineSeasonalService::matchInventoryForMonth($this->conn, $month);
+        return array_merge([
+            'success'                => true,
+            'month'                  => $month,
+            'computed_at'            => date('Y-m-d H:i:s'),
+            'last_updated_formatted' => date('F j, Y, g:i A'),
+            'source'                 => 'philippine_seasonal_engine'
+        ], $seasonalData);
+    }
+
+    /**
+     * Get period forecast (weekly, monthly, quarterly, semi-annual, annual).
+     * Reads directly from pre-calculated cache (<15ms) or dynamically computes for custom months.
+     */
+    public function getForecast(string $period = 'monthly', ?int $month = null, bool $autoGenerateIfEmpty = true): array
     {
         $period = in_array($period, ['weekly', 'monthly', 'quarterly', 'semi-annual', 'annual'], true) ? $period : 'monthly';
-        $currentKey = $this->resolvePeriodKey($period);
+        $currentKey = ($period === 'monthly' && $month !== null && $month >= 1 && $month <= 12) 
+            ? (date('Y-') . sprintf('%02d', $month))
+            : $this->resolvePeriodKey($period);
 
         $stmt = $this->conn->prepare("
             SELECT predictions_data, computed_at 
@@ -77,7 +99,7 @@ class InsightsEngine
 
         if ($autoGenerateIfEmpty) {
             $this->computeAndStoreForecasts();
-            return $this->getForecast($period, false);
+            return $this->getForecast($period, $month, false);
         }
 
         return ['source' => 'empty', 'items' => []];

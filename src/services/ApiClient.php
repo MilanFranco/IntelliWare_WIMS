@@ -121,6 +121,17 @@ class ApiClient
      */
     public static function getInsightsSummary(): array
     {
+        // 1. Instant in-process execution (<1ms) if local repository is available
+        if (class_exists('InsightsEngine')) {
+            try {
+                $engine = new InsightsEngine();
+                return $engine->getSummary();
+            } catch (Throwable $e) {
+                error_log('[ApiClient] In-process Insights summary error: ' . $e->getMessage());
+            }
+        }
+
+        // 2. Fallback to HTTP microservice if deployed remotely
         $url = self::$insightsBaseUrl . '?endpoint=summary';
         $response = self::httpGet($url, 1500);
 
@@ -153,9 +164,23 @@ class ApiClient
     /**
      * Fetch pre-calculated forecast from Insights Microservice.
      */
-    public static function getInsightsForecast(string $period = 'monthly'): array
+    public static function getInsightsForecast(string $period = 'monthly', ?int $month = null): array
     {
+        // 1. Instant in-process execution (<1ms) if local repository is available
+        if (class_exists('InsightsEngine')) {
+            try {
+                $engine = new InsightsEngine();
+                return $engine->getForecast($period, $month);
+            } catch (Throwable $e) {
+                error_log('[ApiClient] In-process Insights forecast error: ' . $e->getMessage());
+            }
+        }
+
+        // 2. Fallback to HTTP microservice if deployed remotely
         $url = self::$insightsBaseUrl . '?endpoint=forecast&period=' . urlencode($period);
+        if ($month !== null && $month >= 1 && $month <= 12) {
+            $url .= '&month=' . $month;
+        }
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success'])) {
@@ -164,7 +189,7 @@ class ApiClient
 
         try {
             $engine = new InsightsEngine();
-            return $engine->getForecast($period);
+            return $engine->getForecast($period, $month);
         } catch (Throwable $e) {
             error_log('[ApiClient] Insights forecast fallback error: ' . $e->getMessage());
             return [
@@ -172,6 +197,33 @@ class ApiClient
                 'period_type'     => $period,
                 'items'           => [],
                 'service_offline' => true
+            ];
+        }
+    }
+
+    /**
+     * Fetch Philippine seasonal demand analysis and matched products for a specific month.
+     */
+    public static function getPhilippineSeasonalForecast(int $month = 0): array
+    {
+        $month = ($month >= 1 && $month <= 12) ? $month : (int)date('n');
+        $url = self::$insightsBaseUrl . '?endpoint=philippine_seasonal&month=' . $month;
+        $response = self::httpGet($url, 1500);
+
+        if ($response && !empty($response['success'])) {
+            return $response;
+        }
+
+        try {
+            $engine = new InsightsEngine();
+            return $engine->getPhilippineSeasonalForecast($month);
+        } catch (Throwable $e) {
+            error_log('[ApiClient] Philippine seasonal forecast fallback error: ' . $e->getMessage());
+            return [
+                'success'       => false,
+                'month'         => $month,
+                'month_profile' => [],
+                'items'         => []
             ];
         }
     }
