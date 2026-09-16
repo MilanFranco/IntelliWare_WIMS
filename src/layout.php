@@ -186,14 +186,18 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0" />';
     echo '<link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">';
     echo '<script>(function(){var t=localStorage.getItem("iw-theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>';
-    echo '<link href="styles.css" rel="stylesheet" />';
-    echo '<link href="theme.css" rel="stylesheet" />';
-    echo '<link href="mobile.css" rel="stylesheet" />';
+    $cssVerStyles = file_exists(__DIR__ . '/../styles.css') ? filemtime(__DIR__ . '/../styles.css') : time();
+    $cssVerTheme  = file_exists(__DIR__ . '/../theme.css') ? filemtime(__DIR__ . '/../theme.css') : time();
+    $cssVerMobile = file_exists(__DIR__ . '/../mobile.css') ? filemtime(__DIR__ . '/../mobile.css') : time();
+    echo '<link href="styles.css?v=' . $cssVerStyles . '" rel="stylesheet" />';
+    echo '<link href="theme.css?v=' . $cssVerTheme . '" rel="stylesheet" />';
+    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
     echo '<script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add(\'iw-no-tailwind\')"></script>';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
-        echo '<link href="admin_dashboard.css" rel="stylesheet">';
+        $cssVerAdmin = file_exists(__DIR__ . '/../admin_dashboard.css') ? filemtime(__DIR__ . '/../admin_dashboard.css') : time();
+        echo '<link href="admin_dashboard.css?v=' . $cssVerAdmin . '" rel="stylesheet">';
     }
 
     echo '<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>';
@@ -215,6 +219,9 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.btn:hover, .btn-primary:hover, .premium-button:hover, .button-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
     echo '.btn:hover::before, .btn-primary:hover::before, .premium-button:hover::before, .button-primary:hover::before { left: 100%; }';
     echo '.btn:active, .btn-primary:active, .button-primary:active, .premium-button:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1); }';
+    // Light mode: solid flat green (no gradient) for primary buttons
+    echo '[data-theme="light"] .btn, [data-theme="light"] .btn-primary, [data-theme="light"] .premium-button, [data-theme="light"] .button-primary { background: #1B8F3E !important; color: #FFFFFF !important; border-color: #157832 !important; box-shadow: 0 4px 12px -4px rgba(27, 143, 62, 0.45) !important; }';
+    echo '[data-theme="light"] .btn:hover, [data-theme="light"] .btn-primary:hover, [data-theme="light"] .premium-button:hover, [data-theme="light"] .button-primary:hover { background: #157832 !important; box-shadow: 0 6px 16px -4px rgba(27, 143, 62, 0.55) !important; }';
     echo '.btn-secondary, .button-secondary, .btn-outline { background: rgba(81, 213, 90, 0.12) !important; color: #51D55A !important; border: 1.5px solid rgba(81, 213, 90, 0.45) !important; border-radius: 12px; padding: 10px 22px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; text-decoration: none; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(81, 213, 90, 0.1); user-select: none; }';
     echo '.btn-secondary:hover, .button-secondary:hover, .btn-outline:hover { background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important; color: #ffffff !important; border-color: #51D55A !important; box-shadow: 0 4px 16px rgba(81, 213, 90, 0.4) !important; transform: translateY(-1.5px); }';
     echo '.btn-secondary:hover svg, .button-secondary:hover svg, .btn-outline:hover svg { stroke: #ffffff !important; color: #ffffff !important; }';
@@ -282,8 +289,28 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.dropdown-backdrop.show { opacity: 1; visibility: visible; }';
     echo '</style>';
     echo '<style id="iw-tailwind-overrides">';
-    echo '[data-theme="light"] .hero-forecast-btn { background: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; background-image: linear-gradient(to right, #E8EFF6, #D8E6F0) !important; color: #0F172A !important; border-color: #7A92A8 !important; box-shadow: 0 2px 8px rgba(55, 75, 99, 0.1) !important; --tw-gradient-from: #E8EFF6 !important; --tw-gradient-to: #D8E6F0 !important; }';
-    echo '[data-theme="light"] .hero-forecast-btn:hover { background: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; background-image: linear-gradient(to right, #DCE8F2, #CDDFEA) !important; border-color: rgba(22, 163, 74, 0.45) !important; color: #0F172A !important; box-shadow: 0 4px 12px rgba(55, 75, 99, 0.12) !important; }';
+    /* Hero eyebrow spans */
+    echo '[data-theme="light"] .hero-brand { color: #14509E !important; font-weight: 700; }';
+    echo '[data-theme="light"] .hero-dot { color: #94A3B8 !important; }';
+    echo '[data-theme="light"] .hero-ccenter { color: #0F6E2C !important; font-weight: 700; }';
+    echo '[data-theme="light"] .hero-eyebrow { text-transform: none !important; letter-spacing: 0 !important; font-size: 11px !important; }';
+    /* Hero card h2 greeting */
+    echo '[data-theme="light"] .premium-card h2.font-bold.text-white { color: #0B1526 !important; font-size: 19px !important; }';
+    /* Role badge */
+    echo '[data-theme="light"] .premium-card .bg-blue-500\/15.text-blue-300 { background: #DCEAFC !important; color: #14509E !important; border-color: #AECCF2 !important; }';
+    /* Hero subtext */
+    echo '[data-theme="light"] .premium-card p.text-\\[\\#9aa6d1\\] { color: #45526B !important; }';
+    /* Status summary numbers via Tailwind class prose */
+    echo '[data-theme="light"] .premium-card p strong { color: #0B1526 !important; }';
+    /* Primary action button (View full forecast) — spec green */
+    echo '[data-theme="light"] .premium-button { background: linear-gradient(180deg, #22A34A 0%, #0F6E2C 100%) !important; color: #FFFFFF !important; border-color: #0F6E2C !important; box-shadow: 0 8px 18px -8px rgba(15,110,44,0.5) !important; }';
+    echo '[data-theme="light"] .premium-button:hover { background: linear-gradient(180deg, #1D9442 0%, #0D6028 100%) !important; }';
+    /* Also override hero-forecast-btn if used elsewhere */
+    echo '[data-theme="light"] .hero-forecast-btn { background: linear-gradient(180deg, #22A34A 0%, #0F6E2C 100%) !important; color: #FFFFFF !important; border-color: #0F6E2C !important; box-shadow: 0 8px 18px -8px rgba(15,110,44,0.5) !important; }';
+    echo '[data-theme="light"] .hero-forecast-btn:hover { background: linear-gradient(180deg, #1D9442 0%, #0D6028 100%) !important; border-color: #0D6028 !important; }';
+    /* Secondary button (Add product) — flat pale green */
+    echo '[data-theme="light"] .btn-secondary { background: #E3F5E8 !important; color: #0F6E2C !important; border: 1.5px solid #A9DFB8 !important; box-shadow: none !important; }';
+    echo '[data-theme="light"] .btn-secondary svg { stroke: #0F6E2C !important; color: #0F6E2C !important; }';
     echo '.iw-sidebar-logo-dark { display: block; }';
     echo '.iw-sidebar-logo-light { display: none; }';
     echo '[data-theme="light"] .iw-sidebar-logo-dark { display: none !important; }';
@@ -325,17 +352,20 @@ function renderLayoutFooter() {
     echo '<script>';
     ?>
     
+    function isOverlayMode() {
+        return window.innerWidth <= 1024;
+    }
+
     function isMobile() {
-        return window.innerWidth < 1024;
+        return window.innerWidth <= 1024;
     }
 
     function openSidebar() {
         const sidebar = document.getElementById('main-sidebar');
         const overlay = document.getElementById('sidebar-overlay');
         sidebar.classList.remove('sidebar-hidden');
-        if (overlay && isMobile()) {
+        if (overlay && isOverlayMode()) {
             overlay.classList.add('active');
-            document.body.style.overflow = 'hidden';
         }
     }
 
@@ -345,7 +375,6 @@ function renderLayoutFooter() {
         sidebar.classList.add('sidebar-hidden');
         if (overlay) {
             overlay.classList.remove('active');
-            document.body.style.overflow = '';
         }
     }
 
@@ -357,8 +386,8 @@ function renderLayoutFooter() {
         } else {
             closeSidebar();
         }
-        if (!isMobile()) {
-            // Persist preference on desktop only
+        if (!isOverlayMode()) {
+            // Persist preference on desktop only (sidebar pushes content there)
             localStorage.setItem('sidebarHidden', sidebar.classList.contains('sidebar-hidden') ? 'true' : 'false');
         }
     }
@@ -367,12 +396,12 @@ function renderLayoutFooter() {
     document.addEventListener('DOMContentLoaded', function() {
         const sidebar = document.getElementById('main-sidebar');
         const overlay = document.getElementById('sidebar-overlay');
-        if (isMobile()) {
-            // On mobile: always start closed (overlay drawer)
+        if (isOverlayMode()) {
+            // Mobile & tablet: always start closed — sidebar is an overlay drawer
             sidebar.classList.add('sidebar-hidden');
             if (overlay) overlay.classList.remove('active');
         } else {
-            // On desktop: restore saved preference
+            // Desktop: restore saved preference
             const isHidden = localStorage.getItem('sidebarHidden');
             if (isHidden === 'true') {
                 sidebar.classList.add('sidebar-hidden');
@@ -380,17 +409,15 @@ function renderLayoutFooter() {
         }
     });
 
-    // Close sidebar if window is resized from mobile to desktop
+    // Handle resize across breakpoints
     window.addEventListener('resize', function() {
         const sidebar = document.getElementById('main-sidebar');
         const overlay = document.getElementById('sidebar-overlay');
-        if (!isMobile()) {
-            // Desktop: remove overlay
+        if (!isOverlayMode()) {
+            // Entered desktop: remove overlay, restore desktop preference
             if (overlay) {
                 overlay.classList.remove('active');
-                document.body.style.overflow = '';
             }
-            // Restore desktop preference
             const isHidden = localStorage.getItem('sidebarHidden');
             if (isHidden === 'true') {
                 sidebar.classList.add('sidebar-hidden');
@@ -398,9 +425,11 @@ function renderLayoutFooter() {
                 sidebar.classList.remove('sidebar-hidden');
             }
         } else {
-            // Switched to mobile: close sidebar
+            // Entered mobile/tablet overlay mode: close sidebar, hide overlay
             sidebar.classList.add('sidebar-hidden');
-            if (overlay) overlay.classList.remove('active');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
         }
     });
 

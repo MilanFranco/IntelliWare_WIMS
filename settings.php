@@ -128,19 +128,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                 $checkStmt->close();
             }
 
+            $userNotifEnabled = isset($_POST['user_notif_email_enabled']) ? 1 : 0;
+            $userNotificationEmail = trim($_POST['user_notification_email'] ?? '');
+
             if (!empty($newPassword)) {
                 $hashedPwd = password_hash($newPassword, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE users SET username = ?, full_name = ?, email = ?, password = ? WHERE username = ?");
-                $stmt->bind_param("sssss", $newUsername, $newFullName, $newEmail, $hashedPwd, $currentUser);
+                $stmt = $conn->prepare("UPDATE users SET username = ?, full_name = ?, email = ?, password = ?, notif_email_enabled = ?, notification_email = ? WHERE username = ?");
+                $stmt->bind_param("ssssiss", $newUsername, $newFullName, $newEmail, $hashedPwd, $userNotifEnabled, $userNotificationEmail, $currentUser);
             } else {
-                $stmt = $conn->prepare("UPDATE users SET username = ?, full_name = ?, email = ? WHERE username = ?");
-                $stmt->bind_param("ssss", $newUsername, $newFullName, $newEmail, $currentUser);
+                $stmt = $conn->prepare("UPDATE users SET username = ?, full_name = ?, email = ?, notif_email_enabled = ?, notification_email = ? WHERE username = ?");
+                $stmt->bind_param("sssiss", $newUsername, $newFullName, $newEmail, $userNotifEnabled, $userNotificationEmail, $currentUser);
             }
 
             if ($stmt->execute()) {
                 $_SESSION['Username'] = $newUsername;
                 $currentUser = $newUsername;
-                $_SESSION['success'] = "Profile credentials and details updated successfully.";
+                $_SESSION['success'] = "Profile credentials and notification preferences updated successfully.";
             } else {
                 throw new Exception("Failed to update user profile in database.");
             }
@@ -199,6 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notifications'
         saveNotificationSetting($conn, 'notif_system_enabled', isset($_POST['notif_system_enabled']) ? '1' : '0');
         saveNotificationSetting($conn, 'notif_email_enabled', isset($_POST['notif_email_enabled']) ? '1' : '0');
         saveNotificationSetting($conn, 'notif_sms_enabled', isset($_POST['notif_sms_enabled']) ? '1' : '0');
+        saveNotificationSetting($conn, 'notif_cooldown_hours', (string)max(1, (int)($_POST['notif_cooldown_hours'] ?? 24)));
 
         saveNotificationSetting($conn, 'notif_email_recipients', trim($_POST['notif_email_recipients'] ?? ''));
         saveNotificationSetting($conn, 'notif_sms_recipients', trim($_POST['notif_sms_recipients'] ?? ''));
@@ -220,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notifications'
         saveNotificationSetting($conn, 'sms_account_sid', trim($_POST['sms_account_sid'] ?? ''));
         saveNotificationSetting($conn, 'sms_from_number', trim($_POST['sms_from_number'] ?? 'IntelliWare'));
 
-        $_SESSION['success'] = "Notification channels and gateway credentials saved successfully.";
+        $_SESSION['success'] = "Notification channels, anti-spam rules, and gateway credentials saved successfully.";
     }
     header('Location: settings.php#notifications');
     exit();
@@ -247,12 +251,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_vision_setting
 // F. Test Email Dispatch Action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_email'])) {
     $testEmail = trim($_POST['test_email_recipient'] ?? '');
+    $testType  = trim($_POST['test_email_type'] ?? 'out_of_stock');
     if (empty($testEmail)) {
         $_SESSION['error'] = "Please provide an email address for the test alert.";
     } else {
-        $testRes = EmailService::sendTestEmail($conn, $testEmail);
+        $testRes = EmailService::sendTestEmail($conn, $testEmail, $testType);
         if ($testRes['success']) {
-            $_SESSION['success'] = "Test Out-of-Stock email sent successfully to " . htmlspecialchars($testEmail) . "!";
+            $formattedType = ucwords(str_replace('_', ' ', $testType));
+            $_SESSION['success'] = "Test {$formattedType} email sent successfully to " . htmlspecialchars($testEmail) . "! Please check your inbox.";
         } else {
             $_SESSION['error'] = "Email dispatch failed: " . htmlspecialchars($testRes['error']);
         }
@@ -342,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['train_forecast_model'
 // -------------------------------------------------------------
 
 // Fetch Current User Details
-$userStmt = $conn->prepare("SELECT user_id, username, full_name, email, role, department, employee_id, created_at FROM users WHERE username = ?");
+$userStmt = $conn->prepare("SELECT user_id, username, full_name, email, role, department, employee_id, created_at, notif_email_enabled, notification_email FROM users WHERE username = ?");
 $userStmt->bind_param("s", $currentUser);
 $userStmt->execute();
 $userProfile = $userStmt->get_result()->fetch_assoc() ?? [];
@@ -503,6 +509,31 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
         justify-content: space-between;
         gap: 12px;
     }
+
+    /* ── Light Mode Overrides ── */
+    [data-theme="light"] .cfg-kpi-pill {
+        background: #EFF6FF;
+        border-color: #BFDBFE;
+    }
+    [data-theme="light"] .cfg-tab {
+        color: #475569;
+    }
+    [data-theme="light"] .cfg-tab:hover {
+        color: #0F172A;
+        background: rgba(59, 130, 246, 0.06);
+    }
+    [data-theme="light"] .cfg-tab.active {
+        color: #0F6E2C;
+        background: rgba(27, 143, 62, 0.08);
+        border-color: #BFDBFE;
+    }
+    [data-theme="light"] .alert-success { background: #D1FAE5; color: #065F46; border-color: #A7F3D0; }
+    [data-theme="light"] .alert-error { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
+    [data-theme="light"] .slider {
+        background-color: #CBD5E1;
+        border-color: #94A3B8;
+    }
+
 </style>
 
 <!-- Bottom-Center Toast Notifications -->
@@ -809,7 +840,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                         <span class="slider"></span>
                                     </label>
                                 </div>
-                                <span class="text-[11px] text-[#64748b]">Auto-fires on zero stock</span>
+                                <span class="text-[11px] text-[#64748b]">Fires on Low &amp; Zero Stock</span>
                             </div>
 
                             <div class="p-4 rounded-xl bg-[#070b1a]/60 border border-[#2A4484]/40 flex flex-col justify-between h-32">
@@ -827,17 +858,38 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             </div>
                         </div>
 
+                        <!-- Anti-Spam & Threshold Cooldown -->
+                        <div class="p-5 rounded-xl bg-[#070b1a]/40 border border-[#2A4484]/40 space-y-4">
+                            <h4 class="font-onest font-semibold text-sm text-white flex items-center gap-2">
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Anti-Spam Cooldown &amp; Threshold Rules
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Minimum Alert Cooldown (Hours)</label>
+                                    <input type="number" name="notif_cooldown_hours" min="1" max="168" class="premium-input w-full" value="<?php echo htmlspecialchars($notifSettings['notif_cooldown_hours'] ?? '24'); ?>" required>
+                                    <span class="text-[11px] text-[#64748b] mt-1 block">Suppresses duplicate emails for the same product during stock fluctuations (Default: 24 hours).</span>
+                                </div>
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Multi-Product Batching</label>
+                                    <div class="p-3 rounded-lg bg-[#13275B]/40 border border-[#2A4484]/40 text-xs text-[#9aa6d1] leading-relaxed">
+                                        When multiple items cross thresholds together (e.g. bulk stock-out), they are automatically consolidated into a single digest email.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Recipients -->
                         <div class="p-5 rounded-xl bg-[#070b1a]/40 border border-[#2A4484]/40 space-y-4">
                             <h4 class="font-onest font-semibold text-sm text-white flex items-center gap-2">
                                 <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                Default Alert Recipients
+                                Global Extra Alert Recipients
                             </h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Alert Email Address(es)</label>
-                                    <input type="text" name="notif_email_recipients" class="premium-input w-full" placeholder="admin@intelliware.ph, manager@warehouse.ph" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ''); ?>">
-                                    <span class="text-[11px] text-[#64748b] mt-1 block">Separate multiple email addresses with commas</span>
+                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Extra Email Address(es)</label>
+                                    <input type="text" name="notif_email_recipients" class="premium-input w-full" placeholder="audit@warehouse.ph, alerts@intelliware.ph" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ''); ?>">
+                                    <span class="text-[11px] text-[#64748b] mt-1 block">All Admins are notified automatically. Add extra addresses here (comma-separated).</span>
                                 </div>
                                 <div>
                                     <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Alert Mobile Number(s)</label>
@@ -944,9 +996,71 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     </form>
                 </div>
             </div>
+
+            <!-- Active Email Subscribers Card -->
+            <?php
+                $activeSubscribers = EmailService::getRecipients($conn);
+            ?>
+            <div class="premium-card mt-6">
+                <div class="p-5 border-b border-[#2A4484]/50 flex items-center justify-between bg-[#13275B]/30">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-onest font-semibold text-base text-white">Active Alert Subscribers (<?php echo count($activeSubscribers); ?>)</h4>
+                            <p class="text-xs text-[#9aa6d1]">All Administrators are enrolled by default; staff may opt in</p>
+                        </div>
+                    </div>
+                    <a href="users.php" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
+                        <span>Manage Users</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+                <div class="p-5">
+                    <?php if (empty($activeSubscribers)): ?>
+                        <div class="text-xs text-amber-400 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            No users are currently subscribed to receive inventory alert emails.
+                        </div>
+                    <?php else: ?>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="border-b border-[#2A4484]/40 text-[#9aa6d1] uppercase text-[10px] tracking-wider">
+                                        <th class="pb-2">Recipient Name</th>
+                                        <th class="pb-2">Role</th>
+                                        <th class="pb-2">Notification Email</th>
+                                        <th class="pb-2 text-right">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-[#2A4484]/20">
+                                    <?php foreach ($activeSubscribers as $sub): ?>
+                                    <tr>
+                                        <td class="py-2.5 font-medium text-white"><?php echo htmlspecialchars($sub['name']); ?></td>
+                                        <td class="py-2.5">
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase <?php echo strtolower($sub['role']) === 'admin' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'; ?>">
+                                                <?php echo htmlspecialchars($sub['role']); ?>
+                                            </span>
+                                        </td>
+                                        <td class="py-2.5 font-mono text-[#cbd5e1]"><?php echo htmlspecialchars($sub['email']); ?></td>
+                                        <td class="py-2.5 text-right">
+                                            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                Active
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
 
-        <!-- Live Gateway Testing Card -->
+        <!-- Live Gateway Testing & Log Card -->
         <div class="lg:col-span-4 space-y-6">
             <div class="premium-card">
                 <div class="p-5 border-b border-[#2A4484]/50 flex items-center gap-3 bg-[#13275B]/30">
@@ -966,10 +1080,21 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <span class="text-xs font-bold text-white uppercase tracking-wider">Test Email Dispatch</span>
                             <span class="text-[10px] text-[#51D55A] font-semibold">SMTP</span>
                         </div>
-                        <form method="POST" class="space-y-2">
+                        <form method="POST" class="space-y-2.5">
                             <input type="hidden" name="send_test_email" value="1">
-                            <input type="email" name="test_email_recipient" required class="premium-input w-full text-xs" placeholder="test@email.com" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ''); ?>">
-                            <button type="submit" class="w-full btn-secondary py-2.5 text-xs font-semibold flex items-center justify-center gap-2">
+                            <div>
+                                <label class="block text-[11px] text-[#9aa6d1] font-semibold mb-1">Target Email</label>
+                                <input type="email" name="test_email_recipient" required class="premium-input w-full text-xs" placeholder="test@email.com" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ($userProfile['email'] ?? '')); ?>">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-[#9aa6d1] font-semibold mb-1">Alert Format</label>
+                                <select name="test_email_type" class="premium-input inventory-select w-full text-xs">
+                                    <option value="out_of_stock">Out of Stock Alert (Critical - 0 units)</option>
+                                    <option value="low_stock">Low Stock Alert (Warning - &le; Reorder)</option>
+                                    <option value="batch">Multi-Product Batch Digest</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full btn-secondary py-2.5 text-xs font-semibold flex items-center justify-center gap-2 mt-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                 Dispatch Test Email
                             </button>
@@ -993,8 +1118,63 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     </div>
 
                     <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 font-onest leading-relaxed">
-                        <strong>Pro-tip:</strong> When stock hits 0 during stock-out transactions, the system dispatches alerts non-blockingly without delaying cashiers or warehouse staff.
+                        <strong>Non-blocking Guarantee:</strong> When stock drops to or below threshold, the system commits the database transaction first and dispatches alerts safely in the background.
                     </div>
+                </div>
+            </div>
+
+            <!-- Recent Email Audit Log Card -->
+            <?php
+                $emailLogsRes = $conn->query("
+                    SELECT n.id, n.notification_type, n.title, n.status, n.sent_at, n.created_at, n.error_message,
+                           p.product_name
+                    FROM notifications n
+                    LEFT JOIN products p ON n.product_id = p.product_id
+                    WHERE n.channel = 'EMAIL'
+                    ORDER BY n.id DESC LIMIT 5
+                ");
+            ?>
+            <div class="premium-card">
+                <div class="p-4 border-b border-[#2A4484]/50 flex items-center justify-between bg-[#13275B]/30">
+                    <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Recent Email Log
+                    </span>
+                    <span class="text-[10px] text-[#9aa6d1]">Audit</span>
+                </div>
+                <div class="p-4 space-y-2.5">
+                    <?php if (!$emailLogsRes || $emailLogsRes->num_rows === 0): ?>
+                        <div class="text-xs text-[#64748b] text-center py-3">No email alerts recorded yet.</div>
+                    <?php else: ?>
+                        <?php while ($log = $emailLogsRes->fetch_assoc()): ?>
+                            <div class="p-2.5 rounded-lg bg-[#070b1a]/40 border border-[#2A4484]/30 flex items-center justify-between text-xs">
+                                <div>
+                                    <div class="font-semibold text-white truncate max-w-[180px]">
+                                        <?php echo htmlspecialchars($log['product_name'] ?: $log['title']); ?>
+                                    </div>
+                                    <div class="text-[10px] text-[#9aa6d1] mt-0.5">
+                                        <?php echo date('M j, g:i A', strtotime($log['created_at'])); ?> &bull; <?php echo htmlspecialchars($log['notification_type']); ?>
+                                    </div>
+                                    <?php if (!empty($log['error_message']) && $log['status'] === 'FAILED'): ?>
+                                        <div class="text-[10px] text-red-400 mt-1 max-w-[200px] truncate" title="<?php echo htmlspecialchars($log['error_message']); ?>">
+                                            <?php echo htmlspecialchars($log['error_message']); ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div>
+                                    <?php if ($log['status'] === 'SENT'): ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                            SENT
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30">
+                                            FAILED
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1199,6 +1379,33 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                     <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Confirm New Password</label>
                                     <input type="password" name="confirm_password" class="premium-input w-full" placeholder="••••••••">
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Notification Email Preference -->
+                        <div class="p-4 rounded-xl bg-[#070b1a]/40 border border-[#2A4484]/40 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="text-white text-xs font-onest font-semibold flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                        Inventory Threshold Email Alerts
+                                    </div>
+                                    <div class="text-[#9aa6d1] text-[11px] mt-0.5">Receive email alerts when products drop below reorder points or hit 0 stock</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <?php
+                                        $isEnrolled = ($userProfile['notif_email_enabled'] === null || $userProfile['notif_email_enabled'] === '')
+                                            ? ($currentRole === 'admin')
+                                            : ((int)$userProfile['notif_email_enabled'] === 1);
+                                    ?>
+                                    <input type="checkbox" name="user_notif_email_enabled" <?php echo $isEnrolled ? 'checked' : ''; ?>>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <div>
+                                <label class="block text-[#9aa6d1] text-[11px] font-onest font-semibold mb-1 uppercase tracking-wider">Dedicated Alert Email (Optional)</label>
+                                <input type="email" name="user_notification_email" class="premium-input w-full text-xs" value="<?php echo htmlspecialchars($userProfile['notification_email'] ?? ''); ?>" placeholder="Defaults to account email (<?php echo htmlspecialchars($userProfile['email'] ?? 'none'); ?>)">
+                                <span class="text-[11px] text-[#64748b] mt-1 block">Specify an alternate notification email if different from your login address.</span>
                             </div>
                         </div>
 

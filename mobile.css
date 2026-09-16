@@ -5,19 +5,26 @@
    ============================================================ */
 
 /* ============================================================
-   1. SIDEBAR — Collapsible Overlay Drawer
-      Already partially implemented in styles.css ≤1023px.
-      These rules tighten behaviour specifically for ≤767px.
+   1. SIDEBAR — Collapsible Overlay Drawer (Mobile & Tablet <= 1024px)
+      Sidebar becomes a fixed overlay drawer with blurry backdrop.
+      Starts directly below the header so Dashboard button is fully visible.
+      The underlying UI stays 100% width and NEVER moves when toggled.
    ============================================================ */
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
 
-    /* Sidebar: fixed overlay from top:0, full viewport height */
+    /* Header fixed height on tablet */
+    .premium-admin-header {
+        height: 65px !important;
+        min-height: 65px !important;
+    }
+
+    /* Sidebar: fixed overlay starting directly below the header */
     #main-sidebar {
         position: fixed !important;
-        top: 0 !important;
+        top: 65px !important;
         left: 0 !important;
-        height: 100dvh !important;       /* dynamic vh for mobile browsers */
-        min-height: 100vh !important;
+        height: calc(100dvh - 65px) !important;
+        min-height: calc(100vh - 65px) !important;
         width: 270px !important;
         min-width: 270px !important;
         max-width: 270px !important;
@@ -29,15 +36,26 @@
         overflow-x: hidden !important;
         box-shadow: 4px 0 32px rgba(0, 0, 0, 0.55) !important;
         pointer-events: none !important;
-        /* Ensure it always starts from the very top */
-        inset-block-start: 0 !important;
-        padding-top: 0 !important;
+        inset-block-start: 65px !important;
+        padding-top: 6px !important;
+        margin-left: 0 !important;
+    }
+
+    /* Hide logo inside drawer since header is already visible at the top */
+    #main-sidebar > div:first-child {
+        display: none !important;
+    }
+
+    /* Navigation items container: clean padding */
+    #main-sidebar > div:nth-child(2) {
+        padding-top: 6px !important;
     }
 
     /* When sidebar is open (sidebar-hidden class removed) */
     #main-sidebar:not(.sidebar-hidden) {
         transform: translateX(0) !important;
         pointer-events: all !important;
+        opacity: 1 !important;
     }
 
     /* Sidebar hidden state — slide out left */
@@ -45,34 +63,56 @@
         transform: translateX(-100%) !important;
         pointer-events: none !important;
         opacity: 1 !important;
+        margin-left: 0 !important;
     }
 
-    /* Content area takes 100% width — sidebar is overlay only */
+    /* Content area ALWAYS takes 100% width on mobile and tablet — sidebar is an overlay, UI never moves! */
     .iw-main-wrapper > div:not(#main-sidebar) {
         width: 100% !important;
         min-width: 0 !important;
+        flex: 1 1 100% !important;
     }
 
-    /* Overlay backdrop covers full screen from top */
+    /* Overlay backdrop covers full screen with blurry frosted glass effect */
     #sidebar-overlay {
         top: 0 !important;
         left: 0 !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        background: rgba(0, 0, 0, 0.55) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        z-index: 9998 !important;
+    }
+
+    [data-theme="light"] #sidebar-overlay {
+        background: rgba(15, 23, 42, 0.45) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
     }
 
     #sidebar-overlay.active {
         display: block !important;
         opacity: 1 !important;
+        pointer-events: all !important;
+    }
+}
+
+@media (max-width: 767px) {
+
+    /* Header height on mobile */
+    .premium-admin-header {
+        height: 54px !important;
+        min-height: 54px !important;
     }
 
-    /* Sidebar logo: always visible at top of drawer, with proper padding */
-    #main-sidebar > div:first-child {
-        display: flex !important;
-        align-items: center !important;
-        margin-left: 0 !important;
-        margin-bottom: 8px !important;
-        padding: 16px 12px 8px 12px !important;
-        flex-shrink: 0 !important;
-        border-bottom: 1px solid rgba(42, 68, 132, 0.3) !important;
+    /* Mobile drawer starts under 54px header */
+    #main-sidebar {
+        top: 54px !important;
+        inset-block-start: 54px !important;
+        height: calc(100dvh - 54px) !important;
+        min-height: calc(100vh - 54px) !important;
     }
 
     .iw-sidebar-logo {

@@ -209,24 +209,23 @@ if (!$priorityItem && !empty($lowStockItems)) {
 
 $conn->close();
 
-renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
+renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
 ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 
-<div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
+<div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden dashboard-hero-banner">
     <div class="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
         <div class="flex-1 min-w-0 space-y-4">
             <div>
-                <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-3">
-                    <span>IntelliWare Enterprise WIMS</span>
-                    <span class="text-[#2A4484]">•</span>
-                    <span class="text-[#51D55A]">Command Center</span>
+                <div class="hero-eyebrow flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9aa6d1] mb-3">
+                    <span class="hero-brand">Intelliware enterprise WIMS</span>
+                    <span class="hero-dot text-[#2A4484]">•</span>
+                    <span class="hero-ccenter text-[#51D55A]">Command center</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-3 mb-1">
-                    <h2 class="font-onest text-xl md:text-2xl font-semibold text-white">
+                    <h2 class="font-onest text-xl md:text-2xl font-bold text-white">
                         <?php echo $greeting; ?>, <?php echo htmlspecialchars($displayName); ?>
                     </h2>
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-onest uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
@@ -239,17 +238,17 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
             <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
             <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
                class="hero-product-card flex items-start gap-3 p-4 rounded-xl no-underline"
-               style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);"
+               style="background: rgba(245, 158, 11, 0.20); border: 1px solid rgba(245, 158, 11, 0.55);"
                title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
                 <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                     style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.35);">
+                     style="background: rgba(245, 158, 11, 0.30); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.55);">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
                 </div>
                 <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2 mb-1">
                         <span class="text-[#E3E3E3] font-onest font-semibold text-sm group-hover:text-emerald-400 transition-colors"><?php echo htmlspecialchars($priorityItem); ?></span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold"
-                              style="background: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.35);">
+                              style="background: rgba(245, 158, 11, 0.30); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.55);">
                             <?php echo htmlspecialchars($priorityType); ?>
                         </span>
                         <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
@@ -260,12 +259,8 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
             <?php endif; ?>
         </div>
 
-        <div class="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0">
-            <a href="insights.php" class="premium-button whitespace-nowrap !py-3 !px-5 text-sm">
-                View Full Forecast
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-            </a>
-            <a href="products.php?add=1" class="btn-secondary whitespace-nowrap !py-3 !px-5 text-sm">
+        <div class="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0 lg:items-end">
+            <a id="addProductBtn" href="products.php?add=1" class="btn-secondary whitespace-nowrap !py-3 !px-5 text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
                 Add Product
             </a>
@@ -274,50 +269,50 @@ renderLayoutStart('System Dashboard', $_SESSION['Role'], $userInfo['full_name'] 
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-    <div class="premium-card p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+    <div class="premium-card stat-card-skus relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total SKUs</div>
             <div class="premium-metric">
                 <span class="num text-3xl"><?php echo number_format($totalSKUs); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
     </div>
 
-    <div class="premium-card p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+    <div class="premium-card stat-card-items relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Items</div>
             <div class="premium-metric">
                 <span class="num text-3xl"><?php echo number_format($totalQty); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
         </div>
     </div>
 
-    <div class="premium-card p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="window.location.href='insights.php'">
+    <div class="premium-card stat-card-low-stock relative p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="window.location.href='insights.php'">
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock Alert</div>
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo $lowStockCount; ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform border border-red-500/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </div>
     </div>
 
-    <div class="premium-card p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+    <div class="premium-card stat-card-categories relative p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Active Categories</div>
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo $totalCategories; ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform border border-amber-500/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
         </div>
     </div>
@@ -528,6 +523,28 @@ if (typeof Chart === 'undefined') {
     })();
 }
 document.addEventListener('themechange', function() { if (window.IWTheme) IWTheme.refreshAllCharts(); });
+</script>
+
+<script>
+// Match "Add Product" button height to the hero product card on md/lg screens
+(function () {
+    function syncAddProductHeight() {
+        var card = document.querySelector('.hero-product-card');
+        var btn  = document.getElementById('addProductBtn');
+        if (!card || !btn) return;
+
+        if (window.innerWidth >= 768) {
+            // md+ : set explicit height to match the card
+            btn.style.height = card.offsetHeight + 'px';
+        } else {
+            // mobile: let button be its natural height
+            btn.style.height = '';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', syncAddProductHeight);
+    window.addEventListener('resize', syncAddProductHeight);
+})();
 </script>
 
 <?php renderLayoutFooter(); ?>

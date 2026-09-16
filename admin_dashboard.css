@@ -169,9 +169,9 @@
 
 .hero-product-card:hover {
   transform: translateY(-2px) translateX(4px);
-  border-color: rgba(81, 213, 90, 0.45) !important;
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.18);
-  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(81, 213, 90, 0.55) !important;
+  box-shadow: 0 8px 28px rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.26) !important;
 }
 
 .hero-product-card:hover .hero-product-arrow {
@@ -185,4 +185,71 @@
 
 #demandChart {
   cursor: pointer;
+}
+
+/* ============================================================
+   LIGHT MODE — Dashboard-specific overrides
+   All scoped to [data-theme="light"] so dark mode is untouched.
+   ============================================================ */
+
+/* Stat cards need overflow:visible so ::before accent bar shows above the card edge */
+[data-theme="light"] .stat-card-skus,
+[data-theme="light"] .stat-card-items,
+[data-theme="light"] .stat-card-low-stock,
+[data-theme="light"] .stat-card-categories {
+  overflow: visible !important;
+  padding-top: 20px !important; /* push content below the top accent bar */
+}
+
+/* Clear the green text-fill on inline-gradient nums in light mode → neutral bold black */
+[data-theme="light"] .stat-card-skus .num,
+[data-theme="light"] .stat-card-items .num {
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  -webkit-text-fill-color: #0B1526 !important;
+  color: #0B1526 !important;
+  text-shadow: none !important;
+  font-weight: 800 !important;
+  font-size: 26px !important;
+}
+
+/* Low stock — keep red but use spec red */
+[data-theme="light"] .stat-card-low-stock .num {
+  -webkit-text-fill-color: #B3231C !important;
+  color: #B3231C !important;
+  text-shadow: none !important;
+  font-weight: 800 !important;
+  font-size: 26px !important;
+}
+
+/* Categories — keep amber but use spec amber */
+[data-theme="light"] .stat-card-categories .num {
+  -webkit-text-fill-color: #A15C00 !important;
+  color: #A15C00 !important;
+  text-shadow: none !important;
+  font-weight: 800 !important;
+  font-size: 26px !important;
+}
+
+
+/* Insight card inside hero card — ensure padding doesn't swallow the left border */
+[data-theme="light"] .hero-product-card {
+  padding-left: 14px !important;
+}
+
+/* Quick access container: remove inner gap, let rows fill the card */
+[data-theme="light"] .iw-quick-access .flex-1.p-5.flex.flex-col.gap-4 {
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+/* Panel header: tighten the border line */
+[data-theme="light"] .iw-quick-access .p-5.border-b {
+  background: transparent !important;
+}
+
+/* "Low stock" quantity text — keep spec red */
+[data-theme="light"] .low-stock-qty {
+  color: #B3231C !important;
 }

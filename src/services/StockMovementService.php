@@ -235,7 +235,9 @@ class StockMovementService
         $logStmt->close();
 
         $product['quantity'] = $newStock;
+        $reorderPoint = (int)($product['reorder_point'] ?? 10);
         $isOutOfStockTransition = ($transactionType === 'stock_out' && $previousStock > 0 && $newStock === 0);
+        $isLowStockTransition = ($transactionType === 'stock_out' && $previousStock > $reorderPoint && $newStock <= $reorderPoint && $newStock > 0);
 
         return [
             'transaction_id' => $transactionId,
@@ -244,6 +246,8 @@ class StockMovementService
             'product' => $product,
             'transaction_type' => $transactionType,
             'is_out_of_stock_transition' => $isOutOfStockTransition,
+            'is_low_stock_transition' => $isLowStockTransition,
+            'has_threshold_crossing' => ($isOutOfStockTransition || $isLowStockTransition),
         ];
     }
 
@@ -302,18 +306,20 @@ class StockMovementService
             $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks, $metadata);
             $conn->commit();
 
-            // Real-Time Out-of-Stock Alert Trigger (Post-Commit)
-            if (!empty($result['is_out_of_stock_transition'])) {
+            // Real-Time Stock Threshold Alert Trigger (Post-Commit)
+            if (!empty($result['has_threshold_crossing'])) {
                 try {
                     require_once __DIR__ . '/NotificationService.php';
-                    NotificationService::triggerOutOfStockAlert(
+                    NotificationService::handleStockMovementAlert(
                         $conn,
                         $result['product'],
+                        (int)$result['previous_stock'],
+                        (int)$result['new_stock'],
                         $username,
                         (int)$result['transaction_id']
                     );
                 } catch (Throwable $notifErr) {
-                    error_log('[StockMovementService] Out of stock notification trigger error: ' . $notifErr->getMessage());
+                    error_log('[StockMovementService] Stock threshold alert trigger error: ' . $notifErr->getMessage());
                 }
             }
 
@@ -376,21 +382,16 @@ class StockMovementService
             }
             $conn->commit();
 
-            // Post-commit Out-of-Stock dispatch for any transitioning item in this batch
-            foreach ($results as $res) {
-                if (!empty($res['is_out_of_stock_transition'])) {
-                    try {
-                        require_once __DIR__ . '/NotificationService.php';
-                        NotificationService::triggerOutOfStockAlert(
-                            $conn,
-                            $res['product'],
-                            $username,
-                            (int)$res['transaction_id']
-                        );
-                    } catch (Throwable $notifErr) {
-                        error_log('[StockMovementService] Batch out of stock notification trigger error: ' . $notifErr->getMessage());
-                    }
-                }
+            // Post-commit Batch Stock Alert dispatch (consolidated digest email for multi-item crossing)
+            try {
+                require_once __DIR__ . '/NotificationService.php';
+                NotificationService::handleBatchMovementAlert(
+                    $conn,
+                    $results,
+                    $username
+                );
+            } catch (Throwable $notifErr) {
+                error_log('[StockMovementService] Batch stock alert notification trigger error: ' . $notifErr->getMessage());
             }
 
             // Asynchronous event ping to Insights Microservice (non-blocking)

@@ -1323,25 +1323,30 @@ body {
    Breakpoints: mobile < 640px | tablet 640-1023px | desktop 1024px+
    ============================================================ */
 
-/* --- Mobile Sidebar Overlay Drawer --- */
+/* --- Mobile & Tablet Sidebar Overlay Drawer --- */
 #sidebar-overlay {
     display: none;
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100vh;
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     z-index: 9998;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
 #sidebar-overlay.active {
     display: block;
     opacity: 1;
+    pointer-events: all;
 }
 
-/* ---- Tablet (640px – 1023px) -------------------------------- */
-@media (max-width: 1023px) {
+/* ---- Tablet (640px – 1024px) -------------------------------- */
+@media (max-width: 1024px) {
 
     /* Body shell: remove outer ring padding so more space is used */
     .iw-body-shell {
@@ -1354,20 +1359,27 @@ body {
         height: 100vh !important;
     }
 
-    /* Sidebar becomes a fixed overlay drawer */
+    /* Sidebar becomes a fixed overlay drawer starting directly below the header */
     #main-sidebar {
         position: fixed !important;
-        top: 0 !important;
+        top: 65px !important;
         left: 0 !important;
-        height: 100vh !important;
+        height: calc(100vh - 65px) !important;
         width: 270px !important;
         min-width: 270px !important;
         max-width: 270px !important;
         z-index: 9999 !important;
-        transform: translateX(0);
-        transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out !important;
+        transform: translateX(0) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out !important;
         overflow-y: auto !important;
         box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5) !important;
+        margin-left: 0 !important;
+        padding-top: 6px !important;
+    }
+
+    /* Hide logo inside drawer since header is already visible at the top */
+    #main-sidebar > div:first-child {
+        display: none !important;
     }
 
     /* Hidden state: slide out to the left */
@@ -1382,6 +1394,7 @@ body {
     .iw-main-wrapper > div:not(#main-sidebar) {
         width: 100% !important;
         min-width: 0 !important;
+        flex: 1 1 100% !important;
     }
 
     /* Header: tighten padding on tablet */

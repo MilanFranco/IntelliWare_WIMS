@@ -59,8 +59,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Insert new user
                 $hashed = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("INSERT INTO users (username, password, role, full_name, email) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssss", $username, $hashed, $role, $fullName, $email);
+                $notifEmailEnabled = isset($_POST['notif_email_enabled']) ? 1 : ($role === 'admin' ? 1 : 0);
+                $notificationEmail = trim($_POST['notification_email'] ?? '');
+
+                $stmt = $conn->prepare("INSERT INTO users (username, password, role, full_name, email, notif_email_enabled, notification_email) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssssis", $username, $hashed, $role, $fullName, $email, $notifEmailEnabled, $notificationEmail);
                 
                 if ($stmt->execute()) {
                     // Log the action using dynamic admin ID
@@ -89,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fullName = trim($_POST['full_name'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $newRole = $_POST['role'] ?? 'staff';
+        $notifEmailEnabled = isset($_POST['notif_email_enabled']) ? 1 : 0;
+        $notificationEmail = trim($_POST['notification_email'] ?? '');
 
         if (!in_array($newRole, ['admin', 'manager', 'staff'], true)) {
             $_SESSION['error'] = "Invalid role selected.";
@@ -107,8 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($targetUser['username'] === $_SESSION['Username'] && $newRole !== 'admin') {
                 $_SESSION['error'] = "You cannot demote your own administrator account.";
             } else {
-                $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ?, role = ? WHERE user_id = ?");
-                $stmt->bind_param("sssi", $fullName, $email, $newRole, $userId);
+                $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ?, role = ?, notif_email_enabled = ?, notification_email = ? WHERE user_id = ?");
+                $stmt->bind_param("sssisi", $fullName, $email, $newRole, $notifEmailEnabled, $notificationEmail, $userId);
                 
                 if ($stmt->execute()) {
                     $adminId = getCurrentAdminId($conn);
@@ -489,6 +494,59 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
     .btn-yes:hover { background: #dc2626; }
     .btn-no { background: rgba(255,255,255,0.1); color: #E3E3E3; }
     .btn-no:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Light Mode Overrides ── */
+    [data-theme="light"] .user-hero-card {
+        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+        border-color: #93C5FD;
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
+    }
+    [data-theme="light"] .premium-card {
+        background: #FFFFFF;
+        border: 1px solid #DBEAFE;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(59, 130, 246, 0.08);
+    }
+    [data-theme="light"] .premium-input {
+        background: #F8FAFC;
+        color: #0F172A;
+        border-color: #CBD5E1;
+    }
+    [data-theme="light"] .premium-input:focus {
+        border-color: #1B8F3E;
+        box-shadow: 0 0 0 3px rgba(27, 143, 62, 0.12);
+    }
+    [data-theme="light"] .premium-button {
+        background: #1B8F3E;
+        box-shadow: 0 4px 12px rgba(27, 143, 62, 0.3);
+    }
+    [data-theme="light"] .premium-button:hover {
+        background: #157832;
+        box-shadow: 0 6px 16px rgba(27, 143, 62, 0.4);
+    }
+    [data-theme="light"] .role-filter-pill {
+        background: #EFF6FF;
+        border-color: #BFDBFE;
+        color: #475569;
+    }
+    [data-theme="light"] .role-filter-pill:hover {
+        color: #0F172A;
+        border-color: #93C5FD;
+    }
+    [data-theme="light"] .role-filter-pill.active {
+        background: rgba(27, 143, 62, 0.1);
+        border-color: #1B8F3E;
+        color: #0F6E2C;
+    }
+    [data-theme="light"] .premium-table th {
+        color: #475569;
+    }
+    [data-theme="light"] .btn-no {
+        background: #E2E8F0;
+        color: #334155;
+    }
+    [data-theme="light"] .btn-no:hover {
+        background: #CBD5E1;
+    }
 </style>
 
 <div id="toast-container"></div>
@@ -510,10 +568,10 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
 <?php unset($_SESSION['error']); endif; ?>
 
 <!-- 1. Hero Page Header Banner -->
-<div class="user-hero-card mb-6">
+<div class="user-hero-card page-hero-card mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
+            <div class="hero-tagline flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
                 <span>IntelliWare Enterprise WIMS</span>
                 <span class="text-[#2A4484]">•</span>
                 <span class="text-[#51D55A]">Access Governance</span>
@@ -524,16 +582,16 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                 </div>
                 User Management & Access Control
             </h1>
-            <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
+            <p class="hero-desc text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
                 Manage organizational credentials, enforce role-based access control (RBAC), and provision system operator profiles across warehouse modules.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
-            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
+            <span class="hero-pill-primary inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
                 <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
                 Active: <strong class="text-white">@<?php echo htmlspecialchars($username); ?></strong>
             </span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
+            <span class="hero-pill-secondary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
                 <svg class="w-3.5 h-3.5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                 Governance: <strong class="text-white">Strict RBAC</strong>
             </span>
@@ -649,6 +707,26 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                         <input type="password" name="confirm_password" class="premium-input" placeholder="••••••••" required>
                     </div>
                     
+                    <div class="md:col-span-2 p-3.5 rounded-xl bg-[#070b1a]/50 border border-[#2A4484]/40 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-white text-xs font-onest font-semibold flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                    Stock Alert Email Notifications
+                                </div>
+                                <div class="text-[#9aa6d1] text-[11px] mt-0.5">Receive low &amp; out-of-stock threshold alerts (Admins enabled by default)</div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="notif_email_enabled" id="addNotifEmailEnabled" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-[#9aa6d1] text-[11px] font-onest font-semibold mb-1 uppercase tracking-wider">Custom Alert Email (Optional)</label>
+                            <input type="email" name="notification_email" class="premium-input text-xs" placeholder="Leave blank to use primary email address">
+                        </div>
+                    </div>
+
                     <div class="md:col-span-2 mt-2">
                         <button class="premium-button w-full flex items-center justify-center gap-2" type="submit">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
@@ -770,6 +848,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                     <th class="p-4 pl-6">User Profile</th>
                     <th class="p-4">Username</th>
                     <th class="p-4">Role Tier</th>
+                    <th class="p-4">Stock Alerts</th>
                     <th class="p-4">Registered Date</th>
                     <th class="p-4 text-right pr-6">Actions</th>
                 </tr>
@@ -781,12 +860,20 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                         'username' => $u['username'],
                         'full_name' => $u['full_name'] ?? '',
                         'email' => $u['email'] ?? '',
-                        'role' => $u['role']
+                        'role' => $u['role'],
+                        'notif_email_enabled' => $u['notif_email_enabled'] ?? null,
+                        'notification_email' => $u['notification_email'] ?? ''
                     ]), ENT_QUOTES, 'UTF-8');
+
+                    $rLower = strtolower($u['role']);
+                    $isEnrolled = ($u['notif_email_enabled'] === null || $u['notif_email_enabled'] === '')
+                        ? ($rLower === 'admin')
+                        : ((int)$u['notif_email_enabled'] === 1);
+                    $targetAlertEmail = trim(!empty($u['notification_email']) ? $u['notification_email'] : ($u['email'] ?? ''));
                 ?>
                 <tr class="user-row border-b border-[#2A4484]/30 hover:bg-[#1D387B]/40 transition-colors group"
                     data-role="<?php echo htmlspecialchars(strtolower($u['role'])); ?>"
-                    data-search="<?php echo htmlspecialchars(strtolower(($u['full_name'] ?? '') . ' ' . $u['username'] . ' ' . ($u['email'] ?? '') . ' ' . $u['role'])); ?>">
+                    data-search="<?php echo htmlspecialchars(strtolower(($u['full_name'] ?? '') . ' ' . $u['username'] . ' ' . ($u['email'] ?? '') . ' ' . $u['role'] . ' ' . ($u['notification_email'] ?? ''))); ?>">
                     <td class="p-4 pl-6">
                         <div class="flex items-center gap-3">
                             <?php renderUserAvatar($u['full_name'] ?: $u['username'], 38, 'iw-avatar-initials--md'); ?>
@@ -812,6 +899,18 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                             <span class="w-1.5 h-1.5 rounded-full <?php echo $roleLower === 'admin' ? 'bg-red-400' : ($roleLower === 'manager' ? 'bg-amber-400' : 'bg-[#51D55A]'); ?>"></span>
                             <?php echo ucfirst($u['role']); ?>
                         </span>
+                    </td>
+                    <td class="p-4">
+                        <?php if ($isEnrolled): ?>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Subscribed to alerts: <?php echo htmlspecialchars($targetAlertEmail ?: 'No address specified'); ?>">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Subscribed <?php echo !empty($u['notification_email']) ? '<span class="text-[10px] text-emerald-300/80">(Custom)</span>' : ''; ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400 border border-slate-500/30">
+                                Opted Out
+                            </span>
+                        <?php endif; ?>
                     </td>
                     <td class="p-4 text-[#9aa6d1] text-xs">
                         <div class="flex items-center gap-1.5">
@@ -903,6 +1002,26 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                 </select>
             </div>
 
+            <div class="p-3.5 rounded-xl bg-[#070b1a]/50 border border-[#2A4484]/40 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-white text-xs font-onest font-semibold flex items-center gap-2">
+                            <svg class="w-4 h-4 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            Stock Alert Emails
+                        </div>
+                        <div class="text-[#9aa6d1] text-[11px] mt-0.5">Opt in/out of receiving threshold alert emails</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="notif_email_enabled" id="editNotifEmailEnabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div>
+                    <label class="block text-[#9aa6d1] text-[11px] font-onest font-semibold mb-1 uppercase tracking-wider">Custom Alert Email (Optional)</label>
+                    <input type="email" name="notification_email" id="editNotificationEmail" class="premium-input text-xs" placeholder="Defaults to account email if left empty">
+                </div>
+            </div>
+
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeEditModal()" class="flex-1 py-2.5 rounded-xl border border-[#2A4484] bg-[#13275B] text-[#E3E3E3] hover:text-white text-sm font-semibold transition-colors">
                     Cancel
@@ -983,6 +1102,12 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         document.getElementById('editFullName').value = user.full_name || '';
         document.getElementById('editEmail').value = user.email || '';
         document.getElementById('editRole').value = user.role;
+
+        const isOptedIn = (user.notif_email_enabled !== null && user.notif_email_enabled !== undefined && user.notif_email_enabled !== '')
+            ? (parseInt(user.notif_email_enabled) === 1)
+            : (user.role.toLowerCase() === 'admin');
+        document.getElementById('editNotifEmailEnabled').checked = isOptedIn;
+        document.getElementById('editNotificationEmail').value = user.notification_email || '';
 
         document.getElementById('editUserModal').classList.add('show');
     }

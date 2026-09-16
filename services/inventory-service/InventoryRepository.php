@@ -386,20 +386,19 @@ class InventoryRepository
             // Commit atomic inventory operation
             $this->conn->commit();
 
-            // Transition to 0 check
-            $isTransitionToZero = ($previousStock > 0 && $newStock === 0);
-            if ($isTransitionToZero) {
-                try {
-                    $product['quantity'] = 0;
-                    NotificationService::triggerOutOfStockAlert(
-                        $this->conn,
-                        $product,
-                        $username,
-                        $transactionId
-                    );
-                } catch (Throwable $notifErr) {
-                    error_log('[InventoryMicroservice] Out of stock notification trigger error: ' . $notifErr->getMessage());
-                }
+            // Real-Time Inventory Stock Threshold Alert Trigger (Post-Commit)
+            try {
+                $product['quantity'] = $newStock;
+                NotificationService::handleStockMovementAlert(
+                    $this->conn,
+                    $product,
+                    $previousStock,
+                    $newStock,
+                    $username,
+                    $transactionId
+                );
+            } catch (Throwable $notifErr) {
+                error_log('[InventoryMicroservice] Stock threshold alert trigger error: ' . $notifErr->getMessage());
             }
 
             // Trigger non-blocking async notice to Insights Service

@@ -4,5 +4,6 @@
 
 require_once __DIR__ . '/../src/services/EmailService.php';
 
+$type = $_GET['type'] ?? 'out_of_stock';
 header('Content-Type: text/html; charset=UTF-8');
-echo EmailService::renderSampleHtml();
+echo EmailService::renderSampleHtml($type);
