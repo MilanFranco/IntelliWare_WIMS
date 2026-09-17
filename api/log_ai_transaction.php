@@ -103,7 +103,9 @@ try {
         $quantity,
         $direction,   // 'in' | 'out' — StockMovementService::normalizeType() handles both
         $_SESSION['Username'],
-        $remarks
+        $remarks,
+        null,
+        'ai_scan'
     );
 } catch (Exception $e) {
     http_response_code(422);
@@ -115,17 +117,6 @@ $transactionId = (int)$moveResult['transaction_id'];
 $previousStock = (int)$moveResult['previous_stock'];
 $newStock      = (int)$moveResult['new_stock'];
 $productName   = $moveResult['product']['product_name'] ?? '';
-
-// ── tag transaction_source = 'ai_scan' ────────────────────────────────────
-// The column defaults to 'barcode' for backwards-compat with historical rows.
-$tagStmt = $conn->prepare(
-    "UPDATE transactions SET transaction_source = 'ai_scan' WHERE transaction_id = ?"
-);
-if ($tagStmt) {
-    $tagStmt->bind_param('i', $transactionId);
-    $tagStmt->execute();
-    $tagStmt->close();
-}
 
 // ── insert tm_scan_log row ─────────────────────────────────────────────────
 $userId = StockMovementService::getUserId($conn, $_SESSION['Username']);

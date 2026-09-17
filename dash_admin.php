@@ -1,7 +1,17 @@
 <?php
 session_start();
 if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
-if (($_SESSION['Role'] ?? '') !== 'admin') { header('Location: dash_staff.php'); exit(); }
+$currentRole = $_SESSION['Role'] ?? 'staff';
+if ($currentRole !== 'admin') {
+    if ($currentRole === 'manager') {
+        header('Location: dash_manager.php');
+    } else {
+        header('Location: dash_staff.php');
+    }
+    exit();
+}
+
+date_default_timezone_set('Asia/Manila');
 
 require_once 'src/layout.php';
 require_once 'config/db.php';
@@ -215,57 +225,59 @@ renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SE
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 
-<div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden dashboard-hero-banner">
-    <div class="relative z-10 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-        <div class="flex-1 min-w-0 space-y-4">
-            <div>
-                <div class="hero-eyebrow flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#9aa6d1] mb-3">
-                    <span class="hero-brand">Intelliware enterprise WIMS</span>
-                    <span class="hero-dot text-[#2A4484]">•</span>
-                    <span class="hero-ccenter text-[#51D55A]">Command center</span>
+<div class="page-hero-card dashboard-hero-banner mb-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="dashboard-hero-icon w-11 h-11 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10 shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <rect width="7" height="9" x="3" y="3" rx="1.5"></rect>
+                        <rect width="7" height="5" x="14" y="3" rx="1.5"></rect>
+                        <rect width="7" height="9" x="14" y="12" rx="1.5"></rect>
+                        <rect width="7" height="5" x="3" y="16" rx="1.5"></rect>
+                    </svg>
                 </div>
-                <div class="flex flex-wrap items-center gap-3 mb-1">
-                    <h2 class="font-onest text-xl md:text-2xl font-bold text-white">
-                        <?php echo $greeting; ?>, <?php echo htmlspecialchars($displayName); ?>
-                    </h2>
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-onest uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                        <?php echo htmlspecialchars($userRoleLabel); ?>
-                    </span>
-                </div>
-                <p class="text-[#9aa6d1] text-sm md:text-base font-onest"><?php echo htmlspecialchars($statusSummary); ?></p>
+                <h1 class="dashboard-greeting-title text-2xl lg:text-3xl font-extrabold font-onest text-white tracking-tight">
+                    <span id="dashboardGreeting"><?php echo $greeting; ?></span>, <span class="dashboard-username text-[#51D55A]"><?php echo htmlspecialchars($displayName); ?></span>
+                </h1>
+                <span class="dashboard-role-badge inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-onest uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                    <?php echo htmlspecialchars($userRoleLabel); ?>
+                </span>
             </div>
-
-            <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
-            <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
-               class="hero-product-card flex items-start gap-3 p-4 rounded-xl no-underline"
-               style="background: rgba(245, 158, 11, 0.20); border: 1px solid rgba(245, 158, 11, 0.55);"
-               title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
-                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                     style="background: rgba(245, 158, 11, 0.30); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.55);">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <span class="text-[#E3E3E3] font-onest font-semibold text-sm group-hover:text-emerald-400 transition-colors"><?php echo htmlspecialchars($priorityItem); ?></span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold"
-                              style="background: rgba(245, 158, 11, 0.30); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.55);">
-                            <?php echo htmlspecialchars($priorityType); ?>
-                        </span>
-                        <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                    </div>
-                    <p class="text-[#9aa6d1] text-sm leading-relaxed font-onest"><?php echo $priorityInsight; ?></p>
-                </div>
-            </a>
-            <?php endif; ?>
+            <p class="dashboard-subtext text-sm md:text-base text-[#9aa6d1] mt-2 font-onest">
+                <?php echo htmlspecialchars($statusSummary); ?>
+            </p>
         </div>
 
-        <div class="flex flex-col sm:flex-row lg:flex-col gap-3 flex-shrink-0 lg:items-end">
-            <a id="addProductBtn" href="products.php?add=1" class="btn-secondary whitespace-nowrap !py-3 !px-5 text-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
+        <div class="flex items-center gap-3 shrink-0 self-start md:self-center">
+            <a id="addProductBtn" href="products.php?add=1" class="premium-button whitespace-nowrap !py-2.5 !px-5 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-[#51D55A]/20 transition-all hover:scale-[1.02]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
                 Add Product
             </a>
         </div>
     </div>
+
+    <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
+    <div class="dashboard-hero-alert-border mt-4 pt-4 border-t border-[#2A4484]/40">
+        <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
+           class="hero-product-card flex items-start gap-3.5 p-3.5 rounded-xl no-underline transition-all"
+           title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
+            <div class="hero-product-icon-box w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="hero-product-name text-[#E3E3E3] font-onest font-semibold text-sm group-hover:text-emerald-400 transition-colors"><?php echo htmlspecialchars($priorityItem); ?></span>
+                    <span class="hero-product-badge inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold">
+                        <?php echo htmlspecialchars($priorityType); ?>
+                    </span>
+                    <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <p class="hero-product-desc text-[#9aa6d1] text-xs md:text-sm leading-relaxed font-onest"><?php echo $priorityInsight; ?></p>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -523,28 +535,33 @@ if (typeof Chart === 'undefined') {
     })();
 }
 document.addEventListener('themechange', function() { if (window.IWTheme) IWTheme.refreshAllCharts(); });
-</script>
 
-<script>
-// Match "Add Product" button height to the hero product card on md/lg screens
-(function () {
-    function syncAddProductHeight() {
-        var card = document.querySelector('.hero-product-card');
-        var btn  = document.getElementById('addProductBtn');
-        if (!card || !btn) return;
-
-        if (window.innerWidth >= 768) {
-            // md+ : set explicit height to match the card
-            btn.style.height = card.offsetHeight + 'px';
+// Dynamic browser-local greeting updater
+(function initDynamicGreeting() {
+    function getGreetingForHour(hour) {
+        if (hour >= 5 && hour < 12) {
+            return 'Good morning';
+        } else if (hour >= 12 && hour < 17) {
+            return 'Good afternoon';
         } else {
-            // mobile: let button be its natural height
-            btn.style.height = '';
+            return 'Good evening';
         }
     }
-
-    document.addEventListener('DOMContentLoaded', syncAddProductHeight);
-    window.addEventListener('resize', syncAddProductHeight);
+    function updateGreeting() {
+        const greetingEl = document.getElementById('dashboardGreeting');
+        if (greetingEl) {
+            const currentHour = new Date().getHours();
+            greetingEl.textContent = getGreetingForHour(currentHour);
+        }
+    }
+    updateGreeting();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateGreeting);
+    }
+    setInterval(updateGreeting, 30000);
 })();
 </script>
+
+
 
 <?php renderLayoutFooter(); ?>

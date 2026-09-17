@@ -31,7 +31,7 @@ def load_transactions(conn) -> pd.DataFrame:
             t.transaction_id,
             t.product_id,
             p.product_name,
-            COALESCE(c.name, 'Uncategorized') AS category,
+            COALESCE(c.name, p.category, 'Uncategorized') AS category,
             t.transaction_type,
             t.quantity,
             t.transaction_date,
@@ -59,7 +59,7 @@ def load_product_catalog(conn) -> pd.DataFrame:
         SELECT
             p.product_id,
             p.product_name,
-            COALESCE(c.name, 'Uncategorized') AS category,
+            COALESCE(c.name, p.category, 'Uncategorized') AS category,
             p.quantity AS current_stock,
             p.reorder_point
         FROM products p

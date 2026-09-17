@@ -53,9 +53,10 @@ try {
             $filters = [
                 'page'     => (int)($_GET['page'] ?? 1),
                 'limit'    => (int)($_GET['limit'] ?? 15),
-                'q'        => trim((string)($_GET['q'] ?? '')),
+                'q'        => trim((string)($_GET['q'] ?? ($_GET['search'] ?? ''))),
                 'category' => trim((string)($_GET['category'] ?? '')),
                 'archived' => trim((string)($_GET['archived'] ?? '0')),
+                'status'   => trim((string)($_GET['status'] ?? ($_GET['filter'] ?? ''))),
             ];
             $result = $repository->getProducts($filters);
             echo json_encode(array_merge(['success' => true], $result));

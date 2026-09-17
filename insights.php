@@ -561,7 +561,7 @@ renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
     --insights-table-head: #EFF6FF;
     --insights-row-hover: rgba(59, 130, 246, 0.06);
     --insights-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08);
-    --insights-banner: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+    --insights-banner: #FFFFFF;
     --insights-accent: #0F6E2C;
 }
 
@@ -1649,6 +1649,229 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     color: var(--insights-heading);
     font-weight: 500;
 }
+
+.info-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(81, 213, 90, 0.4);
+    color: #51D55A;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(81, 213, 90, 0.08);
+    user-select: none;
+    transition: all 0.2s ease;
+}
+.info-circle:hover {
+    border-color: #51D55A;
+    background: rgba(81, 213, 90, 0.2);
+}
+
+/* ─── Light Mode: Demand Forecasting & Smart Restock Redesign ─── */
+[data-theme="light"] .smart-restock-banner {
+    background: #FFFFFF !important;
+    border: 1px solid var(--insights-border) !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+}
+
+[data-theme="light"] .smart-restock-banner .bg-icon {
+    opacity: 0.03 !important;
+    color: #475569 !important;
+}
+
+[data-theme="light"] .smart-restock-heading-text,
+[data-theme="light"] .smart-restock-banner [style*="color: #51D55A"] {
+    color: #0F172A !important;
+}
+
+[data-theme="light"] .smart-restock-banner .section-heading-icon {
+    color: #0F6E2C !important;
+}
+
+[data-theme="light"] .info-circle {
+    border-color: #CBD5E1 !important;
+    color: #475569 !important;
+    background: #F1F5F9 !important;
+}
+[data-theme="light"] .info-circle:hover {
+    border-color: #94A3B8 !important;
+    background: #E2E8F0 !important;
+    color: #1E293B !important;
+}
+
+[data-theme="light"] .forecast-table {
+    background: #FFFFFF !important;
+}
+
+[data-theme="light"] .forecast-table th {
+    background: #F8FAFC !important;
+    color: #475569 !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    padding: 12px 14px !important;
+}
+
+[data-theme="light"] .forecast-table td {
+    border-bottom: 1px solid #F1F5F9 !important;
+    padding: 16px 14px !important;
+    background: transparent !important;
+}
+
+[data-theme="light"] .forecast-table tr:hover td {
+    background: #F8FAFC !important;
+}
+
+[data-theme="light"] .forecast-row--highlighted td {
+    background: #F0FDF4 !important;
+    border-bottom-color: #BBF7D0 !important;
+}
+
+[data-theme="light"] .forecast-table .product-title {
+    color: #0F172A !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+}
+
+[data-theme="light"] .forecast-table .product-sub {
+    color: #64748B !important;
+    font-size: 12px !important;
+}
+
+[data-theme="light"] .forecast-stock-pill {
+    background: #F1F5F9 !important;
+    color: #475569 !important;
+    border: 1px solid #CBD5E1 !important;
+}
+
+[data-theme="light"] .forecast-stock-pill strong {
+    color: #0F172A !important;
+}
+
+[data-theme="light"] .forecast-stock-pill[style*="51D55A"] {
+    background: #F0FDF4 !important;
+    border-color: #86EFAC !important;
+    color: #15803D !important;
+}
+
+/* Insight Badges: Context, Forecast, Action */
+[data-theme="light"] .insight-badge--situation {
+    background: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border: 1px solid #BFDBFE !important;
+}
+
+[data-theme="light"] .insight-badge--forecast {
+    background: #FFFBEB !important;
+    color: #B45309 !important;
+    border: 1px solid #FDE68A !important;
+}
+
+[data-theme="light"] .insight-badge--action {
+    background: #F0FDF4 !important;
+    color: #15803D !important;
+    border: 1px solid #BBF7D0 !important;
+}
+
+[data-theme="light"] .insight-badge--urgent {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    border: 1px solid #FECACA !important;
+}
+
+[data-theme="light"] .insight-badge--pause {
+    background: #FAF5FF !important;
+    color: #7E22CE !important;
+    border: 1px solid #E9D5FF !important;
+}
+
+[data-theme="light"] .insight-badge--monitor {
+    background: #FEFCE8 !important;
+    color: #A16207 !important;
+    border: 1px solid #FEF08A !important;
+}
+
+/* Insight Action Row Strips */
+[data-theme="light"] .insight-row--action {
+    background: #F0FDF4 !important;
+    border-left: 3px solid #16A34A !important;
+    border-radius: 0 6px 6px 0 !important;
+}
+
+[data-theme="light"] .insight-row--action.action-urgent {
+    background: #FEF2F2 !important;
+    border-left: 3px solid #DC2626 !important;
+}
+
+[data-theme="light"] .insight-row--action.action-pause {
+    background: #FAF5FF !important;
+    border-left: 3px solid #9333EA !important;
+}
+
+[data-theme="light"] .insight-row--action.action-monitor {
+    background: #FEFCE8 !important;
+    border-left: 3px solid #CA8A04 !important;
+}
+
+[data-theme="light"] .insight-desc {
+    color: #334155 !important;
+}
+
+[data-theme="light"] .insight-desc strong {
+    color: #0F172A !important;
+    font-weight: 600 !important;
+}
+
+[data-theme="light"] .insight-desc--action {
+    color: #0F172A !important;
+    font-weight: 600 !important;
+}
+
+/* Check Stock Button in Light Mode */
+[data-theme="light"] .action-btn,
+[data-theme="light"] .check-stock-btn {
+    background: #F0FDF4 !important;
+    color: #15803D !important;
+    border: 1.5px solid #86EFAC !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
+    font-weight: 600 !important;
+}
+
+[data-theme="light"] .action-btn:hover,
+[data-theme="light"] .check-stock-btn:hover {
+    background: #16A34A !important;
+    color: #FFFFFF !important;
+    border-color: #16A34A !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Philippine Seasonal Guide Button in Light Mode */
+[data-theme="light"] .btn-seasonal-guide {
+    background: #F0FDF4 !important;
+    color: #15803D !important;
+    border-color: #86EFAC !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15) !important;
+}
+
+[data-theme="light"] .btn-seasonal-guide:hover {
+    background: #16A34A !important;
+    color: #FFFFFF !important;
+    border-color: #16A34A !important;
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3) !important;
+}
+
+[data-theme="light"] .pagination-info-pill {
+    background: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    color: #475569 !important;
+}
 @media (max-width: 767px) {
     .insight-row {
         flex-direction: column;
@@ -2079,7 +2302,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative; z-index: 2;">
             <div>
-                <div style="color: #51D55A; font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+                <div class="smart-restock-heading-text" style="color: #51D55A; font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 8px;">
                     <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
                     <span>30-Day Inventory Replenishment &amp; Demand Forecast</span>
                 </div>

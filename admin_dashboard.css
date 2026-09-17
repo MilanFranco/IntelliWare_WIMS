@@ -161,10 +161,94 @@
   background: #3e5fac;
 }
 
+/* Hero banner — matching page-hero-card design on other pages */
+.dashboard-hero-banner {
+  background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
+  border: 1px solid rgba(42, 68, 132, 0.6);
+  border-radius: 18px;
+  padding: 24px 28px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -40px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(81, 213, 90, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+}
+
+.dashboard-greeting-title {
+  font-family: 'Onest', sans-serif;
+  font-size: 1.75rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em;
+  color: #FFFFFF !important;
+  line-height: 1.25;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-greeting-title {
+    font-size: 2rem !important;
+  }
+}
+
+.dashboard-username {
+  color: #51D55A;
+}
+
+.dashboard-hero-icon {
+  background: rgba(81, 213, 90, 0.15);
+  border: 1px solid rgba(81, 213, 90, 0.3);
+  color: #51D55A;
+}
+
+.dashboard-role-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-subtext {
+  color: #9aa6d1;
+}
+
+.dashboard-hero-alert-border {
+  border-top: 1px solid rgba(42, 68, 132, 0.45);
+}
+
 /* Hero banner — clickable priority product */
 .hero-product-card {
   cursor: pointer;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 12px;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.hero-product-icon-box {
+  background: rgba(245, 158, 11, 0.25);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.hero-product-badge {
+  background: rgba(245, 158, 11, 0.30);
+  color: #F59E0B;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+}
+
+.hero-product-name {
+  color: #E3E3E3;
+}
+
+.hero-product-desc {
+  color: #9aa6d1;
 }
 
 .hero-product-card:hover {
@@ -233,9 +317,88 @@
 }
 
 
+/* Light Mode Hero Banner */
+[data-theme="light"] .dashboard-hero-banner {
+  background: 
+    radial-gradient(ellipse 65% 120% at 58% 38%, rgba(214, 236, 255, 0.9) 0%, rgba(235, 245, 255, 0.55) 45%, rgba(255, 255, 255, 0) 72%),
+    #FFFFFF !important;
+  border: 1px solid #D6E2F2 !important;
+  box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
+}
+
+[data-theme="light"] .dashboard-hero-banner::after {
+  background: radial-gradient(circle, rgba(20, 80, 158, 0.06) 0%, rgba(0,0,0,0) 70%) !important;
+  display: block !important;
+}
+
+[data-theme="light"] .dashboard-greeting-title {
+  color: #0B1526 !important;
+}
+
+[data-theme="light"] .dashboard-username {
+  color: #0F6E2C !important;
+}
+
+[data-theme="light"] .dashboard-hero-icon {
+  background: #E3F5E8 !important;
+  border-color: #A9DFB8 !important;
+  color: #0F6E2C !important;
+  box-shadow: none !important;
+}
+
+[data-theme="light"] .dashboard-role-badge {
+  background: #DCEAFC !important;
+  color: #14509E !important;
+  border-color: #AECCF2 !important;
+}
+
+[data-theme="light"] .dashboard-subtext {
+  color: #45526B !important;
+}
+
+[data-theme="light"] .dashboard-subtext strong {
+  color: #0B1526 !important;
+}
+
+[data-theme="light"] .dashboard-hero-alert-border {
+  border-top-color: #E2E8F0 !important;
+}
+
 /* Insight card inside hero card — ensure padding doesn't swallow the left border */
 [data-theme="light"] .hero-product-card {
+  background: rgba(254, 243, 199, 0.65) !important;
+  border: 1px solid #FCD34D !important;
   padding-left: 14px !important;
+}
+
+[data-theme="light"] .hero-product-card:hover {
+  background: #FEF3C7 !important;
+  border-color: #F59E0B !important;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.22) !important;
+}
+
+[data-theme="light"] .hero-product-icon-box {
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+  color: #D97706 !important;
+}
+
+[data-theme="light"] .hero-product-badge {
+  background: rgba(245, 158, 11, 0.20) !important;
+  border-color: rgba(245, 158, 11, 0.40) !important;
+  color: #B45309 !important;
+}
+
+[data-theme="light"] .hero-product-name {
+  color: #0B1526 !important;
+}
+
+[data-theme="light"] .hero-product-desc {
+  color: #45526B !important;
+}
+
+[data-theme="light"] .hero-product-desc strong {
+  color: #0B1526 !important;
 }
 
 /* Quick access container: remove inner gap, let rows fill the card */

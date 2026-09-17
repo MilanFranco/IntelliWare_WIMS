@@ -70,6 +70,108 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 ?>
 
 <style>
+html { scroll-behavior: smooth; }
+
+/* ── System Activity Modal ─────────────────────────────────────── */
+.sys-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+    padding: 16px;
+}
+.sys-modal-overlay.active {
+    display: flex;
+}
+.sys-modal-box {
+    width: min(100%, 820px);
+    background: #0E1A3D;
+    border: 1px solid rgba(42, 68, 132, 0.6);
+    border-radius: 18px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+    animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalPopIn {
+    from { transform: scale(0.96) translateY(10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+[data-theme="light"] .sys-modal-box {
+    background: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.18) !important;
+}
+[data-theme="light"] .sys-modal-box .sys-modal-header {
+    background: #F8FAFC !important;
+    border-bottom-color: #E2E8F0 !important;
+}
+[data-theme="light"] .sys-modal-box .sys-modal-title {
+    color: #0F172A !important;
+}
+[data-theme="light"] .sys-modal-box .sys-modal-sub {
+    color: #64748B !important;
+}
+[data-theme="light"] .sys-modal-box .sys-search-bar {
+    background: #F1F5F9 !important;
+    border-bottom-color: #E2E8F0 !important;
+}
+[data-theme="light"] .sys-modal-box .sys-search-input {
+    background: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    color: #0F172A !important;
+}
+[data-theme="light"] .sys-modal-box .sys-search-input::placeholder {
+    color: #94A3B8 !important;
+}
+[data-theme="light"] .sys-modal-box thead {
+    background: #F8FAFC !important;
+}
+[data-theme="light"] .sys-modal-box th {
+    color: #475569 !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+}
+[data-theme="light"] .sys-modal-box td {
+    border-bottom-color: #F1F5F9 !important;
+}
+[data-theme="light"] .sys-modal-box tr:hover td {
+    background: #F8FAFC !important;
+}
+[data-theme="light"] .sys-modal-box .log-user {
+    color: #0F172A !important;
+}
+[data-theme="light"] .sys-modal-box .log-action {
+    color: #334155 !important;
+}
+[data-theme="light"] .sys-modal-box .modal-footer {
+    background: #F8FAFC !important;
+    border-top-color: #E2E8F0 !important;
+}
+[data-theme="light"] .sys-modal-box .sys-counter-badge {
+    background: #E2E8F0 !important;
+    border-color: #CBD5E1 !important;
+    color: #475569 !important;
+}
+[data-theme="light"] .sys-modal-box .sys-counter-badge .sys-counter-num {
+    color: #0F6E2C !important;
+}
+[data-theme="light"] .sys-modal-box .modal-close-btn {
+    background: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    color: #475569 !important;
+}
+[data-theme="light"] .sys-modal-box .modal-close-btn:hover {
+    background: #EF4444 !important;
+    border-color: #EF4444 !important;
+    color: #FFFFFF !important;
+}
+
 /* ── Transaction History responsive layout ──────────────────────── */
 .txnlog-desktop { display: block; }
 .txnlog-mobile  { display: none;  }
@@ -313,24 +415,24 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     
-    <div class="premium-card flex flex-col h-[500px]">
+    <div class="premium-card flex flex-col">
         <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                 <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 System Activity
             </h3>
-            <span class="text-xs text-[#9aa6d1] font-onest bg-[#1D387B] px-3 py-1 rounded-full border border-[#2A4484]">Last 100 Events</span>
+            <a href="javascript:void(0)" onclick="openSystemActivityModal()" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest flex items-center gap-1 transition-colors">View All &rarr;</a>
         </div>
         
-        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
+        <div class="overflow-x-auto flex-1 p-2">
             <?php if (empty($logs)): ?>
-                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                <div class="flex flex-col items-center justify-center py-12 text-[#9aa6d1]">
                     <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
                     <span>No logs found</span>
                 </div>
             <?php else: ?>
                 <table class="w-full">
-                    <thead class="sticky top-0 bg-[#1D387B] z-10 text-xs text-[#9aa6d1] font-onest text-left">
+                    <thead class="bg-[#1D387B] text-xs text-[#9aa6d1] font-onest text-left">
                         <tr>
                             <th class="p-3">User</th>
                             <th class="p-3">Action</th>
@@ -338,7 +440,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                         </tr>
                     </thead>
                     <tbody class="text-sm">
-                        <?php foreach ($logs as $log): ?>
+                        <?php foreach (array_slice($logs, 0, 5) as $log): ?>
                         <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors">
                             <td class="p-3">
                                 <div class="flex items-center gap-2">
@@ -362,23 +464,23 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
         </div>
     </div>
 
-    <div class="premium-card flex flex-col h-[500px]">
+    <div class="premium-card flex flex-col">
         <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                 <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 Recent Stock Moves
             </h3>
-            <span class="text-xs text-[#9aa6d1] font-onest bg-[#1D387B] px-3 py-1 rounded-full border border-[#2A4484]">Realtime</span>
+            <a href="#fullTransactionHistory" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest flex items-center gap-1 transition-colors">View All &rarr;</a>
         </div>
 
-        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
+        <div class="overflow-x-auto flex-1 p-2">
             <?php if (empty($transactions)): ?>
-                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                <div class="flex flex-col items-center justify-center py-12 text-[#9aa6d1]">
                     <span>No transactions found</span>
                 </div>
             <?php else: ?>
                 <table class="w-full">
-                    <thead class="sticky top-0 bg-[#1D387B] z-10 text-xs text-[#9aa6d1] font-onest text-left">
+                    <thead class="bg-[#1D387B] text-xs text-[#9aa6d1] font-onest text-left">
                         <tr>
                             <th class="p-3">Product</th>
                             <th class="p-3 text-center">Type</th>
@@ -387,7 +489,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                         </tr>
                     </thead>
                     <tbody class="text-sm">
-                        <?php foreach ($transactions as $trans): ?>
+                        <?php foreach (array_slice($transactions, 0, 5) as $trans): ?>
                         <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors">
                             <td class="p-3">
                                 <span class="text-[#E3E3E3] block"><?php echo htmlspecialchars($trans['product_name'] ?? 'Unknown'); ?></span>
@@ -415,7 +517,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
     </div>
 </div>
 
-<div class="premium-card mb-8">
+<div class="premium-card mb-8" id="fullTransactionHistory" style="scroll-margin-top: 80px;">
     <div class="p-5 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#13275B]/30">
         <div>
             <h3 class="font-onest font-semibold text-lg text-white">Full Transaction History</h3>
@@ -446,6 +548,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                         <th>Product</th>
                         <th>Category</th>
                         <th>Type</th>
+                        <th>Source</th>
                         <th>Qty</th>
                         <th>User</th>
                         <th>Date</th>
@@ -455,7 +558,7 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                 <tbody>
                     <?php if (empty($historyTransactions)): ?>
                     <tr>
-                        <td colspan="8" class="text-center text-[#9aa6d1] py-6">No transactions found</td>
+                        <td colspan="9" class="text-center text-[#9aa6d1] py-6">No transactions found</td>
                     </tr>
                     <?php endif; ?>
                     <?php foreach ($historyTransactions as $trans): ?>
@@ -473,6 +576,23 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                                 <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
                                     STOCK OUT
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php
+                            $src = $trans['transaction_source'] ?? 'manual';
+                            if ($src === 'ai_scan'): ?>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                                    AI Scan
+                                </span>
+                            <?php elseif ($src === 'barcode'): ?>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                                    Barcode
+                                </span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
+                                    Manual
                                 </span>
                             <?php endif; ?>
                         </td>
@@ -548,6 +668,15 @@ renderLayoutStart('Transaction Logs', $role, $_SESSION['Username']);
                     <div class="txnacc-row">
                         <span class="txnacc-row-label">User</span>
                         <span class="txnacc-row-value"><?php echo htmlspecialchars($trans['username'] ?? '—'); ?></span>
+                    </div>
+                    <div class="txnacc-row">
+                        <span class="txnacc-row-label">Source</span>
+                        <span class="txnacc-row-value">
+                            <?php
+                            $src = $trans['transaction_source'] ?? 'manual';
+                            echo ($src === 'ai_scan') ? 'AI Scan' : (($src === 'barcode') ? 'Barcode' : 'Manual');
+                            ?>
+                        </span>
                     </div>
                     <?php if ($remarks !== '' && $remarks !== '-'): ?>
                     <div class="txnacc-remarks-row">"<?php echo htmlspecialchars($remarks); ?>"</div>
@@ -667,7 +796,141 @@ function exportLogs() {
     a.click();
     window.URL.revokeObjectURL(url);
 }
+
+// ── System Activity Modal Controls ──────────────────────────────
+function openSystemActivityModal() {
+    const modal = document.getElementById('systemActivityModal');
+    if (modal) {
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        const input = document.getElementById('modalLogSearch');
+        if (input) {
+            input.value = '';
+            filterModalLogs();
+            setTimeout(function() { input.focus(); }, 150);
+        }
+    }
+}
+
+function closeSystemActivityModal() {
+    const modal = document.getElementById('systemActivityModal');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('systemActivityModal');
+    if (modal && modal.classList.contains('active') && e.target === modal) {
+        closeSystemActivityModal();
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeSystemActivityModal();
+    }
+});
+
+function filterModalLogs() {
+    const searchEl = document.getElementById('modalLogSearch');
+    const filter = (searchEl ? searchEl.value : '').toUpperCase();
+    const rows = document.querySelectorAll('#modalLogTable .modal-log-row');
+    let visible = 0;
+    rows.forEach(function(row) {
+        const user = (row.querySelector('.log-user')?.textContent || '').toUpperCase();
+        const action = (row.querySelector('.log-action')?.textContent || '').toUpperCase();
+        if (user.indexOf(filter) > -1 || action.indexOf(filter) > -1) {
+            row.style.display = '';
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    const countEl = document.getElementById('modalVisibleCount');
+    if (countEl) countEl.textContent = visible;
+}
 </script>
+
+<!-- System Activity Full Modal -->
+<div id="systemActivityModal" class="sys-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sysModalTitle">
+    <div class="sys-modal-box">
+        <div class="sys-modal-header p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/40">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <div>
+                    <h3 id="sysModalTitle" class="sys-modal-title font-onest font-bold text-lg text-white">System Activity Logs</h3>
+                    <p class="sys-modal-sub text-xs text-[#9aa6d1]">Complete audit trail of system events and user actions</p>
+                </div>
+            </div>
+            <button type="button" class="modal-close-btn" onclick="closeSystemActivityModal()" title="Close">&times;</button>
+        </div>
+        
+        <!-- Search & Info Bar -->
+        <div class="sys-search-bar p-4 border-b border-[#2A4484]/40 bg-[#13275B]/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div class="relative flex-1">
+                <input type="text" id="modalLogSearch" onkeyup="filterModalLogs()" placeholder="Search logs by user or action..." 
+                    class="sys-search-input w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                <svg class="absolute left-3 top-2.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="sys-counter-badge text-xs text-[#9aa6d1] font-mono whitespace-nowrap bg-[#1D387B]/60 px-3 py-1.5 rounded-lg border border-[#2A4484]/50">
+                    Showing <span id="modalVisibleCount" class="sys-counter-num font-bold text-[#51D55A]"><?php echo count($logs); ?></span> of <?php echo count($logs); ?> events
+                </span>
+            </div>
+        </div>
+
+        <!-- Scrollable Log Table -->
+        <div class="overflow-y-auto premium-scrollbar flex-1 p-0" style="max-height: 52vh;">
+            <?php if (empty($logs)): ?>
+                <div class="flex flex-col items-center justify-center py-16 text-[#9aa6d1]">
+                    <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span>No activity logs found</span>
+                </div>
+            <?php else: ?>
+                <table class="w-full" id="modalLogTable">
+                    <thead class="sticky top-0 bg-[#1D387B] z-10 text-xs text-[#9aa6d1] font-onest text-left">
+                        <tr>
+                            <th class="p-3 pl-5">User</th>
+                            <th class="p-3">Action</th>
+                            <th class="p-3 pr-5 text-right">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+                        <?php foreach ($logs as $log): ?>
+                        <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors modal-log-row">
+                            <td class="p-3 pl-5">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">
+                                        <?php echo strtoupper(substr($log['username'] ?? '?', 0, 1)); ?>
+                                    </div>
+                                    <span class="log-user text-[#E3E3E3] font-medium"><?php echo htmlspecialchars($log['username'] ?? 'System'); ?></span>
+                                </div>
+                            </td>
+                            <td class="p-3">
+                                <span class="log-action text-[#9aa6d1]"><?php echo htmlspecialchars($log['action']); ?></span>
+                            </td>
+                            <td class="p-3 pr-5 text-right text-xs text-[#6b7280] whitespace-nowrap font-mono">
+                                <?php echo date('M j, Y H:i', strtotime($log['timestamp'])); ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+
+        <div class="modal-footer p-4 border-t border-[#2A4484]/40 flex justify-end bg-[#13275B]/30">
+            <button type="button" class="btn btn-secondary px-5 py-2 text-xs" onclick="closeSystemActivityModal()">Close</button>
+        </div>
+    </div>
+</div>
 
 <?php
 renderLayoutEnd();

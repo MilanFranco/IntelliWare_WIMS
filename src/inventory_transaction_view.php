@@ -124,12 +124,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $normalized[] = $entry;
             }
 
+            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['barcode', 'ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'barcode';
             $results = StockMovementService::executeBatchMovement(
                 $conn,
                 $normalized,
                 $TXN_MODE,
                 $_SESSION['Username'],
-                $remarksVal
+                $remarksVal,
+                $entrySource
             );
 
             $totalQty = array_sum(array_column($normalized, 'qty'));
@@ -146,6 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $productId = (int)($_POST['product_id'] ?? 0);
             $qty = (int)($_POST['qty'] ?? 0);
+            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['barcode', 'ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'barcode';
 
             $result = StockMovementService::executeMovement(
                 $conn,
@@ -153,7 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $qty,
                 $TXN_MODE,
                 $_SESSION['Username'],
-                $remarksVal
+                $remarksVal,
+                null,
+                $entrySource
             );
             $productName = $result['product']['product_name'] ?? 'Product';
             $label = $TXN_MODE === 'in' ? 'received' : 'released';
@@ -225,13 +230,22 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
 
     .pos-panel-body {
-        padding: 12px 16px;
+        padding: 16px;
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 14px;
         overflow-y: auto;
+    }
+
+    #inv-txn-form {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        gap: 16px;
+        height: 100%;
     }
 
     /* ── Search Bar ──────────────────────────────────────────────────────── */
@@ -422,23 +436,74 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         100% { background: transparent; }
     }
 
-    .pos-qty-controls { display: inline-flex; align-items: center; gap: 4px; }
+    .pos-qty-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
     .pos-qty-btn {
-        width: 24px; height: 24px;
-        border-radius: 6px;
-        border: 1px solid var(--iw-border-input);
-        background: var(--iw-bg-btn-secondary);
-        color: var(--iw-text);
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        border: 1px solid var(--iw-border-input, #2A4484);
+        background: var(--iw-bg-surface, #0B1438);
+        color: var(--iw-text, #E3E3E3);
         cursor: pointer;
         font-size: 14px;
+        font-weight: 600;
         line-height: 1;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: border-color 0.15s, color 0.15s;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+        padding: 0;
+        user-select: none;
+        flex-shrink: 0;
     }
-    .pos-qty-btn:hover { border-color: #51D55A; color: #51D55A; }
-    .pos-qty-value { min-width: 24px; text-align: center; font-weight: 600; }
+    .pos-qty-btn:hover {
+        border-color: #51D55A;
+        color: #51D55A;
+        background: rgba(81, 213, 90, 0.1);
+    }
+    .pos-accent-release .pos-qty-btn:hover {
+        border-color: #ef4444;
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    .pos-qty-input {
+        width: 54px;
+        height: 26px;
+        padding: 0 4px;
+        border-radius: 7px;
+        border: 1px solid var(--iw-border-input, #2A4484);
+        background: var(--iw-bg-surface, #0B1438);
+        color: var(--iw-text, #E3E3E3);
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+        -moz-appearance: textfield;
+    }
+    .pos-qty-input::-webkit-outer-spin-button,
+    .pos-qty-input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    .pos-qty-input:hover {
+        border-color: var(--iw-border, #3a5bb0);
+    }
+    .pos-qty-input:focus {
+        border-color: #51D55A;
+        box-shadow: 0 0 0 2px rgba(81, 213, 90, 0.2);
+        background: var(--iw-bg-card, #13275B);
+    }
+    .pos-accent-release .pos-qty-input:focus {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
 
     .pos-remove-btn {
         width: 24px; height: 24px;
@@ -771,7 +836,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 </div>
 
                 <!-- ── Camera Scanner Viewfinder (collapsible) ────────── -->
-                <div id="inv-camera-scanner-wrap" style="display:none; margin-top:12px; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative;">
+                <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative;">
                     <div style="position:relative; width:100%; height:210px; background:#040714; overflow:hidden;">
                         <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
                         <canvas id="inv-camera-canvas" style="display:none;"></canvas>
@@ -811,7 +876,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                                 <th class="pos-cart-thumb-cell"></th>
                                 <th>Product</th>
                                 <th>Stock</th>
-                                <th>Qty</th>
+                                <th style="text-align:center;">Qty</th>
                                 <th>Unit Price</th>
                                 <th>Total Price</th>
                                 <th></th>

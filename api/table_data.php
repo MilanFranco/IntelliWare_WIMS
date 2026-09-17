@@ -1,14 +1,22 @@
 <?php
-require '../config/db.php';
-
 header('Content-Type: application/json');
+session_start();
+
+if (!isset($_SESSION['Username'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit();
+}
+
+require '../config/db.php';
 
 $tableType = $_GET['type'] ?? '';
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$limit = 10;
+$limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
 $offset = ($page - 1) * $limit;
 
 $response = [
+    'success' => true,
     'data' => [],
     'total' => 0,
     'page' => $page,
@@ -21,6 +29,8 @@ function fetchPaginatedData($conn, $countQuery, $dataQuery, $offset, $limit) {
         $total = (int)$res->fetch_row()[0];
     }
     
+    $limit = max(1, (int)$limit);
+    $offset = max(0, (int)$offset);
     $data = [];
     $dataQuery .= " LIMIT $limit OFFSET $offset";
     if ($res = $conn->query($dataQuery)) {
@@ -120,6 +130,7 @@ switch ($tableType) {
         break;
 
     default:
+        $response['success'] = false;
         $response['error'] = 'Invalid table type';
         break;
 }

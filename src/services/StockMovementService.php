@@ -81,7 +81,8 @@ class StockMovementService
         string $type,
         string $username,
         ?string $remarks = null,
-        ?array $metadata = null
+        ?array $metadata = null,
+        string $source = 'manual'
     ): array {
         if ($productId <= 0) {
             throw new Exception('Invalid product.');
@@ -146,13 +147,16 @@ class StockMovementService
         $userId = self::getUserId($conn, $username);
         $barcode = $product['barcode'] ?? null;
 
+        $validSources = ['manual', 'barcode', 'ai_scan'];
+        $cleanSource = in_array(strtolower(trim($source)), $validSources, true) ? strtolower(trim($source)) : 'manual';
+
         $transStmt = $conn->prepare(
             'INSERT INTO transactions
-            (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, barcode, remarks)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, barcode, remarks, transaction_source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $transStmt->bind_param(
-            'iisiiiss',
+            'iisiiisss',
             $productId,
             $userId,
             $transactionType,
@@ -160,7 +164,8 @@ class StockMovementService
             $previousStock,
             $newStock,
             $barcode,
-            $remarks
+            $remarks,
+            $cleanSource
         );
         if (!$transStmt->execute()) {
             $transStmt->close();
@@ -299,11 +304,12 @@ class StockMovementService
         string $type,
         string $username,
         ?string $remarks = null,
-        ?array $metadata = null
+        ?array $metadata = null,
+        string $source = 'manual'
     ): array {
         $conn->begin_transaction();
         try {
-            $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks, $metadata);
+            $result = self::processMovement($conn, $productId, $quantity, $type, $username, $remarks, $metadata, $source);
             $conn->commit();
 
             // Real-Time Stock Threshold Alert Trigger (Post-Commit)
@@ -357,7 +363,8 @@ class StockMovementService
         array $items,
         string $type,
         string $username,
-        ?string $remarks = null
+        ?string $remarks = null,
+        string $source = 'manual'
     ): array {
         if (empty($items)) {
             throw new Exception('No items in transaction.');
@@ -370,6 +377,7 @@ class StockMovementService
                 $productId = (int)($item['product_id'] ?? 0);
                 $qty = (int)($item['qty'] ?? 0);
                 $metadata = isset($item['metadata']) && is_array($item['metadata']) ? $item['metadata'] : null;
+                $itemSource = !empty($item['source']) ? (string)$item['source'] : $source;
                 $results[] = self::processMovement(
                     $conn,
                     $productId,
@@ -377,7 +385,8 @@ class StockMovementService
                     $type,
                     $username,
                     $remarks,
-                    $metadata
+                    $metadata,
+                    $itemSource
                 );
             }
             $conn->commit();

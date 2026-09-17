@@ -183,4 +183,32 @@ class LocationCategoryService
         $prefix = self::extractLocationPrefix($location);
         return $prefix !== '' && strcasecmp($prefix, self::extractLocationPrefix($expectedPrefix)) !== 0;
     }
+
+    public static function resolveCategoryId(string $categoryName, mysqli $conn): ?int
+    {
+        $categoryName = trim($categoryName);
+        if ($categoryName === '') {
+            return null;
+        }
+
+        $stmt = $conn->prepare('SELECT id FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1');
+        $stmt->bind_param('s', $categoryName);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($row && !empty($row['id'])) {
+            return (int)$row['id'];
+        }
+
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $categoryName)));
+        $ins = $conn->prepare('INSERT INTO categories (name, slug) VALUES (?, ?)');
+        $ins->bind_param('ss', $categoryName, $slug);
+        if ($ins->execute()) {
+            $newId = (int)$conn->insert_id;
+            $ins->close();
+            return $newId;
+        }
+        $ins->close();
+        return null;
+    }
 }

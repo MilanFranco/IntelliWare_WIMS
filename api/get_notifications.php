@@ -1,6 +1,13 @@
 <?php
 // api/get_notifications.php
 header('Content-Type: application/json');
+session_start();
+
+if (!isset($_SESSION['Username'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+    exit();
+}
 
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../src/services/NotificationService.php';
@@ -63,7 +70,8 @@ if ($result) {
 
 // Return JSON response
 echo json_encode([
-    'count' => count($notifications),
-    'items' => $notifications
+    'success' => true,
+    'count'   => count($notifications),
+    'items'   => $notifications
 ]);
 exit;

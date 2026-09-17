@@ -5,6 +5,11 @@ if (!isset($_SESSION['Username'])) {
     exit();
 }
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 $currentUser = $_SESSION['Username'];
 $currentRole = $_SESSION['Role'] ?? 'staff';
 
@@ -74,6 +79,15 @@ function generateDatabaseSqlBackup(mysqli $conn): string {
 // 1. ACTION HANDLERS
 // -------------------------------------------------------------
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedToken = (string)($_POST['csrf_token'] ?? '');
+    if (!hash_equals($csrf_token, $submittedToken)) {
+        $_SESSION['error'] = "Invalid or expired security token (CSRF). Please refresh and try again.";
+        header('Location: settings.php');
+        exit();
+    }
+}
+
 // A. Handle Database Backup Export (Immediate stream)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['backup_trigger'])) {
     if (!in_array($currentRole, ['admin', 'manager'])) {
@@ -142,6 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 
             if ($stmt->execute()) {
                 $_SESSION['Username'] = $newUsername;
+                $_SESSION['full_name'] = $newFullName;
                 $currentUser = $newUsername;
                 $_SESSION['success'] = "Profile credentials and notification preferences updated successfully.";
             } else {
@@ -378,10 +393,6 @@ $vatRate = (float)($notifSettings['vat_rate'] ?? 12.0);
 $dateFormat = $notifSettings['date_format'] ?? 'Y-m-d';
 $lastBackupDate = $notifSettings['backup_last_date'] ?? null;
 
-$success = $_SESSION['success'] ?? '';
-$error = $_SESSION['error'] ?? '';
-unset($_SESSION['success'], $_SESSION['error']);
-
 renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 ?>
 
@@ -536,24 +547,6 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
 </style>
 
-<!-- Bottom-Center Toast Notifications -->
-<div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
-
-<?php if ($success): ?>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        showToast(<?php echo json_encode($success); ?>, 'success');
-    });
-</script>
-<?php endif; ?>
-<?php if ($error): ?>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        showToast(<?php echo json_encode($error); ?>, 'error');
-    });
-</script>
-<?php endif; ?>
-
 <!-- Header Banner Card -->
 <div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
     <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
@@ -687,6 +680,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
             <div class="p-6">
                 <form method="POST" id="rulesForm" class="space-y-5">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="update_rules" value="1">
 
                     <div>
@@ -741,6 +735,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
             <div class="p-6">
                 <form method="POST" class="space-y-5">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="update_defaults" value="1">
 
                     <div>
@@ -811,6 +806,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
                 <div class="p-6">
                     <form method="POST" id="notifForm" class="space-y-6">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                         <input type="hidden" name="update_notifications" value="1">
 
                         <!-- Channels Grid -->
@@ -1019,6 +1015,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <span class="text-[10px] text-[#51D55A] font-semibold">SMTP</span>
                         </div>
                         <form method="POST" class="space-y-2.5">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <input type="hidden" name="send_test_email" value="1">
                             <div>
                                 <label class="block text-[11px] text-[#9aa6d1] font-semibold mb-1">Target Email</label>
@@ -1046,6 +1043,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <span class="text-[10px] text-amber-400 font-semibold">Telco</span>
                         </div>
                         <form method="POST" class="space-y-2">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                             <input type="hidden" name="send_test_sms" value="1">
                             <input type="text" name="test_sms_recipient" required class="premium-input w-full text-xs" placeholder="09... or +63..." value="<?php echo htmlspecialchars($notifSettings['notif_sms_recipients'] ?? ''); ?>">
                             <button type="submit" class="w-full btn-secondary py-2.5 text-xs font-semibold flex items-center justify-center gap-2">
@@ -1201,6 +1199,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
                 <div class="p-6 md:p-8">
                     <form method="POST" class="space-y-6">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                         <input type="hidden" name="update_vision_settings" value="1">
 
                         <!-- Main Switch -->
@@ -1330,6 +1329,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
                 <div class="p-6">
                     <form method="POST" id="profileForm" class="space-y-5">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                         <input type="hidden" name="update_profile" value="1">
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1465,6 +1465,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
             </div>
 
             <form method="POST" id="trainForecastForm">
+                <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="train_forecast_model" value="1">
                 <button type="submit" class="premium-button py-2.5 px-5 text-xs font-semibold flex items-center gap-2" onclick="return confirm('Start AI Model Training? The system will analyze all historic stock_out movements.');">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -1549,6 +1550,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                 </div>
 
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="backup_trigger" value="1">
                     <button type="submit" class="premium-button w-full flex items-center justify-center gap-2 py-3">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -1595,6 +1597,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                 </div>
 
                 <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     <input type="hidden" name="clear_cache" value="1">
                     <button type="submit" class="w-full btn-danger py-3 flex items-center justify-center gap-2 font-semibold text-sm" onclick="return confirm('Purge system cache and insights buffer? Stored inventory records will NOT be affected.');">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>

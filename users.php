@@ -8,6 +8,11 @@ if (($_SESSION['Role'] ?? '') !== 'admin') { header('Location: dash_staff.php');
 require_once 'src/layout.php';
 require_once 'config/db.php';
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // Helper: Get Current Admin's User ID for Logging
 function getCurrentAdminId($conn) {
     if (!empty($_SESSION['user_id'])) {
@@ -29,7 +34,13 @@ function getCurrentAdminId($conn) {
 }
 
 // 2. HANDLE FORM SUBMISSIONS
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!isset($_POST['csrf_token']) || !hash_equals($csrf_token, (string)$_POST['csrf_token'])) {
+        $_SESSION['error'] = 'Security validation failed (CSRF token mismatch). Please refresh and try again.';
+        header('Location: users.php');
+        exit();
+    }
+
     $action = $_POST['action'] ?? '';
 
     // --- ACTION: ADD USER ---
@@ -549,24 +560,6 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
     }
 </style>
 
-<div id="toast-container"></div>
-
-<?php if (isset($_SESSION['success'])): ?>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        showToast(<?php echo json_encode($_SESSION['success']); ?>, 'success');
-    });
-</script>
-<?php unset($_SESSION['success']); endif; ?>
-
-<?php if (isset($_SESSION['error'])): ?>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        showToast(<?php echo json_encode($_SESSION['error']); ?>, 'error');
-    });
-</script>
-<?php unset($_SESSION['error']); endif; ?>
-
 <!-- 1. Hero Page Header Banner -->
 <div class="user-hero-card page-hero-card mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -672,6 +665,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             <div class="p-6">
                 <form method="POST" id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <input type="hidden" name="action" value="add">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     
                     <div>
                         <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2 uppercase tracking-wider">Full Name</label>
@@ -757,6 +751,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             <div class="p-6">
                 <form method="POST" id="resetPassForm" class="grid grid-cols-1 gap-4">
                     <input type="hidden" name="action" value="reset_pass">
+                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                     
                     <div>
                         <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2 uppercase tracking-wider">Target Account</label>
@@ -975,6 +970,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         </div>
 
         <form method="POST" id="editUserForm" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="user_id" id="editUserId">
 
@@ -1036,6 +1032,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
 
 <!-- Hidden Delete Form -->
 <form id="deleteForm" method="POST" style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
     <input type="hidden" name="action" value="delete">
     <input type="hidden" name="user_id" id="deleteUserId">
 </form>

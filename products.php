@@ -23,8 +23,9 @@ $uoms = [];
 $total_items = 0;
 $items_per_page = 15; 
 $page = max(1, (int)($_GET['page'] ?? 1));
-$q = trim($_GET['q'] ?? '');
+$q = trim($_GET['q'] ?? ($_GET['search'] ?? ''));
 $category_param = trim($_GET['category'] ?? '');
+$filter_param = strtolower(trim($_GET['filter'] ?? ($_GET['status'] ?? '')));
 
 function setFlashMessage($type, $message) {
     $_SESSION['toast'] = ['type' => $type, 'message' => $message];
@@ -101,11 +102,12 @@ if ($brand_query) {
 }
 $brands = array_values(array_unique($brands));
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $csrf_token) {
         setFlashMessage('error', 'Security token mismatch. Operation blocked.');
-        header("Location: products.php?page=$page&q=$q&category=$category_param");
+        $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
+        header("Location: products.php?page=$page&q=" . urlencode($q) . "&category=" . urlencode($category_param) . "$filter_qs");
         exit();
     }
     
@@ -149,9 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $location = $synced['location'];
 
             $openingQty = $quantity;
+            $categoryId = LocationCategoryService::resolveCategoryId($category, $conn);
 
-            $stmt = $conn->prepare("INSERT INTO products (product_name, category, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssisdi", $product_name, $category, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
+            $stmt = $conn->prepare("INSERT INTO products (product_name, category, category_id, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
+            $stmt->bind_param("ssissisdi", $product_name, $category, $categoryId, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
             if ($stmt->execute()) {
                 $newProductId = (int)$conn->insert_id;
                 $stmt->close();
@@ -227,9 +230,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $currentQty = (int)$currentRow['quantity'];
             $qtyDelta = $newQty - $currentQty;
+            $categoryId = LocationCategoryService::resolveCategoryId($category, $conn);
 
-            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
-            $stmt->bind_param("sssssisdii", $_POST['name'], $barcodeVal, $category, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
+            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, category_id=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
+            $stmt->bind_param("sssisssisdii", $_POST['name'], $barcodeVal, $category, $categoryId, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
             if (!$stmt->execute()) {
                 throw new Exception("Update failed: " . $stmt->error);
             }
@@ -289,7 +293,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setFlashMessage('error', $e->getMessage());
     }
     $archived_param = isset($_GET['archived']) ? '&archived=' . (int)$_GET['archived'] : '';
-    header("Location: products.php?page=$page&q=$q&category=$category_param$archived_param");
+    $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
+    header("Location: products.php?page=$page&q=" . urlencode($q) . "&category=" . urlencode($category_param) . "$archived_param$filter_qs");
     exit();
 }
 
@@ -324,7 +329,8 @@ $inventoryData = ApiClient::getInventoryProducts([
     'limit'    => $items_per_page,
     'q'        => $q,
     'category' => $category_param,
-    'archived' => $show_archived ? '1' : '0'
+    'archived' => $show_archived ? '1' : '0',
+    'status'   => $filter_param
 ]);
 
 $total_items = (int)($inventoryData['total'] ?? 0);
@@ -1186,8 +1192,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
 </style>
 
-<div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>
-
 <!-- Hero Page Header Banner -->
 <div class="page-hero-card mb-6" style="background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%); border: 1px solid rgba(42, 68, 132, 0.6); border-radius: 18px; padding: 24px 28px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35); position: relative; overflow: hidden;">
     <div style="content:''; position:absolute; top:-60px; right:-40px; width:300px; height:300px; background: radial-gradient(circle, rgba(81,213,90,0.08) 0%, rgba(0,0,0,0) 70%); pointer-events:none;"></div>
@@ -1244,8 +1248,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <option value="">All Categories</option>
                     <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."' ".($category_param==$cat?'selected':'').">" .htmlspecialchars($cat)."</option>"; ?>
                 </select>
-                <?php if($q||$category_param): ?>
-                    <a href="products.php" class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
+                <select name="filter" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 xl:w-40 shrink-0" style="height:44px;" onchange="this.form.submit()">
+                    <option value="">All Stock</option>
+                    <option value="low_stock" <?php echo in_array($filter_param, ['low', 'low_stock']) ? 'selected' : ''; ?>>Low Stock</option>
+                    <option value="out_of_stock" <?php echo in_array($filter_param, ['out', 'out_of_stock']) ? 'selected' : ''; ?>>Out of Stock</option>
+                    <option value="in_stock" <?php echo in_array($filter_param, ['good', 'in_stock']) ? 'selected' : ''; ?>>In Stock</option>
+                </select>
+                <?php if($q||$category_param||$filter_param): ?>
+                    <a href="products.php<?php echo $show_archived ? '?archived=1' : ''; ?>" class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
             </form>
             <div id="inv-action-btns" class="flex flex-row items-center gap-2 shrink-0 flex-nowrap">
@@ -1255,7 +1265,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     Add Product
                 </button>
                 <?php endif; ?>
-                <a href="products.php?archived=<?php echo $show_archived ? '0' : '1'; ?>&q=<?php echo urlencode($q); ?>&category=<?php echo urlencode($category_param); ?>"
+                <a href="products.php?archived=<?php echo $show_archived ? '0' : '1'; ?>&q=<?php echo urlencode($q); ?>&category=<?php echo urlencode($category_param); ?><?php echo $filter_param !== '' ? '&filter=' . urlencode($filter_param) : ''; ?>"
                    class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center gap-1.5 shrink-0 px-3.5 text-sm">
                     <?php if ($show_archived): ?>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -1277,7 +1287,20 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <span style="font-size:12px; color:#9aa6d1; margin-left:4px;">&mdash; <?php echo $total_items; ?> product<?php echo $total_items !== 1 ? 's' : ''; ?> archived</span>
     </div>
     <?php endif; ?>
+    <?php if ($filter_param && in_array($filter_param, ['low', 'low_stock', 'out', 'out_of_stock', 'in_stock', 'good', 'attention'])): ?>
+    <div style="background:linear-gradient(90deg,rgba(81,213,90,0.12),rgba(81,213,90,0.04)); border-bottom:1px solid rgba(81,213,90,0.25); padding:10px 20px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" fill="none" stroke="#51D55A" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+            <span style="font-size:13px; font-weight:600; color:#51D55A; font-family:'Onest',sans-serif;">
+                Filtered by Stock Status: <?php echo in_array($filter_param, ['low', 'low_stock']) ? 'Low Stock' : (in_array($filter_param, ['out', 'out_of_stock']) ? 'Out of Stock' : (in_array($filter_param, ['in_stock', 'good']) ? 'In Stock' : 'Attention Needed')); ?>
+            </span>
+            <span style="font-size:12px; color:#9aa6d1;">&mdash; <?php echo $total_items; ?> product<?php echo $total_items !== 1 ? 's' : ''; ?> found</span>
+        </div>
+        <a href="products.php?<?php echo http_build_query(array_filter(['q' => $q, 'category' => $category_param, 'archived' => $show_archived ? '1' : null])); ?>" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">Clear Filter &times;</a>
+    </div>
+    <?php endif; ?>
 
+    <div id="inventory-products-content">
     <?php if (!$items): ?>
         <div class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</div>
     <?php else: ?>
@@ -1371,12 +1394,13 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div><!-- /.inv-card-grid -->
 
     <?php endif; ?>
+    </div><!-- /#inventory-products-content -->
 
     <div id="inventory-pagination-container">
     <?php if ($total_pages > 1): ?>
     <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
         <?php
-            $params = ['q' => $q, 'category' => $category_param, 'archived' => $show_archived ? '1' : null];
+            $params = ['q' => $q, 'category' => $category_param, 'filter' => $filter_param ?: null, 'archived' => $show_archived ? '1' : null];
             $qs = http_build_query(array_filter($params, function($v) { return $v !== '' && $v !== null; }));
             $qsPrefix = $qs ? $qs . '&' : '';
             $showing_start = ($total_items > 0) ? (($page - 1) * $items_per_page + 1) : 0;
@@ -3077,11 +3101,6 @@ function showToast(msg, type) {
     setTimeout(() => t.classList.remove('show'), 4000);
 }
 
-<?php if (isset($_SESSION['toast'])): ?>
-    showToast("<?php echo addslashes($_SESSION['toast']['message']); ?>", "<?php echo $_SESSION['toast']['type']; ?>");
-    <?php unset($_SESSION['toast']); ?>
-<?php endif; ?>
-
 <?php if (($_GET['add'] ?? '') === '1'): ?>
 openAddModal();
 <?php endif; ?>
@@ -3290,17 +3309,14 @@ function editRemoveImage() {
 
 // ── In-place Ajax Pagination (No Full Page Reload) ───────────────────────────
 async function loadInventoryPage(url, pushState = true) {
-    const tableEl = document.getElementById('inventory-desktop-table');
-    const cardsEl = document.getElementById('inventory-mobile-cards');
-    const pagEl   = document.getElementById('inventory-pagination-container');
+    const contentEl = document.getElementById('inventory-products-content') || document.getElementById('inventory-card-grid');
+    const pagEl     = document.getElementById('inventory-pagination-container');
 
-    if (tableEl) tableEl.style.transition = 'opacity 0.2s ease';
-    if (cardsEl) cardsEl.style.transition = 'opacity 0.2s ease';
-    if (pagEl)   pagEl.style.transition   = 'opacity 0.2s ease';
+    if (contentEl) contentEl.style.transition = 'opacity 0.2s ease';
+    if (pagEl)     pagEl.style.transition     = 'opacity 0.2s ease';
 
-    if (tableEl) tableEl.style.opacity = '0.4';
-    if (cardsEl) cardsEl.style.opacity = '0.4';
-    if (pagEl)   pagEl.style.opacity   = '0.4';
+    if (contentEl) contentEl.style.opacity = '0.4';
+    if (pagEl)     pagEl.style.opacity     = '0.4';
 
     try {
         const response = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
@@ -3309,15 +3325,11 @@ async function loadInventoryPage(url, pushState = true) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
 
-        const newTable = doc.getElementById('inventory-desktop-table');
-        const newCards = doc.getElementById('inventory-mobile-cards');
-        const newPag   = doc.getElementById('inventory-pagination-container');
+        const newContent = doc.getElementById('inventory-products-content') || doc.getElementById('inventory-card-grid');
+        const newPag     = doc.getElementById('inventory-pagination-container');
 
-        if (tableEl && newTable) {
-            tableEl.innerHTML = newTable.innerHTML;
-        }
-        if (cardsEl && newCards) {
-            cardsEl.innerHTML = newCards.innerHTML;
+        if (contentEl && newContent) {
+            contentEl.innerHTML = newContent.innerHTML;
         }
         if (pagEl && newPag) {
             pagEl.innerHTML = newPag.innerHTML;
@@ -3345,9 +3357,8 @@ async function loadInventoryPage(url, pushState = true) {
         console.warn('In-place pagination error, falling back to direct navigation:', err);
         window.location.href = url;
     } finally {
-        if (tableEl) tableEl.style.opacity = '1';
-        if (cardsEl) cardsEl.style.opacity = '1';
-        if (pagEl)   pagEl.style.opacity   = '1';
+        if (contentEl) contentEl.style.opacity = '1';
+        if (pagEl)     pagEl.style.opacity     = '1';
     }
 }
 

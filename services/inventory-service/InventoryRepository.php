@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/../../src/services/NotificationService.php';
+require_once __DIR__ . '/../../src/services/StockMovementService.php';
 
 class InventoryRepository
 {
@@ -24,9 +25,10 @@ class InventoryRepository
         $page = max(1, (int)($filters['page'] ?? 1));
         $limit = max(1, min(100, (int)($filters['limit'] ?? 15)));
         $offset = ($page - 1) * $limit;
-        $q = trim((string)($filters['q'] ?? ''));
+        $q = trim((string)($filters['q'] ?? ($filters['search'] ?? '')));
         $category = trim((string)($filters['category'] ?? ''));
         $archived = isset($filters['archived']) && (string)$filters['archived'] === '1' ? 1 : 0;
+        $statusRaw = strtolower(trim((string)($filters['status'] ?? ($filters['filter'] ?? ''))));
 
         $where = ['p.archived = ?'];
         $params = [$archived];
@@ -43,6 +45,18 @@ class InventoryRepository
             $where[] = 'p.category = ?';
             $params[] = $category;
             $types .= 's';
+        }
+
+        if ($statusRaw !== '') {
+            if ($statusRaw === 'low' || $statusRaw === 'low_stock') {
+                $where[] = 'p.quantity > 0 AND p.quantity <= p.reorder_point';
+            } elseif ($statusRaw === 'out' || $statusRaw === 'out_of_stock') {
+                $where[] = 'p.quantity <= 0';
+            } elseif ($statusRaw === 'good' || $statusRaw === 'in_stock') {
+                $where[] = 'p.quantity > p.reorder_point';
+            } elseif ($statusRaw === 'attention') {
+                $where[] = 'p.quantity <= p.reorder_point';
+            }
         }
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
@@ -206,13 +220,15 @@ class InventoryRepository
 
     /**
      * Atomic Receive Inventory (Stock In).
+     * Delegated to unified StockMovementService engine.
      */
     public function receiveStock(
         int $productId,
         int $quantity,
         string $username,
         ?string $remarks = null,
-        ?array $metadata = null
+        ?array $metadata = null,
+        string $source = 'manual'
     ): array {
         if ($productId <= 0) {
             throw new InvalidArgumentException('Invalid product ID.');
@@ -221,82 +237,44 @@ class InventoryRepository
             throw new InvalidArgumentException('Quantity to receive must be greater than zero.');
         }
 
-        $this->conn->begin_transaction();
         try {
-            $prodStmt = $this->conn->prepare('SELECT product_id, product_name, quantity, barcode FROM products WHERE product_id = ? FOR UPDATE');
-            $prodStmt->bind_param('i', $productId);
-            $prodStmt->execute();
-            $product = $prodStmt->get_result()->fetch_assoc();
-            $prodStmt->close();
-
-            if (!$product) {
-                throw new RuntimeException('Product not found.');
-            }
-
-            $previousStock = (int)$product['quantity'];
-            $newStock = $previousStock + $quantity;
-
-            // Update product stock
-            $upStmt = $this->conn->prepare('UPDATE products SET quantity = ? WHERE product_id = ?');
-            $upStmt->bind_param('ii', $newStock, $productId);
-            $upStmt->execute();
-            $upStmt->close();
-
-            // Record transaction
-            $userId = $this->resolveUserId($username);
-            $barcode = $product['barcode'] ?? null;
-            $remarks = $remarks ?: 'Inventory received';
-
-            $tStmt = $this->conn->prepare("
-                INSERT INTO transactions (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, barcode, remarks)
-                VALUES (?, ?, 'stock_in', ?, ?, ?, ?, ?)
-            ");
-            $tStmt->bind_param('iisiiis', $productId, $userId, $quantity, $previousStock, $newStock, $barcode, $remarks);
-            $tStmt->execute();
-            $transactionId = (int)$this->conn->insert_id;
-            $tStmt->close();
-
-            // Batch handling
-            $batchNo = !empty($metadata['batch_number']) ? trim((string)$metadata['batch_number']) : null;
-            $expDate = !empty($metadata['expiry_date']) ? trim((string)$metadata['expiry_date']) : null;
-            $mfgDate = !empty($metadata['manufacturing_date']) ? trim((string)$metadata['manufacturing_date']) : null;
-
-            $bStmt = $this->conn->prepare("
-                INSERT INTO inventory_batches (product_id, transaction_id, batch_number, quantity, initial_quantity, manufacturing_date, expiry_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            $bStmt->bind_param('iisiiss', $productId, $transactionId, $batchNo, $quantity, $quantity, $mfgDate, $expDate);
-            $bStmt->execute();
-            $bStmt->close();
-
-            $this->conn->commit();
+            $moveResult = StockMovementService::executeMovement(
+                $this->conn,
+                $productId,
+                $quantity,
+                'stock_in',
+                $username,
+                $remarks ?: 'Inventory received',
+                $metadata,
+                $source
+            );
 
             // Trigger non-blocking async notice to Insights Service to invalidate stale analytics
             $this->notifyInsightsAsync('stock_in', $productId);
 
             return [
                 'success'         => true,
-                'transaction_id'  => $transactionId,
+                'transaction_id'  => (int)$moveResult['transaction_id'],
                 'product_id'      => $productId,
-                'previous_stock'  => $previousStock,
-                'new_stock'       => $newStock,
+                'previous_stock'  => (int)$moveResult['previous_stock'],
+                'new_stock'       => (int)$moveResult['new_stock'],
                 'received_qty'    => $quantity
             ];
         } catch (Throwable $e) {
-            $this->conn->rollback();
             throw $e;
         }
     }
 
     /**
      * Atomic Release Inventory (Stock Out).
-     * Enforces non-negative inventory, FEFO batch deduction, and out-of-stock transitions.
+     * Delegated to unified StockMovementService engine.
      */
     public function releaseStock(
         int $productId,
         int $quantity,
         string $username,
-        ?string $remarks = null
+        ?string $remarks = null,
+        string $source = 'manual'
     ): array {
         if ($productId <= 0) {
             throw new InvalidArgumentException('Invalid product ID.');
@@ -305,116 +283,31 @@ class InventoryRepository
             throw new InvalidArgumentException('Quantity to release must be greater than zero.');
         }
 
-        $this->conn->begin_transaction();
         try {
-            $prodStmt = $this->conn->prepare('
-                SELECT product_id, product_name, category, location, quantity, barcode, unit, reorder_point,
-                       CONCAT("P-", LPAD(product_id, 4, "0")) AS sku
-                FROM products 
-                WHERE product_id = ? 
-                FOR UPDATE
-            ');
-            $prodStmt->bind_param('i', $productId);
-            $prodStmt->execute();
-            $product = $prodStmt->get_result()->fetch_assoc();
-            $prodStmt->close();
-
-            if (!$product) {
-                throw new RuntimeException('Product not found.');
-            }
-
-            $previousStock = (int)$product['quantity'];
-            if ($quantity > $previousStock) {
-                throw new InvalidArgumentException(
-                    "Insufficient stock. Available: {$previousStock}, requested: {$quantity}."
-                );
-            }
-
-            $newStock = $previousStock - $quantity;
-
-            // Update product stock
-            $upStmt = $this->conn->prepare('UPDATE products SET quantity = ? WHERE product_id = ?');
-            $upStmt->bind_param('ii', $newStock, $productId);
-            $upStmt->execute();
-            $upStmt->close();
-
-            // Record transaction
-            $userId = $this->resolveUserId($username);
-            $barcode = $product['barcode'] ?? null;
-            $remarks = $remarks ?: 'Stock issued';
-
-            $tStmt = $this->conn->prepare("
-                INSERT INTO transactions (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, barcode, remarks)
-                VALUES (?, ?, 'stock_out', ?, ?, ?, ?, ?)
-            ");
-            $tStmt->bind_param('iisiiis', $productId, $userId, $quantity, $previousStock, $newStock, $barcode, $remarks);
-            $tStmt->execute();
-            $transactionId = (int)$this->conn->insert_id;
-            $tStmt->close();
-
-            // Deduct batches using FEFO
-            $remaining = $quantity;
-            $bQuery = $this->conn->prepare('
-                SELECT batch_id, quantity FROM inventory_batches 
-                WHERE product_id = ? AND quantity > 0 
-                ORDER BY expiry_date IS NULL ASC, expiry_date ASC, date_received ASC, batch_id ASC
-            ');
-            $bQuery->bind_param('i', $productId);
-            $bQuery->execute();
-            $batches = $bQuery->get_result()->fetch_all(MYSQLI_ASSOC);
-            $bQuery->close();
-
-            foreach ($batches as $batch) {
-                if ($remaining <= 0) break;
-                $bId = (int)$batch['batch_id'];
-                $bQty = (int)$batch['quantity'];
-
-                if ($bQty >= $remaining) {
-                    $newBQty = $bQty - $remaining;
-                    $remaining = 0;
-                } else {
-                    $newBQty = 0;
-                    $remaining -= $bQty;
-                }
-
-                $upB = $this->conn->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
-                $upB->bind_param('ii', $newBQty, $bId);
-                $upB->execute();
-                $upB->close();
-            }
-
-            // Commit atomic inventory operation
-            $this->conn->commit();
-
-            // Real-Time Inventory Stock Threshold Alert Trigger (Post-Commit)
-            try {
-                $product['quantity'] = $newStock;
-                NotificationService::handleStockMovementAlert(
-                    $this->conn,
-                    $product,
-                    $previousStock,
-                    $newStock,
-                    $username,
-                    $transactionId
-                );
-            } catch (Throwable $notifErr) {
-                error_log('[InventoryMicroservice] Stock threshold alert trigger error: ' . $notifErr->getMessage());
-            }
+            $moveResult = StockMovementService::executeMovement(
+                $this->conn,
+                $productId,
+                $quantity,
+                'stock_out',
+                $username,
+                $remarks ?: 'Stock issued',
+                null,
+                $source
+            );
 
             // Trigger non-blocking async notice to Insights Service
             $this->notifyInsightsAsync('stock_out', $productId);
 
             return [
                 'success'                => true,
-                'transaction_id'         => $transactionId,
+                'transaction_id'         => (int)$moveResult['transaction_id'],
                 'product_id'             => $productId,
-                'previous_stock'         => $previousStock,
-                'new_stock'              => $newStock,
+                'previous_stock'         => (int)$moveResult['previous_stock'],
+                'new_stock'              => (int)$moveResult['new_stock'],
                 'released_qty'           => $quantity,
-                'is_out_of_stock_alert'  => $isTransitionToZero
+                'is_out_of_stock_alert'  => !empty($moveResult['is_out_of_stock_transition'])
             ];
         } catch (Throwable $e) {
-            $this->conn->rollback();
             throw $e;
         }
     }

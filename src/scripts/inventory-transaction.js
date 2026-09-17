@@ -358,18 +358,55 @@ var InventoryTransaction = (function () {
 
         if (newQty <= 0) { removeFromCart(productId); return; }
         if (txnMode === 'out' && newQty > item.currentStock) {
-            showToast('Insufficient stock. Available: ' + item.currentStock + '.', 'error');
+            showToast('Insufficient stock for ' + item.name + '. Available: ' + item.currentStock + '.', 'error');
             return;
         }
 
         item.qty = newQty;
-        renderCart(productId);
+        var inputEl = document.querySelector('.pos-qty-input[data-id="' + productId + '"]');
+        if (inputEl) inputEl.value = String(newQty);
+        updateItemQty(productId, newQty, true);
+    }
 
+    function updateItemQty(productId, newQty, enforce) {
+        var idx = findCartIndex(productId);
+        if (idx === -1) return;
+        var item = cart[idx];
+
+        if (txnMode === 'out' && newQty > item.currentStock) {
+            showToast('Insufficient stock for ' + item.name + '. Available: ' + item.currentStock + '.', 'error');
+            newQty = item.currentStock;
+            var inputEl = document.querySelector('.pos-qty-input[data-id="' + productId + '"]');
+            if (inputEl) inputEl.value = String(newQty);
+        } else if (newQty < 1 && enforce) {
+            newQty = 1;
+            var inputEl2 = document.querySelector('.pos-qty-input[data-id="' + productId + '"]');
+            if (inputEl2) inputEl2.value = '1';
+        }
+
+        item.qty = newQty;
+
+        // Update row total price without rebuilding the table DOM
+        var row = document.querySelector('#inv-cart-body tr[data-product-id="' + productId + '"]');
+        if (row) {
+            var totalCell = row.querySelector('.pos-cart-total-cell');
+            if (totalCell) {
+                totalCell.textContent = '₱' + (parseFloat(item.price || 0) * item.qty).toFixed(2);
+            }
+        }
+
+        // Recalculate and update total quantity in summary
+        var totalQty = 0;
+        for (var i = 0; i < cart.length; i++) {
+            totalQty += cart[i].qty;
+        }
+        var summaryQt = document.getElementById('inv-summary-qty');
+        if (summaryQt) summaryQt.textContent = String(totalQty);
+
+        // If product is currently displayed in the right panel, update remaining stock info
         if (selectedProductId === productId) {
             var details = getProductDetails(productId);
             if (details) showProductInfo(details);
-        } else {
-            updateInfoActionButtons();
         }
     }
 
@@ -470,29 +507,79 @@ var InventoryTransaction = (function () {
             var stockTd = document.createElement('td');
             stockTd.textContent = item.currentStock;
 
-            // Qty controls
+            // Qty controls: [−] [ input ] [+]
             var qtyTd       = document.createElement('td');
+            qtyTd.style.textAlign = 'center';
             var qtyControls = document.createElement('div');
             qtyControls.className = 'pos-qty-controls';
 
             var minusBtn = document.createElement('button');
-            minusBtn.type = 'button'; minusBtn.className = 'pos-qty-btn';
+            minusBtn.type = 'button';
+            minusBtn.className = 'pos-qty-btn';
             minusBtn.textContent = '−';
             minusBtn.setAttribute('data-action', 'decrease');
             minusBtn.setAttribute('data-id', String(item.productId));
+            minusBtn.setAttribute('title', 'Decrease quantity');
+            minusBtn.setAttribute('aria-label', 'Decrease quantity');
 
-            var qtySpan = document.createElement('span');
-            qtySpan.className = 'pos-qty-value';
-            qtySpan.textContent = String(item.qty);
+            var qtyInput = document.createElement('input');
+            qtyInput.type = 'number';
+            qtyInput.className = 'pos-qty-input';
+            qtyInput.min = '1';
+            if (txnMode === 'out') {
+                qtyInput.max = String(item.currentStock);
+            }
+            qtyInput.value = String(item.qty);
+            qtyInput.setAttribute('data-id', String(item.productId));
+            qtyInput.setAttribute('aria-label', 'Quantity for ' + item.name);
+
+            qtyInput.addEventListener('focus', function () {
+                this.select();
+                var pid = parseInt(this.getAttribute('data-id') || '0', 10);
+                if (pid > 0 && selectedProductId !== pid) {
+                    var details = getProductDetails(pid);
+                    if (details) showProductInfo(details);
+                }
+            });
+
+            qtyInput.addEventListener('input', function () {
+                var pid = parseInt(this.getAttribute('data-id') || '0', 10);
+                var raw = this.value;
+                if (raw === '') return;
+                var val = parseInt(raw, 10);
+                if (isNaN(val) || val < 1) return;
+                updateItemQty(pid, val, false);
+            });
+
+            qtyInput.addEventListener('change', function () {
+                var pid = parseInt(this.getAttribute('data-id') || '0', 10);
+                var raw = this.value;
+                var val = parseInt(raw, 10);
+                if (isNaN(val) || val < 1) {
+                    val = 1;
+                    this.value = '1';
+                }
+                updateItemQty(pid, val, true);
+            });
+
+            qtyInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                }
+            });
 
             var plusBtn = document.createElement('button');
-            plusBtn.type = 'button'; plusBtn.className = 'pos-qty-btn';
+            plusBtn.type = 'button';
+            plusBtn.className = 'pos-qty-btn';
             plusBtn.textContent = '+';
             plusBtn.setAttribute('data-action', 'increase');
             plusBtn.setAttribute('data-id', String(item.productId));
+            plusBtn.setAttribute('title', 'Increase quantity');
+            plusBtn.setAttribute('aria-label', 'Increase quantity');
 
             qtyControls.appendChild(minusBtn);
-            qtyControls.appendChild(qtySpan);
+            qtyControls.appendChild(qtyInput);
             qtyControls.appendChild(plusBtn);
             qtyTd.appendChild(qtyControls);
 
@@ -500,6 +587,7 @@ var InventoryTransaction = (function () {
             priceTd.textContent = '₱' + parseFloat(item.price || 0).toFixed(2);
 
             var totalTd = document.createElement('td');
+            totalTd.className = 'pos-cart-total-cell';
             totalTd.textContent = '₱' + (parseFloat(item.price || 0) * item.qty).toFixed(2);
 
             var actionTd  = document.createElement('td');
@@ -541,7 +629,7 @@ var InventoryTransaction = (function () {
     }
 
     function handleCartRowSelect(e) {
-        if (e.target.closest('[data-action]')) return;
+        if (e.target.closest('[data-action]') || e.target.closest('.pos-qty-input')) return;
         var row = e.target.closest('tr[data-product-id]');
         if (!row) return;
         var productId = parseInt(row.getAttribute('data-product-id') || '0', 10);

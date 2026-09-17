@@ -1,6 +1,15 @@
 <?php
 // File: src/layout.php
 
+if (!function_exists('setFlashMessage')) {
+    function setFlashMessage(string $type, string $message): void {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+        $_SESSION['flash'] = ['type' => $type, 'message' => $message];
+    }
+}
+
 function getUserInitials($name) {
     $name = trim(preg_replace('/\s+/', ' ', (string)$name));
     if ($name === '') {
@@ -22,85 +31,104 @@ function renderUserAvatar($displayName, $size = 40, $extraClass = '') {
 }
 
 function renderSidebar($currentPage, $userRole) {
-    $menuItems = [];
-    
-    // Define menu items based on role
-    if ($userRole === 'admin') {
-        $menuItems = [
-            ['href' => 'dash_admin.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
-            ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
-            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
-            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
-            ['href' => 'transaction_logs.php', 'label' => 'Transaction Logs', 'icon' => 'logs'],
-            ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
-            ['href' => 'users.php', 'label' => 'User Management', 'icon' => 'users'],
-            ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
-        ];
-    } elseif ($userRole === 'manager') {
-        $menuItems = [
-            ['href' => 'dash_manager.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
-            ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights'],
-            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
-            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
-            ['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports'],
-            ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
-        ];
-    } else { // staff
-        $menuItems = [
-            ['href' => 'dash_staff.php', 'label' => 'Dashboard', 'icon' => 'dashboard'],
-            ['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory'],
-            ['href' => 'inventory_history.php', 'label' => 'Transaction History', 'icon' => 'history'],
-            ['href' => 'transactions.php', 'label' => 'Stock Transactions', 'icon' => 'transactions'],
-            ['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']
-        ];
-    }
-    
+    $dashHref = ($userRole === 'admin') ? 'dash_admin.php' : (($userRole === 'manager') ? 'dash_manager.php' : 'dash_staff.php');
+
     $icons = [
-        'dashboard' => '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />',
+        'dashboard' => '<rect width="7" height="9" x="3" y="3" rx="1.5"></rect><rect width="7" height="5" x="14" y="3" rx="1.5"></rect><rect width="7" height="9" x="14" y="12" rx="1.5"></rect><rect width="7" height="5" x="3" y="16" rx="1.5"></rect>',
         'inventory' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />',
-        'transactions' => '<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />',
-        'receive' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />',
-        'release' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />',
-        'history' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />',
-        'logs' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125v-9M10.125 2.25h.375a9 9 0 0 1 9 9v.375M10.125 2.25A3.375 3.375 0 0 0 6.75 5.625v1.5c0 .621.504 1.125 1.125 1.125h.375m-1.5-3-3.75 3.75" />',
         'insights' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />',
+        'transactions' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />',
+        'history' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />',
+        'logs' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />',
         'reports' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25A1.125 1.125 0 0 1 9.75 19.875V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />',
         'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path stroke-linecap="round" stroke-linejoin="round" d="M22 21v-2a4 4 0 0 0-3-3.87" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 3.13a4 4 0 0 1 0 7.75" />',
-        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /><circle cx="12" cy="12" r="3" />'
+        'settings' => '<path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>'
     ];
-    
-    // UPDATED: Added ID and transition classes for toggling
-    echo '<div id="main-sidebar" class="premium-sidebar w-[290px] shrink-0 text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out">';
-    echo '<div class="ml-2 mb-4">';
-    echo '<img src="img/iLogo.png" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-dark" style="object-fit: contain; max-height: 50px;" />';
-    echo '<img src="img/darkmode.png" alt="IntelliWare" class="w-[220px] iw-sidebar-logo iw-sidebar-logo-light" style="object-fit: contain; max-height: 50px;" />';
-    echo '</div>';
-    echo '<div class="p-2 flex flex-col gap-[8px]">';
-    
-    foreach ($menuItems as $item) {
-        $isActive = (basename($_SERVER['PHP_SELF']) === basename($item['href']));
+
+    $currentScript = basename($_SERVER['PHP_SELF']);
+    $pageLower = strtolower($currentPage);
+
+    $isItemActive = function($item) use ($currentScript, $pageLower) {
+        if ($currentScript === basename($item['href'])) return true;
+        if (!empty($item['aliases'])) {
+            foreach ($item['aliases'] as $alias) {
+                if ($currentScript === $alias) return true;
+            }
+        }
+        $lbl = strtolower($item['label']);
+        if ($lbl === $pageLower) return true;
+        if ($item['label'] === 'Dashboard' && strpos($currentScript, 'dash_') === 0) return true;
+        if ($item['label'] === 'Receive & release' && in_array($pageLower, ['stock transactions', 'transactions', 'release inventory', 'receive inventory'])) return true;
+        if ($item['label'] === 'History' && in_array($pageLower, ['transaction history', 'inventory history'])) return true;
+        if ($item['label'] === 'Audit log' && in_array($pageLower, ['transaction logs', 'audit log', 'audit logs'])) return true;
+        if ($item['label'] === 'Users' && in_array($pageLower, ['user management', 'users'])) return true;
+        return false;
+    };
+
+    $renderMenuItem = function($item, $isSubItem = false) use ($isItemActive, $icons) {
+        $isActive = $isItemActive($item);
         $activeClass = $isActive ? 'active' : '';
+        $iconClass = $isSubItem ? 'w-4 h-4 mr-2.5' : 'w-5 h-5 mr-3';
         echo '<a class="premium-menu-item ' . $activeClass . '" href="' . $item['href'] . '">';
-        echo '<svg class="sidebar-icon w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">';
+        echo '<svg class="sidebar-icon ' . $iconClass . '" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7">';
         echo $icons[$item['icon']];
         echo '</svg>';
-        echo '<span class="sidebar-text">' . $item['label'] . '</span>';
+        echo '<span class="sidebar-text">' . htmlspecialchars($item['label']) . '</span>';
         echo '</a>';
-    }
-    
+    };
+
+    echo '<div id="main-sidebar" class="premium-sidebar w-[275px] shrink-0 text-white p-3 pt-5 flex flex-col transition-all duration-300 ease-in-out select-none">';
+    echo '<div class="ml-2 mb-4">';
+    echo '<img src="img/iLogo.png" alt="IntelliWare" class="w-[210px] iw-sidebar-logo iw-sidebar-logo-dark" style="object-fit: contain; max-height: 48px;" />';
+    echo '<img src="img/darkmode.png" alt="IntelliWare" class="w-[210px] iw-sidebar-logo iw-sidebar-logo-light" style="object-fit: contain; max-height: 48px;" />';
     echo '</div>';
-    
-    echo '<div class="mt-auto p-2">';
+    echo '<div class="p-1.5 flex flex-col gap-[4px] overflow-y-auto premium-scrollbar" style="flex: 1 1 auto; min-height: 0;">';
+
+    // 1. Top Section
+    $renderMenuItem(['href' => $dashHref, 'label' => 'Dashboard', 'icon' => 'dashboard']);
+    $renderMenuItem(['href' => 'products.php', 'label' => 'Inventory', 'icon' => 'inventory']);
+    if ($userRole === 'admin' || $userRole === 'manager') {
+        $renderMenuItem(['href' => 'insights.php', 'label' => 'Insights', 'icon' => 'insights']);
+    }
+
+    // 2. Transactions Group
+    echo '<div class="sidebar-section-title">Transactions</div>';
+    echo '<div class="sidebar-tree-branch">';
+    $renderMenuItem(['href' => 'transactions.php', 'label' => 'Receive & release', 'icon' => 'transactions', 'aliases' => ['release.php', 'receive.php']], true);
+    $renderMenuItem(['href' => 'inventory_history.php', 'label' => 'History', 'icon' => 'history'], true);
+    if ($userRole === 'admin' || $userRole === 'manager') {
+        $renderMenuItem(['href' => 'transaction_logs.php', 'label' => 'Audit log', 'icon' => 'logs'], true);
+    }
+    echo '</div>';
+
+    // 3. Admin Section
+    if ($userRole === 'admin' || $userRole === 'manager') {
+        echo '<div class="sidebar-section-title">Admin</div>';
+        echo '<div class="flex flex-col gap-[4px]">';
+        $renderMenuItem(['href' => 'reports.php', 'label' => 'Reports', 'icon' => 'reports']);
+        if ($userRole === 'admin') {
+            $renderMenuItem(['href' => 'users.php', 'label' => 'Users', 'icon' => 'users']);
+        }
+        $renderMenuItem(['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']);
+        echo '</div>';
+    } else {
+        // Staff settings
+        echo '<div class="mt-2">';
+        $renderMenuItem(['href' => 'settings.php', 'label' => 'Settings', 'icon' => 'settings']);
+        echo '</div>';
+    }
+
+    echo '</div>';
+
+    echo '<div class="mt-auto p-2 pt-3 border-t border-[#2A4484]/40">';
     echo '<a class="premium-menu-item premium-menu-item-logout" href="logout.php" style="justify-content: center;">';
     echo '<svg class="sidebar-icon w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">';
-    echo '<path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>'; // Logout icon
+    echo '<path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>';
     echo '</svg>';
     echo '<span class="sidebar-text">Logout</span>';
     echo '</a>';
     echo '</div>';
-    
+
     echo '</div>';
 }
 
@@ -207,13 +235,19 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<title>' . htmlspecialchars($pageTitle) . ' | IntelliWare</title>';
     echo '<style>';
     echo 'body { font-family: \'Inter\', sans-serif; }';
-    echo '.premium-menu-item { border: 1px solid var(--iw-border); color: var(--iw-text); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; text-decoration: none; font-family: \'Onest\', sans-serif; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }';
-    echo '.premium-menu-item:hover { background: var(--iw-bg-card-hover); border-color: var(--iw-border-accent); transform: translateX(4px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }';
+    echo '.premium-menu-item { border: 1px solid transparent; color: #8BA2C4; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; text-decoration: none; font-family: \'Onest\', sans-serif; font-weight: 500; font-size: 14px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }';
+    echo '.premium-menu-item:hover { background: rgba(255, 255, 255, 0.06); color: #FFFFFF; transform: translateX(2px); }';
+    echo '.premium-menu-item:hover .sidebar-icon { color: #FFFFFF; stroke: #FFFFFF; }';
     echo '.premium-menu-item-logout:hover { background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.3) 100%); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }';
     echo '.premium-menu-item-logout:hover svg { color: #fca5a5; }';
-    echo '.premium-menu-item.active { background: linear-gradient(135deg, rgba(81, 213, 90, 0.2) 0%, rgba(75, 192, 82, 0.1) 100%); border-color: var(--iw-border-accent); }';
-    echo '.sidebar-icon { width: 20px; height: 20px; margin-right: 12px; flex-shrink: 0; }';
+    echo '.premium-menu-item.active { background: #2563EB !important; border-color: #3B82F6 !important; color: #FFFFFF !important; font-weight: 600 !important; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.38) !important; transform: none !important; }';
+    echo '.premium-menu-item.active .sidebar-icon, .premium-menu-item.active .sidebar-text { color: #FFFFFF !important; stroke: #FFFFFF !important; }';
+    echo '.sidebar-icon { width: 18px; height: 18px; margin-right: 10px; flex-shrink: 0; }';
     echo '.sidebar-text { font-size: 14px; }';
+    echo '.sidebar-section-title { font-size: 11.5px; font-weight: 600; color: #6882a9; letter-spacing: 0.03em; padding: 12px 14px 4px 14px; user-select: none; font-family: \'Onest\', sans-serif; }';
+    echo '.sidebar-tree-branch { margin-left: 18px; padding-left: 10px; border-left: 1.5px solid rgba(42, 68, 132, 0.55); display: flex; flex-direction: column; gap: 4px; margin-top: 3px; margin-bottom: 4px; }';
+    echo '.sidebar-tree-branch .premium-menu-item { padding: 8px 12px; font-size: 13.5px; border-radius: 8px; }';
+    echo '.sidebar-tree-branch .sidebar-icon { width: 16px; height: 16px; margin-right: 8px; }';
     echo '.btn, .btn-primary, .premium-button, .button-primary { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); color: #fff; border: 1px solid #51D55A; border-radius: 12px; padding: 12px 24px; font-size: 14px; font-weight: 600; font-family: \'Onest\', sans-serif; cursor: pointer; transition: all 0.25s ease; box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; user-select: none; }';
     echo '.btn::before, .button-primary::before, .premium-button::before { content: \'\'; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent); transition: left 0.5s; }';
     echo '.btn:hover, .btn-primary:hover, .premium-button:hover, .button-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(81, 213, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3); }';
@@ -294,12 +328,14 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .hero-dot { color: #94A3B8 !important; }';
     echo '[data-theme="light"] .hero-ccenter { color: #0F6E2C !important; font-weight: 700; }';
     echo '[data-theme="light"] .hero-eyebrow { text-transform: none !important; letter-spacing: 0 !important; font-size: 11px !important; }';
-    /* Hero card h2 greeting */
-    echo '[data-theme="light"] .premium-card h2.font-bold.text-white { color: #0B1526 !important; font-size: 19px !important; }';
+    /* Hero card greeting */
+    echo '[data-theme="light"] .premium-card h2.font-bold.text-white { color: #0B1526 !important; }';
+    echo '[data-theme="light"] .dashboard-greeting-title { color: #0B1526 !important; }';
+    echo '[data-theme="light"] .dashboard-username { color: #0F6E2C !important; }';
     /* Role badge */
-    echo '[data-theme="light"] .premium-card .bg-blue-500\/15.text-blue-300 { background: #DCEAFC !important; color: #14509E !important; border-color: #AECCF2 !important; }';
+    echo '[data-theme="light"] .dashboard-role-badge, [data-theme="light"] .premium-card .bg-blue-500\/15.text-blue-300 { background: #DCEAFC !important; color: #14509E !important; border-color: #AECCF2 !important; }';
     /* Hero subtext */
-    echo '[data-theme="light"] .premium-card p.text-\\[\\#9aa6d1\\] { color: #45526B !important; }';
+    echo '[data-theme="light"] .dashboard-subtext, [data-theme="light"] .premium-card p.text-\\[\\#9aa6d1\\] { color: #45526B !important; }';
     /* Status summary numbers via Tailwind class prose */
     echo '[data-theme="light"] .premium-card p strong { color: #0B1526 !important; }';
     /* Primary action button (View full forecast) — spec green */
@@ -315,6 +351,13 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.iw-sidebar-logo-light { display: none; }';
     echo '[data-theme="light"] .iw-sidebar-logo-dark { display: none !important; }';
     echo '[data-theme="light"] .iw-sidebar-logo-light { display: block !important; filter: none; opacity: 1; }';
+    echo '[data-theme="light"] .sidebar-section-title { color: #64748B !important; }';
+    echo '[data-theme="light"] .sidebar-tree-branch { border-left-color: #CBD5E1 !important; }';
+    echo '[data-theme="light"] .premium-sidebar .premium-menu-item { color: #475569 !important; border-color: transparent !important; }';
+    echo '[data-theme="light"] .premium-sidebar .premium-menu-item:hover { background: #EDF4FF !important; color: #14509E !important; }';
+    echo '[data-theme="light"] .premium-sidebar .premium-menu-item:hover .sidebar-icon { color: #14509E !important; stroke: #14509E !important; }';
+    echo '[data-theme="light"] .premium-menu-item.active { background: #2563EB !important; border-color: #2563EB !important; color: #FFFFFF !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28) !important; }';
+    echo '[data-theme="light"] .premium-menu-item.active .sidebar-icon, [data-theme="light"] .premium-menu-item.active .sidebar-text { color: #FFFFFF !important; stroke: #FFFFFF !important; }';
     echo '</style>';
     echo '</head>';
     echo '<body class="w-full h-screen iw-body-shell flex items-start justify-center">';
@@ -347,10 +390,31 @@ function renderLayoutEnd() {
 
 function renderLayoutFooter() {
     echo '<div class="dropdown-backdrop" id="dropdownBackdrop"></div>';
+    echo '<div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>';
 
-    
     echo '<script>';
     ?>
+
+    window.showToast = function(message, type) {
+        var toast = document.getElementById('toast-container');
+        var toastMsg = document.getElementById('toast-message');
+        var toastIcon = document.getElementById('toast-icon');
+        if (!toast || !toastMsg) return;
+        toastMsg.innerText = message;
+        type = (type === 'success') ? 'success' : 'error';
+        toast.className = 'show ' + type;
+        if (toastIcon) {
+            if (type === 'success') {
+                toastIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            } else {
+                toastIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            }
+        }
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(function() {
+            toast.classList.remove('show');
+        }, 4000);
+    };
     
     function isOverlayMode() {
         return window.innerWidth <= 1024;
@@ -655,6 +719,33 @@ function renderLayoutFooter() {
     
     // Initial fetch on page load
     document.addEventListener('DOMContentLoaded', fetchNotifications);
+
+    <?php
+    $queuedFlash = null;
+    $queuedType = 'success';
+    if (!empty($_SESSION['flash'])) {
+        $queuedFlash = $_SESSION['flash']['message'] ?? '';
+        $queuedType = $_SESSION['flash']['type'] ?? 'success';
+        unset($_SESSION['flash']);
+    } elseif (!empty($_SESSION['toast'])) {
+        $queuedFlash = $_SESSION['toast']['message'] ?? '';
+        $queuedType = $_SESSION['toast']['type'] ?? 'success';
+        unset($_SESSION['toast']);
+    } elseif (!empty($_SESSION['success'])) {
+        $queuedFlash = $_SESSION['success'];
+        $queuedType = 'success';
+        unset($_SESSION['success']);
+    } elseif (!empty($_SESSION['error'])) {
+        $queuedFlash = $_SESSION['error'];
+        $queuedType = 'error';
+        unset($_SESSION['error']);
+    }
+
+    if ($queuedFlash): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        showToast(<?php echo json_encode($queuedFlash); ?>, <?php echo json_encode($queuedType); ?>);
+    });
+    <?php endif; ?>
 
     <?php
     echo '</script>';
