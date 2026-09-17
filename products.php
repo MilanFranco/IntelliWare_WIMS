@@ -539,36 +539,29 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
     }
 
-    /* ── Inventory Card Grid ─────────────────────────────────────────── */
-
-    /* Desktop/tablet = table; mobile = cards */
-    .inv-desktop-table { display: block; }
-    .inv-mobile-cards  { display: none; }
-    @media (max-width: 767px) {
-        .inv-desktop-table { display: none; }
-        .inv-mobile-cards  { display: block; }
-    }
-
+    /* ── Inventory Product Card Grid ───────────────────────────────── */
+    /* Always shown — one card per row */
     .inv-card-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 16px;
+        grid-template-columns: 1fr;
+        gap: 18px;
         padding: 20px;
     }
+    /* ── Product Card (reference design) ────────────────────────────── */
     .inv-card {
-        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
-        border: 1px solid rgba(42, 68, 132, 0.55);
+        background: #ffffff;
+        border: 1.5px solid #D6E8F7;
         border-radius: 16px;
-        padding: 18px 18px 0 18px;
         display: flex;
         flex-direction: column;
-        gap: 0;
-        transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.07), 0 0 0 0 transparent;
+        transition: box-shadow 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
         cursor: default;
     }
     .inv-card:hover {
-        border-color: rgba(81, 213, 90, 0.25);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        border-color: #A8C8F0;
+        box-shadow: 0 6px 22px rgba(20, 80, 158, 0.13);
         transform: translateY(-2px);
     }
 
@@ -577,17 +570,19 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         display: flex;
         align-items: flex-start;
         gap: 14px;
-        margin-bottom: 14px;
+        padding: 18px 18px 16px;
     }
     .inv-card-thumb {
-        width: 54px;
-        height: 54px;
+        width: 52px;
+        height: 52px;
         border-radius: 12px;
-        background: rgba(13, 22, 56, 0.7);
+        background: #EEF5FD;
+        border: 1px solid #D0E5F7;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        color: #14509E;
     }
     .inv-card-info {
         flex: 1;
@@ -598,7 +593,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
         font-size: 15px;
         font-weight: 700;
-        color: #e3e3e3;
+        color: #0B1526;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -607,7 +602,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-meta {
         font-family: 'Onest', sans-serif;
         font-size: 12px;
-        color: #9aa6d1;
+        color: #45526B;
         margin-top: 3px;
         white-space: nowrap;
         overflow: hidden;
@@ -616,7 +611,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-sku {
         font-family: monospace;
         font-size: 11px;
-        color: #6b7aab;
+        color: #7A90B0;
         margin-top: 4px;
         white-space: nowrap;
         overflow: hidden;
@@ -629,115 +624,143 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
         font-size: 11px;
         font-weight: 800;
-        letter-spacing: 0.06em;
-        padding: 3px 9px;
-        border-radius: 6px;
+        letter-spacing: 0.05em;
+        padding: 3px 10px;
+        border-radius: 20px;
         white-space: nowrap;
         margin-top: 2px;
     }
-    .badge-out  { background: #c0392b; color: #fff; }
-    .badge-low  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
-    .badge-good { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+    .badge-out  { background: rgba(239,68,68,0.1); color: #DC2626; border: 1.5px solid rgba(239,68,68,0.3); }
+    .badge-low  { background: rgba(245,158,11,0.1); color: #D97706; border: 1.5px solid rgba(245,158,11,0.3); }
+    .badge-good { background: rgba(16,185,129,0.1); color: #059669; border: 1.5px solid rgba(16,185,129,0.3); }
 
-    /* Divider */
+    /* Stats section */
     .inv-card-divider {
         height: 1px;
-        background: rgba(42, 68, 132, 0.5);
-        margin: 0 -18px;
+        background: #E4EFF9;
+        margin: 0;
     }
-
-    /* Stats */
     .inv-card-stats {
         display: flex;
         gap: 0;
-        padding: 14px 0;
+        padding: 14px 18px;
+        border-bottom: 1px solid #E4EFF9;
     }
     .inv-card-stat {
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 4px;
+    }
+    .inv-card-stat + .inv-card-stat {
+        border-left: 1px solid #E4EFF9;
+        padding-left: 16px;
     }
     .inv-stat-label {
         font-family: 'Onest', sans-serif;
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.08em;
-        color: #6b7aab;
+        color: #7A90B0;
         text-transform: uppercase;
     }
     .inv-stat-value {
         font-family: 'Onest', sans-serif;
         font-size: 20px;
-        font-weight: 700;
-        color: #e3e3e3;
+        font-weight: 800;
+        color: #0B1526;
         line-height: 1;
     }
-    .inv-stat-value.stat-out { color: #f87171; }
-    .inv-stat-value.stat-low { color: #fbbf24; }
+    .inv-stat-value.stat-out { color: #DC2626; }
+    .inv-stat-value.stat-low { color: #D97706; }
 
     /* Action buttons */
     .inv-card-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        padding: 12px 0 14px;
-        margin: 0 -18px;
-        padding-left: 18px;
-        padding-right: 18px;
-        border-top: 1px solid rgba(42, 68, 132, 0.5);
+        padding: 14px 18px;
     }
-    /* Visual Hierarchy: Tier 2 Mobile Card Action Buttons */
     .inv-card-btn {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 7px;
-        height: 38px;
+        height: 40px;
         border-radius: 10px;
         font-family: 'Onest', sans-serif;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
-        background: rgba(81, 213, 90, 0.1);
-        border: 1px solid rgba(81, 213, 90, 0.4);
-        color: #51D55A;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1.5px solid #D6E8F7;
+        background: #F3F8FD;
+        color: #1E3A5F;
+        transition: all 0.18s ease;
     }
     .inv-card-btn:hover {
+        background: #E2EDF8;
+        border-color: #A8C8F0;
+        color: #14509E;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(20, 80, 158, 0.12);
+    }
+    .inv-card-btn:hover svg { stroke: #14509E; }
+    .inv-card-btn--archive:hover,
+    .inv-card-btn--restore:hover {
+        background: #FFF5F5;
+        border-color: #FCA5A5;
+        color: #DC2626;
+    }
+    .inv-card-btn--archive:hover svg,
+    .inv-card-btn--restore:hover svg { stroke: #DC2626; }
+
+    /* Dark-mode overrides for cards */
+    [data-theme="dark"] .inv-card {
+        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+        border-color: rgba(42, 68, 132, 0.55);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    [data-theme="dark"] .inv-card:hover {
+        border-color: rgba(81, 213, 90, 0.25);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+    [data-theme="dark"] .inv-card-thumb {
+        background: rgba(13, 22, 56, 0.7);
+        border-color: rgba(42,68,132,0.4);
+        color: #9aa6d1;
+    }
+    [data-theme="dark"] .inv-card-name  { color: #e3e3e3; }
+    [data-theme="dark"] .inv-card-meta  { color: #9aa6d1; }
+    [data-theme="dark"] .inv-card-sku   { color: #6b7aab; }
+    [data-theme="dark"] .inv-card-divider,
+    [data-theme="dark"] .inv-card-stats { border-color: rgba(42,68,132,0.5); }
+    [data-theme="dark"] .inv-card-stat + .inv-card-stat { border-color: rgba(42,68,132,0.5); }
+    [data-theme="dark"] .inv-stat-label { color: #6b7aab; }
+    [data-theme="dark"] .inv-stat-value { color: #e3e3e3; }
+    [data-theme="dark"] .inv-card-actions { border-top: 1px solid rgba(42,68,132,0.5); }
+    [data-theme="dark"] .inv-card-btn {
+        background: rgba(81,213,90,0.08);
+        border-color: rgba(81,213,90,0.3);
+        color: #51D55A;
+    }
+    [data-theme="dark"] .inv-card-btn:hover {
         background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
         border-color: #51D55A;
-        color: #ffffff !important;
-        box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4);
-        transform: translateY(-1px);
+        color: #fff;
+        box-shadow: 0 4px 14px rgba(81,213,90,0.35);
     }
-    .inv-card-btn:hover svg {
-        stroke: #ffffff;
+    [data-theme="dark"] .inv-card-btn:hover svg { stroke: #fff; }
+    [data-theme="dark"] .inv-card-btn--archive:hover,
+    [data-theme="dark"] .inv-card-btn--restore:hover {
+        background: rgba(248,113,113,0.15);
+        border-color: rgba(248,113,113,0.5);
+        color: #f87171;
     }
-
-    /* Light-theme overrides for cards */
-    [data-theme="light"] .inv-card {
-        background: var(--iw-bg-modal) !important;
-        border-color: var(--iw-border-solid) !important;
-    }
-    [data-theme="light"] .inv-card-thumb {
-        background: var(--iw-bg-panel-header) !important;
-    }
-    [data-theme="light"] .inv-card-name { color: var(--iw-text-header) !important; }
-    [data-theme="light"] .inv-card-meta,
-    [data-theme="light"] .inv-card-sku  { color: var(--iw-text-muted) !important; }
-    [data-theme="light"] .inv-stat-label { color: var(--iw-text-muted) !important; }
-    [data-theme="light"] .inv-stat-value { color: var(--iw-text-header) !important; }
-    [data-theme="light"] .inv-card-divider { background: var(--iw-border) !important; }
-    [data-theme="light"] .inv-card-actions { border-top-color: var(--iw-border) !important; }
-    [data-theme="light"] .inv-card-btn--edit,
-    [data-theme="light"] .inv-card-btn--archive,
-    [data-theme="light"] .inv-card-btn--restore {
-        background: var(--iw-bg-btn-secondary) !important;
-        border-color: var(--iw-border) !important;
-        color: var(--iw-text) !important;
-    }
+    [data-theme="dark"] .inv-card-btn--archive:hover svg,
+    [data-theme="dark"] .inv-card-btn--restore:hover svg { stroke: #f87171; }
+    [data-theme="dark"] .badge-out  { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
+    [data-theme="dark"] .badge-low  { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+    [data-theme="dark"] .badge-good { background: rgba(52,211,153,0.12); color: #34d399; border-color: rgba(52,211,153,0.3); }
 
     .inventory-text-btn {
         height: 34px;
@@ -894,7 +917,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
         margin: auto;
     }
     .modal-header {
@@ -916,11 +939,30 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         gap: 10px;
     }
     .modal-subtitle { color: #9aa6d1; font-size: 13px; font-family: 'Onest', sans-serif; }
-    .modal-body-scroll { overflow-y: auto; overflow-x: visible; flex: 1; max-height: min(560px, calc(100vh - 220px)); scrollbar-color: #51D55A rgba(19, 39, 91, 0.3); scrollbar-width: thin; }
+    .modal-body-scroll {
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+        max-height: min(560px, calc(100vh - 220px));
+        scrollbar-color: #51D55A rgba(19, 39, 91, 0.3);
+        scrollbar-width: thin;
+    }
     .modal-body-scroll::-webkit-scrollbar { width: 6px; }
     .modal-body-scroll::-webkit-scrollbar-track { background: rgba(19, 39, 91, 0.3); border-radius: 4px; }
     .modal-body-scroll::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); border-radius: 4px; }
     .modal-body-scroll::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #4BC052 0%, #3EA147 100%); }
+
+    .modal-footer {
+        padding: 20px 30px;
+        border-top: 1px solid rgba(42, 68, 132, 0.5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        background: rgba(13, 22, 56, 0.4);
+        flex-shrink: 0;
+        flex-wrap: wrap;
+    }
 
 
     .form-label {
@@ -1031,17 +1073,52 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     [data-theme="light"] .modal-overlay { background: var(--iw-bg-overlay) !important; }
     [data-theme="light"] .modal-box {
-        background: var(--iw-bg-modal) !important;
-        border-color: var(--iw-border-solid) !important;
-        box-shadow: var(--iw-shadow-dropdown) !important;
+        background: #FFFFFF !important;
+        border-color: #D6E8F7 !important;
+        box-shadow: 0 20px 40px -8px rgba(20, 80, 158, 0.18), 0 0 0 1px rgba(20, 80, 158, 0.08) !important;
     }
     [data-theme="light"] .modal-header {
-        background: var(--iw-bg-panel-header) !important;
-        border-bottom-color: var(--iw-border) !important;
+        background: #F8FAFC !important;
+        border-bottom-color: #E2E8F0 !important;
     }
-    [data-theme="light"] .modal-title h3 { color: var(--iw-text-header) !important; }
+    [data-theme="light"] .modal-title h3 { color: #0F172A !important; }
     [data-theme="light"] .modal-subtitle,
-    [data-theme="light"] .form-label { color: var(--iw-text-muted) !important; }
+    [data-theme="light"] .form-label { color: #475569 !important; }
+    [data-theme="light"] .modal-close-btn {
+        background: #F1F5F9 !important;
+        border: 1.5px solid #CBD5E1 !important;
+        color: #64748B !important;
+        box-shadow: none !important;
+    }
+    [data-theme="light"] .modal-close-btn:hover {
+        background: #FEE2E2 !important;
+        border-color: #FCA5A5 !important;
+        color: #EF4444 !important;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2) !important;
+    }
+    [data-theme="light"] .modal-body-scroll {
+        scrollbar-color: #CBD5E1 transparent !important;
+    }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-track {
+        background: transparent !important;
+    }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-thumb {
+        background: #CBD5E1 !important;
+        border-radius: 4px;
+    }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94A3B8 !important;
+    }
+    [data-theme="light"] .modal-footer {
+        background: #F8FAFC !important;
+        border-top-color: #E2E8F0 !important;
+    }
+    [data-theme="light"] .form-keyboard-hint {
+        color: #64748B !important;
+    }
     [data-theme="light"] .btn-scan {
         background: var(--iw-bg-btn-secondary) !important;
         border-color: var(--iw-border) !important;
@@ -1052,6 +1129,39 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: var(--iw-border) !important;
         box-shadow: var(--iw-shadow-dropdown) !important;
         color: var(--iw-text) !important;
+    }
+    [data-theme="light"] #edit-image-empty-wrap {
+        background: #F8FAFC !important;
+        border-color: #CBD5E1 !important;
+    }
+    [data-theme="light"] #edit-image-current-wrap {
+        background: #F8FAFC !important;
+    }
+    [data-theme="light"] #ai-capture-block {
+        background: #F1F5F9 !important;
+        border-color: #CBD5E1 !important;
+    }
+    [data-theme="light"] #ai-status-text {
+        color: #475569 !important;
+    }
+    [data-theme="light"] .add-field-locked,
+    [data-theme="light"] input:disabled,
+    [data-theme="light"] select:disabled {
+        background: #F1F5F9 !important;
+        color: #94A3B8 !important;
+        border-color: #E2E8F0 !important;
+    }
+    [data-theme="light"] #archive-modal-overlay h3,
+    [data-theme="light"] #restore-modal-overlay h3 {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] #archive-modal-overlay p,
+    [data-theme="light"] #restore-modal-overlay p {
+        color: #475569 !important;
+    }
+    [data-theme="light"] #archive-product-name,
+    [data-theme="light"] #restore-product-name {
+        color: #0F172A !important;
     }
 
     /* ── Mobile: Full-height modal sheet (no outer scrollbar) ────────── */
@@ -1130,11 +1240,10 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     <button type="button" id="search-scan-barcode-btn" class="btn-secondary absolute right-2 top-1.5 flex items-center justify-center cursor-pointer" style="width:32px; height:32px; padding:0; border-radius:8px;" title="Scan with camera"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                 </div>
-                <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 xl:w-40 shrink-0" style="height:44px;">
+                <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 xl:w-40 shrink-0" style="height:44px;" onchange="this.form.submit()">
                     <option value="">All Categories</option>
-                    <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."' ".($category_param==$cat?'selected':'').">".htmlspecialchars($cat)."</option>"; ?>
+                    <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."' ".($category_param==$cat?'selected':'').">" .htmlspecialchars($cat)."</option>"; ?>
                 </select>
-                <button type="submit" class="premium-button whitespace-nowrap h-[44px] flex items-center justify-center px-4 shrink-0 text-sm">Search</button>
                 <?php if($q||$category_param): ?>
                     <a href="products.php" class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
@@ -1173,171 +1282,93 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <div class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</div>
     <?php else: ?>
 
-    <!-- ── Desktop / Tablet: Table (≥768 px) ────────────────────── -->
-    <div class="inv-desktop-table" id="inventory-desktop-table">
-        <div class="overflow-x-auto">
-            <table class="premium-table w-full text-left min-w-[1100px]">
-                <thead>
-                    <tr>
-                        <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
-                        <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
-                        <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
-                        <th width="10%" class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($items as $it): ?>
-                    <tr id="row-<?php echo $it['id']; ?>"
-                        class="hover:bg-[#1D387B]/50 transition-colors"
-                        data-id="<?php echo $it['id']; ?>"
-                        data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                        data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
-                        data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
-                        data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
-                        data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
-                        data-qty="<?php echo (int)$it['qty']; ?>"
-                        data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
-                        data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
-                        data-reorder="<?php echo (int)$it['reorder_point']; ?>"
-                        data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                        data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
-                        <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
-                        <td><span style="font-family:monospace; font-size:12px; color:#9aa6d1;"><?php echo htmlspecialchars($it['barcode'] ?? '—'); ?></span></td>
-                        <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['category']); ?></td>
-                        <td><?php echo htmlspecialchars($it['supplier']); ?></td>
-                        <td><?php echo htmlspecialchars($it['location']); ?></td>
-                        <td><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
-                        <td><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
-                        <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
-                        <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
-                        <td>
-                            <?php if ((int)$it['qty'] <= 0): ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
-                            <?php elseif ((int)$it['qty'] <= (int)$it['reorder_point']): ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
-                            <?php else: ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-right">
-                            <div style="display:flex; gap:8px; justify-content:flex-end;">
-                                <button type="button" class="inventory-action-btn edit-btn" onclick="openEditModal(this.closest('tr').dataset)" title="Edit">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                </button>
-                                <?php if($role!=='staff'): ?>
-                                <?php if (!$show_archived): ?>
-                                <button type="button" class="inventory-action-btn archive-btn" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Archive">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                                </button>
-                                <?php else: ?>
-                                <button type="button" class="inventory-action-btn restore-btn" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Restore">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>
-                                </button>
-                                <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div><!-- /.inv-desktop-table -->
+    <!-- ── Product Card Grid (all breakpoints) ─────────────────── -->
+    <div class="inv-card-grid" id="inventory-card-grid">
+        <?php foreach ($items as $it): ?>
+        <?php
+            $qty      = (int)$it['qty'];
+            $reorder  = (int)$it['reorder_point'];
+            $isOut    = $qty <= 0;
+            $isLow    = !$isOut && $qty <= $reorder;
+            $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
+            $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
+            $statusLabel = $isOut ? 'OUT OF STOCK' : ($isLow ? 'LOW' : 'GOOD');
+        ?>
+        <div class="inv-card"
+             data-id="<?php echo $it['id']; ?>"
+             data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
+             data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
+             data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
+             data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
+             data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
+             data-qty="<?php echo $qty; ?>"
+             data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
+             data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
+             data-reorder="<?php echo $reorder; ?>"
+             data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
+             data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
 
-    <!-- ── Mobile: Card Grid (<768 px) ──────────────────────────── -->
-    <div class="inv-mobile-cards" id="inventory-mobile-cards">
-        <div class="inv-card-grid">
-            <?php foreach ($items as $it): ?>
-            <?php
-                $qty      = (int)$it['qty'];
-                $reorder  = (int)$it['reorder_point'];
-                $isOut    = $qty <= 0;
-                $isLow    = !$isOut && $qty <= $reorder;
-                $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
-            ?>
-            <div class="inv-card"
-                 data-id="<?php echo $it['id']; ?>"
-                 data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                 data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
-                 data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
-                 data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
-                 data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
-                 data-qty="<?php echo $qty; ?>"
-                 data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
-                 data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
-                 data-reorder="<?php echo $reorder; ?>"
-                 data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                 data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
-
-                <!-- Top: thumb + info + badge -->
-                <div class="inv-card-top">
-                    <div class="inv-card-thumb">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:#9aa6d1;">
-                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
-                        </svg>
-                    </div>
-                    <div class="inv-card-info">
-                        <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
-                        <div class="inv-card-meta"><?php
-                            $meta = [];
-                            if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
-                            if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
-                            echo implode(' · ', $meta);
-                        ?></div>
-                        <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
-                    </div>
-                    <div class="inv-card-badge <?php echo $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good'); ?>">
-                        <?php echo $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD'); ?>
-                    </div>
+            <!-- Top: thumb + info + badge -->
+            <div class="inv-card-top">
+                <div class="inv-card-thumb">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                    </svg>
                 </div>
-
-                <!-- Divider -->
-                <div class="inv-card-divider"></div>
-
-                <!-- Stats -->
-                <div class="inv-card-stats">
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">STOCK</span>
-                        <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">PRICE</span>
-                        <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">REORDER</span>
-                        <span class="inv-stat-value"><?php echo $reorder; ?></span>
-                    </div>
+                <div class="inv-card-info">
+                    <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
+                    <div class="inv-card-meta"><?php
+                        $meta = [];
+                        if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
+                        if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
+                        echo $meta ? implode(' · ', $meta) : '&mdash;';
+                    ?></div>
+                    <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
                 </div>
+                <div class="inv-card-badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></div>
+            </div>
 
-                <!-- Actions -->
-                <div class="inv-card-actions">
-                    <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        Edit
-                    </button>
-                    <?php if($role !== 'staff'): ?>
-                    <?php if (!$show_archived): ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                        Archive
-                    </button>
-                    <?php else: ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                        Restore
-                    </button>
-                    <?php endif; ?>
-                    <?php else: ?>
-                    <div></div>
-                    <?php endif; ?>
+            <!-- Stats -->
+            <div class="inv-card-stats">
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">STOCK</span>
+                    <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">PRICE</span>
+                    <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">REORDER</span>
+                    <span class="inv-stat-value"><?php echo $reorder; ?></span>
                 </div>
             </div>
-            <?php endforeach; ?>
+
+            <!-- Actions -->
+            <div class="inv-card-actions">
+                <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <?php if ($role !== 'staff'): ?>
+                <?php if (!$show_archived): ?>
+                <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    Archive
+                </button>
+                <?php else: ?>
+                <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                    Restore
+                </button>
+                <?php endif; ?>
+                <?php else: ?>
+                <div></div>
+                <?php endif; ?>
+            </div>
         </div>
-    </div><!-- /.inv-mobile-cards -->
+        <?php endforeach; ?>
+    </div><!-- /.inv-card-grid -->
 
     <?php endif; ?>
 
@@ -1605,7 +1636,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <p class="add-field-error" id="add-shelf-life-error" hidden></p>
                 </div>
             </div>
-            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
+            <div class="modal-footer">
                 <p class="form-keyboard-hint" style="margin:0;">Enter to save &middot; Shift+Enter for next field</p>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <button type="submit" class="premium-button" id="add-product-submit" disabled>Save Product</button>
@@ -1780,7 +1811,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="number" name="shelf_life" id="edit-shelf-life" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 30">
                 </div>
             </div>
-            <div style="padding: 24px 30px; border-top: 1px solid #2A4484; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(13, 22, 56, 0.3); flex-shrink: 0; flex-wrap: wrap;">
+            <div class="modal-footer">
                 <p class="form-keyboard-hint" style="margin:0;">Enter to save · Tab to move between fields</p>
                 <div style="display:flex; gap:12px;">
                     <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
@@ -2694,6 +2725,8 @@ function openAddModal() {
     resetAddProductForm();
     // Unlock form immediately — photo capture is optional
     setAddFormFieldsEnabled(true);
+    const addScroll = document.querySelector('#add-modal-overlay .modal-body-scroll');
+    if (addScroll) addScroll.scrollTop = 0;
     if (window.matchMedia('(max-width: 767px)').matches) {
         document.body.style.overflow = 'hidden';
     }
@@ -2961,11 +2994,16 @@ function openEditModal(data) {
     };
     probe.src = imgUrl;
 
+    const editScroll = document.querySelector('#edit-modal-overlay .modal-body-scroll');
+    if (editScroll) editScroll.scrollTop = 0;
     if (window.matchMedia('(max-width: 767px)').matches) {
         document.body.style.overflow = 'hidden';
     }
     document.getElementById('edit-modal-overlay').classList.add('active');
-    setTimeout(() => document.getElementById('edit-name').focus(), 60);
+    setTimeout(() => {
+        const nameInput = document.getElementById('edit-name');
+        if (nameInput) nameInput.focus({ preventScroll: true });
+    }, 60);
 }
 
 function closeEditModal() {

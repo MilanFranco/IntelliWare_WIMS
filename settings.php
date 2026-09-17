@@ -996,68 +996,6 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     </form>
                 </div>
             </div>
-
-            <!-- Active Email Subscribers Card -->
-            <?php
-                $activeSubscribers = EmailService::getRecipients($conn);
-            ?>
-            <div class="premium-card mt-6">
-                <div class="p-5 border-b border-[#2A4484]/50 flex items-center justify-between bg-[#13275B]/30">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        </div>
-                        <div>
-                            <h4 class="font-onest font-semibold text-base text-white">Active Alert Subscribers (<?php echo count($activeSubscribers); ?>)</h4>
-                            <p class="text-xs text-[#9aa6d1]">All Administrators are enrolled by default; staff may opt in</p>
-                        </div>
-                    </div>
-                    <a href="users.php" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
-                        <span>Manage Users</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </a>
-                </div>
-
-                <div class="p-5">
-                    <?php if (empty($activeSubscribers)): ?>
-                        <div class="text-xs text-amber-400 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                            No users are currently subscribed to receive inventory alert emails.
-                        </div>
-                    <?php else: ?>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="border-b border-[#2A4484]/40 text-[#9aa6d1] uppercase text-[10px] tracking-wider">
-                                        <th class="pb-2">Recipient Name</th>
-                                        <th class="pb-2">Role</th>
-                                        <th class="pb-2">Notification Email</th>
-                                        <th class="pb-2 text-right">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-[#2A4484]/20">
-                                    <?php foreach ($activeSubscribers as $sub): ?>
-                                    <tr>
-                                        <td class="py-2.5 font-medium text-white"><?php echo htmlspecialchars($sub['name']); ?></td>
-                                        <td class="py-2.5">
-                                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase <?php echo strtolower($sub['role']) === 'admin' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'; ?>">
-                                                <?php echo htmlspecialchars($sub['role']); ?>
-                                            </span>
-                                        </td>
-                                        <td class="py-2.5 font-mono text-[#cbd5e1]"><?php echo htmlspecialchars($sub['email']); ?></td>
-                                        <td class="py-2.5 text-right">
-                                            <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                                Active
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
         </div>
 
         <!-- Live Gateway Testing & Log Card -->
@@ -1174,6 +1112,55 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                 </div>
                             </div>
                         <?php endwhile; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Active Email Subscribers Card -->
+            <?php
+                $activeSubscribers = EmailService::getRecipients($conn);
+            ?>
+            <div class="premium-card">
+                <div class="p-5 border-b border-[#2A4484]/50 flex items-center justify-between bg-[#13275B]/30">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-onest font-semibold text-base text-white">Active Alert Subscribers (<?php echo count($activeSubscribers); ?>)</h4>
+                            <p class="text-xs text-[#9aa6d1]">Admins enrolled by default; staff may opt in</p>
+                        </div>
+                    </div>
+                    <a href="users.php" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
+                        <span>Manage</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+
+                <div class="p-4">
+                    <?php if (empty($activeSubscribers)): ?>
+                        <div class="text-xs text-amber-400 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                            No users are currently subscribed to receive inventory alert emails.
+                        </div>
+                    <?php else: ?>
+                        <div class="space-y-2">
+                            <?php foreach ($activeSubscribers as $sub): ?>
+                            <div class="flex items-center justify-between p-2.5 rounded-lg bg-[#070b1a]/40 border border-[#2A4484]/30 text-xs">
+                                <div>
+                                    <div class="font-semibold text-white"><?php echo htmlspecialchars($sub['name']); ?></div>
+                                    <div class="text-[10px] text-[#9aa6d1] font-mono mt-0.5 truncate max-w-[160px]"><?php echo htmlspecialchars($sub['email']); ?></div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase <?php echo strtolower($sub['role']) === 'admin' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'; ?>">
+                                        <?php echo htmlspecialchars($sub['role']); ?>
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    </span>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>

@@ -192,13 +192,13 @@
    All scoped to [data-theme="light"] so dark mode is untouched.
    ============================================================ */
 
-/* Stat cards need overflow:visible so ::before accent bar shows above the card edge */
+/* Stat cards: overflow hidden so the flush ::before top bar is clipped by border-radius */
 [data-theme="light"] .stat-card-skus,
 [data-theme="light"] .stat-card-items,
 [data-theme="light"] .stat-card-low-stock,
 [data-theme="light"] .stat-card-categories {
-  overflow: visible !important;
-  padding-top: 20px !important; /* push content below the top accent bar */
+  overflow: hidden !important;
+  padding-top: 24px !important; /* push content below the top accent bar */
 }
 
 /* Clear the green text-fill on inline-gradient nums in light mode → neutral bold black */

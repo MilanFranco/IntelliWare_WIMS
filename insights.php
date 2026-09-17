@@ -1892,7 +1892,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <option value="overstocked">Overstocked</option>
             </select>
         </div>
-        <div style="overflow: auto; max-height: 500px;">
+        <div style="overflow-x: auto;">
             <table class="table" id="productTable">
                 <thead>
                     <tr>
@@ -1901,10 +1901,11 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     </tr>
                 </thead>
                 <tbody id="productTableBody">
-                    <?php foreach ($productMovement as $product): ?>
+                    <?php foreach ($productMovement as $index => $product): ?>
                     <tr data-category="<?php echo htmlspecialchars($product['category_name']); ?>"
                         data-movement="<?php echo $product['movement_class']; ?>"
-                        data-stock="<?php echo $product['stock_status']; ?>">
+                        data-stock="<?php echo $product['stock_status']; ?>"
+                        <?php echo $index >= 8 ? 'style="display: none;"' : ''; ?>>
                         <td style="font-weight: 500; color: #fff;"><?php echo htmlspecialchars($product['product_name']); ?></td>
                         <td style="color: #9aa6d1;"><?php echo htmlspecialchars($product['category_name']); ?></td>
                         <td><?php echo $product['current_stock']; ?></td>
@@ -1920,7 +1921,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         </div>
         <div id="productPagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(42, 68, 132, 0.3); flex-wrap: wrap; gap: 12px;">
             <div class="pagination-info-pill">
-                Showing <span id="paginationInfoStart">0</span> to <span id="paginationInfoEnd">0</span> of <span id="paginationInfoTotal">0</span> entries
+                Showing <span id="paginationInfoStart"><?php echo !empty($productMovement) ? '1' : '0'; ?></span> to <span id="paginationInfoEnd"><?php echo min(8, count($productMovement)); ?></span> of <span id="paginationInfoTotal"><?php echo count($productMovement); ?></span> entries
             </div>
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                 <button type="button" class="pagination-btn" id="prevPageBtn">
@@ -3309,7 +3310,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 let currentProductPage = 1;
-const productsPerPage = 10;
+const productsPerPage = 8;
 
 // Bind search/filter controls and pagination inside DOMContentLoaded so that
 // all elements are guaranteed to exist (safe on mobile and when external scripts
