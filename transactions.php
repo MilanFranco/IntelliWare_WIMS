@@ -48,8 +48,10 @@ $tableItems = [];
 $categories = []; 
 
 // Function to store flash messages (success/error) in the session
-function setFlashMessage($type, $message) {
-    $_SESSION['toast'] = ['type' => $type, 'message' => $message];
+if (!function_exists('setFlashMessage')) {
+    function setFlashMessage($type, $message) {
+        $_SESSION['toast'] = ['type' => $type, 'message' => $message];
+    }
 }
 
 
