@@ -18,6 +18,7 @@ require_once 'config/db.php';
 require_once 'config/notifications.php';
 require_once 'src/services/NotificationService.php';
 require_once 'src/services/EmailService.php';
+require_once 'src/services/SmsService.php';
 if (file_exists('src/services/ApiClient.php')) {
     require_once 'src/services/ApiClient.php';
 }
@@ -215,9 +216,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notifications'
     } else {
         saveNotificationSetting($conn, 'notif_system_enabled', isset($_POST['notif_system_enabled']) ? '1' : '0');
         saveNotificationSetting($conn, 'notif_email_enabled', isset($_POST['notif_email_enabled']) ? '1' : '0');
+        saveNotificationSetting($conn, 'notif_sms_enabled', isset($_POST['notif_sms_enabled']) ? '1' : '0');
         saveNotificationSetting($conn, 'notif_cooldown_hours', (string)max(1, (int)($_POST['notif_cooldown_hours'] ?? 24)));
 
         saveNotificationSetting($conn, 'notif_email_recipients', trim($_POST['notif_email_recipients'] ?? ''));
+        saveNotificationSetting($conn, 'notif_sms_recipients', trim($_POST['notif_sms_recipients'] ?? ''));
 
         saveNotificationSetting($conn, 'smtp_host', trim($_POST['smtp_host'] ?? 'smtp.gmail.com'));
         saveNotificationSetting($conn, 'smtp_port', trim($_POST['smtp_port'] ?? '587'));
@@ -229,7 +232,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_notifications'
         saveNotificationSetting($conn, 'smtp_from_email', trim($_POST['smtp_from_email'] ?? ''));
         saveNotificationSetting($conn, 'smtp_from_name', trim($_POST['smtp_from_name'] ?? 'IntelliWare WIMS'));
 
-        $_SESSION['success'] = "Notification channels, anti-spam rules, and SMTP credentials saved successfully.";
+        saveNotificationSetting($conn, 'sms_provider', trim($_POST['sms_provider'] ?? 'semaphore'));
+        if (!empty($_POST['sms_api_key'])) {
+            saveNotificationSetting($conn, 'sms_api_key', trim($_POST['sms_api_key']));
+        }
+        saveNotificationSetting($conn, 'sms_account_sid', trim($_POST['sms_account_sid'] ?? ''));
+        saveNotificationSetting($conn, 'sms_from_number', trim($_POST['sms_from_number'] ?? 'IntelliWare'));
+
+        $_SESSION['success'] = "Notification channels, anti-spam rules, and gateway credentials saved successfully.";
     }
     header('Location: settings.php#notifications');
     exit();
@@ -256,9 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_vision_setting
 // F. Test Email Dispatch Action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_email'])) {
     $testEmail = trim($_POST['test_email_recipient'] ?? '');
-    $testType  = trim($_POST['test_email_type'] ?? 'complete_table');
-    $_SESSION['last_test_email_type'] = $testType;
-    $_SESSION['last_test_email_recipient'] = $testEmail;
+    $testType  = trim($_POST['test_email_type'] ?? 'out_of_stock');
     if (empty($testEmail)) {
         $_SESSION['error'] = "Please provide an email address for the test alert.";
     } else {
@@ -274,7 +282,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_email'])) {
     exit();
 }
 
-// F2. Clear System Cache & Analytics Buffer
+// G. Test SMS Dispatch Action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_sms'])) {
+    $testPhone = trim($_POST['test_sms_recipient'] ?? '');
+    if (empty($testPhone)) {
+        $_SESSION['error'] = "Please provide a mobile number for the test alert.";
+    } else {
+        $dummyProduct = [
+            'product_id'   => 9999,
+            'product_name' => 'IntelliWare Test Stock Item (Demo)'
+        ];
+        $testRes = SmsService::sendOutOfStockAlert($conn, $dummyProduct, $testPhone);
+        if ($testRes['success']) {
+            if (($testRes['provider'] ?? '') === 'sandbox_logger') {
+                $_SESSION['success'] = "SMS simulated & recorded to logs/sms.log! (To receive live SMS, enter a valid Semaphore API Key).";
+            } else {
+                $prov = htmlspecialchars($testRes['provider'] ?? 'SMS');
+                $_SESSION['success'] = "Test SMS dispatched via {$prov} to " . htmlspecialchars($testPhone) . "!";
+            }
+        } else {
+            $_SESSION['error'] = "SMS dispatch failed: " . htmlspecialchars($testRes['error']);
+        }
+    }
+    header('Location: settings.php#notifications');
+    exit();
+}
+
+// H. Clear System Cache & Analytics Buffer
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clear_cache'])) {
     try {
         $clearedItems = [];
@@ -561,6 +595,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     $activeChannels = [];
                     if (($notifSettings['notif_system_enabled'] ?? '1') === '1') $activeChannels[] = 'Bell';
                     if (($notifSettings['notif_email_enabled'] ?? '1') === '1') $activeChannels[] = 'Email';
+                    if (($notifSettings['notif_sms_enabled'] ?? '1') === '1') $activeChannels[] = 'SMS';
                     echo !empty($activeChannels) ? implode(' • ', $activeChannels) : 'None';
                     ?>
                 </div>
@@ -764,7 +799,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                         </div>
                         <div>
                             <h3 class="font-onest font-semibold text-lg text-white">Alert Channels &amp; Gateway Credentials</h3>
-                            <p class="text-xs text-[#9aa6d1]">Automate stock-out dispatches across In-System Bell and Email</p>
+                            <p class="text-xs text-[#9aa6d1]">Automate stock-out dispatches across UI, Email, and SMS</p>
                         </div>
                     </div>
                 </div>
@@ -775,7 +810,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                         <input type="hidden" name="update_notifications" value="1">
 
                         <!-- Channels Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="p-4 rounded-xl bg-[#070b1a]/60 border border-[#2A4484]/40 flex flex-col justify-between h-32">
                                 <div class="flex items-start justify-between">
                                     <div>
@@ -802,6 +837,20 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                     </label>
                                 </div>
                                 <span class="text-[11px] text-[#64748b]">Fires on Low &amp; Zero Stock</span>
+                            </div>
+
+                            <div class="p-4 rounded-xl bg-[#070b1a]/60 border border-[#2A4484]/40 flex flex-col justify-between h-32">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <div class="text-white font-semibold text-sm">SMS Alerts</div>
+                                        <div class="text-[#9aa6d1] text-xs mt-0.5">Semaphore / Twilio text</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" name="notif_sms_enabled" <?php echo ($notifSettings['notif_sms_enabled'] ?? '1') === '1' ? 'checked' : ''; ?>>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <span class="text-[11px] text-[#64748b]">Real-time mobile text dispatch</span>
                             </div>
                         </div>
 
@@ -832,10 +881,17 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                 <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 Global Extra Alert Recipients
                             </h4>
-                            <div>
-                                <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Extra Email Address(es)</label>
-                                <input type="text" name="notif_email_recipients" class="premium-input w-full" placeholder="audit@warehouse.ph, alerts@intelliware.ph" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ''); ?>">
-                                <span class="text-[11px] text-[#64748b] mt-1 block">All Admins are notified automatically. Add extra addresses here (comma-separated).</span>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Extra Email Address(es)</label>
+                                    <input type="text" name="notif_email_recipients" class="premium-input w-full" placeholder="audit@warehouse.ph, alerts@intelliware.ph" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ''); ?>">
+                                    <span class="text-[11px] text-[#64748b] mt-1 block">All Admins are notified automatically. Add extra addresses here (comma-separated).</span>
+                                </div>
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-1.5">Alert Mobile Number(s)</label>
+                                    <input type="text" name="notif_sms_recipients" class="premium-input w-full" placeholder="09171234567, +639181234567" value="<?php echo htmlspecialchars($notifSettings['notif_sms_recipients'] ?? ''); ?>">
+                                    <span class="text-[11px] text-[#64748b] mt-1 block">Philippine (09...) or E.164 (+63...) format</span>
+                                </div>
                             </div>
                         </div>
 
@@ -846,7 +902,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                     <svg class="w-4 h-4 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                     SMTP Email Server Credentials (PHPMailer)
                                 </h4>
-                                <a id="previewEmailLink" href="api/preview_email.php" target="_blank" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
+                                <a href="api/preview_email.php" target="_blank" class="text-xs text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
                                     <span>Preview HTML Email Design</span>
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                 </a>
@@ -893,6 +949,40 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             </div>
                         </div>
 
+                        <!-- SMS Gateway Details -->
+                        <div class="p-5 rounded-xl bg-[#070b1a]/40 border border-[#2A4484]/40 space-y-4">
+                            <h4 class="font-onest font-semibold text-sm text-white flex items-center gap-2">
+                                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                SMS Dispatch Provider Settings
+                            </h4>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">SMS Provider</label>
+                                    <select name="sms_provider" class="premium-input inventory-select w-full">
+                                        <option value="semaphore" <?php echo ($notifSettings['sms_provider'] ?? 'semaphore') === 'semaphore' ? 'selected' : ''; ?>>Semaphore (Philippine Telco API)</option>
+                                        <option value="twilio" <?php echo ($notifSettings['sms_provider'] ?? 'semaphore') === 'twilio' ? 'selected' : ''; ?>>Twilio (International SMS)</option>
+                                        <option value="sandbox" <?php echo ($notifSettings['sms_provider'] ?? 'semaphore') === 'sandbox' ? 'selected' : ''; ?>>Local Sandbox Logger (logs/sms.log)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">API Key / Auth Token</label>
+                                    <input type="password" name="sms_api_key" class="premium-input w-full" placeholder="<?php echo !empty($notifSettings['sms_api_key']) ? '•••••••• (Stored securely)' : 'Semaphore API Key or Twilio Token'; ?>">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Twilio Account SID (Optional if Semaphore)</label>
+                                    <input type="text" name="sms_account_sid" class="premium-input w-full" placeholder="AC..." value="<?php echo htmlspecialchars($notifSettings['sms_account_sid'] ?? ''); ?>">
+                                </div>
+                                <div>
+                                    <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Sender ID / Phone</label>
+                                    <input type="text" name="sms_from_number" class="premium-input w-full" placeholder="IntelliWare" value="<?php echo htmlspecialchars($notifSettings['sms_from_number'] ?? 'IntelliWare'); ?>">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="pt-2 flex justify-end">
                             <button type="submit" class="premium-button flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -929,25 +1019,14 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <input type="hidden" name="send_test_email" value="1">
                             <div>
                                 <label class="block text-[11px] text-[#9aa6d1] font-semibold mb-1">Target Email</label>
-                                <?php 
-                                    $testRecipientValue = $_SESSION['last_test_email_recipient'] ?? ($notifSettings['notif_email_recipients'] ?? ($userProfile['email'] ?? ''));
-                                    $selectedTestType = $_SESSION['last_test_email_type'] ?? 'complete_table';
-                                ?>
-                                <input type="email" name="test_email_recipient" required class="premium-input w-full text-xs" placeholder="test@email.com" value="<?php echo htmlspecialchars($testRecipientValue); ?>">
+                                <input type="email" name="test_email_recipient" required class="premium-input w-full text-xs" placeholder="test@email.com" value="<?php echo htmlspecialchars($notifSettings['notif_email_recipients'] ?? ($userProfile['email'] ?? '')); ?>">
                             </div>
                             <div>
-                                <div class="flex items-center justify-between mb-1">
-                                    <label class="block text-[11px] text-[#9aa6d1] font-semibold">Alert Format</label>
-                                    <a id="previewTestEmailLink" href="api/preview_email.php?type=<?php echo urlencode($selectedTestType); ?>" target="_blank" class="text-[10px] text-[#51D55A] hover:underline flex items-center gap-1 font-semibold">
-                                        <span>Preview Template</span>
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                                    </a>
-                                </div>
-                                <select name="test_email_type" id="testEmailTypeSelect" class="premium-input inventory-select w-full text-xs">
-                                    <option value="complete_table" <?php echo $selectedTestType === 'complete_table' ? 'selected' : ''; ?>>Complete Inventory Status Table (All Products &amp; Statuses)</option>
-                                    <option value="low_stock" <?php echo $selectedTestType === 'low_stock' ? 'selected' : ''; ?>>Low Stock Alert (Only Low Stock Products)</option>
-                                    <option value="out_of_stock" <?php echo $selectedTestType === 'out_of_stock' ? 'selected' : ''; ?>>Out of Stock Alert (Only Out of Stock Products)</option>
-                                    <option value="batch" <?php echo $selectedTestType === 'batch' ? 'selected' : ''; ?>>Multi-Product Batch Digest (Only Alert Products)</option>
+                                <label class="block text-[11px] text-[#9aa6d1] font-semibold mb-1">Alert Format</label>
+                                <select name="test_email_type" class="premium-input inventory-select w-full text-xs">
+                                    <option value="out_of_stock">Out of Stock Alert (Critical - 0 units)</option>
+                                    <option value="low_stock">Low Stock Alert (Warning - &le; Reorder)</option>
+                                    <option value="batch">Multi-Product Batch Digest</option>
                                 </select>
                             </div>
                             <button type="submit" class="w-full btn-secondary py-2.5 text-xs font-semibold flex items-center justify-center gap-2 mt-1">
@@ -957,10 +1036,26 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                         </form>
                     </div>
 
+                    <!-- Test SMS Form -->
+                    <div class="p-4 rounded-xl bg-[#070b1a]/50 border border-[#2A4484]/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">Test SMS Dispatch</span>
+                            <span class="text-[10px] text-amber-400 font-semibold">Telco</span>
+                        </div>
+                        <form method="POST" class="space-y-2">
+                            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                            <input type="hidden" name="send_test_sms" value="1">
+                            <input type="text" name="test_sms_recipient" required class="premium-input w-full text-xs" placeholder="09... or +63..." value="<?php echo htmlspecialchars($notifSettings['notif_sms_recipients'] ?? ''); ?>">
+                            <button type="submit" class="w-full btn-secondary py-2.5 text-xs font-semibold flex items-center justify-center gap-2">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                Dispatch Test SMS
+                            </button>
+                        </form>
+                    </div>
+
                     <div class="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 font-onest leading-relaxed">
                         <strong>Non-blocking Guarantee:</strong> When stock drops to or below threshold, the system commits the database transaction first and dispatches alerts safely in the background.
                     </div>
-
                 </div>
             </div>
 
@@ -1712,12 +1807,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Client-side Validation: Notification Alerts
     const notifForm = document.getElementById('notifForm');
     if (notifForm) {
+        const smsToggle = notifForm.querySelector('input[name="notif_sms_enabled"]');
+        const smsInput  = notifForm.querySelector('input[name="notif_sms_recipients"]');
         const emailToggle = notifForm.querySelector('input[name="notif_email_enabled"]');
         const emailInput  = notifForm.querySelector('input[name="notif_email_recipients"]');
 
-        emailInput?.addEventListener('input', () => emailInput.classList.remove('error-border'));
+        [smsInput, emailInput].forEach(el => {
+            el?.addEventListener('input', () => el.classList.remove('error-border'));
+        });
 
         notifForm.addEventListener('submit', function(e) {
+            if (smsToggle?.checked && !smsInput.value.trim()) {
+                e.preventDefault();
+                smsInput.classList.add('error-border');
+                smsInput.focus();
+                showToast('Please enter at least one recipient mobile number for SMS alerts.', 'error');
+                return;
+            }
             if (emailToggle?.checked && !emailInput.value.trim()) {
                 e.preventDefault();
                 emailInput.classList.add('error-border');
@@ -1725,42 +1831,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast('Please enter at least one recipient email address for Email alerts.', 'error');
                 return;
             }
-        });
-    }
-
-    // Persist Alert Format selection for Test Email across dispatches & reloads
-    const testSelect = document.getElementById('testEmailTypeSelect');
-    const previewLink = document.getElementById('previewTestEmailLink');
-    const headerPreviewLink = document.getElementById('previewEmailLink');
-
-    function updatePreviewUrls(val) {
-        if (!val) return;
-        const targetUrl = 'api/preview_email.php?type=' + encodeURIComponent(val);
-        if (previewLink) previewLink.href = targetUrl;
-        if (headerPreviewLink) headerPreviewLink.href = targetUrl;
-    }
-
-    if (testSelect) {
-        const savedFormat = localStorage.getItem('intelliware_test_email_format');
-        <?php if (!isset($_SESSION['last_test_email_type'])): ?>
-        if (savedFormat && Array.from(testSelect.options).some(o => o.value === savedFormat)) {
-            testSelect.value = savedFormat;
-        }
-        <?php else: ?>
-        if (testSelect.value) {
-            localStorage.setItem('intelliware_test_email_format', testSelect.value);
-        }
-        <?php endif; ?>
-
-        updatePreviewUrls(testSelect.value);
-
-        testSelect.addEventListener('change', function() {
-            localStorage.setItem('intelliware_test_email_format', this.value);
-            updatePreviewUrls(this.value);
-        });
-
-        testSelect.closest('form')?.addEventListener('submit', function() {
-            localStorage.setItem('intelliware_test_email_format', testSelect.value);
         });
     }
 });

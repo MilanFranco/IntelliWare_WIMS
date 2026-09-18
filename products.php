@@ -27,10 +27,8 @@ $q = trim($_GET['q'] ?? ($_GET['search'] ?? ''));
 $category_param = trim($_GET['category'] ?? '');
 $filter_param = strtolower(trim($_GET['filter'] ?? ($_GET['status'] ?? '')));
 
-if (!function_exists('setFlashMessage')) {
-    function setFlashMessage($type, $message) {
-        $_SESSION['toast'] = ['type' => $type, 'message' => $message];
-    }
+function setFlashMessage($type, $message) {
+    $_SESSION['toast'] = ['type' => $type, 'message' => $message];
 }
 
 function parseNonNegativeInt($value, $default = null) {
@@ -629,21 +627,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         color: #7A90B0;
     }
 
-    /* ── Responsive Inventory Layout: Desktop/Tablet = Table, Mobile = Cards ── */
-    .inv-desktop-table { display: block; }
-    .inv-mobile-cards  { display: none; }
-    @media (max-width: 767px) {
-        .inv-desktop-table { display: none !important; }
-        .inv-mobile-cards  { display: block !important; }
-    }
-
+    /* ── Inventory Product Card Grid ───────────────────────────────── */
+    /* Always shown — one card per row */
     .inv-card-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 16px;
-        padding: 16px;
+        gap: 18px;
+        padding: 20px;
     }
-    /* ── Product Card (Mobile View) ──────────────────────────────────── */
+    /* ── Product Card (reference design) ────────────────────────────── */
     .inv-card {
         background: #ffffff;
         border: 1.5px solid #D6E8F7;
@@ -1273,173 +1265,24 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         color: #0F172A !important;
     }
 
-    /* ── Mobile: Full-height modal sheet (clean touch UX) ────────── */
+    /* ── Mobile: Full-height modal sheet (no outer scrollbar) ────────── */
     @media (max-width: 767px) {
-        #add-modal-overlay,
-        #edit-modal-overlay {
-            padding: 0 !important;
-            align-items: stretch !important;
+        .modal-overlay {
+            padding: 0;
+            align-items: stretch;
         }
-        #add-modal-overlay .modal-box,
-        #edit-modal-overlay .modal-box {
-            max-width: 100% !important;
-            width: 100% !important;
-            height: 100dvh !important;
-            max-height: 100dvh !important;
-            border-radius: 0 !important;
-            display: flex !important;
-            flex-direction: column !important;
-            overflow: hidden !important;
-            margin: 0 !important;
+        .modal-box {
+            max-width: 100%;
+            width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            overflow: hidden;
         }
-        #add-product-form,
-        #edit-product-form {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 1 auto !important;
-            min-height: 0 !important;
-            overflow: hidden !important;
-        }
-        .modal-header {
-            padding: 16px 18px !important;
-            flex-shrink: 0 !important;
-            border-bottom: 1px solid rgba(42, 68, 132, 0.4) !important;
-        }
-        [data-theme="light"] .modal-header {
-            background: #FFFFFF !important;
-            border-bottom: 1px solid #D6E8F7 !important;
-        }
-        .modal-title h3 {
-            font-size: 18px !important;
-            line-height: 1.3 !important;
-        }
-        .modal-title .modal-subtitle {
-            font-size: 12px !important;
-            line-height: 1.4 !important;
-            margin-top: 2px !important;
-        }
-        .modal-close-btn {
-            width: 36px !important;
-            height: 36px !important;
-            font-size: 22px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border-radius: 10px !important;
-            flex-shrink: 0 !important;
-        }
+        /* Recalculate scroll area: viewport minus header (~89px) minus footer (~94px) */
         .modal-body-scroll {
-            flex: 1 1 auto !important;
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch !important;
-            padding: 16px 16px 24px 16px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 16px !important;
-            max-height: none !important;
-        }
-        .modal-body-scroll > div {
-            grid-column: span 1 !important;
-            width: 100% !important;
-        }
-        .form-label {
-            font-size: 13px !important;
-            margin-bottom: 6px !important;
-            display: block !important;
-        }
-        .premium-input {
-            font-size: 14px !important;
-            height: 46px !important;
-            width: 100% !important;
-        }
-
-        /* AI Scanner Header & Buttons on Mobile: Clean vertical stack */
-        #ai-capture-block {
-            padding: 14px !important;
-            border-radius: 14px !important;
-            margin-bottom: 4px !important;
-        }
-        .ai-scanner-header-row,
-        #ai-capture-block .tm-category-row {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-        }
-        .ai-scanner-status-col,
-        #ai-capture-block .tm-category-row > div:first-child {
-            width: 100% !important;
-            flex: none !important;
-            display: flex !important;
-            align-items: flex-start !important;
-            gap: 8px !important;
-        }
-        #ai-status-dot {
-            margin-top: 4px !important;
-            flex-shrink: 0 !important;
-        }
-        #ai-status-text {
-            font-size: 12.5px !important;
-            line-height: 1.45 !important;
-            display: block !important;
-            white-space: normal !important;
-            word-break: normal !important;
-            flex: 1 !important;
-        }
-        .ai-scanner-btn-col,
-        #ai-capture-block .tm-category-row > div:last-child {
-            width: 100% !important;
-            display: flex !important;
-            gap: 8px !important;
-            flex-shrink: 0 !important;
-        }
-        .ai-scanner-btn-col > button,
-        #ai-upload-btn,
-        #ai-capture-btn,
-        #ai-retake-btn {
-            flex: 1 1 0 !important;
-            width: 50% !important;
-            height: 42px !important;
-            padding: 0 10px !important;
-            font-size: 13px !important;
-            font-weight: 600 !important;
-            justify-content: center !important;
-            white-space: nowrap !important;
-            border-radius: 10px !important;
-        }
-
-        /* Modal Footer on Mobile: Full-width sticky action bar */
-        .modal-footer {
-            flex-shrink: 0 !important;
-            padding: 12px 16px max(14px, env(safe-area-inset-bottom, 14px)) 16px !important;
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 8px !important;
-            background: rgba(13, 22, 56, 0.98) !important;
-            border-top: 1px solid rgba(42, 68, 132, 0.4) !important;
-            z-index: 10 !important;
-        }
-        [data-theme="light"] .modal-footer {
-            background: #FFFFFF !important;
-            border-top: 1px solid #D6E8F7 !important;
-            box-shadow: 0 -4px 16px rgba(20, 80, 158, 0.08) !important;
-        }
-        .modal-footer .form-keyboard-hint {
-            display: none !important;
-        }
-        .modal-footer > div {
-            width: 100% !important;
-            display: flex !important;
-            gap: 10px !important;
-        }
-        .modal-footer button {
-            flex: 1 1 0 !important;
-            width: 50% !important;
-            height: 46px !important;
-            font-size: 14px !important;
-            font-weight: 700 !important;
-            justify-content: center !important;
-            border-radius: 12px !important;
+            max-height: calc(100dvh - 183px);
+            flex: 1;
         }
     }
 </style>
@@ -1610,168 +1453,93 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         <div class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</div>
     <?php else: ?>
 
-    <!-- ── Desktop / Tablet: Table (≥768 px) ────────────────────── -->
-    <div class="inv-desktop-table" id="inventory-desktop-table">
-        <div class="overflow-x-auto">
-            <table class="premium-table w-full text-left min-w-[1100px]">
-                <thead>
-                    <tr>
-                        <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
-                        <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
-                        <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
-                        <th width="10%" class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($items as $it): ?>
-                    <tr id="row-<?php echo $it['id']; ?>"
-                        class="hover:bg-[#1D387B]/50 transition-colors"
-                        data-id="<?php echo $it['id']; ?>"
-                        data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                        data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
-                        data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
-                        data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
-                        data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
-                        data-qty="<?php echo (int)$it['qty']; ?>"
-                        data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
-                        data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
-                        data-reorder="<?php echo (int)$it['reorder_point']; ?>"
-                        data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                        data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
-                        <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
-                        <td><span style="font-family:monospace; font-size:12px; color:#9aa6d1;"><?php echo htmlspecialchars($it['barcode'] ?? '—'); ?></span></td>
-                        <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['category']); ?></td>
-                        <td><?php echo htmlspecialchars($it['supplier']); ?></td>
-                        <td><?php echo htmlspecialchars($it['location']); ?></td>
-                        <td><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
-                        <td><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
-                        <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
-                        <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
-                        <td>
-                            <?php if ((int)$it['qty'] <= 0): ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
-                            <?php elseif ((int)$it['qty'] <= (int)$it['reorder_point']): ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Low</span>
-                            <?php else: ?>
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-right">
-                            <div style="display:flex; gap:8px; justify-content:flex-end;">
-                                <button type="button" class="inventory-action-btn edit-btn" onclick="openEditModal(this.closest('tr').dataset)" title="Edit">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                </button>
-                                <?php if ($role !== 'staff'): ?>
-                                <?php if (!$show_archived): ?>
-                                <button type="button" class="inventory-action-btn delete-btn" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Archive">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                                </button>
-                                <?php else: ?>
-                                <button type="button" class="inventory-action-btn restore-btn" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Restore">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>
-                                </button>
-                                <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div><!-- /.inv-desktop-table -->
+    <!-- ── Product Card Grid (all breakpoints) ─────────────────── -->
+    <div class="inv-card-grid" id="inventory-card-grid">
+        <?php foreach ($items as $it): ?>
+        <?php
+            $qty      = (int)$it['qty'];
+            $reorder  = (int)$it['reorder_point'];
+            $isOut    = $qty <= 0;
+            $isLow    = !$isOut && $qty <= $reorder;
+            $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
+            $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
+            $statusLabel = $isOut ? 'OUT OF STOCK' : ($isLow ? 'LOW' : 'GOOD');
+        ?>
+        <div class="inv-card"
+             data-id="<?php echo $it['id']; ?>"
+             data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
+             data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
+             data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
+             data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
+             data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
+             data-qty="<?php echo $qty; ?>"
+             data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
+             data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
+             data-reorder="<?php echo $reorder; ?>"
+             data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
+             data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
 
-    <!-- ── Mobile: Card Grid (<768 px) ──────────────────────────── -->
-    <div class="inv-mobile-cards" id="inventory-mobile-cards">
-        <div class="inv-card-grid" id="inventory-card-grid">
-            <?php foreach ($items as $it): ?>
-            <?php
-                $qty      = (int)$it['qty'];
-                $reorder  = (int)$it['reorder_point'];
-                $isOut    = $qty <= 0;
-                $isLow    = !$isOut && $qty <= $reorder;
-                $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
-                $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
-                $statusLabel = $isOut ? 'OUT OF STOCK' : ($isLow ? 'LOW' : 'GOOD');
-            ?>
-            <div class="inv-card"
-                 data-id="<?php echo $it['id']; ?>"
-                 data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                 data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
-                 data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
-                 data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
-                 data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
-                 data-qty="<?php echo $qty; ?>"
-                 data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
-                 data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
-                 data-reorder="<?php echo $reorder; ?>"
-                 data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                 data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
-
-                <!-- Top: thumb + info + badge -->
-                <div class="inv-card-top">
-                    <div class="inv-card-thumb">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
-                        </svg>
-                    </div>
-                    <div class="inv-card-info">
-                        <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
-                        <div class="inv-card-meta"><?php
-                            $meta = [];
-                            if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
-                            if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
-                            echo $meta ? implode(' · ', $meta) : '&mdash;';
-                        ?></div>
-                        <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
-                    </div>
-                    <div class="inv-card-badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></div>
+            <!-- Top: thumb + info + badge -->
+            <div class="inv-card-top">
+                <div class="inv-card-thumb">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                    </svg>
                 </div>
-
-                <!-- Stats -->
-                <div class="inv-card-stats">
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">STOCK</span>
-                        <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">PRICE</span>
-                        <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">REORDER</span>
-                        <span class="inv-stat-value"><?php echo $reorder; ?></span>
-                    </div>
+                <div class="inv-card-info">
+                    <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
+                    <div class="inv-card-meta"><?php
+                        $meta = [];
+                        if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
+                        if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
+                        echo $meta ? implode(' · ', $meta) : '&mdash;';
+                    ?></div>
+                    <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
                 </div>
+                <div class="inv-card-badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></div>
+            </div>
 
-                <!-- Actions -->
-                <div class="inv-card-actions">
-                    <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        Edit
-                    </button>
-                    <?php if ($role !== 'staff'): ?>
-                    <?php if (!$show_archived): ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                        Archive
-                    </button>
-                    <?php else: ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                        Restore
-                    </button>
-                    <?php endif; ?>
-                    <?php else: ?>
-                    <div></div>
-                    <?php endif; ?>
+            <!-- Stats -->
+            <div class="inv-card-stats">
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">STOCK</span>
+                    <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">PRICE</span>
+                    <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">REORDER</span>
+                    <span class="inv-stat-value"><?php echo $reorder; ?></span>
                 </div>
             </div>
-            <?php endforeach; ?>
-        </div><!-- /.inv-card-grid -->
-    </div><!-- /.inv-mobile-cards -->
+
+            <!-- Actions -->
+            <div class="inv-card-actions">
+                <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <?php if ($role !== 'staff'): ?>
+                <?php if (!$show_archived): ?>
+                <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    Archive
+                </button>
+                <?php else: ?>
+                <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                    Restore
+                </button>
+                <?php endif; ?>
+                <?php else: ?>
+                <div></div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div><!-- /.inv-card-grid -->
 
     <?php endif; ?>
     </div><!-- /#inventory-products-content -->
@@ -1871,12 +1639,12 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <div class="pos-scanner-zone" id="ai-capture-block" style="background:linear-gradient(175deg, rgba(19, 39, 91, 0.4) 0%, rgba(11, 20, 56, 0.6) 100%); border:1px solid rgba(42, 68, 132, 0.5); border-radius:14px; padding:16px;">
 
                         <!-- Status bar + Upload / Take Photo buttons -->
-                        <div class="tm-category-row ai-scanner-header-row" style="align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                            <div class="ai-scanner-status-col" style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                        <div class="tm-category-row" style="align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
                                 <div id="ai-status-dot" style="width:9px; height:9px; border-radius:50%; background:#475569; flex-shrink:0; transition:background 0.3s, box-shadow 0.3s;"></div>
                                 <span id="ai-status-text" class="tm-camera-status" style="font-size:12px; font-weight:600; color:#9aa6d1; white-space:normal;">Take photo or upload packaging &mdash; auto-fills product details</span>
                             </div>
-                            <div class="ai-scanner-btn-col" style="display:flex; gap:8px; flex-shrink:0;">
+                            <div style="display:flex; gap:8px; flex-shrink:0;">
                                 <button type="button" id="ai-retake-btn" class="btn-secondary" style="display:none; height:38px; padding:0 14px; align-items:center; gap:6px;" onclick="aiRetake()">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="display:inline-block;vertical-align:middle;">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
@@ -3614,6 +3382,24 @@ function initProductBarcodeInputs() {
 </script>
 
 <script>
+// ── Add Product: remove uploaded image ──────────────────────────────────────
+function aiRemoveUploadedImage() {
+    var previewWrap = document.getElementById('ai-upload-preview-wrap');
+    var previewImg  = document.getElementById('ai-upload-preview-img');
+    var imgField    = document.getElementById('add-product-image-b64');
+    var uploadInput = document.getElementById('ai-upload-input');
+    var captureBtn  = document.getElementById('ai-capture-btn');
+    var uploadBtn   = document.getElementById('ai-upload-btn');
+
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (previewImg)  previewImg.src            = '';
+    if (imgField)    imgField.value            = '';
+    if (uploadInput) uploadInput.value         = '';
+    if (captureBtn)  captureBtn.style.display  = 'inline-flex';
+    if (uploadBtn)   uploadBtn.style.display   = 'inline-flex';
+
+    setAiStatus('Add a reference image — optional but recommended for AI scanning', 'idle');
+}
 
 // ── Edit Product: image helpers ─────────────────────────────────────────────
 function editSetImageState(hasImage) {

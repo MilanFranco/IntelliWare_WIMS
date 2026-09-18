@@ -12,12 +12,14 @@
  * - Multi-channel dispatch:
  *     1. In-System notifications (stored in notifications table for UI bell/badges)
  *     2. Email notifications via EmailService (PHPMailer with dynamic recipient resolution)
+ *     3. SMS notifications via SmsService (Semaphore/Twilio for urgent zero-stock)
  * - Fail-safe non-blocking execution & audit logging
  * - Idempotent database schema upgrades
  */
 
 require_once __DIR__ . '/../../config/notifications.php';
 require_once __DIR__ . '/EmailService.php';
+require_once __DIR__ . '/SmsService.php';
 
 class NotificationService
 {
@@ -216,6 +218,7 @@ class NotificationService
      * Dispatches:
      * - In-System notification (for bell badge / dropdown)
      * - SMTP Email notification (if threshold crossed and not in cooldown)
+     * - SMS notification (if enabled and out of stock)
      *
      * @param mysqli $conn
      * @param array $product
@@ -340,6 +343,39 @@ class NotificationService
                     error_log('[NotificationService] Email dispatch exception: ' . $e->getMessage());
                     $results['channels']['EMAIL'] = ['success' => false, 'error' => $e->getMessage()];
                 }
+            }
+        }
+
+        // 3. SMS NOTIFICATION CHANNEL (Out of Stock only)
+        $smsEnabled = ($settings['notif_sms_enabled'] ?? '1') === '1' && ($alertType === 'OUT_OF_STOCK');
+        if ($smsEnabled) {
+            try {
+                $smsRes = SmsService::sendOutOfStockAlert($conn, $product);
+                $smsStatus = $smsRes['success'] ? 'SENT' : 'FAILED';
+                $smsErr = $smsRes['error'] ?? null;
+                $sentAt = $smsRes['success'] ? $now : null;
+
+                $smsTitle = 'IntelliWare Alert';
+                $smsMsg = "IntelliWare Alert: {$productName} is OUT OF STOCK. Current stock: 0. Please restock.";
+
+                $stmt = $conn->prepare("
+                    INSERT INTO notifications 
+                    (product_id, user_id, notification_type, title, message, channel, status, meta, is_read, created_at, sent_at, error_message)
+                    VALUES (?, ?, 'OUT_OF_STOCK', ?, ?, 'SMS', ?, ?, 0, ?, ?, ?)
+                ");
+                $stmt->bind_param('iisssssss', $productId, $userId, $smsTitle, $smsMsg, $smsStatus, $metaJson, $now, $sentAt, $smsErr);
+                $stmt->execute();
+                $stmt->close();
+
+                $results['channels']['SMS'] = [
+                    'success'  => $smsRes['success'],
+                    'provider' => $smsRes['provider'] ?? 'none',
+                    'error'    => $smsErr,
+                    'sent_to'  => $smsRes['sent_to'] ?? []
+                ];
+            } catch (Throwable $e) {
+                error_log('[NotificationService] SMS dispatch exception: ' . $e->getMessage());
+                $results['channels']['SMS'] = ['success' => false, 'error' => $e->getMessage()];
             }
         }
 

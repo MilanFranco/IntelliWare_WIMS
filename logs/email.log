@@ -27,21 +27,4 @@
 [2026-09-14 08:16:36] The Originote Moisturizer (Test Out of Stock) | Target: batara_stephenkyle@plpasig.edu.ph | Status: FAILED (Error: SMTP credentials not configured. Please enter your SMTP Host, Username and App Password under Settings -> Alert Channels & Gateway Credentials.)
 [2026-09-14 08:17:26] The Originote Moisturizer (Test Out of Stock) | Target: batara_stephenkyle@plpasig.edu.ph | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
 [2026-09-14 08:18:34] The Originote Moisturizer (Test Out of Stock) | Target: batara_stephenkyle@plpasig.edu.ph | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
-[2026-09-17 07:41:10] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
-[2026-09-17 07:42:30] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
-[2026-09-17 07:48:06] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
-[2026-09-17 07:52:29] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 07:56:04] Notebook A4 Lined (Test Low Stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 09:04:08] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)
-[2026-09-17 09:04:27] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 09:06:32] The Originote Moisturizer (Test Out of Stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:00:12] Complete Inventory Status Table | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:01:45] Complete Inventory Status Table | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:04:39] Complete Inventory Status Table | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:10:01] Complete Inventory Status Table | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:20:28] Filtered Alert (low_stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:27:54] Filtered Alert (low_stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:28:11] Filtered Alert (low_stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:28:33] Filtered Alert (out_of_stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
-[2026-09-17 15:34:03] Filtered Alert (low_stock) | Target: stephenkylebatara03@gmail.com | Status: SENT
 [2026-09-17 17:09:15] Alaska Crema-Asada 370ml | Target: adminone@gmail.com, milanfrancosantos@gmail.com | Status: FAILED (Error: SMTP Authentication Error: Google/Microsoft requires an "App Password" rather than your standard account password. Generate one in your account security settings.)

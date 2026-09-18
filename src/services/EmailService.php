@@ -99,140 +99,7 @@ class EmailService
     }
 
     /**
-     * Retrieve all active inventory products from the database, sorted with critical stock first.
-     *
-     * @param mysqli|null $conn
-     * @return array{items:array, total:int, out_count:int, low_count:int, in_count:int}
-     */
-    public static function getAllInventoryProducts(?mysqli $conn): array
-    {
-        $products = [];
-        $outCount = 0;
-        $lowCount = 0;
-        $inCount  = 0;
-
-        if ($conn) {
-            try {
-                $res = $conn->query("
-                    SELECT product_id, product_name, category, barcode, location, quantity, reorder_point 
-                    FROM products 
-                    WHERE archived = 0 
-                    ORDER BY 
-                        CASE 
-                            WHEN quantity <= 0 THEN 0 
-                            WHEN quantity <= reorder_point THEN 1 
-                            ELSE 2 
-                        END ASC, 
-                        quantity ASC, 
-                        product_name ASC
-                ");
-
-                if ($res) {
-                    while ($row = $res->fetch_assoc()) {
-                        $qty = (int)$row['quantity'];
-                        $rp  = (int)($row['reorder_point'] ?? 10);
-                        if ($qty <= 0) {
-                            $outCount++;
-                            $row['status_key']   = 'OUT_OF_STOCK';
-                            $row['status_label'] = 'OUT OF STOCK';
-                            $row['badge_bg']     = '#fee2e2';
-                            $row['badge_color']  = '#b91c1c';
-                            $row['badge_border'] = '#fca5a5';
-                            $row['stock_color']  = '#dc2626';
-                        } elseif ($qty <= $rp) {
-                            $lowCount++;
-                            $row['status_key']   = 'LOW_STOCK';
-                            $row['status_label'] = 'LOW STOCK';
-                            $row['badge_bg']     = '#fef3c7';
-                            $row['badge_color']  = '#b45309';
-                            $row['badge_border'] = '#fcd34d';
-                            $row['stock_color']  = '#d97706';
-                        } else {
-                            $inCount++;
-                            $row['status_key']   = 'IN_STOCK';
-                            $row['status_label'] = 'IN STOCK';
-                            $row['badge_bg']     = '#dcfce7';
-                            $row['badge_color']  = '#15803d';
-                            $row['badge_border'] = '#86efac';
-                            $row['stock_color']  = '#16a34a';
-                        }
-                        $row['sku'] = 'P-' . str_pad((string)$row['product_id'], 4, '0', STR_PAD_LEFT);
-                        $products[] = $row;
-                    }
-                }
-            } catch (Throwable $e) {
-                error_log('[EmailService] getAllInventoryProducts error: ' . $e->getMessage());
-            }
-        }
-
-        // Fallback sample if no DB products
-        if (empty($products)) {
-            $products = [
-                [
-                    'product_id'   => 101,
-                    'product_name' => 'The Originote Moisturizer',
-                    'category'     => 'Skincare',
-                    'sku'          => 'P-0101',
-                    'barcode'      => '8997238240012',
-                    'location'     => 'Shelf A-01',
-                    'quantity'     => 0,
-                    'reorder_point'=> 15,
-                    'status_key'   => 'OUT_OF_STOCK',
-                    'status_label' => 'OUT OF STOCK',
-                    'badge_bg'     => '#fee2e2',
-                    'badge_color'  => '#b91c1c',
-                    'badge_border' => '#fca5a5',
-                    'stock_color'  => '#dc2626'
-                ],
-                [
-                    'product_id'   => 102,
-                    'product_name' => 'Aquaflask 32 Oz Thumbler',
-                    'category'     => 'Household Items',
-                    'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
-                    'location'     => 'Shelf H',
-                    'quantity'     => 6,
-                    'reorder_point'=> 10,
-                    'status_key'   => 'LOW_STOCK',
-                    'status_label' => 'LOW STOCK',
-                    'badge_bg'     => '#fef3c7',
-                    'badge_color'  => '#b45309',
-                    'badge_border' => '#fcd34d',
-                    'stock_color'  => '#d97706'
-                ],
-                [
-                    'product_id'   => 103,
-                    'product_name' => 'Coca-Cola 330ml Can',
-                    'category'     => 'Beverages',
-                    'sku'          => 'P-0103',
-                    'barcode'      => '4801981110022',
-                    'location'     => 'Aisle 2, Bin 04',
-                    'quantity'     => 120,
-                    'reorder_point'=> 30,
-                    'status_key'   => 'IN_STOCK',
-                    'status_label' => 'IN STOCK',
-                    'badge_bg'     => '#dcfce7',
-                    'badge_color'  => '#15803d',
-                    'badge_border' => '#86efac',
-                    'stock_color'  => '#16a34a'
-                ]
-            ];
-            $outCount = 1;
-            $lowCount = 1;
-            $inCount  = 1;
-        }
-
-        return [
-            'items'     => $products,
-            'total'     => count($products),
-            'out_count' => $outCount,
-            'low_count' => $lowCount,
-            'in_count'  => $inCount
-        ];
-    }
-
-    /**
-     * Send a stock alert email containing the complete inventory status table.
+     * Send a single stock alert email (Out of Stock or Low Stock).
      *
      * @param mysqli|null $conn
      * @param array $product Details: product_name, category, sku, barcode, location, quantity, reorder_point
@@ -282,60 +149,48 @@ class EmailService
 
         // Product fields
         $productName  = $product['product_name'] ?? 'Unknown Product';
+        $category     = $product['category'] ?? 'General';
+        $productId    = (int)($product['product_id'] ?? 0);
+        $sku          = !empty($product['sku']) ? $product['sku'] : ('P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT));
+        $barcode      = !empty($product['barcode']) ? $product['barcode'] : 'N/A';
+        $location     = !empty($product['location']) ? $product['location'] : 'Main Warehouse';
         $currentStock = (int)($product['quantity'] ?? 0);
+        $reorderPoint = (int)($product['reorder_point'] ?? 10);
         $dateTime     = date('F j, Y - g:i A');
 
         $isOutOfStock = ($alertType === 'OUT_OF_STOCK' || $currentStock === 0);
 
-        // Fetch inventory list from database
-        $invData    = self::getAllInventoryProducts($conn);
-        $totalCount = $invData['total'];
-
-        // Filter table items to only show products under the triggered category
-        $targetStatus = $isOutOfStock ? 'OUT_OF_STOCK' : 'LOW_STOCK';
-        $filteredItems = array_values(array_filter($invData['items'], function($it) use ($targetStatus) {
-            return ($it['status_key'] ?? '') === $targetStatus;
-        }));
-
-        // Ensure the triggered product is in the items list
-        $hasTriggered = false;
-        foreach ($filteredItems as $it) {
-            if (($it['product_id'] ?? 0) == ($product['product_id'] ?? -1)) {
-                $hasTriggered = true;
-                break;
-            }
-        }
-        if (!$hasTriggered) {
-            $p = $product;
-            $p['status_key'] = $targetStatus;
-            $p['sku'] = !empty($p['sku']) ? $p['sku'] : ('P-' . str_pad((string)($p['product_id'] ?? 0), 4, '0', STR_PAD_LEFT));
-            array_unshift($filteredItems, $p);
-        }
-
-        $invData['items'] = $filteredItems;
-        $categoryCount = count($filteredItems);
-
-        // Subject line indicating product urgency and count of items under category
+        // Subject line indicating urgency
         $subject = $isOutOfStock
-            ? "IntelliWare Alert: {$productName} is OUT OF STOCK ({$categoryCount} item" . ($categoryCount === 1 ? '' : 's') . " out of stock)"
+            ? "IntelliWare Alert: {$productName} is OUT OF STOCK"
             : "IntelliWare Alert: {$productName} is LOW ON STOCK ({$currentStock} remaining)";
 
-        $inventoryUrl = self::getAppBaseUrl() . '/products.php';
+        $inventoryUrl = self::getAppBaseUrl() . '/products.php?search=' . urlencode($productName);
 
-        // Render inventory status table HTML & Plain Text
-        $htmlBody = self::renderInventoryStatusReportHtml(
-            $invData,
-            $product,
-            $alertType,
+        // Render HTML & Plain Text
+        $htmlBody = self::renderSingleAlertHtml(
+            $productName,
+            $category,
+            $sku,
+            $barcode,
+            $location,
+            $currentStock,
+            $reorderPoint,
             $dateTime,
-            $inventoryUrl
+            $inventoryUrl,
+            $isOutOfStock
         );
-        $plainText = self::renderInventoryStatusReportPlainText(
-            $invData,
-            $product,
-            $alertType,
+        $plainText = self::renderSingleAlertPlainText(
+            $productName,
+            $category,
+            $sku,
+            $barcode,
+            $location,
+            $currentStock,
+            $reorderPoint,
             $dateTime,
-            $inventoryUrl
+            $inventoryUrl,
+            $isOutOfStock
         );
 
         // Save preview for developer diagnostics
@@ -369,6 +224,12 @@ class EmailService
             return ['success' => false, 'error' => 'No items in batch alert.', 'sent_to' => []];
         }
 
+        // If batch only contains 1 item, dispatch standard single email
+        if (count($items) === 1) {
+            $single = reset($items);
+            return self::sendStockAlertEmail($conn, $single['product'], $single['alert_type'], $customRecipient);
+        }
+
         $settings = getAllNotificationSettings($conn);
         if (($settings['notif_email_enabled'] ?? '1') !== '1') {
             return ['success' => false, 'error' => 'Email notifications are disabled in settings.', 'sent_to' => []];
@@ -389,7 +250,7 @@ class EmailService
             return ['success' => false, 'error' => 'No recipient email addresses configured or opted in.', 'sent_to' => []];
         }
 
-        // Count totals in batch
+        // Count totals
         $outCount = 0;
         $lowCount = 0;
         foreach ($items as $it) {
@@ -399,186 +260,78 @@ class EmailService
                 $lowCount++;
             }
         }
-        $batchTotal = count($items);
+        $totalCount = count($items);
 
-        // Fetch inventory stats from database
-        $invData    = self::getAllInventoryProducts($conn);
-
-        // Filter table items to only include products part of this batch alert
-        $batchProductIds = [];
-        foreach ($items as $it) {
-            $pid = $it['product']['product_id'] ?? null;
-            if ($pid !== null) {
-                $batchProductIds[$pid] = true;
-            }
-        }
-        $filteredItems = [];
-        foreach ($invData['items'] as $it) {
-            $pid = $it['product_id'] ?? 0;
-            if (isset($batchProductIds[$pid])) {
-                $filteredItems[] = $it;
-            }
-        }
-        if (count($filteredItems) < count($items)) {
-            foreach ($items as $it) {
-                $pid = $it['product']['product_id'] ?? 0;
-                $found = false;
-                foreach ($filteredItems as $f) {
-                    if (($f['product_id'] ?? 0) == $pid) { $found = true; break; }
-                }
-                if (!$found) {
-                    $p = $it['product'];
-                    $p['status_key'] = $it['alert_type'] ?? 'LOW_STOCK';
-                    $p['sku'] = !empty($p['sku']) ? $p['sku'] : ('P-' . str_pad((string)$pid, 4, '0', STR_PAD_LEFT));
-                    $filteredItems[] = $p;
-                }
-            }
-        }
-        $invData['items'] = $filteredItems;
-
-        // Subject line reflecting urgency and count of batch items
+        // Subject line reflecting urgency
         if ($outCount > 0 && $lowCount > 0) {
-            $subject = "IntelliWare Alert: {$batchTotal} products require attention ({$outCount} Out of Stock, {$lowCount} Low Stock)";
+            $subject = "IntelliWare Alert: {$totalCount} products require attention ({$outCount} Out of Stock, {$lowCount} Low Stock)";
         } elseif ($outCount > 0) {
-            $subject = "IntelliWare Alert: {$batchTotal} product" . ($batchTotal === 1 ? '' : 's') . " are OUT OF STOCK";
+            $subject = "IntelliWare Alert: {$totalCount} products are OUT OF STOCK";
         } else {
-            $subject = "IntelliWare Alert: {$batchTotal} product" . ($batchTotal === 1 ? '' : 's') . " low on stock";
+            $subject = "IntelliWare Alert: {$totalCount} products low on stock";
         }
 
         $inventoryUrl = self::getAppBaseUrl() . '/products.php';
         $dateTime = date('F j, Y - g:i A');
 
-        $htmlBody = self::renderInventoryStatusReportHtml($invData, null, 'BATCH', $dateTime, $inventoryUrl, $items);
-        $plainText = self::renderInventoryStatusReportPlainText($invData, null, 'BATCH', $dateTime, $inventoryUrl, $items);
+        $htmlBody = self::renderBatchDigestHtml($items, $outCount, $lowCount, $dateTime, $inventoryUrl);
+        $plainText = self::renderBatchDigestPlainText($items, $outCount, $lowCount, $dateTime, $inventoryUrl);
 
         self::savePreviewHtml($htmlBody);
 
-        return self::dispatchMail($settings, $recipients, $subject, $htmlBody, $plainText, "Batch of {$batchTotal} items");
+        return self::dispatchMail($settings, $recipients, $subject, $htmlBody, $plainText, "Batch of {$totalCount} items");
     }
 
     /**
-     * Send a test email from the Settings page with the complete inventory status table.
+     * Send a test email from the Settings page.
      */
-    public static function sendTestEmail(?mysqli $conn, string $testRecipient, string $testType = 'complete_table'): array
+    public static function sendTestEmail(?mysqli $conn, string $testRecipient, string $testType = 'out_of_stock'): array
     {
-        $settings = getAllNotificationSettings($conn);
-        if (($settings['notif_email_enabled'] ?? '1') !== '1') {
-            return ['success' => false, 'error' => 'Email notifications are disabled in settings.', 'sent_to' => []];
-        }
-
-        $parsed = array_filter(array_map('trim', explode(',', $testRecipient)));
-        $recipients = [];
-        foreach ($parsed as $email) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL)) $recipients[] = $email;
-        }
-        if (empty($recipients)) {
-            return ['success' => false, 'error' => 'No valid recipient email address provided.', 'sent_to' => []];
-        }
-
-        $invData    = self::getAllInventoryProducts($conn);
-        $totalCount = $invData['total'];
-        $dateTime   = date('F j, Y - g:i A');
-        $inventoryUrl = self::getAppBaseUrl() . '/products.php';
-
-        $triggeredProduct = null;
-        $alertType = 'REPORT';
-        $subject = "IntelliWare: Complete Inventory Status Table ({$totalCount} Products)";
-
-        if ($testType === 'out_of_stock') {
-            $alertType = 'OUT_OF_STOCK';
-            // Filter to only out-of-stock products
-            $outItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') === 'OUT_OF_STOCK';
-            }));
-            if (empty($outItems)) {
-                $demoOut = [
-                    'product_id'   => 9999,
-                    'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
-                    'category'     => 'Skincare',
-                    'sku'          => 'P-9999',
-                    'barcode'      => '8997238240012',
-                    'location'     => 'Shelf A-01',
-                    'quantity'     => 0,
-                    'reorder_point'=> 15,
-                    'status_key'   => 'OUT_OF_STOCK'
-                ];
-                $outItems = [$demoOut];
-                $triggeredProduct = $demoOut;
-            } else {
-                $triggeredProduct = $outItems[0];
-            }
-            $invData['items'] = $outItems;
-            $cnt = count($outItems);
-            $subject = "IntelliWare Alert: Critical Out of Stock Report ({$cnt} Product" . ($cnt === 1 ? '' : 's') . ")";
-        } elseif ($testType === 'low_stock') {
-            $alertType = 'LOW_STOCK';
-            // Filter to only low-stock products
-            $lowItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') === 'LOW_STOCK';
-            }));
-            if (empty($lowItems)) {
-                $demoLow = [
-                    'product_id'   => 470,
-                    'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
-                    'category'     => 'Household Items',
-                    'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
-                    'location'     => 'Shelf H',
-                    'quantity'     => 6,
-                    'reorder_point'=> 10,
-                    'status_key'   => 'LOW_STOCK'
-                ];
-                $lowItems = [$demoLow];
-                $triggeredProduct = $demoLow;
-            } else {
-                $triggeredProduct = $lowItems[0];
-            }
-            $invData['items'] = $lowItems;
-            $cnt = count($lowItems);
-            $subject = "IntelliWare Alert: Low Stock Warning ({$cnt} Product" . ($cnt === 1 ? '' : 's') . " Need Attention)";
-        } elseif ($testType === 'batch') {
-            $alertType = 'BATCH';
-            $batchItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') !== 'IN_STOCK';
-            }));
-            if (empty($batchItems)) {
-                $batchItems = [
-                    [
-                        'product_id'   => 9999,
-                        'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
+        if ($testType === 'batch') {
+            $sampleBatch = [
+                [
+                    'alert_type' => 'OUT_OF_STOCK',
+                    'product' => [
+                        'product_id'   => 101,
+                        'product_name' => 'The Originote Moisturizer (Demo)',
                         'category'     => 'Skincare',
-                        'sku'          => 'P-9999',
+                        'sku'          => 'P-0101',
                         'barcode'      => '8997238240012',
                         'location'     => 'Shelf A-01',
                         'quantity'     => 0,
-                        'reorder_point'=> 15,
-                        'status_key'   => 'OUT_OF_STOCK'
-                    ],
-                    [
-                        'product_id'   => 470,
-                        'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
-                        'category'     => 'Household Items',
-                        'sku'          => 'P-0470',
-                        'barcode'      => '4806512398412',
-                        'location'     => 'Shelf H',
-                        'quantity'     => 6,
-                        'reorder_point'=> 10,
-                        'status_key'   => 'LOW_STOCK'
+                        'reorder_point'=> 15
                     ]
-                ];
-            }
-            $invData['items'] = $batchItems;
-            $cnt = count($batchItems);
-            $subject = "IntelliWare: Consolidated Batch Digest ({$cnt} Products)";
+                ],
+                [
+                    'alert_type' => 'LOW_STOCK',
+                    'product' => [
+                        'product_id'   => 102,
+                        'product_name' => 'Cerave Hydrating Cleanser (Demo)',
+                        'category'     => 'Skincare',
+                        'sku'          => 'P-0102',
+                        'barcode'      => '3606000537446',
+                        'location'     => 'Shelf B-03',
+                        'quantity'     => 4,
+                        'reorder_point'=> 10
+                    ]
+                ]
+            ];
+            return self::sendBatchStockAlertEmail($conn, $sampleBatch, $testRecipient);
         }
 
-        $htmlBody = self::renderInventoryStatusReportHtml($invData, $triggeredProduct, $alertType, $dateTime, $inventoryUrl);
-        $plainText = self::renderInventoryStatusReportPlainText($invData, $triggeredProduct, $alertType, $dateTime, $inventoryUrl);
+        $isOut = ($testType === 'out_of_stock');
+        $dummyProduct = [
+            'product_id'   => 9999,
+            'product_name' => $isOut ? 'The Originote Moisturizer (Test Out of Stock)' : 'Notebook A4 Lined (Test Low Stock)',
+            'category'     => $isOut ? 'Skincare' : 'Office Supplies',
+            'sku'          => 'P-9999',
+            'barcode'      => '8997238240012',
+            'location'     => 'Shelf A-01',
+            'quantity'     => $isOut ? 0 : 3,
+            'reorder_point'=> 10
+        ];
 
-        self::savePreviewHtml($htmlBody);
-
-        $contextLabel = $testType === 'complete_table' ? "Complete Inventory Status Table" : "Filtered Alert ({$testType})";
-        return self::dispatchMail($settings, $recipients, $subject, $htmlBody, $plainText, $contextLabel);
+        return self::sendStockAlertEmail($conn, $dummyProduct, $isOut ? 'OUT_OF_STOCK' : 'LOW_STOCK', $testRecipient);
     }
 
     /**
@@ -663,341 +416,6 @@ class EmailService
                 'sent_to' => $recipients
             ];
         }
-    }
-
-    /**
-     * Render responsive inline-styled HTML for complete inventory status report.
-     */
-    public static function renderInventoryStatusReportHtml(
-        array $invData,
-        ?array $triggeredProduct = null,
-        string $alertType = 'REPORT',
-        string $dateTime = '',
-        string $inventoryUrl = '',
-        array $batchItems = []
-    ): string {
-        $totalCount = $invData['total'] ?? count($invData['items'] ?? []);
-        $outCount   = $invData['out_count'] ?? 0;
-        $lowCount   = $invData['low_count'] ?? 0;
-        $inCount    = $invData['in_count'] ?? 0;
-        $items      = $invData['items'] ?? [];
-
-        if (empty($dateTime)) {
-            $dateTime = date('F j, Y - g:i A');
-        }
-        if (empty($inventoryUrl)) {
-            $inventoryUrl = self::getAppBaseUrl() . '/products.php';
-        }
-
-        $displayedCount = count($items);
-
-        // Determine Table Title based on alertType
-        if ($alertType === 'LOW_STOCK') {
-            $tableTitle = 'Low Stock Products (At or Below Reorder Point)';
-        } elseif ($alertType === 'OUT_OF_STOCK') {
-            $tableTitle = 'Critical Out of Stock Products (0 Units Remaining)';
-        } elseif ($alertType === 'BATCH') {
-            $tableTitle = 'Threshold Alert Items (Requiring Attention)';
-        } else {
-            $tableTitle = 'All Inventory Catalog Products';
-        }
-
-        // Header badge and Alert banner setup
-        $badgeBg    = '#1e3a8a';
-        $badgeText  = 'STATUS REPORT';
-        $bannerHtml = '';
-
-        if ($alertType === 'OUT_OF_STOCK') {
-            $badgeBg   = '#ef4444';
-            $badgeText = 'CRITICAL ALERT';
-            $pName     = htmlspecialchars($triggeredProduct['product_name'] ?? 'Out of Stock Alert');
-            $bannerHtml = '
-            <div style="background-color:#fee2e2; border-left:4px solid #ef4444; border-radius:6px; padding:14px 16px; margin-bottom:18px;">
-                <h2 style="margin:0 0 4px 0; color:#991b1b; font-size:15px; font-weight:700;">Critical Alert: ' . $pName . '</h2>
-                <p style="margin:0; color:#991b1b; font-size:13px; font-weight:500; line-height:1.4;">Stock has reached 0 units. Immediate replenishment is required. Showing ' . $displayedCount . ' out-of-stock product' . ($displayedCount === 1 ? '' : 's') . ' below.</p>
-            </div>';
-        } elseif ($alertType === 'LOW_STOCK') {
-            $badgeBg   = '#f59e0b';
-            $badgeText = 'WARNING ALERT';
-            $pName     = htmlspecialchars($triggeredProduct['product_name'] ?? 'Low Stock Warning');
-            $currQty   = (int)($triggeredProduct['quantity'] ?? 0);
-            $reorderPt = (int)($triggeredProduct['reorder_point'] ?? 10);
-            $subline   = !empty($triggeredProduct['product_name'])
-                ? "Available stock is {$currQty} units (at or below reorder threshold of {$reorderPt} units). Showing {$displayedCount} low-stock product" . ($displayedCount === 1 ? '' : 's') . " below."
-                : "Showing {$displayedCount} product" . ($displayedCount === 1 ? '' : 's') . " currently at or below minimum reorder threshold.";
-            $bannerHtml = '
-            <div style="background-color:#fef3c7; border-left:4px solid #f59e0b; border-radius:6px; padding:14px 16px; margin-bottom:18px;">
-                <h2 style="margin:0 0 4px 0; color:#92400e; font-size:15px; font-weight:700;">Stock Warning: ' . $pName . '</h2>
-                <p style="margin:0; color:#92400e; font-size:13px; font-weight:500; line-height:1.4;">' . $subline . '</p>
-            </div>';
-        } elseif ($alertType === 'BATCH') {
-            $badgeBg   = '#1e3a8a';
-            $badgeText = 'BULK DIGEST';
-            $bannerHtml = '
-            <div style="background-color:#eff6ff; border-left:4px solid #3b82f6; border-radius:6px; padding:14px 16px; margin-bottom:18px;">
-                <h2 style="margin:0 0 4px 0; color:#1e40af; font-size:15px; font-weight:700;">Bulk Digest: ' . $displayedCount . ' Products Require Attention</h2>
-                <p style="margin:0; color:#1e3a8a; font-size:13px; font-weight:500; line-height:1.4;">Recent transactions triggered threshold warnings. Showing all affected products below.</p>
-            </div>';
-        } else {
-            $bannerHtml = '
-            <div style="background-color:#f8fafc; border-left:4px solid #0284c7; border-radius:6px; padding:12px 16px; margin-bottom:18px;">
-                <h2 style="margin:0 0 4px 0; color:#0f172a; font-size:15px; font-weight:700;">Complete Warehouse Inventory Status Report</h2>
-                <p style="margin:0; color:#475569; font-size:13px; font-weight:500; line-height:1.4;">Up-to-date snapshot of all ' . $totalCount . ' active products and their current stock levels across all categories.</p>
-            </div>';
-        }
-
-        $logoPath = __DIR__ . '/../../img/iLogo.png';
-        $logoHtml = is_file($logoPath)
-            ? '<img src="cid:intelliware_logo" alt="IntelliWare" style="height:36px; max-width:180px; display:block; border:0;" />'
-            : '<span style="font-size:22px; font-weight:800; color:#111827; letter-spacing:-0.5px; font-family:sans-serif;">INTELLI<span style="color:#16a34a;">WARE</span></span>';
-
-        // Render table rows
-        $rowsHtml = '';
-        $idx = 0;
-        foreach ($items as $p) {
-            $idx++;
-            $name = htmlspecialchars($p['product_name'] ?? 'Item');
-            $cat  = htmlspecialchars($p['category'] ?: 'General');
-            $sku  = htmlspecialchars(!empty($p['sku']) ? $p['sku'] : ('P-' . str_pad((string)($p['product_id'] ?? 0), 4, '0', STR_PAD_LEFT)));
-            $loc  = htmlspecialchars($p['location'] ?: 'Main Warehouse');
-            $qty  = (int)($p['quantity'] ?? 0);
-            $rp   = (int)($p['reorder_point'] ?? 10);
-            $stat = $p['status_key'] ?? ($qty <= 0 ? 'OUT_OF_STOCK' : ($qty <= $rp ? 'LOW_STOCK' : 'IN_STOCK'));
-
-            if ($stat === 'OUT_OF_STOCK') {
-                $statusBadge = '<span style="display:inline-block;padding:2px 6px;font-size:10px;font-weight:700;border-radius:4px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">OUT OF STOCK</span>';
-                $qtyHtml     = '<b style="color:#dc2626;">' . $qty . '</b>';
-            } elseif ($stat === 'LOW_STOCK') {
-                $statusBadge = '<span style="display:inline-block;padding:2px 6px;font-size:10px;font-weight:700;border-radius:4px;background:#fef3c7;color:#b45309;border:1px solid #fcd34d;">LOW STOCK</span>';
-                $qtyHtml     = '<b style="color:#d97706;">' . $qty . '</b>';
-            } else {
-                $statusBadge = '<span style="display:inline-block;padding:2px 6px;font-size:10px;font-weight:700;border-radius:4px;background:#dcfce7;color:#15803d;border:1px solid #86efac;">IN STOCK</span>';
-                $qtyHtml     = '<span style="color:#16a34a;font-weight:600;">' . $qty . '</span>';
-            }
-
-            $rowsHtml .= "<tr style='border-bottom:1px solid #e5e7eb;'><td style='padding:6px 8px;font-size:11px;color:#9ca3af;text-align:center;'>{$idx}</td><td style='padding:6px 8px;'><div style='font-size:13px;font-weight:700;color:#111827;'>{$name}</div><div style='font-size:11px;color:#6b7280;'>{$cat} &bull; <span style='font-family:monospace;'>{$sku}</span></div></td><td style='padding:6px 8px;font-size:11px;color:#4b5563;'>{$loc}</td><td style='padding:6px 8px;text-align:right;'>{$qtyHtml} <span style='font-size:10px;color:#9ca3af;'>/ {$rp}</span></td><td style='padding:6px 8px;text-align:center;'>{$statusBadge}</td></tr>";
-        }
-
-        return '<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntelliWare Inventory Status Report</title>
-    <style>
-        body { margin:0; padding:0; background-color:#f3f4f6; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:#1f2937; }
-        table { border-collapse: collapse; }
-    </style>
-</head>
-<body style="margin:0; padding:0; background-color:#f3f4f6; font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; color:#1f2937; -webkit-font-smoothing:antialiased;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f3f4f6; padding:24px 8px;">
-        <tr>
-            <td align="center">
-                <table role="presentation" width="100%" style="max-width:720px; background-color:#ffffff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.06);" cellspacing="0" cellpadding="0" border="0">
-                    
-                    <!-- Header -->
-                    <tr>
-                        <td style="padding:20px 24px; background-color:#ffffff; border-bottom:1px solid #e5e7eb;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                <tr>
-                                    <td align="left" style="vertical-align:middle;">
-                                        ' . $logoHtml . '
-                                    </td>
-                                    <td align="right" style="vertical-align:middle;">
-                                        <span style="display:inline-block; background-color:' . $badgeBg . '; color:#ffffff; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; padding:4px 10px; border-radius:12px;">
-                                            ' . $badgeText . '
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                    <!-- Alert Banner (if applicable) & Overview KPI Cards -->
-                    <tr>
-                        <td style="padding:20px 24px 10px 24px;">
-                            ' . $bannerHtml . '
-
-                            <div style="font-size:11px; color:#6b7280; margin-bottom:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">INVENTORY SNAPSHOT &bull; ' . htmlspecialchars($dateTime) . '</div>
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:16px;">
-                                <tr>
-                                    <td width="25%" style="padding:3px;">
-                                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 6px; text-align:center;">
-                                            <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase;">Total</div>
-                                            <div style="font-size:19px; font-weight:800; color:#0f172a; margin-top:2px;">' . $totalCount . '</div>
-                                        </div>
-                                    </td>
-                                    <td width="25%" style="padding:3px;">
-                                        <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 6px; text-align:center;">
-                                            <div style="font-size:10px; font-weight:700; color:#991b1b; text-transform:uppercase;">Out of Stock</div>
-                                            <div style="font-size:19px; font-weight:800; color:#dc2626; margin-top:2px;">' . $outCount . '</div>
-                                        </div>
-                                    </td>
-                                    <td width="25%" style="padding:3px;">
-                                        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 6px; text-align:center;">
-                                            <div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase;">Low Stock</div>
-                                            <div style="font-size:19px; font-weight:800; color:#d97706; margin-top:2px;">' . $lowCount . '</div>
-                                        </div>
-                                    </td>
-                                    <td width="25%" style="padding:3px;">
-                                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 6px; text-align:center;">
-                                            <div style="font-size:10px; font-weight:700; color:#166534; text-transform:uppercase;">In Stock</div>
-                                            <div style="font-size:19px; font-weight:800; color:#16a34a; margin-top:2px;">' . $inCount . '</div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                    <!-- Table Section Header -->
-                    <tr>
-                        <td style="padding:4px 24px 8px 24px;">
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                <tr>
-                                    <td align="left">
-                                        <span style="font-size:12px; font-weight:700; color:#111827; text-transform:uppercase; letter-spacing:0.04em;">' . $tableTitle . '</span>
-                                    </td>
-                                    <td align="right">
-                                        <span style="display:inline-block; background-color:#f1f5f9; color:#475569; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; border:1px solid #e2e8f0;">Showing ' . $displayedCount . ' item' . ($displayedCount === 1 ? '' : 's') . '</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                    <!-- Complete Inventory Table -->
-                    <tr>
-                        <td style="padding:0 24px 20px 24px;">
-                            <table role="presentation" width="100%" style="border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; border-collapse:collapse;" cellspacing="0" cellpadding="0">
-                                <thead>
-                                    <tr style="background-color:#f9fafb; border-bottom:1px solid #e5e7eb;">
-                                        <th style="padding:8px 10px; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; text-align:center; width:30px;">#</th>
-                                        <th style="padding:8px 10px; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; text-align:left;">Product &amp; Category</th>
-                                        <th style="padding:8px 10px; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; text-align:left;">Location</th>
-                                        <th style="padding:8px 10px; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; text-align:right;">Stock / Min</th>
-                                        <th style="padding:8px 10px; font-size:11px; font-weight:700; color:#6b7280; text-transform:uppercase; text-align:center; width:110px;">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ' . $rowsHtml . '
-                                </tbody>
-                            </table>
-                            ' . ($displayedCount < $totalCount ? '
-                            <div style="margin-top:10px; text-align:center; font-size:11px; color:#6b7280;">
-                                Filtered view: Showing only the <strong>' . $displayedCount . '</strong> product' . ($displayedCount === 1 ? '' : 's') . ' under this category out of <strong>' . $totalCount . '</strong> total catalog items.
-                            </div>' : '') . '
-
-                            <!-- CTA Button -->
-                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;">
-                                <tr>
-                                    <td align="center">
-                                        <a href="' . htmlspecialchars($inventoryUrl) . '" target="_blank" style="display:inline-block; background-color:#16a34a; color:#ffffff; font-size:13px; font-weight:700; text-decoration:none; padding:11px 26px; border-radius:6px; box-shadow:0 2px 6px rgba(22, 163, 74, 0.25);">
-                                            Open Full Inventory in IntelliWare &rarr;
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-
-                    <!-- Footer -->
-                    <tr>
-                        <td style="padding:16px 24px; background-color:#f9fafb; border-top:1px solid #e5e7eb; text-align:center;">
-                            <p style="margin:0 0 4px 0; color:#6b7280; font-size:11px;">
-                                Automated real-time report generated by <strong style="color:#374151;">IntelliWare Inventory Management System</strong> on ' . htmlspecialchars($dateTime) . '.
-                            </p>
-                            <p style="margin:0; color:#9ca3af; font-size:10px;">
-                                You are receiving this because your account is configured to receive inventory alerts and status reports.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>';
-    }
-
-    /**
-     * Plain text rendering for complete inventory status report.
-     */
-    public static function renderInventoryStatusReportPlainText(
-        array $invData,
-        ?array $triggeredProduct = null,
-        string $alertType = 'REPORT',
-        string $dateTime = '',
-        string $inventoryUrl = '',
-        array $batchItems = []
-    ): string {
-        $totalCount = $invData['total'] ?? count($invData['items'] ?? []);
-        $outCount   = $invData['out_count'] ?? 0;
-        $lowCount   = $invData['low_count'] ?? 0;
-        $inCount    = $invData['in_count'] ?? 0;
-        $items      = $invData['items'] ?? [];
-
-        if (empty($dateTime)) {
-            $dateTime = date('F j, Y - g:i A');
-        }
-        if (empty($inventoryUrl)) {
-            $inventoryUrl = self::getAppBaseUrl() . '/products.php';
-        }
-
-        $displayedCount = count($items);
-
-        if ($alertType === 'LOW_STOCK') {
-            $tableTitle = "LOW STOCK PRODUCTS (AT OR BELOW REORDER POINT)";
-        } elseif ($alertType === 'OUT_OF_STOCK') {
-            $tableTitle = "CRITICAL OUT OF STOCK PRODUCTS (0 UNITS REMAINING)";
-        } elseif ($alertType === 'BATCH') {
-            $tableTitle = "THRESHOLD ALERT ITEMS (REQUIRING ATTENTION)";
-        } else {
-            $tableTitle = "ALL INVENTORY CATALOG PRODUCTS";
-        }
-
-        $text = "INTELLIWARE INVENTORY STATUS REPORT\n";
-        $text .= "====================================================\n";
-        $text .= "Timestamp: {$dateTime}\n\n";
-
-        if ($alertType === 'OUT_OF_STOCK' && $triggeredProduct) {
-            $text .= "*** CRITICAL ALERT: " . ($triggeredProduct['product_name'] ?? 'Product') . " is OUT OF STOCK (0 units) ***\n\n";
-        } elseif ($alertType === 'LOW_STOCK' && $triggeredProduct) {
-            $text .= "*** WARNING ALERT: " . ($triggeredProduct['product_name'] ?? 'Product') . " is LOW ON STOCK (" . ($triggeredProduct['quantity'] ?? 0) . " remaining) ***\n\n";
-        } elseif ($alertType === 'BATCH') {
-            $text .= "*** BULK DIGEST: {$displayedCount} products crossed stock thresholds ***\n\n";
-        }
-
-        $text .= "WAREHOUSE OVERVIEW:\n";
-        $text .= "- Total Catalog Products: {$totalCount}\n";
-        $text .= "- Out of Stock:           {$outCount}\n";
-        $text .= "- Low Stock:               {$lowCount}\n";
-        $text .= "- In Stock:                {$inCount}\n\n";
-
-        $text .= "{$tableTitle} (Showing {$displayedCount} of {$totalCount} products):\n";
-        $text .= "----------------------------------------------------\n";
-
-        $idx = 0;
-        foreach ($items as $p) {
-            $idx++;
-            $name = $p['product_name'] ?? 'Product';
-            $cat  = $p['category'] ?: 'General';
-            $sku  = !empty($p['sku']) ? $p['sku'] : ('P-' . str_pad((string)($p['product_id'] ?? 0), 4, '0', STR_PAD_LEFT));
-            $loc  = $p['location'] ?: 'Main Warehouse';
-            $qty  = (int)($p['quantity'] ?? 0);
-            $rp   = (int)($p['reorder_point'] ?? 10);
-            $stat = $p['status_key'] ?? ($qty <= 0 ? 'OUT_OF_STOCK' : ($qty <= $rp ? 'LOW_STOCK' : 'IN_STOCK'));
-            $statLabel = $stat === 'OUT_OF_STOCK' ? '[OUT OF STOCK]' : ($stat === 'LOW_STOCK' ? '[LOW STOCK]' : '[IN STOCK]');
-
-            $text .= sprintf("%3d. %-14s %s (SKU: %s, %s)\n", $idx, $statLabel, $name, $sku, $cat);
-            $text .= sprintf("     Stock: %d | Min: %d | Location: %s\n\n", $qty, $rp, $loc);
-        }
-
-        $text .= "----------------------------------------------------\n";
-        $text .= "Open Full Inventory: {$inventoryUrl}\n\n";
-        $text .= "---\nIntelliWare Inventory Management System";
-
-        return $text;
     }
 
     /**
@@ -1369,103 +787,53 @@ class EmailService
     /**
      * Render sample HTML for browser preview or testing.
      */
-    public static function renderSampleHtml(string $type = 'complete_table', ?mysqli $conn = null): string
+    public static function renderSampleHtml(string $type = 'out_of_stock'): string
     {
-        $invData = self::getAllInventoryProducts($conn);
-        $dateTime = date('F j, Y - g:i A');
-        $inventoryUrl = self::getAppBaseUrl() . '/products.php';
-
-        if ($type === 'complete_table') {
-            return self::renderInventoryStatusReportHtml($invData, null, 'REPORT', $dateTime, $inventoryUrl);
-        }
-
-        if ($type === 'out_of_stock') {
-            $outItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') === 'OUT_OF_STOCK';
-            }));
-            $triggered = null;
-            if (empty($outItems)) {
-                $demo = [
-                    'product_id'   => 9999,
-                    'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
-                    'category'     => 'Skincare',
-                    'sku'          => 'P-9999',
-                    'barcode'      => '8997238240012',
-                    'location'     => 'Shelf A-01',
-                    'quantity'     => 0,
-                    'reorder_point'=> 15,
-                    'status_key'   => 'OUT_OF_STOCK'
-                ];
-                $outItems = [$demo];
-                $triggered = $demo;
-            } else {
-                $triggered = $outItems[0];
-            }
-            $invData['items'] = $outItems;
-            return self::renderInventoryStatusReportHtml($invData, $triggered, 'OUT_OF_STOCK', $dateTime, $inventoryUrl);
-        }
-
-        if ($type === 'low_stock') {
-            $lowItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') === 'LOW_STOCK';
-            }));
-            $triggered = null;
-            if (empty($lowItems)) {
-                $demo = [
-                    'product_id'   => 470,
-                    'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
-                    'category'     => 'Household Items',
-                    'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
-                    'location'     => 'Shelf H',
-                    'quantity'     => 6,
-                    'reorder_point'=> 10,
-                    'status_key'   => 'LOW_STOCK'
-                ];
-                $lowItems = [$demo];
-                $triggered = $demo;
-            } else {
-                $triggered = $lowItems[0];
-            }
-            $invData['items'] = $lowItems;
-            return self::renderInventoryStatusReportHtml($invData, $triggered, 'LOW_STOCK', $dateTime, $inventoryUrl);
-        }
-
         if ($type === 'batch') {
-            $batchItems = array_values(array_filter($invData['items'], function($it) {
-                return ($it['status_key'] ?? '') !== 'IN_STOCK';
-            }));
-            if (empty($batchItems)) {
-                $batchItems = [
-                    [
-                        'product_id'   => 9999,
-                        'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
+            $sampleBatch = [
+                [
+                    'alert_type' => 'OUT_OF_STOCK',
+                    'product' => [
+                        'product_id'   => 101,
+                        'product_name' => 'The Originote Moisturizer',
                         'category'     => 'Skincare',
-                        'sku'          => 'P-9999',
+                        'sku'          => 'P-0101',
                         'barcode'      => '8997238240012',
                         'location'     => 'Shelf A-01',
                         'quantity'     => 0,
-                        'reorder_point'=> 15,
-                        'status_key'   => 'OUT_OF_STOCK'
-                    ],
-                    [
-                        'product_id'   => 470,
-                        'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
-                        'category'     => 'Household Items',
-                        'sku'          => 'P-0470',
-                        'barcode'      => '4806512398412',
-                        'location'     => 'Shelf H',
-                        'quantity'     => 6,
-                        'reorder_point'=> 10,
-                        'status_key'   => 'LOW_STOCK'
+                        'reorder_point'=> 15
                     ]
-                ];
-            }
-            $invData['items'] = $batchItems;
-            return self::renderInventoryStatusReportHtml($invData, null, 'BATCH', $dateTime, $inventoryUrl, $batchItems);
+                ],
+                [
+                    'alert_type' => 'LOW_STOCK',
+                    'product' => [
+                        'product_id'   => 102,
+                        'product_name' => 'Cerave Hydrating Cleanser',
+                        'category'     => 'Skincare',
+                        'sku'          => 'P-0102',
+                        'barcode'      => '3606000537446',
+                        'location'     => 'Shelf B-03',
+                        'quantity'     => 4,
+                        'reorder_point'=> 10
+                    ]
+                ]
+            ];
+            return self::renderBatchDigestHtml($sampleBatch, 1, 1, date('F j, Y - g:i A'), self::getAppBaseUrl() . '/products.php');
         }
 
-        return self::renderInventoryStatusReportHtml($invData, null, 'REPORT', $dateTime, $inventoryUrl);
+        $isOut = ($type === 'out_of_stock');
+        return self::renderSingleAlertHtml(
+            $isOut ? 'The Originote Moisturizer' : 'Notebook A4 Lined',
+            $isOut ? 'Skincare' : 'Office Supplies',
+            $isOut ? 'P-0108' : 'P-0205',
+            $isOut ? '8997238240012' : '4806512398412',
+            $isOut ? 'Shelf A-01' : 'Aisle 3, Bin 12',
+            $isOut ? 0 : 4,
+            $isOut ? 15 : 10,
+            date('F j, Y - g:i A'),
+            self::getAppBaseUrl() . '/products.php',
+            $isOut
+        );
     }
 
     /**

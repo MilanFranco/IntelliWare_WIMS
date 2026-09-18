@@ -11,56 +11,9 @@ class InsightsEngine
 {
     private mysqli $conn;
 
-    private static bool $tablesEnsured = false;
-
     public function __construct(?mysqli $conn = null)
     {
         $this->conn = $conn ?: getInsightsDbConnection();
-        $this->ensureCacheTables();
-    }
-
-    public function ensureCacheTables(): void
-    {
-        if (self::$tablesEnsured) return;
-        self::$tablesEnsured = true;
-
-        try {
-            $this->conn->query("
-                CREATE TABLE IF NOT EXISTS `insight_summary` (
-                    `id` INT(11) NOT NULL AUTO_INCREMENT,
-                    `summary_key` VARCHAR(64) NOT NULL,
-                    `summary_data` LONGTEXT NOT NULL,
-                    `computed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`id`),
-                    UNIQUE KEY `uniq_summary_key` (`summary_key`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            ");
-
-            $this->conn->query("
-                CREATE TABLE IF NOT EXISTS `insight_predictions` (
-                    `id` INT(11) NOT NULL AUTO_INCREMENT,
-                    `period_type` ENUM('weekly', 'monthly', 'quarterly', 'semi-annual', 'annual') NOT NULL,
-                    `period_key` VARCHAR(64) NOT NULL,
-                    `predictions_data` LONGTEXT NOT NULL,
-                    `computed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`id`),
-                    UNIQUE KEY `uniq_period_prediction` (`period_type`, `period_key`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            ");
-
-            $this->conn->query("
-                CREATE TABLE IF NOT EXISTS `anomaly_results` (
-                    `id` INT(11) NOT NULL AUTO_INCREMENT,
-                    `analysis_type` VARCHAR(64) NOT NULL DEFAULT 'movement_anomalies',
-                    `anomaly_data` LONGTEXT NOT NULL,
-                    `computed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`id`),
-                    UNIQUE KEY `uniq_analysis_type` (`analysis_type`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-            ");
-        } catch (Throwable $e) {
-            // Non-blocking fallback
-        }
     }
 
     /**
@@ -70,20 +23,18 @@ class InsightsEngine
     public function getSummary(bool $autoGenerateIfEmpty = true): array
     {
         $stmt = $this->conn->prepare("SELECT summary_data, computed_at FROM insight_summary WHERE summary_key = 'main_dashboard_summary' LIMIT 1");
-        if ($stmt) {
-            $stmt->execute();
-            $res = $stmt->get_result();
-            $row = $res->fetch_assoc();
-            $stmt->close();
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $row = $res->fetch_assoc();
+        $stmt->close();
 
-            if ($row && !empty($row['summary_data'])) {
-                $data = json_decode($row['summary_data'], true);
-                if (is_array($data)) {
-                    $data['computed_at'] = $row['computed_at'];
-                    $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
-                    $data['source'] = 'cache';
-                    return $data;
-                }
+        if ($row && !empty($row['summary_data'])) {
+            $data = json_decode($row['summary_data'], true);
+            if (is_array($data)) {
+                $data['computed_at'] = $row['computed_at'];
+                $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
+                $data['source'] = 'cache';
+                return $data;
             }
         }
 
@@ -130,21 +81,19 @@ class InsightsEngine
             WHERE period_type = ? AND period_key = ? 
             LIMIT 1
         ");
-        if ($stmt) {
-            $stmt->bind_param('ss', $period, $currentKey);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            $row = $res->fetch_assoc();
-            $stmt->close();
+        $stmt->bind_param('ss', $period, $currentKey);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $row = $res->fetch_assoc();
+        $stmt->close();
 
-            if ($row && !empty($row['predictions_data'])) {
-                $data = json_decode($row['predictions_data'], true);
-                if (is_array($data)) {
-                    $data['computed_at'] = $row['computed_at'];
-                    $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
-                    $data['source'] = 'cache';
-                    return $data;
-                }
+        if ($row && !empty($row['predictions_data'])) {
+            $data = json_decode($row['predictions_data'], true);
+            if (is_array($data)) {
+                $data['computed_at'] = $row['computed_at'];
+                $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
+                $data['source'] = 'cache';
+                return $data;
             }
         }
 
@@ -162,20 +111,18 @@ class InsightsEngine
     public function getMovementAndRisks(bool $autoGenerateIfEmpty = true): array
     {
         $stmt = $this->conn->prepare("SELECT anomaly_data, computed_at FROM anomaly_results WHERE analysis_type = 'movement_and_risks' LIMIT 1");
-        if ($stmt) {
-            $stmt->execute();
-            $res = $stmt->get_result();
-            $row = $res->fetch_assoc();
-            $stmt->close();
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $row = $res->fetch_assoc();
+        $stmt->close();
 
-            if ($row && !empty($row['anomaly_data'])) {
-                $data = json_decode($row['anomaly_data'], true);
-                if (is_array($data)) {
-                    $data['computed_at'] = $row['computed_at'];
-                    $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
-                    $data['source'] = 'cache';
-                    return $data;
-                }
+        if ($row && !empty($row['anomaly_data'])) {
+            $data = json_decode($row['anomaly_data'], true);
+            if (is_array($data)) {
+                $data['computed_at'] = $row['computed_at'];
+                $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
+                $data['source'] = 'cache';
+                return $data;
             }
         }
 
