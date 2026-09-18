@@ -61,13 +61,26 @@ class InventoryRepository
 
         $whereSql = 'WHERE ' . implode(' AND ', $where);
 
-        // 1. Total Count
-        $countStmt = $this->conn->prepare("SELECT COUNT(*) AS total FROM products p {$whereSql}");
+        // 1. Total Count & Inventory Aggregates
+        $countStmt = $this->conn->prepare("
+            SELECT 
+                COUNT(*) AS total,
+                COALESCE(SUM(p.quantity), 0) AS total_units,
+                COALESCE(SUM(p.quantity * p.price), 0) AS total_stock_value,
+                COALESCE(SUM(CASE WHEN p.quantity > 0 AND p.quantity <= p.reorder_point THEN 1 ELSE 0 END), 0) AS low_stock_count,
+                COALESCE(SUM(CASE WHEN p.quantity <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_count
+            FROM products p {$whereSql}
+        ");
         if (!empty($params)) {
             $countStmt->bind_param($types, ...$params);
         }
         $countStmt->execute();
-        $total = (int)$countStmt->get_result()->fetch_assoc()['total'];
+        $stats = $countStmt->get_result()->fetch_assoc();
+        $total             = (int)($stats['total'] ?? 0);
+        $totalUnits        = (int)($stats['total_units'] ?? 0);
+        $totalStockValue   = (float)($stats['total_stock_value'] ?? 0.0);
+        $lowStockCount     = (int)($stats['low_stock_count'] ?? 0);
+        $outOfStockCount   = (int)($stats['out_of_stock_count'] ?? 0);
         $countStmt->close();
 
         // 2. Fetch Items
@@ -113,11 +126,15 @@ class InventoryRepository
         $stmt->close();
 
         return [
-            'total'        => $total,
-            'page'         => $page,
-            'limit'        => $limit,
-            'total_pages'  => ceil($total / $limit),
-            'items'        => $items
+            'total'              => $total,
+            'total_units'        => $totalUnits,
+            'total_stock_value'  => $totalStockValue,
+            'low_stock_count'    => $lowStockCount,
+            'out_of_stock_count' => $outOfStockCount,
+            'page'               => $page,
+            'limit'              => $limit,
+            'total_pages'        => ceil($total / $limit),
+            'items'              => $items
         ];
     }
 

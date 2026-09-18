@@ -150,24 +150,45 @@ def build_feature_frame(daily: pd.DataFrame, category: str = None) -> pd.DataFra
 
     # --- Active Demand Rate (Intermittent Demand Croston/TSB baseline) ---
     active_mask = frame["quantity"] > 0
-    active_demand = frame["quantity"].where(active_mask, np.nan)
-    overall_mean = frame["quantity"].mean()
+    active_sales = frame.loc[active_mask, "quantity"]
+    median_batch = float(active_sales.median()) if len(active_sales) > 0 else 50.0
+    overall_mean = float(frame["quantity"].mean())
     if overall_mean <= 0:
         overall_mean = 1.0
 
-    frame["active_demand_level"] = active_demand.ffill().bfill().fillna(overall_mean)
+    # TSB (Teunter-Syntetos-Babai) smoothed demand level
+    alpha = 0.20 # order size smoothing
+    beta = 0.15  # demand occurrence probability smoothing
+
+    z = np.zeros(n)
+    d = np.zeros(n)
+    curr_z = median_batch
+    curr_d = max(0.15, len(active_sales) / max(n, 1))
+
+    for i in range(n):
+        q = frame.loc[i, "quantity"]
+        if q > 0:
+            curr_z = alpha * q + (1 - alpha) * curr_z
+            curr_d = beta * 1.0 + (1 - beta) * curr_d
+        else:
+            curr_d = (1 - beta) * curr_d
+        # Floor on expected batch size so zero lulls do not destroy order scale memory
+        z[i] = max(curr_z, median_batch * 0.5)
+        d[i] = max(curr_d, 0.10)
+
+    frame["active_demand_level"] = z
 
     # Historical day-of-week shipment propensity: P(sale | DOW)
     dow_counts = frame.groupby("day_of_week")["quantity"].agg(
         total_days="count",
         sale_days=lambda s: (s > 0).sum()
     ).reset_index()
-    dow_counts["dow_propensity"] = (dow_counts["sale_days"] / np.maximum(dow_counts["total_days"], 1)).clip(0.1, 1.0)
+    dow_counts["dow_propensity"] = (dow_counts["sale_days"] / np.maximum(dow_counts["total_days"], 1)).clip(0.15, 1.0)
     dow_map = dict(zip(dow_counts["day_of_week"], dow_counts["dow_propensity"]))
     frame["dow_propensity"] = frame["day_of_week"].map(dow_map).fillna(0.35)
 
     # Expected daily velocity baseline = active level * day-of-week propensity * season multiplier
-    frame["expected_daily_velocity"] = frame["active_demand_level"] * frame["dow_propensity"] * frame["ph_seasonal_mult"]
+    frame["expected_daily_velocity"] = z * d * frame["dow_propensity"] * frame["ph_seasonal_mult"]
 
     # --- Standard Lags ---
     for lag in (1, 2, 3, 7, 14, 21, 28):
@@ -176,7 +197,7 @@ def build_feature_frame(daily: pd.DataFrame, category: str = None) -> pd.DataFra
 
     # --- Active Lags (magnitude of the last N shipments) ---
     for lag in (1, 2, 3):
-        frame[f"active_lag_{lag}"] = frame["active_demand_level"].shift(lag).ffill().bfill().fillna(overall_mean)
+        frame[f"active_lag_{lag}"] = pd.Series(z).shift(lag).fillna(median_batch)
 
     # --- Rolling Statistics ---
     for window in (3, 7, 14, 30):

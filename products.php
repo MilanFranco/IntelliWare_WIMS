@@ -233,7 +233,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $categoryId = LocationCategoryService::resolveCategoryId($category, $conn);
 
             $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, category_id=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
-            $stmt->bind_param("sssisssisdii", $_POST['name'], $barcodeVal, $category, $categoryId, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
+            $stmt->bind_param("sssissisdii", $_POST['name'], $barcodeVal, $category, $categoryId, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
             if (!$stmt->execute()) {
                 throw new Exception("Update failed: " . $stmt->error);
             }
@@ -333,9 +333,28 @@ $inventoryData = ApiClient::getInventoryProducts([
     'status'   => $filter_param
 ]);
 
-$total_items = (int)($inventoryData['total'] ?? 0);
-$total_pages = (int)($inventoryData['total_pages'] ?? ceil($total_items / $items_per_page));
-$items       = $inventoryData['items'] ?? [];
+$total_items       = (int)($inventoryData['total'] ?? 0);
+$total_units       = (int)($inventoryData['total_units'] ?? 0);
+$total_stock_value = (float)($inventoryData['total_stock_value'] ?? 0.0);
+$low_stock_count   = (int)($inventoryData['low_stock_count'] ?? 0);
+$out_of_stock_count= (int)($inventoryData['out_of_stock_count'] ?? 0);
+$total_pages       = (int)($inventoryData['total_pages'] ?? ceil($total_items / $items_per_page));
+$items             = $inventoryData['items'] ?? [];
+
+if (!function_exists('formatStockValue')) {
+    function formatStockValue(float $value): string {
+        if ($value >= 1000000000) {
+            return '&#8369;' . number_format($value / 1000000000, 2) . 'B';
+        }
+        if ($value >= 1000000) {
+            return '&#8369;' . number_format($value / 1000000, 2) . 'M';
+        }
+        if ($value >= 1000) {
+            return '&#8369;' . number_format($value / 1000, 2) . 'K';
+        }
+        return '&#8369;' . number_format($value, 2);
+    }
+}
 
 function renderOptions($list, $currentValue, $placeholder = 'Select') {
     $currentValue = trim((string)$currentValue);
@@ -545,6 +564,69 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
     }
 
+    /* ── Inventory Summary Metric Cards ────────────────────────────── */
+    .inv-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    @media (max-width: 1024px) {
+        .inv-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    @media (max-width: 640px) {
+        .inv-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .inv-summary-card {
+        background: #ffffff;
+        border: 1.5px solid #D6E8F7;
+        border-radius: 16px;
+        padding: 18px 22px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.07);
+        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+    }
+    .inv-summary-card:hover {
+        transform: translateY(-2px);
+        border-color: #A8C8F0;
+        box-shadow: 0 6px 22px rgba(20, 80, 158, 0.13);
+    }
+    .inv-summary-card-label {
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        color: #5B6B86;
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .inv-summary-card-value {
+        font-family: 'Onest', sans-serif;
+        font-size: 26px;
+        font-weight: 800;
+        color: #0B1526;
+        line-height: 1.2;
+        margin-bottom: 4px;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+    }
+    .inv-summary-card-sub {
+        font-family: 'Onest', sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        color: #7A90B0;
+    }
+
     /* ── Inventory Product Card Grid ───────────────────────────────── */
     /* Always shown — one card per row */
     .inv-card-grid {
@@ -720,7 +802,20 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-btn--archive:hover svg,
     .inv-card-btn--restore:hover svg { stroke: #DC2626; }
 
-    /* Dark-mode overrides for cards */
+    /* Dark-mode overrides for summary cards & product cards */
+    [data-theme="dark"] .inv-summary-card {
+        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+        border-color: rgba(42, 68, 132, 0.55);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    [data-theme="dark"] .inv-summary-card:hover {
+        border-color: rgba(81, 213, 90, 0.35);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    [data-theme="dark"] .inv-summary-card-label { color: #9aa6d1; }
+    [data-theme="dark"] .inv-summary-card-value { color: #ffffff; }
+    [data-theme="dark"] .inv-summary-card-sub   { color: #6b7aab; }
+
     [data-theme="dark"] .inv-card {
         background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
         border-color: rgba(42, 68, 132, 0.55);
@@ -1223,6 +1318,59 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             </span>
         </div>
     </div>
+</div>
+
+<!-- ── Inventory Summary Metric Cards ────────────────────────────── -->
+<div class="inv-summary-grid" id="inventory-summary-cards">
+    <!-- Stock Value Card (matches user reference design) -->
+    <div class="inv-summary-card" title="Total inventory value: ₱<?php echo number_format($total_stock_value, 2); ?>">
+        <div>
+            <div class="inv-summary-card-label">
+                <span>Stock value</span>
+                <svg width="18" height="18" fill="none" stroke="#51D55A" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            </div>
+            <div class="inv-summary-card-value"><?php echo formatStockValue($total_stock_value); ?></div>
+        </div>
+        <div class="inv-summary-card-sub"><?php echo number_format($total_units); ?> units on hand</div>
+    </div>
+
+    <!-- Total Products -->
+    <div class="inv-summary-card">
+        <div>
+            <div class="inv-summary-card-label">
+                <span>Total Products</span>
+                <svg width="18" height="18" fill="none" stroke="#3B82F6" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
+            </div>
+            <div class="inv-summary-card-value"><?php echo number_format($total_items); ?></div>
+        </div>
+        <div class="inv-summary-card-sub"><?php echo $show_archived ? 'Archived catalog items' : 'Active catalog SKUs'; ?></div>
+    </div>
+
+    <!-- Low Stock -->
+    <a href="products.php?filter=low_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
+       class="inv-summary-card" style="cursor: pointer;" title="Click to view low stock items">
+        <div>
+            <div class="inv-summary-card-label">
+                <span>Low Stock</span>
+                <svg width="18" height="18" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+            </div>
+            <div class="inv-summary-card-value" style="color: #D97706;"><?php echo number_format($low_stock_count); ?></div>
+        </div>
+        <div class="inv-summary-card-sub"><?php echo $low_stock_count === 1 ? '1 item needs reorder' : $low_stock_count . ' items need reorder'; ?></div>
+    </a>
+
+    <!-- Out of Stock -->
+    <a href="products.php?filter=out_of_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
+       class="inv-summary-card" style="cursor: pointer;" title="Click to view out of stock items">
+        <div>
+            <div class="inv-summary-card-label">
+                <span>Out of Stock</span>
+                <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <div class="inv-summary-card-value" style="color: #DC2626;"><?php echo number_format($out_of_stock_count); ?></div>
+        </div>
+        <div class="inv-summary-card-sub"><?php echo $out_of_stock_count === 1 ? '1 item fully depleted' : $out_of_stock_count . ' items fully depleted'; ?></div>
+    </a>
 </div>
 
 <div class="premium-card">
@@ -3342,6 +3490,13 @@ async function loadInventoryPage(url, pushState = true) {
         const newCountBadge     = doc.querySelector('h3 span.text-\\[\\#51D55A\\]');
         if (currentCountBadge && newCountBadge) {
             currentCountBadge.innerHTML = newCountBadge.innerHTML;
+        }
+
+        // Update summary cards if present
+        const currentSummary = document.getElementById('inventory-summary-cards');
+        const newSummary     = doc.getElementById('inventory-summary-cards');
+        if (currentSummary && newSummary) {
+            currentSummary.innerHTML = newSummary.innerHTML;
         }
 
         if (pushState) {
