@@ -53,14 +53,12 @@ function getNotificationDefaults(): array
         // Master channel switches
         'notif_system_enabled'   => getenv('NOTIF_SYSTEM_ENABLED') !== false ? getenv('NOTIF_SYSTEM_ENABLED') : '1',
         'notif_email_enabled'    => getenv('NOTIF_EMAIL_ENABLED') !== false ? getenv('NOTIF_EMAIL_ENABLED') : '1',
-        'notif_sms_enabled'      => getenv('NOTIF_SMS_ENABLED') !== false ? getenv('NOTIF_SMS_ENABLED') : '1',
 
         // Spam prevention & Cooldown (hours)
         'notif_cooldown_hours'   => getenv('NOTIF_COOLDOWN_HOURS') ?: '24',
 
         // Recipients
         'notif_email_recipients' => getenv('NOTIF_EMAIL_RECIPIENTS') ?: '',
-        'notif_sms_recipients'   => getenv('NOTIF_SMS_RECIPIENTS') ?: '',
 
         // SMTP Settings for PHPMailer
         'smtp_host'              => getenv('SMTP_HOST') ?: 'smtp.gmail.com',
@@ -70,12 +68,6 @@ function getNotificationDefaults(): array
         'smtp_encryption'        => getenv('SMTP_ENCRYPTION') ?: 'tls', // 'tls' or 'ssl'
         'smtp_from_email'        => getenv('SMTP_FROM_EMAIL') ?: 'alerts@intelliware.ph',
         'smtp_from_name'         => getenv('SMTP_FROM_NAME') ?: 'IntelliWare Inventory',
-
-        // SMS Gateway Settings (semaphore / twilio / log)
-        'sms_provider'           => getenv('SMS_PROVIDER') ?: 'semaphore',
-        'sms_api_key'            => getenv('SMS_API_KEY') ?: '',
-        'sms_account_sid'        => getenv('SMS_ACCOUNT_SID') ?: '',
-        'sms_from_number'        => getenv('SMS_FROM_NUMBER') ?: 'IntelliWare',
     ];
 }
 
