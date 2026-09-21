@@ -948,8 +948,18 @@
     border-color: var(--iw-border-accent) !important;
 }
 
-[data-theme="light"] .premium-card::before {
-    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.18), transparent) !important;
+[data-theme="light"] .premium-card::before,
+[data-theme="light"] .premium-metric-card::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
+    border-radius: 16px 16px 0 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
 }
 
 [data-theme="light"] .user-hero-card,
@@ -1461,9 +1471,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     border-color: #A8C8F0 !important;
 }
 
-/* Hero card ::before glow line — remove dark gradient, replace with subtle blue */
+/* Premium card ::before green gradient line across the top for light mode */
 [data-theme="light"] .premium-card::before {
-    background: linear-gradient(90deg, transparent, rgba(20, 80, 158, 0.08), transparent) !important;
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
+    border-radius: 16px 16px 0 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
 }
 
 /* ---- Hero card gradient overlay — replace dark navy tint with neutral ---- */
@@ -1607,56 +1626,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     border-color: #D4A97A !important;
 }
 
-/* Total SKUs card — blue top bar */
-[data-theme="light"] .stat-card-skus::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #14509E, #1A64C0 50%, transparent);
-    border-radius: 16px 16px 0 0;
-    pointer-events: none;
-}
-
-/* Total Items card — green top bar */
-[data-theme="light"] .stat-card-items::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #1B8F3E, #2AB554 50%, transparent);
-    border-radius: 16px 16px 0 0;
-    pointer-events: none;
-}
-
-/* Low Stock Alert card — red top bar */
-[data-theme="light"] .stat-card-low-stock::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #B3231C, #D93830 50%, transparent);
-    border-radius: 16px 16px 0 0;
-    pointer-events: none;
-}
-
-/* Active Categories card — amber top bar */
+/* Stat cards — green gradient line across the top for light mode */
+[data-theme="light"] .stat-card-skus::before,
+[data-theme="light"] .stat-card-items::before,
+[data-theme="light"] .stat-card-low-stock::before,
 [data-theme="light"] .stat-card-categories::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #A15C00, #C87A10 50%, transparent);
-    border-radius: 16px 16px 0 0;
-    pointer-events: none;
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
+    border-radius: 16px 16px 0 0 !important;
+    z-index: 2 !important;
+    pointer-events: none !important;
 }
 
 /* Raised icon chip in stat cards */
@@ -2146,6 +2130,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     background: #FFFFFF !important;
     border: 1px solid #D0DFF2 !important;
     box-shadow: 0 1px 3px rgba(16,24,43,0.05), 0 6px 20px -10px rgba(16,24,43,0.14) !important;
+    position: relative !important;
+    overflow: hidden !important;
 }
 
 /* Card header strips inside premium-card */
