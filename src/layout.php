@@ -171,6 +171,7 @@ function renderHeader($pageTitle, $userRole, $username) {
         echo '<div class="notification-list" id="notificationList">';
         echo '<div class="notification-empty">Loading...</div>'; 
         echo '</div>';
+        echo '<div class="notif-dropdown-footer"><button class="notif-view-all-btn" id="viewAllNotifBtn" onclick="openAllNotificationsModal()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>View all notifications</button></div>';
         echo '</div>';
         echo '</div>';
     }
@@ -219,9 +220,10 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     $cssVerMobile = file_exists(__DIR__ . '/../mobile.css') ? filemtime(__DIR__ . '/../mobile.css') : time();
     echo '<link href="styles.css?v=' . $cssVerStyles . '" rel="stylesheet" />';
     echo '<link href="theme.css?v=' . $cssVerTheme . '" rel="stylesheet" />';
-    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
+    // Tailwind CDN must load BEFORE mobile.css so our !important overrides win the cascade
     echo '<script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add(\'iw-no-tailwind\')"></script>';
+    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
         $cssVerAdmin = file_exists(__DIR__ . '/../admin_dashboard.css') ? filemtime(__DIR__ . '/../admin_dashboard.css') : time();
@@ -308,6 +310,32 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.notification-title { font-family: \'Onest\', sans-serif; font-weight: 600; font-size: 16px; color: var(--iw-text-dropdown-title); }';
     echo '.notification-clear { background: none; border: none; color: var(--iw-text-subtle); font-size: 12px; cursor: pointer; transition: color 0.2s ease; }';
     echo '.notification-clear:hover { color: #51D55A; }';
+    echo '.notif-dropdown-footer { padding: 10px 12px; border-top: 1px solid rgba(42, 68, 132, 0.3); }';
+    echo '.notif-view-all-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 16px; background: rgba(81, 213, 90, 0.08); border: 1px solid rgba(81, 213, 90, 0.25); border-radius: 10px; color: #51D55A; font-family: \'Onest\', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }';
+    echo '.notif-view-all-btn:hover { background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%); color: #ffffff; border-color: #51D55A; box-shadow: 0 4px 14px rgba(81, 213, 90, 0.35); transform: translateY(-1px); }';
+    echo '.notif-view-all-btn svg { width: 15px; height: 15px; }';
+    /* All-Notifications Modal */
+    echo '.iw-notif-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 100002; padding: 16px; }';
+    echo '.iw-notif-modal-overlay.active { display: flex; }';
+    echo '.iw-notif-modal-box { width: min(100%, 820px); background: #0E1A3D; border: 1px solid rgba(42,68,132,0.6); border-radius: 18px; box-shadow: 0 25px 60px rgba(0,0,0,0.55); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; }';
+    echo '.iw-notif-modal-overlay.active .iw-notif-modal-box { animation: iwNotifModalIn 0.25s cubic-bezier(0.16,1,0.3,1); }';
+    echo '@keyframes iwNotifModalIn { from { transform: scale(0.96) translateY(10px); opacity:0; } to { transform: scale(1) translateY(0); opacity:1; } }';
+    echo '[data-theme="light"] .iw-notif-modal-box { background: #FFFFFF !important; border-color: #CBD5E1 !important; box-shadow: 0 25px 60px rgba(15,23,42,0.18) !important; }';
+    echo '[data-theme="light"] .iw-notif-modal-header { background: #F8FAFC !important; border-bottom-color: #E2E8F0 !important; }';
+    echo '[data-theme="light"] .iw-nm-title { color: #0F172A !important; }';
+    echo '[data-theme="light"] .iw-nm-sub { color: #64748B !important; }';
+    echo '[data-theme="light"] .iw-nm-filter-bar { background: #F1F5F9 !important; border-bottom-color: #E2E8F0 !important; }';
+    echo '[data-theme="light"] .iw-nm-filter-btn { background: #FFFFFF !important; border-color: #CBD5E1 !important; color: #475569 !important; }';
+    echo '[data-theme="light"] .iw-nm-filter-btn.active { background: #2563EB !important; border-color: #2563EB !important; color: #FFFFFF !important; }';
+    echo '[data-theme="light"] .iw-nm-row { border-bottom-color: #F1F5F9 !important; }';
+    echo '[data-theme="light"] .iw-nm-row:hover { background: #F8FAFC !important; }';
+    echo '[data-theme="light"] .iw-nm-row.unread { background: #EFF6FF !important; }';
+    echo '[data-theme="light"] .iw-nm-msg { color: #0F172A !important; }';
+    echo '[data-theme="light"] .iw-nm-time { color: #64748B !important; }';
+    echo '[data-theme="light"] .iw-nm-act-btn { color: #475569 !important; border-color: #E2E8F0 !important; background: #F1F5F9 !important; }';
+    echo '[data-theme="light"] .iw-nm-act-btn:hover { background: #E0F2FE !important; color: #0369A1 !important; border-color: #7DD3FC !important; }';
+    echo '[data-theme="light"] .iw-nm-footer { background: #F8FAFC !important; border-top-color: #E2E8F0 !important; }';
+    echo '[data-theme="light"] .iw-nm-empty { color: #64748B !important; }';
     echo '.notification-list { max-height: 300px; overflow-y: auto; }';
     echo '.notification-item { padding: 12px 16px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); display: flex; align-items: flex-start; gap: 12px; transition: background-color 0.2s ease; }';
     echo '.notification-item:hover { background: rgba(81, 213, 90, 0.05); }';
@@ -391,6 +419,52 @@ function renderLayoutEnd() {
 function renderLayoutFooter() {
     echo '<div class="dropdown-backdrop" id="dropdownBackdrop"></div>';
     echo '<div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>';
+
+    // ── All Notifications Modal ────────────────────────────────────────
+    echo '<div id="allNotifsModal" class="iw-notif-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="allNotifsTitle" style="display:none!important">';
+    echo '  <div class="iw-notif-modal-box">';
+    echo '    <!-- Modal Header -->';
+    echo '    <div class="iw-notif-modal-header p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/40">';
+    echo '      <div class="flex items-center gap-3">';
+    echo '        <div class="w-10 h-10 rounded-xl bg-green-500/15 text-green-400 flex items-center justify-center" style="flex-shrink:0;">';
+    echo '          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>';
+    echo '        </div>';
+    echo '        <div>';
+    echo '          <h3 id="allNotifsTitle" class="iw-nm-title font-bold text-lg text-white" style="font-family:Onest,sans-serif;">All Notifications</h3>';
+    echo '          <p class="iw-nm-sub text-xs" style="color:#9aa6d1;">Complete inventory alert history</p>';
+    echo '        </div>';
+    echo '      </div>';
+    echo '      <button type="button" class="modal-close-btn" onclick="closeAllNotificationsModal()" title="Close">&times;</button>';
+    echo '    </div>';
+    echo '    <!-- Filter + Mark All Bar -->';
+    echo '    <div class="iw-nm-filter-bar p-4 border-b border-[#2A4484]/40 bg-[#13275B]/20 flex flex-wrap items-center justify-between gap-3">';
+    echo '      <div class="flex items-center gap-2">';
+    echo '        <button class="iw-nm-filter-btn active" id="nmFilterAll" onclick="setNotifFilter(\'all\')" type="button">All</button>';
+    echo '        <button class="iw-nm-filter-btn" id="nmFilterUnread" onclick="setNotifFilter(\'unread\')" type="button">Unread <span id="nmUnreadBadge" class="iw-nm-badge" style="display:none;"></span></button>';
+    echo '        <button class="iw-nm-filter-btn" id="nmFilterRead" onclick="setNotifFilter(\'read\')" type="button">Read</button>';
+    echo '      </div>';
+    echo '      <button type="button" class="iw-nm-mark-all-btn" id="nmMarkAllReadBtn" onclick="markAllNotificationsRead()">';
+    echo '        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+    echo '        Mark all as read';
+    echo '      </button>';
+    echo '    </div>';
+    echo '    <!-- Notification List -->';
+    echo '    <div class="overflow-y-auto premium-scrollbar flex-1" id="allNotifsList" style="max-height:52vh;">';
+    echo '      <div class="iw-nm-empty flex flex-col items-center justify-center py-16" id="allNotifsEmpty" style="display:none!important;">';
+    echo '        <svg class="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
+    echo '        <span style="font-family:Onest,sans-serif;font-size:14px;color:#9aa6d1;">No notifications found</span>';
+    echo '      </div>';
+    echo '      <div id="allNotifsLoading" class="flex items-center justify-center py-12" style="color:#9aa6d1;font-family:Onest,sans-serif;font-size:13px;gap:8px;">';
+    echo '        <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Loading...';
+    echo '      </div>';
+    echo '    </div>';
+    echo '    <!-- Footer -->';
+    echo '    <div class="iw-nm-footer p-4 border-t border-[#2A4484]/40 flex items-center justify-between bg-[#13275B]/30">';
+    echo '      <span class="text-xs" style="color:#9aa6d1;font-family:Onest,sans-serif;">Showing <span id="nmVisibleCount" class="font-bold" style="color:#51D55A;">0</span> notifications</span>';
+    echo '      <button type="button" class="btn btn-secondary px-5 py-2 text-xs" onclick="closeAllNotificationsModal()">Close</button>';
+    echo '    </div>';
+    echo '  </div>';
+    echo '</div>';
 
     echo '<script>';
     ?>
@@ -535,6 +609,41 @@ function renderLayoutFooter() {
     // REALTIME NOTIFICATION & DROPDOWN LOGIC
     // --------------------------------------------------------
 
+    // ── All Notifications Modal CSS injected inline (for filter-btn & badge) ──
+    (function() {
+        var s = document.createElement('style');
+        s.textContent = [
+            '.iw-nm-filter-btn { display:inline-flex; align-items:center; gap:5px; padding:6px 14px; border-radius:8px; border:1px solid rgba(42,68,132,0.55); background:rgba(19,39,91,0.8); color:#9aa6d1; font-family:Onest,sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s ease; }',
+            '.iw-nm-filter-btn:hover { background:rgba(42,68,132,0.6); color:#e3e3e3; }',
+            '.iw-nm-filter-btn.active { background:#2563EB !important; border-color:#3B82F6 !important; color:#fff !important; box-shadow:0 4px 12px rgba(37,99,235,0.3); }',
+            '.iw-nm-badge { display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; border-radius:999px; background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; font-family:Onest,sans-serif; }',
+            '.iw-nm-mark-all-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; border:1px solid rgba(81,213,90,0.3); background:rgba(81,213,90,0.07); color:#51D55A; font-family:Onest,sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s ease; }',
+            '.iw-nm-mark-all-btn:hover { background:rgba(81,213,90,0.15); border-color:rgba(81,213,90,0.55); }',
+            '.iw-nm-row { display:flex; align-items:flex-start; gap:13px; padding:13px 18px; border-bottom:1px solid rgba(42,68,132,0.22); transition:background 0.15s; cursor:pointer; }',
+            '.iw-nm-row:hover { background:rgba(81,213,90,0.04); }',
+            '.iw-nm-row.unread { background:rgba(37,99,235,0.07); border-left:3px solid #3B82F6; }',
+            '.iw-nm-row.unread:hover { background:rgba(37,99,235,0.12); }',
+            '.iw-nm-icon { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }',
+            '.iw-nm-icon.out { background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.35); }',
+            '.iw-nm-icon.low { background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); }',
+            '.iw-nm-content { flex:1; min-width:0; }',
+            '.iw-nm-msg { font-family:Onest,sans-serif; font-size:13.5px; color:#e3e3e3; line-height:1.4; margin-bottom:3px; }',
+            '.iw-nm-msg strong { color:#ffffff; }',
+            '.iw-nm-time { font-family:Onest,sans-serif; font-size:11px; color:#9aa6d1; }',
+            '.iw-nm-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }',
+            '.iw-nm-act-btn { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; border:1px solid rgba(42,68,132,0.45); background:rgba(19,39,91,0.7); color:#9aa6d1; cursor:pointer; transition:all 0.18s ease; }',
+            '.iw-nm-act-btn:hover { background:rgba(81,213,90,0.12); color:#51D55A; border-color:rgba(81,213,90,0.4); }',
+            '.iw-nm-act-btn svg { width:14px; height:14px; }',
+            '.iw-nm-read-dot { width:8px; height:8px; border-radius:50%; background:#3B82F6; flex-shrink:0; margin-top:4px; }',
+            '.iw-nm-empty { color:#9aa6d1; }',
+            '[data-theme="light"] .iw-nm-msg { color:#1e293b !important; }',
+            '[data-theme="light"] .iw-nm-msg strong { color:#0f172a !important; }',
+            '[data-theme="light"] .iw-nm-row.unread { background:rgba(37,99,235,0.05) !important; border-left-color:#2563EB !important; }',
+            '[data-theme="light"] .notif-dropdown-footer { border-top-color:#E2E8F0 !important; }',
+        ].join('');
+        document.head.appendChild(s);
+    })();
+
     const notifDropdown = document.getElementById('notificationDropdown');
     const userDropdown = document.getElementById('userDropdown');
     const backdrop = document.getElementById('dropdownBackdrop');
@@ -657,6 +766,215 @@ function renderLayoutFooter() {
     }, 5000);
 
     window.addEventListener('online', fetchNotifications);
+
+    // ── ALL NOTIFICATIONS MODAL ──────────────────────────────────────────────
+    var _nmFilter  = 'all';
+    var _nmLoading = false;
+
+    window.openAllNotificationsModal = function() {
+        // Close the bell dropdown first
+        if (notifDropdown) notifDropdown.classList.remove('show');
+        toggleBackdrop(false);
+
+        var modal = document.getElementById('allNotifsModal');
+        if (!modal) return;
+        modal.style.removeProperty('display'); // lift the inline guard
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        _nmFilter = 'all';
+        _setNmFilterUI('all');
+        _fetchAllNotifications();
+    };
+
+    window.closeAllNotificationsModal = function() {
+        var modal = document.getElementById('allNotifsModal');
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.setProperty('display', 'none', 'important'); // re-arm the guard
+        }
+        document.body.style.overflow = '';
+    };
+
+    // Close on overlay click (outside the box)
+    document.addEventListener('click', function(e) {
+        var modal = document.getElementById('allNotifsModal');
+        if (modal && modal.classList.contains('active') && e.target === modal) {
+            window.closeAllNotificationsModal();
+        }
+    });
+    // Close on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('allNotifsModal');
+            if (modal && modal.classList.contains('active')) window.closeAllNotificationsModal();
+        }
+    });
+
+    window.setNotifFilter = function(filter) {
+        if (_nmLoading) return;
+        _nmFilter = filter;
+        _setNmFilterUI(filter);
+        _fetchAllNotifications();
+    };
+
+    function _setNmFilterUI(filter) {
+        ['All','Unread','Read'].forEach(function(f) {
+            var btn = document.getElementById('nmFilter' + f);
+            if (btn) btn.classList.toggle('active', f.toLowerCase() === filter);
+        });
+    }
+
+    async function _fetchAllNotifications() {
+        if (_nmLoading) return;
+        _nmLoading = true;
+
+        var loading  = document.getElementById('allNotifsLoading');
+        var listEl   = document.getElementById('allNotifsList');
+        var emptyEl  = document.getElementById('allNotifsEmpty');
+        var countEl  = document.getElementById('nmVisibleCount');
+        var badgeEl  = document.getElementById('nmUnreadBadge');
+
+        if (loading)  loading.style.display = 'flex';
+        if (emptyEl)  emptyEl.style.display = 'none';
+
+        // Remove old rows
+        if (listEl) {
+            Array.from(listEl.querySelectorAll('.iw-nm-row')).forEach(function(r){ r.remove(); });
+        }
+
+        try {
+            var res  = await fetch('api/get_all_notifications.php?filter=' + encodeURIComponent(_nmFilter));
+            var data = await res.json();
+
+            if (loading) loading.style.display = 'none';
+
+            // Update unread badge in filter button
+            if (badgeEl) {
+                if (data.unread_count > 0) {
+                    badgeEl.textContent = data.unread_count;
+                    badgeEl.style.display = 'inline-flex';
+                } else {
+                    badgeEl.style.display = 'none';
+                }
+            }
+
+            if (!data.items || data.items.length === 0) {
+                if (emptyEl) emptyEl.style.display = 'flex';
+                if (countEl) countEl.textContent = '0';
+                _nmLoading = false;
+                return;
+            }
+
+            if (countEl) countEl.textContent = data.items.length;
+
+            data.items.forEach(function(item) {
+                var row = _buildNmRow(item);
+                if (listEl) listEl.insertBefore(row, emptyEl);
+            });
+        } catch(err) {
+            if (loading) loading.style.display = 'none';
+            if (listEl) {
+                var errDiv = document.createElement('div');
+                errDiv.className = 'flex items-center justify-center py-10';
+                errDiv.style.cssText = 'color:#ef4444;font-family:Onest,sans-serif;font-size:13px;';
+                errDiv.textContent = 'Failed to load notifications.';
+                listEl.appendChild(errDiv);
+            }
+        }
+        _nmLoading = false;
+    }
+
+    function _buildNmRow(item) {
+        var isOut  = item.is_out;
+        var isRead = item.is_read;
+
+        var iconSvg = '<svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+
+        var badgeStyle = isOut
+            ? 'background:#ef4444;color:#fff;'
+            : 'background:rgba(245,158,11,0.22);color:#fbbf24;border:1px solid rgba(245,158,11,0.4);';
+        var badgeLabel = isOut ? 'OUT OF STOCK' : 'LOW STOCK';
+
+        var productName = item.product || 'Unknown';
+        var msg = isOut
+            ? '<strong>' + _esc(productName) + '</strong> is out of stock. (Stock: 0)'
+            : 'Low stock: <strong>' + _esc(productName) + '</strong> — ' + item.qty + ' ' + _esc(item.unit) + ' remaining (Reorder: ' + item.reorder + ')';
+
+        var actionTitle = isRead ? 'Mark as unread' : 'Mark as read';
+        var actionAction = isRead ? 'mark_unread' : 'mark_read';
+        var actionIcon = isRead
+            ? '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>'
+            : '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>';
+
+        var row = document.createElement('div');
+        row.className = 'iw-nm-row' + (isRead ? '' : ' unread');
+        row.dataset.id = item.id;
+        row.dataset.read = isRead ? '1' : '0';
+
+        // Click row to go to product page
+        row.addEventListener('click', function(e) {
+            if (e.target.closest('.iw-nm-act-btn')) return;
+            window.location.href = 'products.php?search=' + encodeURIComponent(item.product);
+        });
+
+        row.innerHTML = [
+            '<div class="iw-nm-icon ' + (isOut ? 'out' : 'low') + '">' + iconSvg + '</div>',
+            '<div class="iw-nm-content">',
+                '<div style="margin-bottom:4px;">',
+                    '<span style="display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;padding:2px 6px;border-radius:4px;font-family:Onest,sans-serif;' + badgeStyle + '">' + badgeLabel + '</span>',
+                '</div>',
+                '<div class="iw-nm-msg">' + msg + '</div>',
+                '<div class="iw-nm-time">' + _esc(item.time_ago) + (item.sku ? ' &bull; ' + _esc(item.sku) : '') + '</div>',
+            '</div>',
+            '<div class="iw-nm-actions">',
+                (isRead ? '' : '<div class="iw-nm-read-dot"></div>'),
+                '<button type="button" class="iw-nm-act-btn" title="' + actionTitle + '" data-notif-id="' + item.id + '" data-action="' + actionAction + '" onclick="_nmToggleRead(this)">' + actionIcon + '</button>',
+            '</div>'
+        ].join('');
+
+        return row;
+    }
+
+    window._nmToggleRead = async function(btn) {
+        var id     = btn.dataset.notifId;
+        var action = btn.dataset.action;
+        btn.disabled = true;
+        try {
+            var res  = await fetch('api/mark_notification.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: parseInt(id), action: action })
+            });
+            var data = await res.json();
+            if (data.success) {
+                // Refresh the list to reflect changes
+                _fetchAllNotifications();
+                // Also refresh the small dropdown badge
+                fetchNotifications();
+            }
+        } catch(e) { /* silent */ }
+        btn.disabled = false;
+    };
+
+    window.markAllNotificationsRead = async function() {
+        var btn = document.getElementById('nmMarkAllReadBtn');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+        try {
+            await fetch('api/mark_notification.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_all_read' })
+            });
+            _fetchAllNotifications();
+            fetchNotifications();
+        } catch(e) { /* silent */ }
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    };
+
+    function _esc(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
     // Auto-wrap tables in scrollable containers on narrow screens
     // AND stamp data-label on every td for the mobile card layout (≤767px)

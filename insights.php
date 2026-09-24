@@ -1993,11 +1993,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div style="position:absolute; top:-60px; right:-40px; width:300px; height:300px; background: radial-gradient(circle, rgba(81,213,90,0.08) 0%, rgba(0,0,0,0) 70%); pointer-events:none;"></div>
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <div class="flex items-center gap-2 text-xs font-bold mb-1 insights-hero-eyebrow">
-                <span class="insights-hero-brand">Intelliware Enterprise WIMS</span>
-                <span class="insights-hero-dot text-[#2A4484]">•</span>
-                <span class="insights-hero-module text-[#51D55A]">Data Intelligence</span>
-            </div>
             <h1 class="insights-hero-title text-2xl lg:text-3xl font-bold font-onest text-white tracking-tight flex items-center gap-3">
                 <div class="insights-hero-icon w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"></path></svg>

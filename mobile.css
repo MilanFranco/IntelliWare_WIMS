@@ -1252,3 +1252,562 @@
     }
 }
 
+
+/* ============================================================
+   H. RESPONSIVE CONSISTENCY PASS — GLOBAL MOBILE POLISH
+   Scope: max-width 767px
+   Rules: Purely additive. No design tokens, typography, brand
+          colors, border-radii, or dark-mode palette altered.
+   Covers:
+     H1  Root canvas — prevent horizontal overflow
+     H2  Page-level padding standardization
+     H3  Card inner-padding standardization
+     H4  Primary CTA buttons inside card/section headers
+     H5  Icon-only & action buttons — touch targets
+     H6  Flex rows — wrap & gap normalization
+     H7  Inputs & selects — full-width + truncation
+     H8  Header user-section cluster — gap lock
+     H9  Metric grid — equal height & uniform gap
+     H10 Modals — sys-modal & iw-notif-modal sizing
+     H11 Pagination — stack → centered row
+     H12 Form rows — stack on mobile
+     H13 Flex wrappers with badges/tags
+     H14 Section filter/tab bars
+     H15 Notification modal filter bar
+   ============================================================ */
+
+/* ─── H1: Root canvas — hard-stop horizontal overflow ──────── */
+@media (max-width: 767px) {
+
+    html,
+    body {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    .iw-body-shell {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        padding: 0 !important;
+    }
+
+    .iw-main-wrapper {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        border-radius: 0 !important;
+    }
+
+    .iw-main-content {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+}
+
+/* ─── H2: Page-level content padding ───────────────────────── */
+@media (max-width: 767px) {
+
+    /* Standard 16px side padding for all pages */
+    .iw-main-content {
+        padding: 12px 16px 24px !important;
+    }
+}
+
+/* ─── H3: Card inner-padding standardization ────────────────── */
+@media (max-width: 767px) {
+
+    /* Base cards: 16px standard inner padding */
+    .premium-card,
+    .card {
+        padding: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Tailwind p-* overrides on cards */
+    .premium-card[class*=" p-"],
+    .card[class*=" p-"] {
+        padding: 16px !important;
+    }
+}
+
+/* ─── H4: Primary CTAs inside card/section headers ──────────── */
+@media (max-width: 767px) {
+
+    /* Card header rows that pair a title + CTA button:
+       - Use flex-wrap so button moves to its own row if needed
+       - Justify space-between keeps them edge-to-edge when on one line */
+    .card-header-row,
+    .iw-card-header,
+    .iw-section-header,
+    .premium-card > .flex.justify-between,
+    .premium-card > .flex.items-center.justify-between,
+    .card > .flex.justify-between {
+        flex-wrap: wrap !important;
+        gap: 10px !important;
+        align-items: center !important;
+    }
+
+    /* CTA buttons that are the only button in a card header
+       stay right-aligned (flex-end) rather than stretching */
+    .card-header-row > .btn,
+    .card-header-row > .btn-primary,
+    .card-header-row > .btn-secondary,
+    .iw-card-header > .btn,
+    .iw-card-header > .btn-primary,
+    .iw-card-header > .btn-secondary {
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Filter/action button groups inside card headers → right edge */
+    .card-header-row > .flex,
+    .iw-card-header > .flex {
+        flex-shrink: 0 !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+}
+
+/* ─── H5: Icon-only & action buttons — 44 × 44 touch targets ── */
+@media (max-width: 767px) {
+
+    /* Action buttons (table row, card inline actions) */
+    .action-btn,
+    .check-stock-btn,
+    .iw-nm-act-btn {
+        min-width: 36px !important;
+        min-height: 36px !important;
+        width: 36px !important;
+        height: 36px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 !important;
+        flex-shrink: 0 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Pagination number buttons */
+    .pagination-btn.pagination-num {
+        min-width: 36px !important;
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    /* Modal close button — slightly larger tap zone */
+    .modal-close-btn {
+        min-width: 36px !important;
+        min-height: 36px !important;
+        width: 36px !important;
+        height: 36px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Hamburger / sidebar toggle */
+    .iw-sidebar-toggle {
+        min-width: 40px !important;
+        min-height: 40px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Notification bell & theme toggle */
+    .notification-bell,
+    .theme-toggle {
+        min-width: 36px !important;
+        min-height: 36px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
+/* ─── H6: Flex rows — wrap & gap normalization ──────────────── */
+@media (max-width: 767px) {
+
+    /* Generic flex rows that should wrap cleanly */
+    .flex-wrap-mobile {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    /* Row-direction flex containers used as toolbars / filter bars */
+    .search-filter-container,
+    .iw-filter-bar,
+    .iw-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+
+    /* Side-by-side button pairs → uniform gap */
+    .flex.gap-2,
+    .flex.gap-3 {
+        gap: 8px !important;
+    }
+
+    /* Rows mixing text + badge/tag chips → allow wrap */
+    .iw-tag-row,
+    .iw-badge-row {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+    }
+}
+
+/* ─── H7: Inputs & selects — full-width + truncation ────────── */
+@media (max-width: 767px) {
+
+    /* Every input, select, textarea inside a form or card spans full width */
+    form input,
+    form select,
+    form textarea,
+    .premium-card input,
+    .premium-card select,
+    .premium-card textarea,
+    .card input,
+    .card select,
+    .card textarea,
+    .iw-main-content input[type="text"],
+    .iw-main-content input[type="search"],
+    .iw-main-content input[type="number"],
+    .iw-main-content input[type="date"],
+    .iw-main-content input[type="email"],
+    .iw-main-content input[type="password"],
+    .iw-main-content select,
+    .iw-main-content textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Select: truncate long labels so caret stays visible */
+    select,
+    .premium-input[type="select"],
+    select.premium-input,
+    select.input {
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        padding-right: 28px !important; /* room for native arrow */
+    }
+
+    /* Input wrapper that has an icon prefix/suffix: vertical center */
+    .input-icon-wrap,
+    .iw-input-group {
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    .input-icon-wrap input,
+    .iw-input-group input {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+
+    /* Search inputs (header/filter) */
+    .search-box,
+    .filter-select,
+    .dropdown-select {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+}
+
+/* ─── H8: Header user-section cluster — gap & no-wrap lock ──── */
+@media (max-width: 767px) {
+
+    /* admin-user-section must never wrap to second line */
+    .admin-user-section {
+        flex-shrink: 0 !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+        align-items: center !important;
+        overflow: hidden !important;
+    }
+
+    /* Notification container inside header */
+    .notification-container {
+        flex-shrink: 0 !important;
+    }
+
+    /* User profile pill */
+    .user-profile {
+        flex-shrink: 0 !important;
+        overflow: hidden !important;
+    }
+}
+
+/* ─── H9: Metric / stat grid — equal height & uniform gap ───── */
+@media (max-width: 767px) {
+
+    /* 2-column metric grids (dashboard, inventory) */
+    .inv-summary-grid,
+    .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4,
+    .iw-metric-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    /* Individual metric cards: equal height */
+    .metric-card,
+    .inv-summary-card,
+    .iw-stat-card {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        box-sizing: border-box !important;
+    }
+}
+
+/* ─── H10: Modals — sys-modal & iw-notif-modal sizing ──────── */
+@media (max-width: 767px) {
+
+    /* System Activity Modal (transaction_logs.php) */
+    .sys-modal-overlay {
+        padding: 8px !important;
+        align-items: flex-end !important; /* bottom-sheet feel */
+    }
+
+    .sys-modal-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 92vh !important;
+        border-radius: 18px 18px 0 0 !important;
+    }
+
+    .sys-modal-box .sys-search-bar {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    .sys-modal-box .sys-search-bar > div:first-child {
+        width: 100% !important;
+    }
+
+    /* All-Notifications Modal */
+    .iw-notif-modal-overlay {
+        padding: 8px !important;
+        align-items: flex-end !important;
+    }
+
+    .iw-notif-modal-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 92vh !important;
+        border-radius: 18px 18px 0 0 !important;
+    }
+
+    .iw-nm-filter-bar {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .iw-nm-mark-all-btn {
+        align-self: flex-start !important;
+    }
+
+    /* Standard modal-box */
+    .modal-box {
+        border-radius: 18px 18px 0 0 !important;
+    }
+
+    .modal-overlay {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+}
+
+/* ─── H11: Pagination — compact single row ──────────────────── */
+@media (max-width: 767px) {
+
+    .pagination-container {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+
+    .pagination-btn.pagination-nav {
+        min-width: 70px !important;
+        padding: 0 12px !important;
+        height: 34px !important;
+    }
+
+    .pagination-info-pill {
+        font-size: 11px !important;
+        padding: 6px 12px !important;
+    }
+}
+
+/* ─── H12: Form rows — stack vertically on mobile ────────────── */
+@media (max-width: 767px) {
+
+    /* Generic two-column form layout → single column */
+    .form-row,
+    .txn-form-grid,
+    .iw-form-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .form-row > *,
+    .txn-form-grid > *,
+    .iw-form-grid > * {
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Label + field pairs */
+    .form-group {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        width: 100% !important;
+    }
+
+    /* Footer action clusters in modals / form cards */
+    .modal-box .modal-footer,
+    .form-footer {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+    }
+}
+
+/* ─── H13: Flex wrappers with badges / tags ─────────────────── */
+@media (max-width: 767px) {
+
+    /* Any flex row mixing text + chips should wrap instead of overflow */
+    .flex.flex-wrap,
+    .items-center.flex-wrap {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    /* Badge rows inside table cells or card content */
+    .premium-table td .flex,
+    .table td .flex {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+    }
+
+    /* Inline badge groups */
+    .badge-group {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        align-items: center !important;
+    }
+}
+
+/* ─── H14: Section filter / tab bars ────────────────────────── */
+@media (max-width: 767px) {
+
+    /* Horizontal scroll tab bars — keep single row, scrollable */
+    .tab-container,
+    .forecast-nav-bar,
+    .iw-tab-bar {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 6px !important;
+        padding-bottom: 4px !important;
+        /* hide scroll bar visually */
+        scrollbar-width: none !important;
+    }
+
+    .tab-container::-webkit-scrollbar,
+    .forecast-nav-bar::-webkit-scrollbar,
+    .iw-tab-bar::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    .tab,
+    .forecast-nav-btn,
+    .iw-tab-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+}
+
+/* ─── H15: Notification modal filter bar ───────────────────── */
+@media (max-width: 767px) {
+
+    /* Filter buttons (All / Unread / Read) — scrollable row */
+    .iw-nm-filter-bar > div:first-child {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        gap: 6px !important;
+        width: 100% !important;
+    }
+
+    .iw-nm-filter-btn {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+
+    /* Notification list rows — ensure content wraps, not overflows */
+    .iw-nm-row {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .iw-nm-content {
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .iw-nm-msg {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+}
+
+/* ─── H16: Ultra-narrow screens (< 360px) ──────────────────── */
+@media (max-width: 360px) {
+
+    .iw-main-content {
+        padding: 10px 10px 20px !important;
+    }
+
+    .admin-user-section {
+        gap: 4px !important;
+    }
+
+    .notification-bell,
+    .theme-toggle {
+        width: 30px !important;
+        height: 30px !important;
+        min-width: 30px !important;
+        min-height: 30px !important;
+    }
+
+    .iw-header-title {
+        font-size: 11px !important;
+        max-width: 90px !important;
+    }
+}
