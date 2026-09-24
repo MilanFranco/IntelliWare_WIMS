@@ -274,7 +274,7 @@ var ImageScanner = (function () {
      *   2. Horizontally flipped (covers mirrored product placement)
      *   3. Center 80% crop (removes border artefacts, focuses on label)
      *   4. Top-left 60% crop (captures top-left label corner, brand logos)
-     *   5. Top-right 60% crop (captures barcodes, nutrition facts, variant tags)
+     *   5. Top-right 60% crop (captures packaging details, nutrition facts, variant tags)
      *
      * The averaged vector is substantially more view-invariant than a single crop.
      * Also computes a color histogram for later disambiguation.

@@ -62,7 +62,6 @@ $productQuery = "SELECT
     product_id as id, 
     CONCAT('P-', LPAD(product_id, 4, '0')) as sku, 
     product_name as name, 
-    barcode,
     category, 
     quantity as qty, 
     unit as uom, 
@@ -186,32 +185,6 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     .premium-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     .premium-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-    /* Toast Styles */
-    #toast-container {
-        visibility: hidden;
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%) translateY(20px);
-        padding: 12px 24px;
-        border-radius: 12px;
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        z-index: 2000;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        opacity: 0;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        border: 1px solid rgba(255,255,255,0.1);
-        backdrop-filter: blur(10px);
-    }
-    #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast-container.success { background-color: rgba(6, 95, 70, 0.9); border-color: #34d399; color: #d1fae5; }
-    #toast-container.error { background-color: rgba(127, 29, 29, 0.9); border-color: #f87171; color: #fee2e2; }
-    
     .premium-input {
         background: rgba(19, 39, 91, 0.8);
         color: #E3E3E3;
@@ -237,10 +210,152 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         text-transform: uppercase;
         display: inline-flex;
         align-items: center;
+        letter-spacing: 0.02em;
     }
     .status-badge.low { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
     .status-badge.out { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
     .status-badge.good { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    /* Stock Explorer Rows (Dark Mode Default) */
+    .stock-row {
+        background: rgba(29, 56, 123, 0.4);
+        border: 1px solid rgba(42, 68, 132, 0.3);
+        border-radius: 10px;
+        transition: all 0.18s ease;
+    }
+    .stock-row:hover,
+    .stock-row.row-hovered {
+        background: rgba(29, 56, 123, 0.7) !important;
+        border-color: rgba(81, 213, 90, 0.45) !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    .stock-row .product-name,
+    .stock-row .stock-health-name {
+        color: #E3E3E3;
+    }
+    .stock-row:hover .product-name,
+    .stock-row.row-hovered .product-name {
+        color: #FFFFFF;
+    }
+    .stock-row .product-sku {
+        color: #9aa6d1;
+    }
+    .stock-row .product-qty {
+        color: #51D55A;
+    }
+
+    /* Light Theme Styling for Stock Explorer (White Items on Blue Background) */
+    [data-theme="light"] #itemList,
+    [data-theme="light"] #statusList {
+        background: #DBEAFE !important;
+        border-color: #93C5FD !important;
+    }
+
+    [data-theme="light"] .stock-row {
+        background: #FFFFFF !important;
+        border: 1px solid #D0DFF2 !important;
+        box-shadow: 0 1px 3px rgba(16, 24, 43, 0.05), 0 1px 2px rgba(16, 24, 43, 0.03) !important;
+    }
+    [data-theme="light"] .stock-row:hover,
+    [data-theme="light"] .stock-row.row-hovered {
+        background: #FFFFFF !important;
+        border-color: #51D55A !important;
+        box-shadow: 0 6px 16px rgba(16, 24, 43, 0.08), 0 0 0 1px rgba(81, 213, 90, 0.35) !important;
+        transform: translateY(-1px);
+    }
+    [data-theme="light"] .stock-row .product-name,
+    [data-theme="light"] .stock-row .stock-health-name {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .stock-row:hover .product-name,
+    [data-theme="light"] .stock-row.row-hovered .product-name {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .stock-row .product-sku {
+        color: #64748B !important;
+    }
+    [data-theme="light"] .stock-row .product-qty {
+        color: #15803D !important;
+    }
+
+    /* Light Mode Categories Column */
+    [data-theme="light"] .browser-btn {
+        background: #FFFFFF !important;
+        border: 1px solid #D0DFF2 !important;
+        box-shadow: 0 1px 3px rgba(16, 24, 43, 0.04) !important;
+    }
+    [data-theme="light"] .browser-btn:hover {
+        background: #F8FAFC !important;
+        border-color: #93C5FD !important;
+    }
+    [data-theme="light"] .browser-btn.active {
+        background: #F0FDF4 !important;
+        border-color: #51D55A !important;
+        box-shadow: 0 2px 8px rgba(81, 213, 90, 0.15) !important;
+    }
+    [data-theme="light"] .browser-btn .btn-title {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .browser-btn.active .btn-title {
+        color: #15803D !important;
+    }
+    [data-theme="light"] .browser-btn div.text-\[\#9aa6d1\],
+    [data-theme="light"] .browser-btn span:not(.btn-title) {
+        color: #64748B !important;
+    }
+    [data-theme="light"] .browser-btn.active span:not(.btn-title) {
+        color: #15803D !important;
+    }
+
+    /* Light Mode Status Badges */
+    [data-theme="light"] .status-badge.good {
+        background: #DCFCE7 !important;
+        color: #15803D !important;
+        border: 1px solid #86EFAC !important;
+    }
+    [data-theme="light"] .status-badge.low {
+        background: #FEF3C7 !important;
+        color: #B45309 !important;
+        border: 1px solid #FCD34D !important;
+    }
+    [data-theme="light"] .status-badge.out {
+        background: #FEE2E2 !important;
+        color: #B91C1C !important;
+        border: 1px solid #FCA5A5 !important;
+    }
+
+    /* Light Mode Meta Details */
+    [data-theme="light"] #itemPanelMeta {
+        color: #15803D !important;
+    }
+    [data-theme="light"] #statusPanelMeta {
+        color: #64748B !important;
+    }
+
+    /* Light Mode Scrollbars */
+    [data-theme="light"] .premium-scrollbar::-webkit-scrollbar-track {
+        background: rgba(147, 197, 253, 0.25);
+    }
+    [data-theme="light"] .premium-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(30, 58, 138, 0.2);
+        border-radius: 10px;
+    }
+    [data-theme="light"] .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(30, 58, 138, 0.35);
+    }
+
+    /* Light Mode Reset Button */
+    [data-theme="light"] a[title="Clear Filters"] {
+        background: #EFF6FF !important;
+        border-color: #BFDBFE !important;
+        color: #475569 !important;
+    }
+    [data-theme="light"] a[title="Clear Filters"]:hover {
+        background: #DBEAFE !important;
+        color: #0F172A !important;
+    }
+
+
 
     .print-only { display: none !important; }
 
@@ -336,11 +451,6 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
 </style>
 
-<div id="toast-container">
-    <span id="toast-icon"></span>
-    <span id="toast-message"></span>
-</div>
-
 <!-- Hero Page Header Banner -->
 <div class="page-hero-card mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -382,16 +492,16 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
     
     <div class="p-5">
-        <form method="GET" action="reports.php" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-            <div>
+        <form method="GET" action="reports.php" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-end">
+            <div class="xl:col-span-2">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Date Added (From)</label>
                 <input type="date" name="date_from" class="premium-input w-full h-[46px]" value="<?php echo htmlspecialchars($dateFrom); ?>" />
             </div>
-            <div>
+            <div class="xl:col-span-2">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Date Added (To)</label>
                 <input type="date" name="date_to" class="premium-input w-full h-[46px]" value="<?php echo htmlspecialchars($dateTo); ?>" />
             </div>
-            <div>
+            <div class="xl:col-span-2">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Category</label>
                 <select name="category" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Categories</option>
@@ -402,7 +512,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div>
+            <div class="xl:col-span-2">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Stock Status</label>
                 <select name="status" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Status</option>
@@ -413,13 +523,20 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                 </select>
             </div>
 
-            <div class="flex gap-2">
-                <button class="premium-button flex-1 h-[46px] flex items-center justify-center gap-2" type="submit">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    Search
+            <div class="md:col-span-2 xl:col-span-4 flex items-center gap-2">
+                <button class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" type="submit" title="Search Reports" aria-label="Search">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+                <button type="button" onclick="downloadPDF()" class="premium-button h-[46px] px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" title="Generate &amp; Download PDF Report">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>PDF</span>
+                </button>
+                <button type="button" onclick="downloadExcel()" class="premium-button h-[46px] px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" title="Generate &amp; Download Excel Report">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <span>Excel</span>
                 </button>
                 <?php if ($dateFrom || $dateTo || $categoryFilter || $statusFilter): ?>
-                    <a href="reports.php" title="Clear Filters" class="h-[46px] px-4 rounded-xl border border-[#2A4484] bg-[#13275B] text-[#9aa6d1] hover:text-white flex items-center justify-center transition-colors">
+                    <a href="reports.php" title="Clear Filters" class="h-[46px] px-3.5 rounded-xl border border-[#2A4484] bg-[#13275B] text-[#9aa6d1] hover:text-white flex items-center justify-center transition-colors whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l5 5 5 15 5-5 5-15H4z"></path></svg>
                         <span class="ml-1 text-xs">Reset</span>
                     </a>
@@ -614,18 +731,17 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     <div class="premium-card mb-6">
         <div class="p-5 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 bg-[#13275B]/30">
             <div>
-                <h3 class="font-onest font-semibold text-lg text-white">Stock Explorer</h3>
+                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Stock Explorer
+                </h3>
                 <p class="text-xs text-[#9aa6d1] mt-1">Showing <?php echo number_format($totalItemsFiltered); ?> items based on current filters.</p>
             </div>
-            <div class="flex gap-2">
-                <button onclick="downloadPDF()" class="premium-button py-2 px-4 text-xs h-auto flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    PDF
-                </button>
-                <button onclick="downloadExcel()" class="premium-button py-2 px-4 text-xs h-auto flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Excel
-                </button>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/60 border border-[#2A4484]/40 text-xs text-[#9aa6d1]">
+                    <span class="w-2 h-2 rounded-full bg-[#51D55A]"></span>
+                    <span>Interactive Explorer</span>
+                </span>
             </div>
         </div>
 
@@ -787,14 +903,25 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     itemMeta.innerText = `${products.length} Products Found`;
     statusMeta.innerText = `Total Stock: ${group.total_qty}`;
 
+    // Helper for safe HTML rendering
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     // Render Lists
     itemList.innerHTML = products.map((p, index) => `
-        <div class="flex justify-between items-center p-3 mb-2 rounded-lg bg-[#1D387B]/40 border border-[#2A4484]/30 hover:border-[#51D55A]/30 transition-colors group h-[60px]" onmouseover="syncHover(${index}, true)" onmouseout="syncHover(${index}, false)" id="prod-${index}">
-            <div class="w-3/4">
-                <div class="font-semibold text-[#E3E3E3] text-sm group-hover:text-white truncate">${p.name}</div>
-                <div class="text-[10px] text-[#9aa6d1] font-mono">${p.sku}${p.barcode ? ' · ' + p.barcode : ''}</div>
+        <div class="stock-row flex justify-between items-center p-3 mb-2 rounded-xl group h-[60px] cursor-default" onmouseenter="syncHover(${index}, true)" onmouseleave="syncHover(${index}, false)" id="prod-${index}">
+            <div class="w-3/4 pr-2">
+                <div class="product-name font-semibold text-sm truncate" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
+                <div class="product-sku text-[10px] font-mono">${escapeHtml(p.sku)}</div>
             </div>
-            <div class="font-mono text-[#51D55A] font-bold text-sm">${p.qty}</div>
+            <div class="product-qty font-mono font-bold text-sm text-right">${Number(p.qty || 0).toLocaleString()}</div>
         </div>
     `).join('');
 
@@ -813,8 +940,8 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         }
 
         return `
-        <div class="flex justify-between items-center p-3 mb-2 rounded-lg bg-[#1D387B]/40 border border-[#2A4484]/30 h-[60px]" id="stat-${index}">
-            <div class="text-xs text-[#E3E3E3] truncate pr-2 w-1/2">${p.name}</div>
+        <div class="stock-row flex justify-between items-center p-3 mb-2 rounded-xl h-[60px] cursor-default" onmouseenter="syncHover(${index}, true)" onmouseleave="syncHover(${index}, false)" id="stat-${index}">
+            <div class="stock-health-name text-xs truncate pr-2 w-1/2 font-medium" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
             <span class="status-badge ${badgeClass}">
                 ${badgeText}
             </span>
@@ -835,18 +962,15 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
       });
   }
 
-  // Visual Sync on Hover
+  // Visual Sync on Hover (theme-aware via CSS class toggle)
   function syncHover(index, isHovering) {
       const prodRow = document.getElementById(`prod-${index}`);
       const statRow = document.getElementById(`stat-${index}`);
-      if(prodRow && statRow) {
-          if(isHovering) {
-              statRow.style.borderColor = 'rgba(81, 213, 90, 0.3)';
-              statRow.style.backgroundColor = 'rgba(29, 56, 123, 0.6)';
-          } else {
-              statRow.style.borderColor = 'rgba(42, 68, 132, 0.3)';
-              statRow.style.backgroundColor = 'rgba(29, 56, 123, 0.4)'; // Reset to original bg/border
-          }
+      if(prodRow) {
+          prodRow.classList.toggle('row-hovered', isHovering);
+      }
+      if(statRow) {
+          statRow.classList.toggle('row-hovered', isHovering);
       }
   }
 
@@ -907,7 +1031,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
 
   async function downloadPDF() {
     if (items.length === 0) { showToast("No data to export", "error"); return; }
-    showToast("Generating official PDF report...", "success");
+    showToast("Generating official PDF report...", "info");
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
@@ -1238,7 +1362,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
 
   function downloadExcel() {
     if (items.length === 0) { showToast("No data to export", "error"); return; }
-    showToast("Exporting Excel report...", "success");
+    showToast("Exporting Excel report...", "info");
     const dataToExport = items.map(item => {
       const q = parseInt(item.qty || 0);
       const rp = parseInt(item.reorder_point || 10);
@@ -1262,19 +1386,53 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     XLSX.utils.book_append_sheet(wb, ws, 'Inventory Audit');
     const fileTimestamp = new Date().toISOString().slice(0,10);
     XLSX.writeFile(wb, `IntelliWare_Inventory_Report_${fileTimestamp}.xlsx`);
+    showToast("Excel report successfully downloaded!", "success");
   }
 
-  function showToast(msg, type) {
-      const toast = document.getElementById("toast-container");
-      const messageSpan = document.getElementById("toast-message");
-      const iconSpan = document.getElementById("toast-icon");
-      messageSpan.innerText = msg;
-      iconSpan.innerHTML = type === 'success' 
-        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-        : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
-      toast.className = 'show ' + type;
-      setTimeout(() => { toast.className = ''; }, 3000);
-  }
+  // Filter Feedback Toast for Reports
+  document.addEventListener('DOMContentLoaded', function() {
+      if (window.__iwFlashPending) return;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const dateFrom = (urlParams.get('date_from') || '').trim();
+      const dateTo = (urlParams.get('date_to') || '').trim();
+      const cat = (urlParams.get('category') || '').trim();
+      const status = (urlParams.get('status') || '').trim();
+
+      if (!dateFrom && !dateTo && !cat && !status) return;
+
+      const count = items.length;
+      const parts = [];
+
+      if (dateFrom && dateTo) {
+          parts.push(`${dateFrom} to ${dateTo}`);
+      } else if (dateFrom) {
+          parts.push(`from ${dateFrom}`);
+      } else if (dateTo) {
+          parts.push(`until ${dateTo}`);
+      }
+
+      if (cat) parts.push(cat);
+
+      if (status) {
+          const statusNames = {
+              'good': 'Good Stock',
+              'attention': 'Attention Needed',
+              'low': 'Low Stock',
+              'out': 'Out of Stock'
+          };
+          parts.push(statusNames[status] || status);
+      }
+
+      const desc = parts.join(' • ');
+
+      if (count === 0) {
+          showToast(`No records found for ${desc}`, 'warning');
+      } else {
+          const itemWord = count === 1 ? 'item' : 'items';
+          showToast(`Report generated: ${count.toLocaleString()} ${itemWord} (${desc})`, 'info');
+      }
+  });
 </script>
 
 <?php renderLayoutEnd(); ?>

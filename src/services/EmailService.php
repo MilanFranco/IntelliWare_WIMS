@@ -114,7 +114,7 @@ class EmailService
         if ($conn) {
             try {
                 $res = $conn->query("
-                    SELECT product_id, product_name, category, barcode, location, quantity, reorder_point 
+                    SELECT product_id, product_name, category, location, quantity, reorder_point 
                     FROM products 
                     WHERE archived = 0 
                     ORDER BY 
@@ -173,7 +173,6 @@ class EmailService
                     'product_name' => 'The Originote Moisturizer',
                     'category'     => 'Skincare',
                     'sku'          => 'P-0101',
-                    'barcode'      => '8997238240012',
                     'location'     => 'Shelf A-01',
                     'quantity'     => 0,
                     'reorder_point'=> 15,
@@ -189,7 +188,6 @@ class EmailService
                     'product_name' => 'Aquaflask 32 Oz Thumbler',
                     'category'     => 'Household Items',
                     'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
                     'location'     => 'Shelf H',
                     'quantity'     => 6,
                     'reorder_point'=> 10,
@@ -205,7 +203,6 @@ class EmailService
                     'product_name' => 'Coca-Cola 330ml Can',
                     'category'     => 'Beverages',
                     'sku'          => 'P-0103',
-                    'barcode'      => '4801981110022',
                     'location'     => 'Aisle 2, Bin 04',
                     'quantity'     => 120,
                     'reorder_point'=> 30,
@@ -235,7 +232,7 @@ class EmailService
      * Send a stock alert email containing the complete inventory status table.
      *
      * @param mysqli|null $conn
-     * @param array $product Details: product_name, category, sku, barcode, location, quantity, reorder_point
+     * @param array $product Details: product_name, category, sku, location, quantity, reorder_point
      * @param string $alertType 'OUT_OF_STOCK' or 'LOW_STOCK'
      * @param string|null $customRecipient
      * @return array{success:bool, error:?string, sent_to:array}
@@ -496,7 +493,6 @@ class EmailService
                     'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
                     'category'     => 'Skincare',
                     'sku'          => 'P-9999',
-                    'barcode'      => '8997238240012',
                     'location'     => 'Shelf A-01',
                     'quantity'     => 0,
                     'reorder_point'=> 15,
@@ -522,7 +518,6 @@ class EmailService
                     'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
                     'category'     => 'Household Items',
                     'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
                     'location'     => 'Shelf H',
                     'quantity'     => 6,
                     'reorder_point'=> 10,
@@ -548,7 +543,6 @@ class EmailService
                         'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
                         'category'     => 'Skincare',
                         'sku'          => 'P-9999',
-                        'barcode'      => '8997238240012',
                         'location'     => 'Shelf A-01',
                         'quantity'     => 0,
                         'reorder_point'=> 15,
@@ -559,7 +553,6 @@ class EmailService
                         'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
                         'category'     => 'Household Items',
                         'sku'          => 'P-0470',
-                        'barcode'      => '4806512398412',
                         'location'     => 'Shelf H',
                         'quantity'     => 6,
                         'reorder_point'=> 10,
@@ -1007,7 +1000,6 @@ class EmailService
         string $productName,
         string $category,
         string $sku,
-        string $barcode,
         string $location,
         int $currentStock,
         int $reorderPoint,
@@ -1082,8 +1074,8 @@ class EmailService
                                     <td style="padding:10px 14px; font-size:13px; font-weight:600; color:#374151; text-align:right;">' . htmlspecialchars($category) . '</td>
                                 </tr>
                                 <tr style="border-bottom:1px solid #e5e7eb;">
-                                    <td style="padding:10px 14px; font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase;">SKU / Barcode</td>
-                                    <td style="padding:10px 14px; font-size:12px; font-family:monospace; color:#4b5563; text-align:right;">' . htmlspecialchars($sku) . ' &bull; ' . htmlspecialchars($barcode) . '</td>
+                                    <td style="padding:10px 14px; font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase;">SKU</td>
+                                    <td style="padding:10px 14px; font-size:12px; font-family:monospace; color:#4b5563; text-align:right;">' . htmlspecialchars($sku) . '</td>
                                 </tr>
                                 <tr style="border-bottom:1px solid #e5e7eb;">
                                     <td style="padding:10px 14px; font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase;">Current Stock</td>
@@ -1142,7 +1134,6 @@ class EmailService
         string $productName,
         string $category,
         string $sku,
-        string $barcode,
         string $location,
         int $currentStock,
         int $reorderPoint,
@@ -1156,7 +1147,6 @@ class EmailService
                "Product: {$productName}\n" .
                "Category: {$category}\n" .
                "SKU: {$sku}\n" .
-               "Barcode: {$barcode}\n" .
                "Current Stock: {$currentStock} units\n" .
                "Reorder Point: {$reorderPoint} units\n" .
                "Location: {$location}\n" .
@@ -1390,7 +1380,6 @@ class EmailService
                     'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
                     'category'     => 'Skincare',
                     'sku'          => 'P-9999',
-                    'barcode'      => '8997238240012',
                     'location'     => 'Shelf A-01',
                     'quantity'     => 0,
                     'reorder_point'=> 15,
@@ -1416,7 +1405,6 @@ class EmailService
                     'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
                     'category'     => 'Household Items',
                     'sku'          => 'P-0470',
-                    'barcode'      => '4806512398412',
                     'location'     => 'Shelf H',
                     'quantity'     => 6,
                     'reorder_point'=> 10,
@@ -1442,7 +1430,6 @@ class EmailService
                         'product_name' => 'The Originote Moisturizer (Demo Out of Stock)',
                         'category'     => 'Skincare',
                         'sku'          => 'P-9999',
-                        'barcode'      => '8997238240012',
                         'location'     => 'Shelf A-01',
                         'quantity'     => 0,
                         'reorder_point'=> 15,
@@ -1453,7 +1440,6 @@ class EmailService
                         'product_name' => 'Aquaflask 32 Oz Thumbler (Demo Low Stock)',
                         'category'     => 'Household Items',
                         'sku'          => 'P-0470',
-                        'barcode'      => '4806512398412',
                         'location'     => 'Shelf H',
                         'quantity'     => 6,
                         'reorder_point'=> 10,

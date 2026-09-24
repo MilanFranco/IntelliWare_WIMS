@@ -429,23 +429,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         display: flex;
     }
 
-    /* Toast Notification */
-    #toast-container {
-        visibility: hidden;
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%) translateY(20px);
-        z-index: 100005;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        pointer-events: auto;
-    }
-    #toast-container.show { visibility: visible; transform: translateX(-50%) translateY(0); }
-
+    /* Toast Notification (.toast-box confirm dialog) */
     .toast-box {
         background: rgba(19, 39, 91, 0.95);
         border: 1.5px solid rgba(81, 213, 90, 0.3);
@@ -823,11 +807,13 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             </div>
 
             <!-- Live Search -->
-            <div class="relative flex-1 sm:w-60">
-                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#9aa6d1]">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                </span>
-                <input type="text" id="userSearchInput" onkeyup="filterUserTable()" placeholder="Search directory..." class="premium-input pl-9 h-[38px] text-xs" />
+            <div class="flex items-center gap-2 flex-1 sm:w-64 sm:flex-initial">
+                <div class="relative flex-1">
+                    <input type="text" id="userSearchInput" onkeyup="filterUserTable()" placeholder="Search directory..." class="premium-input px-3.5 h-[38px] text-xs w-full" />
+                </div>
+                <button type="button" onclick="filterUserTable()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Directory" aria-label="Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
             </div>
 
             <span class="text-xs text-[#9aa6d1] bg-[#1D387B] px-3 py-2 rounded-xl border border-[#2A4484] whitespace-nowrap">
@@ -1113,28 +1099,6 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         document.getElementById('editUserModal').classList.remove('show');
     }
 
-    // Standardized Bottom-Center Toast Notification (Color-Coded)
-    function showToast(message, type = 'error') {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
-        container.innerHTML = ''; 
-        
-        const toast = document.createElement('div');
-        toast.className = 'toast-box ' + (type === 'success' ? 'toast-success' : 'toast-error');
-        const icon = type === 'success'
-            ? '<svg class="w-5 h-5 text-[#51D55A] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>'
-            : '<svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
-        
-        toast.innerHTML = icon + '<span style="font-weight:500; font-size:13.5px;">' + message + '</span>';
-        container.appendChild(toast);
-        container.classList.add('show');
-        
-        clearTimeout(container._timer);
-        container._timer = setTimeout(() => {
-            container.classList.remove('show');
-        }, 3500);
-    }
-
     // Delete Confirmation Toast
     function confirmDelete(userId, username) {
         const container = document.getElementById('toast-container');
@@ -1149,7 +1113,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
                 <div style="font-size:11px; color:#9aa6d1">This user will be permanently revoked from the system.</div>
             </div>
             <div class="toast-actions">
-                <button type="button" class="toast-btn btn-no" onclick="this.closest('.toast-box').remove()">Cancel</button>
+                <button type="button" class="toast-btn btn-no" onclick="this.closest('.toast-box').remove(); document.getElementById('toast-container').classList.remove('show');">Cancel</button>
                 <button type="button" class="toast-btn btn-yes" onclick="submitDelete(${userId})">Delete</button>
             </div>
         `;

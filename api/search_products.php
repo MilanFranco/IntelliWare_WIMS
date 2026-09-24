@@ -56,14 +56,14 @@ $stmt  = $conn->prepare("
            (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
            (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date IS NULL ASC, b.expiry_date ASC LIMIT 1) AS batch_number
     FROM products p
-    WHERE p.product_name LIKE ? OR p.category LIKE ? OR p.supplier LIKE ? OR p.barcode = ?
+    WHERE p.product_name LIKE ? OR p.category LIKE ? OR p.supplier LIKE ?
     ORDER BY
-        CASE WHEN p.barcode = ? THEN 0 WHEN p.product_name LIKE ? THEN 1 ELSE 2 END,
+        CASE WHEN p.product_name LIKE ? THEN 0 ELSE 1 END,
         p.product_name ASC
     LIMIT ?
 ");
 
-$stmt->bind_param('ssssssi', $like, $like, $like, $q, $q, $like, $limit);
+$stmt->bind_param('ssssi', $like, $like, $like, $like, $limit);
 $stmt->execute();
 $result = $stmt->get_result();
 

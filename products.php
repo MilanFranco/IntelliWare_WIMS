@@ -117,7 +117,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     try {
         if ($action === 'add') {
             $product_name = trim($_POST['product_name'] ?? '');
-            $barcode      = trim($_POST['barcode'] ?? '');
             $category     = trim($_POST['category'] ?? '');
             $supplier     = trim($_POST['supplier'] ?? '');
             $location     = trim($_POST['location'] ?? '');
@@ -181,7 +180,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 setFlashMessage('success', 'Product added successfully.');
             } else {
                 if ($conn->errno === 1062) {
-                    throw new Exception('This barcode is already registered to another product.');
+                    throw new Exception('A product with this information already exists.');
                 }
                 throw new Exception('Could not save product. Please try again.');
             }
@@ -192,8 +191,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $price = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
             $shelf_life = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
             $id = (int)$_POST['id'];
-            $barcode = trim($_POST['barcode'] ?? '');
-            $barcodeVal = $barcode !== '' ? $barcode : null;
             $category = trim($_POST['category'] ?? '');
             $location = trim($_POST['location'] ?? '');
 
@@ -209,17 +206,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $category = $synced['category'];
             $location = $synced['location'];
 
-            if ($barcodeVal !== null) {
-                $dupStmt = $conn->prepare("SELECT product_id, product_name FROM products WHERE barcode = ? AND product_id != ?");
-                $dupStmt->bind_param("si", $barcodeVal, $id);
-                $dupStmt->execute();
-                $existing = $dupStmt->get_result()->fetch_assoc();
-                $dupStmt->close();
-                if ($existing) {
-                    throw new Exception("This barcode already belongs to product: " . $existing['product_name'] . " (ID " . $existing['product_id'] . ").");
-                }
-            }
-
             $currentQtyStmt = $conn->prepare('SELECT quantity FROM products WHERE product_id = ?');
             $currentQtyStmt->bind_param('i', $id);
             $currentQtyStmt->execute();
@@ -234,8 +220,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $qtyDelta = $newQty - $currentQty;
             $categoryId = LocationCategoryService::resolveCategoryId($category, $conn);
 
-            $stmt = $conn->prepare("UPDATE products SET product_name=?, barcode=?, category=?, category_id=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
-            $stmt->bind_param("sssissisdii", $_POST['name'], $barcodeVal, $category, $categoryId, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
+            $stmt = $conn->prepare("UPDATE products SET product_name=?, category=?, category_id=?, supplier=?, location=?, reorder_point=?, unit=?, price=?, shelf_life=? WHERE product_id=?");
+            $stmt->bind_param("ssissisdii", $_POST['name'], $category, $categoryId, $_POST['supplier'], $location, $reorder_point, $_POST['uom'], $price, $shelf_life, $id);
             if (!$stmt->execute()) {
                 throw new Exception("Update failed: " . $stmt->error);
             }
@@ -312,10 +298,10 @@ $params[] = $show_archived ? 1 : 0;
 $types .= 'i';
 
 if ($q) {
-    $where[] = "(product_name LIKE ? OR supplier LIKE ? OR barcode LIKE ? OR barcode = ?)";
+    $where[] = "(product_name LIKE ? OR supplier LIKE ?)";
     $term = "%$q%";
-    array_push($params, $term, $term, $term, $q);
-    $types .= 'ssss';
+    array_push($params, $term, $term);
+    $types .= 'ss';
 }
 if ($category_param) {
     $where[] = "category = ?";
@@ -385,7 +371,6 @@ foreach ($items as $it) {
     $id = $it['id'];
     $edit_inputs[$id] = [
         'name' => "<input type='text' id='input-name-{$id}' class='edit-field' value='".htmlspecialchars($it['name'])."' />",
-        'barcode' => "<input type='text' id='input-barcode-{$id}' class='edit-field' value='".htmlspecialchars($it['barcode'] ?? '')."' placeholder='Barcode' />",
         'category' => "<select id='input-category-{$id}' class='edit-field inventory-select'>".renderOptions($categories, $it['category'], 'Select Category')."</select>",
         'supplier' => "<input type='text' id='input-supplier-{$id}' class='edit-field' value='".htmlspecialchars($it['supplier'])."' />",
         'location' => "<input type='text' id='input-location-{$id}' class='edit-field' value='".htmlspecialchars($it['location'])."' list='location-options' />",
@@ -566,7 +551,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
     }
 
-    /* ── Inventory Summary Metric Cards ────────────────────────────── */
+    /* ── Inventory Summary Metric Cards ─────────────────────────── */
     .inv-summary-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -576,11 +561,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     @media (max-width: 1024px) {
         .inv-summary-grid {
             grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    @media (max-width: 640px) {
-        .inv-summary-grid {
-            grid-template-columns: 1fr;
+            gap: 14px;
         }
     }
     .inv-summary-card {
@@ -628,36 +609,166 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-weight: 500;
         color: #7A90B0;
     }
-
-    /* ── Responsive Inventory Layout: Desktop/Tablet = Table, Mobile = Cards ── */
-    .inv-desktop-table { display: block; }
-    .inv-mobile-cards  { display: none; }
     @media (max-width: 767px) {
-        .inv-desktop-table { display: none !important; }
-        .inv-mobile-cards  { display: block !important; }
+        .inv-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .inv-summary-card {
+            padding: 14px 15px;
+            min-height: 96px;
+            border-radius: 14px;
+        }
+        .inv-summary-card-label {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+        .inv-summary-card-label svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+        .inv-summary-card-value {
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+        .inv-summary-card-sub {
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+    @media (max-width: 360px) {
+        .inv-summary-card {
+            padding: 12px 11px;
+            min-height: 90px;
+        }
+        .inv-summary-card-label {
+            font-size: 10px;
+        }
+        .inv-summary-card-value {
+            font-size: 21px;
+        }
+        .inv-summary-card-sub {
+            font-size: 10px;
+        }
     }
 
+    /* ── Inventory Layout View (Cards default: 2-3 per row on desktop, Table toggleable) ── */
     .inv-card-grid {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-        padding: 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        padding: 24px;
     }
-    /* ── Product Card (Mobile View) ──────────────────────────────────── */
+    @media (max-width: 1260px) {
+        .inv-card-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+    }
+    @media (max-width: 640px) {
+        .inv-card-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            padding: 16px;
+        }
+    }
+
+    /* View mode toggling */
+    .view-mode-grid #inventory-desktop-table { display: none !important; }
+    .view-mode-grid #inventory-card-grid { display: grid !important; }
+    .view-mode-table #inventory-desktop-table { display: block !important; }
+    .view-mode-table #inventory-card-grid { display: none !important; }
+
+    @media (max-width: 767px) {
+        #inventory-desktop-table { display: none !important; }
+        #inventory-card-grid { display: grid !important; }
+    }
+
+    /* ── View Switcher Buttons (Hidden on mobile) ─────────────────────── */
+    .inv-view-toggle {
+        display: none !important;
+        align-items: center;
+        background: #EEF5FD;
+        border: 1.5px solid #D6E8F7;
+        border-radius: 10px;
+        padding: 2px;
+        gap: 2px;
+        height: 42px;
+    }
+    @media (min-width: 768px) {
+        .inv-view-toggle {
+            display: inline-flex !important;
+        }
+    }
+    .inv-view-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 7px;
+        border: none;
+        background: transparent;
+        color: #7A90B0;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+    .inv-view-toggle-btn:hover {
+        color: #14509E;
+        background: rgba(20, 80, 158, 0.08);
+    }
+    .inv-view-toggle-btn.active {
+        background: #ffffff;
+        color: #14509E;
+        box-shadow: 0 1px 4px rgba(20, 80, 158, 0.15);
+    }
+
+    [data-theme="dark"] .inv-view-toggle {
+        background: rgba(13, 22, 56, 0.6);
+        border-color: rgba(42, 68, 132, 0.5);
+    }
+    [data-theme="dark"] .inv-view-toggle-btn {
+        color: #9aa6d1;
+    }
+    [data-theme="dark"] .inv-view-toggle-btn:hover {
+        color: #ffffff;
+        background: rgba(81, 213, 90, 0.15);
+    }
+    [data-theme="dark"] .inv-view-toggle-btn.active {
+        background: #1e3678;
+        color: #51D55A;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ── Product Card (Compact & Modern Grid Card) ─────────────────────── */
     .inv-card {
         background: #ffffff;
-        border: 1.5px solid #D6E8F7;
-        border-radius: 16px;
+        border: 1.5px solid #D9E8F6;
+        border-radius: 14px;
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.07), 0 0 0 0 transparent;
-        transition: box-shadow 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
+        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.05);
+        transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
         cursor: default;
+        position: relative;
     }
     .inv-card:hover {
         border-color: #A8C8F0;
-        box-shadow: 0 6px 22px rgba(20, 80, 158, 0.13);
+        box-shadow: 0 8px 24px rgba(20, 80, 158, 0.12);
         transform: translateY(-2px);
     }
 
@@ -665,13 +776,13 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-top {
         display: flex;
         align-items: flex-start;
-        gap: 14px;
-        padding: 18px 18px 16px;
+        gap: 12px;
+        padding: 14px 14px 10px 14px;
     }
     .inv-card-thumb {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
         background: #EEF5FD;
         border: 1px solid #D0E5F7;
         display: flex;
@@ -679,26 +790,34 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         justify-content: center;
         flex-shrink: 0;
         color: #14509E;
+        overflow: hidden;
+    }
+    .inv-card-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
     .inv-card-info {
         flex: 1;
         min-width: 0;
-        overflow: hidden;
     }
     .inv-card-name {
         font-family: 'Onest', sans-serif;
-        font-size: 15px;
+        font-size: 13.5px;
         font-weight: 700;
         color: #0B1526;
-        white-space: nowrap;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
-        line-height: 1.3;
+        min-height: 36px;
+        word-break: break-word;
     }
     .inv-card-meta {
         font-family: 'Onest', sans-serif;
-        font-size: 12px;
-        color: #45526B;
+        font-size: 11.5px;
+        color: #556987;
         margin-top: 3px;
         white-space: nowrap;
         overflow: hidden;
@@ -706,9 +825,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     .inv-card-sku {
         font-family: monospace;
-        font-size: 11px;
+        font-size: 10.5px;
         color: #7A90B0;
-        margin-top: 4px;
+        margin-top: 2px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -718,74 +837,80 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-badge {
         flex-shrink: 0;
         font-family: 'Onest', sans-serif;
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 800;
-        letter-spacing: 0.05em;
-        padding: 3px 10px;
-        border-radius: 20px;
+        letter-spacing: 0.04em;
+        padding: 2.5px 8px;
+        border-radius: 6px;
         white-space: nowrap;
-        margin-top: 2px;
     }
-    .badge-out  { background: rgba(239,68,68,0.1); color: #DC2626; border: 1.5px solid rgba(239,68,68,0.3); }
-    .badge-low  { background: rgba(245,158,11,0.1); color: #D97706; border: 1.5px solid rgba(245,158,11,0.3); }
-    .badge-good { background: rgba(16,185,129,0.1); color: #059669; border: 1.5px solid rgba(16,185,129,0.3); }
+    .badge-out  { background: rgba(239,68,68,0.1); color: #DC2626; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-low  { background: rgba(245,158,11,0.1); color: #D97706; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-good { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.3); }
 
     /* Stats section */
-    .inv-card-divider {
-        height: 1px;
-        background: #E4EFF9;
-        margin: 0;
-    }
     .inv-card-stats {
         display: flex;
-        gap: 0;
-        padding: 14px 18px;
+        background: #F8FAFD;
+        border-top: 1px solid #E4EFF9;
         border-bottom: 1px solid #E4EFF9;
+        padding: 9px 12px;
+        margin-top: 4px;
     }
     .inv-card-stat {
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 2px;
+        min-width: 0;
     }
     .inv-card-stat + .inv-card-stat {
         border-left: 1px solid #E4EFF9;
-        padding-left: 16px;
+        padding-left: 10px;
     }
     .inv-stat-label {
         font-family: 'Onest', sans-serif;
-        font-size: 10px;
+        font-size: 9.5px;
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.07em;
         color: #7A90B0;
         text-transform: uppercase;
     }
     .inv-stat-value {
         font-family: 'Onest', sans-serif;
-        font-size: 20px;
+        font-size: 15px;
         font-weight: 800;
         color: #0B1526;
-        line-height: 1;
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .inv-stat-value.stat-out { color: #DC2626; }
     .inv-stat-value.stat-low { color: #D97706; }
+    .inv-stat-unit {
+        font-size: 10px;
+        font-weight: 500;
+        color: #7A90B0;
+        margin-left: 2px;
+    }
 
     /* Action buttons */
     .inv-card-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
-        padding: 14px 18px;
+        gap: 8px;
+        padding: 10px 14px 12px 14px;
     }
     .inv-card-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 7px;
-        height: 40px;
-        border-radius: 10px;
+        gap: 6px;
+        height: 34px;
+        border-radius: 8px;
         font-family: 'Onest', sans-serif;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         border: 1.5px solid #D6E8F7;
@@ -798,7 +923,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: #A8C8F0;
         color: #14509E;
         transform: translateY(-1px);
-        box-shadow: 0 3px 10px rgba(20, 80, 158, 0.12);
+        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.1);
     }
     .inv-card-btn:hover svg { stroke: #14509E; }
     .inv-card-btn--archive:hover,
@@ -830,23 +955,27 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: 0 4px 16px rgba(0,0,0,0.3);
     }
     [data-theme="dark"] .inv-card:hover {
-        border-color: rgba(81, 213, 90, 0.25);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        border-color: rgba(81, 213, 90, 0.35);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
     }
     [data-theme="dark"] .inv-card-thumb {
         background: rgba(13, 22, 56, 0.7);
         border-color: rgba(42,68,132,0.4);
         color: #9aa6d1;
     }
-    [data-theme="dark"] .inv-card-name  { color: #e3e3e3; }
+    [data-theme="dark"] .inv-card-name  { color: #f1f5f9; }
     [data-theme="dark"] .inv-card-meta  { color: #9aa6d1; }
     [data-theme="dark"] .inv-card-sku   { color: #6b7aab; }
     [data-theme="dark"] .inv-card-divider,
-    [data-theme="dark"] .inv-card-stats { border-color: rgba(42,68,132,0.5); }
-    [data-theme="dark"] .inv-card-stat + .inv-card-stat { border-color: rgba(42,68,132,0.5); }
+    [data-theme="dark"] .inv-card-stats {
+        background: rgba(13, 22, 56, 0.35);
+        border-color: rgba(42,68,132,0.45);
+    }
+    [data-theme="dark"] .inv-card-stat + .inv-card-stat { border-color: rgba(42,68,132,0.45); }
     [data-theme="dark"] .inv-stat-label { color: #6b7aab; }
-    [data-theme="dark"] .inv-stat-value { color: #e3e3e3; }
-    [data-theme="dark"] .inv-card-actions { border-top: 1px solid rgba(42,68,132,0.5); }
+    [data-theme="dark"] .inv-stat-value { color: #f1f5f9; }
+    [data-theme="dark"] .inv-stat-unit  { color: #6b7aab; }
+    [data-theme="dark"] .inv-card-actions { border-top: none; }
     [data-theme="dark"] .inv-card-btn {
         background: rgba(81,213,90,0.08);
         border-color: rgba(81,213,90,0.3);
@@ -906,28 +1035,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         background: rgba(248, 113, 113, 0.08);
     }
 
-    .btn-confirm-barcode {
-        height: 46px;
-        padding: 0 16px;
-        background: rgba(81, 213, 90, 0.15);
-        border: 1px solid rgba(81, 213, 90, 0.4);
-        border-radius: 12px;
-        color: #51D55A;
-        cursor: pointer;
-        font-size: 13px;
-        font-family: 'Onest', sans-serif;
-        font-weight: 600;
-        white-space: nowrap;
-        transition: all 0.2s ease;
-    }
-    .btn-confirm-barcode:hover:not(:disabled) {
-        background: rgba(81, 213, 90, 0.25);
-        transform: translateY(-1px);
-    }
-    .btn-confirm-barcode:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
 
     .form-keyboard-hint {
         font-size: 11px;
@@ -1107,15 +1214,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         color: #9aa6d1 !important;
         cursor: not-allowed;
     }
-    .add-barcode-status {
-        font-size: 12px;
-        margin-top: 8px;
-        font-family: 'Onest', sans-serif;
-    }
-    .add-barcode-status--pending { color: #fcd34d; }
-    .add-barcode-status--ready { color: #51D55A; }
-    .add-barcode-status--error { color: #f87171; }
-
     .add-field-error {
         color: #f87171;
         font-size: 11px;
@@ -1136,49 +1234,17 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         transform: none;
     }
 
-    .btn-clear-barcode {
-        height: 46px;
-        padding: 0 14px;
-        background: transparent;
-        border: 1px solid #64748b;
-        border-radius: 12px;
-        color: #9aa6d1;
-        cursor: pointer;
-        font-size: 12px;
-        font-family: 'Onest', sans-serif;
-        font-weight: 600;
-        white-space: nowrap;
-        transition: all 0.2s ease;
+    #action-confirm-overlay { z-index: 100060 !important; }
+    #action-confirm-ok-btn {
+        transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
     }
-    .btn-clear-barcode:hover { border-color: #f87171; color: #f87171; }
-
-    #toast-container {
-        visibility: hidden;
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%) translateY(20px);
-        padding: 12px 24px;
-        border-radius: 12px;
-        font-family: 'Onest', sans-serif;
-        font-size: 14px;
-        z-index: 100002;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        opacity: 0;
-        transition: all 0.4s;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-        background: rgba(29, 56, 123, 0.95);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    #action-confirm-ok-btn:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
     }
-    #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
-    #toast-container.success { border-color: #34d399; }
-    #toast-container.error { border-color: #f87171; background: rgba(74, 36, 61, 0.95); }
-
-    #barcode-scanner-overlay { z-index: 100003; }
-    #barcode-duplicate-overlay { z-index: 100003; }
+    #action-confirm-ok-btn:active {
+        transform: translateY(0);
+    }
 
     [data-theme="light"] .modal-overlay { background: var(--iw-bg-overlay) !important; }
     [data-theme="light"] .modal-box {
@@ -1200,12 +1266,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: none !important;
     }
     [data-theme="light"] .modal-close-btn:hover {
-        background: #FEE2E2 !important;
-        border-color: #FCA5A5 !important;
-        color: #EF4444 !important;
-        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2) !important;
+        background: #E2E8F0 !important;
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .modal-footer {
+        background: #F8FAFC !important;
+        border-top-color: #E2E8F0 !important;
     }
     [data-theme="light"] .modal-body-scroll {
+        background: #FFFFFF !important;
         scrollbar-color: #CBD5E1 transparent !important;
     }
     [data-theme="light"] .modal-body-scroll::-webkit-scrollbar {
@@ -1233,12 +1302,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: var(--iw-border) !important;
         color: var(--iw-text) !important;
     }
-    [data-theme="light"] #toast-container {
-        background: var(--iw-bg-modal) !important;
-        border-color: var(--iw-border) !important;
-        box-shadow: var(--iw-shadow-dropdown) !important;
-        color: var(--iw-text) !important;
-    }
     [data-theme="light"] #edit-image-empty-wrap {
         background: #F8FAFC !important;
         border-color: #CBD5E1 !important;
@@ -1261,11 +1324,13 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: #E2E8F0 !important;
     }
     [data-theme="light"] #archive-modal-overlay h3,
-    [data-theme="light"] #restore-modal-overlay h3 {
+    [data-theme="light"] #restore-modal-overlay h3,
+    [data-theme="light"] #action-confirm-overlay h3 {
         color: #0F172A !important;
     }
     [data-theme="light"] #archive-modal-overlay p,
-    [data-theme="light"] #restore-modal-overlay p {
+    [data-theme="light"] #restore-modal-overlay p,
+    [data-theme="light"] #action-confirm-overlay p {
         color: #475569 !important;
     }
     [data-theme="light"] #archive-product-name,
@@ -1445,8 +1510,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 </style>
 
 <!-- Hero Page Header Banner -->
-<div class="page-hero-card mb-6" style="background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%); border: 1px solid rgba(42, 68, 132, 0.6); border-radius: 18px; padding: 24px 28px; box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35); position: relative; overflow: hidden;">
-    <div style="content:''; position:absolute; top:-60px; right:-40px; width:300px; height:300px; background: radial-gradient(circle, rgba(81,213,90,0.08) 0%, rgba(0,0,0,0) 70%); pointer-events:none;"></div>
+<div class="page-hero-card mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#9aa6d1] mb-1">
@@ -1461,7 +1525,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 Inventory Management
             </h1>
             <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
-                Manage products, barcodes, stock levels, and categories. Add, edit, or archive inventory items with real-time barcode scanning support.
+                Manage products, stock levels, and categories. Add, edit, or archive inventory items with AI-powered scanning support.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
@@ -1531,53 +1595,65 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 </div>
 
 <div class="premium-card">
-    <div class="p-6 border-b border-[#2A4484]/50 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-[#13275B]/30 !pb-6">
+    <div class="p-4 sm:p-6 border-b border-[#2A4484]/50 flex flex-col gap-4 bg-[#13275B]/30">
         <div>
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 flex-wrap">
                 <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path></svg>
                 Inventory List
                 <span class="text-[10px] text-[#51D55A] bg-[#51D55A]/10 border border-[#51D55A]/20 px-2 py-1 rounded font-normal"><?php echo $total_items; ?> Items</span>
             </h3>
-            <p class="text-xs text-[#9aa6d1] mt-1">Manage products, barcodes, and stock levels. Handheld scanners work in search and barcode fields.</p>
+            <p class="text-xs text-[#9aa6d1] mt-1">Manage products and stock levels.</p>
         </div>
 
-        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full xl:w-auto flex-wrap xl:flex-nowrap">
-            <form method="GET" class="flex flex-col sm:flex-row gap-2 flex-1 xl:flex-initial sm:items-center flex-nowrap" id="inv-search-form">
+        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 w-full">
+            <form method="GET" class="flex flex-col sm:flex-row gap-2 flex-1 items-stretch sm:items-center min-w-0" id="inv-search-form">
                 <input type="hidden" name="page" value="1">
-                <div class="relative flex-1 sm:min-w-[180px] xl:min-w-[210px]">
-                    <input name="q" id="product-search-input" class="premium-input w-full pl-10 pr-10 text-sm" style="height:44px;" placeholder="Search name or barcode..." value="<?php echo htmlspecialchars($q); ?>">
-                    <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    <button type="button" id="search-scan-barcode-btn" class="btn-secondary absolute right-2 top-1.5 flex items-center justify-center cursor-pointer" style="width:32px; height:32px; padding:0; border-radius:8px;" title="Scan with camera"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
+                <?php if ($show_archived): ?><input type="hidden" name="archived" value="1"><?php endif; ?>
+                <div class="flex gap-2 flex-1 min-w-0 items-center">
+                    <div class="relative flex-1 min-w-0 sm:min-w-[180px] lg:min-w-[220px]">
+                        <input name="q" id="product-search-input" class="premium-input w-full px-4 text-sm" style="height:42px;" placeholder="Search by name, category, supplier..." value="<?php echo htmlspecialchars($q); ?>">
+                    </div>
+                    <button type="submit" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Inventory" aria-label="Search">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </button>
                 </div>
-                <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 xl:w-40 shrink-0" style="height:44px;" onchange="this.form.submit()">
+                <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 md:w-40 shrink-0" style="height:42px;" onchange="this.form.submit()">
                     <option value="">All Categories</option>
                     <?php foreach ($categories as $cat) echo "<option value='".htmlspecialchars($cat)."' ".($category_param==$cat?'selected':'').">" .htmlspecialchars($cat)."</option>"; ?>
                 </select>
-                <select name="filter" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 xl:w-40 shrink-0" style="height:44px;" onchange="this.form.submit()">
+                <select name="filter" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 md:w-40 shrink-0" style="height:42px;" onchange="this.form.submit()">
                     <option value="">All Stock</option>
                     <option value="low_stock" <?php echo in_array($filter_param, ['low', 'low_stock']) ? 'selected' : ''; ?>>Low Stock</option>
                     <option value="out_of_stock" <?php echo in_array($filter_param, ['out', 'out_of_stock']) ? 'selected' : ''; ?>>Out of Stock</option>
                     <option value="in_stock" <?php echo in_array($filter_param, ['good', 'in_stock']) ? 'selected' : ''; ?>>In Stock</option>
                 </select>
                 <?php if($q||$category_param||$filter_param): ?>
-                    <a href="products.php<?php echo $show_archived ? '?archived=1' : ''; ?>" class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
+                    <a href="products.php<?php echo $show_archived ? '?archived=1' : ''; ?>" class="btn-secondary whitespace-nowrap h-[42px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
                 <?php endif; ?>
             </form>
-            <div id="inv-action-btns" class="flex flex-row items-center gap-2 shrink-0 flex-nowrap">
+            <div id="inv-action-btns" class="flex flex-row items-center gap-2 w-full md:w-auto shrink-0">
+                <div class="inv-view-toggle items-center" title="Toggle view">
+                    <button type="button" class="inv-view-toggle-btn active" id="btn-view-grid" onclick="setInventoryView('grid')" title="Card Grid View">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                    </button>
+                    <button type="button" class="inv-view-toggle-btn" id="btn-view-table" onclick="setInventoryView('table')" title="Table View">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                    </button>
+                </div>
                 <?php if (!$show_archived): ?>
-                <button type="button" class="premium-button whitespace-nowrap h-[44px] flex items-center justify-center gap-1.5 shrink-0 px-4 text-sm" onclick="openAddModal()">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    Add Product
+                <button type="button" class="premium-button flex-1 md:flex-initial whitespace-nowrap h-[42px] flex items-center justify-center gap-1.5 shrink-0 px-3.5 sm:px-4 text-xs sm:text-sm font-semibold rounded-xl min-w-0" onclick="openAddModal()">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span class="truncate">Add Product</span>
                 </button>
                 <?php endif; ?>
                 <a href="products.php?archived=<?php echo $show_archived ? '0' : '1'; ?>&q=<?php echo urlencode($q); ?>&category=<?php echo urlencode($category_param); ?><?php echo $filter_param !== '' ? '&filter=' . urlencode($filter_param) : ''; ?>"
-                   class="btn-secondary whitespace-nowrap h-[44px] flex items-center justify-center gap-1.5 shrink-0 px-3.5 text-sm">
+                   class="btn-secondary flex-1 md:flex-initial whitespace-nowrap h-[42px] flex items-center justify-center gap-1.5 shrink-0 px-3 sm:px-3.5 text-xs sm:text-sm font-semibold rounded-xl min-w-0">
                     <?php if ($show_archived): ?>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                    Active Products
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span class="truncate">Active Products</span>
                     <?php else: ?>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
-                    View Archived
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
+                    <span class="truncate">View Archived</span>
                     <?php endif; ?>
                 </a>
             </div>
@@ -1605,18 +1681,108 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
     <?php endif; ?>
 
-    <div id="inventory-products-content">
+    <div id="inventory-products-content" class="view-mode-grid">
     <?php if (!$items): ?>
         <div class="text-center p-12 text-[#9aa6d1]">No items found matching the current criteria.</div>
     <?php else: ?>
 
-    <!-- ── Desktop / Tablet: Table (≥768 px) ────────────────────── -->
-    <div class="inv-desktop-table" id="inventory-desktop-table">
+    <!-- ── Product Card Grid View (Default) ────────────────────────── -->
+    <div class="inv-card-grid" id="inventory-card-grid">
+        <?php foreach ($items as $it): ?>
+        <?php
+            $qty         = (int)$it['qty'];
+            $reorder     = (int)$it['reorder_point'];
+            $isOut       = $qty <= 0;
+            $isLow       = !$isOut && $qty <= $reorder;
+            $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
+            $statusLabel = $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD');
+            $imgFile     = __DIR__ . '/uploads/products/' . (int)$it['id'] . '.jpg';
+            $hasThumb    = file_exists($imgFile);
+        ?>
+        <div class="inv-card"
+             data-id="<?php echo $it['id']; ?>"
+             data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
+             data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
+             data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
+             data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
+             data-qty="<?php echo $qty; ?>"
+             data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
+             data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
+             data-reorder="<?php echo $reorder; ?>"
+             data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
+             data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
+
+            <!-- Top: thumb + info + badge -->
+            <div class="inv-card-top">
+                <div class="inv-card-thumb">
+                    <?php if ($hasThumb): ?>
+                        <img src="uploads/products/<?php echo (int)$it['id']; ?>.jpg" alt="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>" class="inv-card-thumb-img" loading="lazy">
+                    <?php else: ?>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                        </svg>
+                    <?php endif; ?>
+                </div>
+                <div class="inv-card-info">
+                    <div class="inv-card-name" title="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($it['name']); ?></div>
+                    <div class="inv-card-meta"><?php
+                        $meta = [];
+                        if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
+                        if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
+                        echo $meta ? implode(' · ', $meta) : '&mdash;';
+                    ?></div>
+                    <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?></div>
+                </div>
+                <div class="inv-card-badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="inv-card-stats">
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">STOCK</span>
+                    <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?><?php if ($it['uom']): ?><span class="inv-stat-unit"><?php echo htmlspecialchars($it['uom']); ?></span><?php endif; ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">PRICE</span>
+                    <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
+                </div>
+                <div class="inv-card-stat">
+                    <span class="inv-stat-label">REORDER</span>
+                    <span class="inv-stat-value"><?php echo $reorder; ?></span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="inv-card-actions"<?php echo ($role === 'staff') ? ' style="grid-template-columns: 1fr;"' : ''; ?>>
+                <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <?php if ($role !== 'staff'): ?>
+                <?php if (!$show_archived): ?>
+                <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    Archive
+                </button>
+                <?php else: ?>
+                <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                    Restore
+                </button>
+                <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div><!-- /.inv-card-grid -->
+
+    <!-- ── Table View (Optional Toggle) ─────────────────────────── -->
+    <div class="inv-desktop-table" id="inventory-desktop-table" style="display: none;">
         <div class="overflow-x-auto">
             <table class="premium-table w-full text-left min-w-[1100px]">
                 <thead>
                     <tr>
-                        <th width="7%">SKU</th> <th width="10%">Barcode</th> <th width="13%">Name</th> <th width="8%">Category</th>
+                        <th width="8%">SKU</th> <th width="18%">Name</th> <th width="10%">Category</th>
                         <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
                         <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
                         <th width="10%" class="text-right">Actions</th>
@@ -1628,7 +1794,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         class="hover:bg-[#1D387B]/50 transition-colors"
                         data-id="<?php echo $it['id']; ?>"
                         data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                        data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
                         data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
                         data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
                         data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
@@ -1639,7 +1804,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
                         data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
                         <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
-                        <td><span style="font-family:monospace; font-size:12px; color:#9aa6d1;"><?php echo htmlspecialchars($it['barcode'] ?? '—'); ?></span></td>
                         <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
                         <td><?php echo htmlspecialchars($it['category']); ?></td>
                         <td><?php echo htmlspecialchars($it['supplier']); ?></td>
@@ -1682,96 +1846,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             </table>
         </div>
     </div><!-- /.inv-desktop-table -->
-
-    <!-- ── Mobile: Card Grid (<768 px) ──────────────────────────── -->
-    <div class="inv-mobile-cards" id="inventory-mobile-cards">
-        <div class="inv-card-grid" id="inventory-card-grid">
-            <?php foreach ($items as $it): ?>
-            <?php
-                $qty      = (int)$it['qty'];
-                $reorder  = (int)$it['reorder_point'];
-                $isOut    = $qty <= 0;
-                $isLow    = !$isOut && $qty <= $reorder;
-                $barcodeTxt = ($it['barcode'] ?? '') !== '' ? htmlspecialchars($it['barcode']) : 'no barcode';
-                $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
-                $statusLabel = $isOut ? 'OUT OF STOCK' : ($isLow ? 'LOW' : 'GOOD');
-            ?>
-            <div class="inv-card"
-                 data-id="<?php echo $it['id']; ?>"
-                 data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
-                 data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? '', ENT_QUOTES); ?>"
-                 data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
-                 data-supplier="<?php echo htmlspecialchars($it['supplier'], ENT_QUOTES); ?>"
-                 data-location="<?php echo htmlspecialchars($it['location'], ENT_QUOTES); ?>"
-                 data-qty="<?php echo $qty; ?>"
-                 data-price="<?php echo number_format((float)($it['price'] ?? 0), 2, '.', ''); ?>"
-                 data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
-                 data-reorder="<?php echo $reorder; ?>"
-                 data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                 data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
-
-                <!-- Top: thumb + info + badge -->
-                <div class="inv-card-top">
-                    <div class="inv-card-thumb">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
-                        </svg>
-                    </div>
-                    <div class="inv-card-info">
-                        <div class="inv-card-name"><?php echo htmlspecialchars($it['name']); ?></div>
-                        <div class="inv-card-meta"><?php
-                            $meta = [];
-                            if ($it['category'] !== '') $meta[] = htmlspecialchars($it['category']);
-                            if ($it['location'] !== '')  $meta[] = htmlspecialchars($it['location']);
-                            echo $meta ? implode(' · ', $meta) : '&mdash;';
-                        ?></div>
-                        <div class="inv-card-sku">SKU <?php echo htmlspecialchars($it['sku']); ?> &nbsp;·&nbsp; <?php echo $barcodeTxt; ?></div>
-                    </div>
-                    <div class="inv-card-badge <?php echo $statusClass; ?>"><?php echo $statusLabel; ?></div>
-                </div>
-
-                <!-- Stats -->
-                <div class="inv-card-stats">
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">STOCK</span>
-                        <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">PRICE</span>
-                        <span class="inv-stat-value">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span>
-                    </div>
-                    <div class="inv-card-stat">
-                        <span class="inv-stat-label">REORDER</span>
-                        <span class="inv-stat-value"><?php echo $reorder; ?></span>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="inv-card-actions">
-                    <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        Edit
-                    </button>
-                    <?php if ($role !== 'staff'): ?>
-                    <?php if (!$show_archived): ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                        Archive
-                    </button>
-                    <?php else: ?>
-                    <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                        Restore
-                    </button>
-                    <?php endif; ?>
-                    <?php else: ?>
-                    <div></div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div><!-- /.inv-card-grid -->
-    </div><!-- /.inv-mobile-cards -->
 
     <?php endif; ?>
     </div><!-- /#inventory-products-content -->
@@ -1865,7 +1939,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <!-- Hidden fields for AI result -->
                     <input type="hidden" name="ai_class_label" id="add-ai-class-label" value="">
                     <input type="hidden" name="product_image_b64" id="add-product-image-b64" value="">
-                    <input type="hidden" name="barcode" id="add-barcode-hidden" value="">
 
                     <!-- AI Camera Identification — with bottom capture button and clean visual hierarchy -->
                     <div class="pos-scanner-zone" id="ai-capture-block" style="background:linear-gradient(175deg, rgba(19, 39, 91, 0.4) 0%, rgba(11, 20, 56, 0.6) 100%); border:1px solid rgba(42, 68, 132, 0.5); border-radius:14px; padding:16px;">
@@ -2120,6 +2193,21 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
 </div>
 
+<!-- Action Confirmation Modal (for Discard Changes, Remove Image, etc.) -->
+<div id="action-confirm-overlay" class="modal-overlay" style="z-index: 100060;">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 36px 28px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);">
+        <div style="margin-bottom: 18px; display: flex; justify-content: center;">
+            <div id="action-confirm-icon-wrap" style="width: 68px; height: 68px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"></div>
+        </div>
+        <h3 id="action-confirm-title" style="color:#fff; margin-bottom:10px; font-family:'Onest',sans-serif; font-size:18px; font-weight:700;"></h3>
+        <p id="action-confirm-msg" style="color:#9aa6d1; margin-bottom:26px; font-size:13.5px; line-height:1.55; font-family:'Onest',sans-serif;"></p>
+        <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" id="action-confirm-cancel-btn" style="min-width:115px; height:42px; font-size:13px; font-weight:600;">Keep Editing</button>
+            <button type="button" id="action-confirm-ok-btn" style="min-width:125px; height:42px; font-size:13px; font-weight:700; border-radius:12px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0 20px;"></button>
+        </div>
+    </div>
+</div>
+
 <div id="edit-modal-overlay" class="modal-overlay">
     <div class="modal-box">
         <div class="modal-header">
@@ -2173,10 +2261,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Name *</label>
                     <input type="text" name="name" id="edit-name" class="premium-input w-full" style="height:46px;" required maxlength="255">
-                </div>
-                <div style="grid-column: span 2;">
-                    <label class="form-label">Barcode</label>
-                    <input type="text" name="barcode" id="edit-barcode" class="premium-input w-full" style="height:46px;" maxlength="50" placeholder="Leave blank to keep existing">
                 </div>
                 <div>
                     <label class="form-label">Category</label>
@@ -2235,7 +2319,7 @@ const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 const DB_BRANDS = <?php echo json_encode($brands); ?>;
 const DB_CATEGORIES = <?php echo json_encode($categories); ?>;
 
-const editableFields = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
+const editableFields = ['name', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
 const ADD_FORM_FIELD_ORDER = [
     'add-product-name',
@@ -2249,21 +2333,13 @@ const ADD_FORM_FIELD_ORDER = [
     'add-shelf-life'
 ];
 
-const EDIT_FIELD_ORDER = ['name', 'barcode', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
+const EDIT_FIELD_ORDER = ['name', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
-var addBarcodeLocked = false;      // kept for legacy compatibility (unused)
-var addBarcodeValidating = false;  // kept for legacy compatibility (unused)
 var aiProductIdentified = false;   // AI gate: true once camera identifies a product
 var addFormSubmitting = false;
 var editRowSubmitting = {};
 var locationCategorySyncLock = false;
-var ADD_BARCODE_MIN_LENGTH = 3;
 var ADD_SUBMIT_LABEL = 'Save Product';
-
-function setBarcodeConfirmEnabled(enabled) {
-    var confirmBtn = document.getElementById('add-confirm-barcode-btn');
-    if (confirmBtn) confirmBtn.disabled = !enabled;
-}
 
 function extractLocationPrefix(location) {
     location = (location || '').trim();
@@ -2361,12 +2437,6 @@ function getAddFormFields() {
     return document.querySelectorAll('#add-product-form .add-form-field');
 }
 
-function setAddBarcodeStatus(message, state) {
-    var statusEl = document.getElementById('add-barcode-status');
-    if (!statusEl) return;
-    statusEl.textContent = message;
-    statusEl.className = 'add-barcode-status add-barcode-status--' + (state || 'pending');
-}
 
 function setAddFormFieldsEnabled(enabled) {
     getAddFormFields().forEach(function (field) {
@@ -2395,112 +2465,7 @@ function setAiStatus(text, state) {
     }
 }
 
-function onLiveBarcodeScanned(barcode) {
-    if (!barcode) return;
-    if (typeof ProductCameraScanner !== 'undefined') {
-        ProductCameraScanner.playBeep(true);
-        ProductCameraScanner.stopLiveBarcodeScanner();
-    }
 
-    // Capture snapshot of current frame for the thumbnail
-    var video  = document.getElementById('ai-video');
-    var canvas = document.getElementById('ai-snapshot-canvas');
-    if (video && canvas) {
-        canvas.width  = video.videoWidth  || 640;
-        canvas.height = video.videoHeight || 480;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        var b64 = canvas.toDataURL('image/jpeg', 0.85);
-        var imgField = document.getElementById('add-product-image-b64');
-        if (imgField) imgField.value = b64;
-        video.style.display  = 'none';
-        canvas.style.display = 'block';
-    }
-
-    _stopAddProductCamera();
-    aiOnIdentified();
-
-    var barcodeHidden = document.getElementById('add-barcode-hidden');
-    if (barcodeHidden) barcodeHidden.value = barcode;
-
-    var confirmLabel = document.getElementById('ai-confirmed-label');
-    if (confirmLabel) confirmLabel.textContent = '✓ Barcode: ' + barcode;
-    setAiStatus('🔍 Barcode ' + barcode + ' detected — fetching product information…', 'scanning');
-
-    if (typeof ProductCameraScanner !== 'undefined') {
-        ProductCameraScanner.lookupBarcode(barcode).then(function (info) {
-            if (!info) {
-                setAiStatus('✓ Barcode: ' + barcode + ' registered — enter product name below', 'identified');
-                document.getElementById('add-product-name')?.focus();
-                return;
-            }
-
-            var nameInput     = document.getElementById('add-product-name');
-            var catInput      = document.getElementById('add-category');
-            var supplierInput = document.getElementById('add-supplier');
-            var unitInput     = document.getElementById('add-unit');
-            var priceInput    = document.getElementById('add-price');
-            var locInput      = document.getElementById('add-location');
-            var shelfInput    = document.getElementById('add-shelf-life');
-
-            if (info.product_name && nameInput) {
-                nameInput.value = info.product_name;
-                clearAddFieldError('add-product-name', 'add-product-name-error');
-                nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-                renderNameSuggestions([info.product_name], info.product_name);
-            }
-            if (info.supplier && supplierInput) {
-                supplierInput.value = info.supplier;
-                supplierInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            if (info.category && catInput) {
-                for (var c = 0; c < catInput.options.length; c++) {
-                    if (catInput.options[c].value.toLowerCase() === info.category.toLowerCase() ||
-                        catInput.options[c].text.toLowerCase() === info.category.toLowerCase()) {
-                        catInput.selectedIndex = c;
-                        catInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        break;
-                    }
-                }
-            }
-            if (info.unit && unitInput) {
-                for (var u = 0; u < unitInput.options.length; u++) {
-                    if (unitInput.options[u].value.toLowerCase() === info.unit.toLowerCase() ||
-                        unitInput.options[u].text.toLowerCase() === info.unit.toLowerCase()) {
-                        unitInput.selectedIndex = u;
-                        unitInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        break;
-                    }
-                }
-            }
-            if (info.price && priceInput && !priceInput.value) {
-                priceInput.value = info.price;
-            }
-            if (info.location && locInput && !locInput.value) {
-                locInput.value = info.location;
-            }
-            if (info.shelf_life && shelfInput && !shelfInput.value) {
-                shelfInput.value = info.shelf_life;
-            }
-
-            var titleStr = info.product_name || ('Barcode ' + barcode);
-            var statusStr = info.source === 'store_database'
-                ? '✨ Found in inventory: ' + titleStr + ' — details loaded!'
-                : (info.product_name ? '✨ Product identified: ' + titleStr + ' — review or save!' : '✓ Barcode ' + barcode + ' registered — enter name below');
-
-            setAiStatus(statusStr, 'identified');
-            if (confirmLabel && info.product_name) {
-                confirmLabel.textContent = '✨ ' + info.product_name;
-            }
-
-            // Feed confirmed match into ImageScanner adaptive calibration
-            if (info.product_id && typeof window.notifyImageScannerSuccess === 'function') {
-                window.notifyImageScannerSuccess(info.product_id, 1.0);
-            }
-        }).catch(function () {
-            setAiStatus('✓ Barcode: ' + barcode + ' registered — enter product name below', 'identified');
-        });
-    }
-}
 
 function aiCaptureFrame() {
     var video    = document.getElementById('ai-video');
@@ -2639,15 +2604,7 @@ function aiProcessOcr(imageSource, isCameraSnapshot) {
             }
         }, !!isCameraSnapshot).then(function(result) {
             var rawText = (typeof result === 'object' && result.text != null) ? result.text : (result || '');
-            var detectedBarcode = (typeof result === 'object' && result.barcode) ? result.barcode : '';
-
             console.log('[AI OCR] Detected raw text:', rawText);
-            console.log('[AI OCR] Detected barcode:', detectedBarcode);
-
-            if (detectedBarcode) {
-                onLiveBarcodeScanned(detectedBarcode);
-                return;
-            }
 
             if (!rawText || !rawText.trim()) {
                 setAiStatus('Photo saved — please enter product name below', 'identified');
@@ -2997,7 +2954,7 @@ function submitAddProductForm() {
     }
 }
 
-// validateAddProductForm — barcode gate removed
+// validateAddProductForm
 function validateAddProductForm() {
     clearAddFormErrors();
     var valid = true;
@@ -3050,17 +3007,6 @@ function validateAddProductForm() {
     return valid;
 }
 
-function lockAddBarcodeField(locked) {
-    var input = document.getElementById('add-barcode-input');
-    var clearBtn = document.getElementById('add-clear-barcode-btn');
-    if (!input) return;
-
-    addBarcodeLocked = locked;
-    input.readOnly = locked;
-    input.classList.toggle('add-field-locked', locked);
-    if (clearBtn) clearBtn.style.display = locked ? 'inline-flex' : 'none';
-    setBarcodeConfirmEnabled(!locked && !addBarcodeValidating);
-}
 
 function resetAddProductForm() {
     var form = document.getElementById('add-product-form');
@@ -3090,7 +3036,6 @@ function resetAddProductForm() {
     var mobileCamInput = document.getElementById('ai-mobile-cam-input');
     var imgField     = document.getElementById('add-product-image-b64');
     var classField   = document.getElementById('add-ai-class-label');
-    var barcodeField = document.getElementById('add-barcode-hidden');
     var bottomBar    = document.getElementById('ai-camera-bottom-bar');
 
     if (video)       video.style.display       = 'block';
@@ -3109,7 +3054,6 @@ function resetAddProductForm() {
     if (mobileCamInput) mobileCamInput.value   = '';
     if (imgField)    imgField.value            = '';
     if (classField)  classField.value          = '';
-    if (barcodeField)barcodeField.value        = '';
 
     var suggestionsContainer = document.getElementById('add-product-name-suggestions');
     var chipsWrap            = document.getElementById('add-product-name-chips');
@@ -3125,6 +3069,141 @@ function resetAddProductForm() {
 
 var _addProductStream = null;
 
+// ── Confirmation Dialog & Form Dirty Validation ─────────────
+var _activeConfirmCallback = null;
+var _activeCancelCallback = null;
+
+function showActionConfirmDialog(options) {
+    var overlay   = document.getElementById('action-confirm-overlay');
+    var titleEl   = document.getElementById('action-confirm-title');
+    var msgEl     = document.getElementById('action-confirm-msg');
+    var iconWrap  = document.getElementById('action-confirm-icon-wrap');
+    var okBtn     = document.getElementById('action-confirm-ok-btn');
+    var cancelBtn = document.getElementById('action-confirm-cancel-btn');
+
+    if (!overlay) {
+        if (confirm((options.title ? options.title + '\n\n' : '') + (options.message || ''))) {
+            if (options.onConfirm) options.onConfirm();
+        } else {
+            if (options.onCancel) options.onCancel();
+        }
+        return;
+    }
+
+    if (titleEl) titleEl.textContent = options.title || 'Are you sure?';
+    if (msgEl) msgEl.textContent = options.message || '';
+    if (okBtn) okBtn.textContent = options.confirmText || 'Confirm';
+    if (cancelBtn) cancelBtn.textContent = options.cancelText || 'Cancel';
+
+    var isWarning = options.type === 'warning';
+    if (iconWrap) {
+        if (isWarning) {
+            iconWrap.style.background = 'rgba(245, 158, 11, 0.15)';
+            iconWrap.style.border = '1px solid rgba(245, 158, 11, 0.35)';
+            iconWrap.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+        } else {
+            iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';
+            iconWrap.style.border = '1px solid rgba(239, 68, 68, 0.35)';
+            iconWrap.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"></path></svg>';
+        }
+    }
+
+    if (okBtn) {
+        if (isWarning) {
+            okBtn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
+            okBtn.style.border = '1px solid #B45309';
+            okBtn.style.boxShadow = '0 4px 14px rgba(245, 158, 11, 0.35)';
+            okBtn.style.color = '#ffffff';
+        } else {
+            okBtn.style.background = 'linear-gradient(135deg, #EF4444, #DC2626)';
+            okBtn.style.border = '1px solid #B91C1C';
+            okBtn.style.boxShadow = '0 4px 14px rgba(239, 68, 68, 0.35)';
+            okBtn.style.color = '#ffffff';
+        }
+    }
+
+    _activeConfirmCallback = options.onConfirm || null;
+    _activeCancelCallback = options.onCancel || null;
+
+    overlay.classList.add('active');
+}
+
+function closeActionConfirmDialog() {
+    var overlay = document.getElementById('action-confirm-overlay');
+    if (overlay) overlay.classList.remove('active');
+    _activeConfirmCallback = null;
+    _activeCancelCallback = null;
+}
+
+function hasAddProductFormData() {
+    // 1. Check if an image is uploaded or captured
+    var imgB64 = document.getElementById('add-product-image-b64');
+    if (imgB64 && imgB64.value && imgB64.value.trim() !== '') return true;
+
+    var previewImg = document.getElementById('ai-upload-preview-img');
+    if (previewImg && previewImg.src) {
+        var src = previewImg.getAttribute('src') || '';
+        if (src.trim() !== '' && !src.endsWith('products.php') && src !== window.location.href) {
+            return true;
+        }
+    }
+
+    var previewWrap = document.getElementById('ai-upload-preview-wrap');
+    if (previewWrap && previewWrap.style.display !== 'none' && previewWrap.style.display !== '') {
+        return true;
+    }
+
+    var uploadInput = document.getElementById('ai-upload-input');
+    if (uploadInput && uploadInput.files && uploadInput.files.length > 0) return true;
+
+    var mobileCam = document.getElementById('ai-mobile-cam-input');
+    if (mobileCam && mobileCam.files && mobileCam.files.length > 0) return true;
+
+    // 2. Check general product fields
+    var name = document.getElementById('add-product-name');
+    if (name && name.value && name.value.trim() !== '') return true;
+
+    var cat = document.getElementById('add-category');
+    if (cat && cat.value && cat.value.trim() !== '') return true;
+
+    var sup = document.getElementById('add-supplier');
+    if (sup && sup.value && sup.value.trim() !== '') return true;
+
+    // 3. Check stock & storage fields
+    var qty = document.getElementById('add-quantity');
+    if (qty && qty.value !== undefined && qty.value !== null && qty.value.toString().trim() !== '') return true;
+
+    var unit = document.getElementById('add-unit');
+    if (unit && unit.value && unit.value.trim() !== '') return true;
+
+    var loc = document.getElementById('add-location');
+    if (loc && loc.value && loc.value.trim() !== '') return true;
+
+    // 4. Check price (default is 0.00)
+    var price = document.getElementById('add-price');
+    if (price && price.value !== undefined && price.value !== null) {
+        var pVal = price.value.toString().trim();
+        if (pVal !== '' && pVal !== '0' && pVal !== '0.00') return true;
+    }
+
+    // 5. Check reorder point (default is 10)
+    var reorder = document.getElementById('add-reorder-point');
+    if (reorder && reorder.value !== undefined && reorder.value !== null) {
+        var rVal = reorder.value.toString().trim();
+        if (rVal !== '' && rVal !== '10') return true;
+    }
+
+    // 6. Check shelf life
+    var shelf = document.getElementById('add-shelf-life');
+    if (shelf && shelf.value && shelf.value.toString().trim() !== '') return true;
+
+    // 7. Check camera live view active
+    var camArea = document.getElementById('ai-camera-area');
+    if (camArea && camArea.style.display !== 'none' && camArea.style.display !== '') return true;
+
+    return false;
+}
+
 function openAddModal() {
     resetAddProductForm();
     // Unlock form immediately — photo capture is optional
@@ -3137,7 +3216,20 @@ function openAddModal() {
     document.getElementById('add-modal-overlay').classList.add('active');
 }
 
-function closeAddModal() {
+function closeAddModal(force) {
+    if (!force && hasAddProductFormData()) {
+        showActionConfirmDialog({
+            title: 'Discard Unsaved Product?',
+            message: 'You have entered details for this product that will be lost if you close now. Are you sure you want to discard your changes?',
+            confirmText: 'Discard & Close',
+            cancelText: 'Keep Editing',
+            type: 'danger',
+            onConfirm: function() {
+                closeAddModal(true);
+            }
+        });
+        return;
+    }
     _stopAddProductCamera();
     document.getElementById('add-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
@@ -3145,9 +3237,6 @@ function closeAddModal() {
 }
 
 function _stopAddProductCamera() {
-    if (typeof ProductCameraScanner !== 'undefined') {
-        ProductCameraScanner.stopLiveBarcodeScanner();
-    }
     if (_addProductStream) {
         _addProductStream.getTracks().forEach(function(t) { t.stop(); });
         _addProductStream = null;
@@ -3221,10 +3310,7 @@ function aiStartScan() {
         }
         if (snapBtn)   snapBtn.style.display   = 'inline-flex';
         if (bottomBar) bottomBar.style.display = 'flex';
-        if (typeof ProductCameraScanner !== 'undefined') {
-            ProductCameraScanner.startLiveBarcodeScanner(video, onLiveBarcodeScanned);
-        }
-        setAiStatus('Camera ready — point at barcode or label, or click Capture', 'scanning');
+        setAiStatus('Camera ready — point at packaging or label, or click Capture', 'scanning');
     }).catch(function(err) {
         // If laptop/phone denied permission or threw error, offer mobile file/camera capture
         var mobileCam = document.getElementById('ai-mobile-cam-input');
@@ -3289,7 +3375,21 @@ function aiUploadImage(input) {
     reader.readAsDataURL(file);
 }
 
-function aiRemoveUploadedImage() {
+function aiRemoveUploadedImage(force) {
+    if (!force) {
+        showActionConfirmDialog({
+            title: 'Remove Product Image?',
+            message: 'Are you sure you want to remove the selected product photo? The image preview and reference data will be cleared.',
+            confirmText: 'Remove Image',
+            cancelText: 'Keep Image',
+            type: 'warning',
+            onConfirm: function() {
+                aiRemoveUploadedImage(true);
+            }
+        });
+        return;
+    }
+
     var previewWrap    = document.getElementById('ai-upload-preview-wrap');
     var previewImg     = document.getElementById('ai-upload-preview-img');
     var uploadInput    = document.getElementById('ai-upload-input');
@@ -3339,7 +3439,6 @@ function openEditModal(data) {
     // data is the row's dataset (DOMStringMap)
     document.getElementById('edit-id').value          = data.id;
     document.getElementById('edit-name').value        = data.name || '';
-    document.getElementById('edit-barcode').value     = data.barcode || '';
     document.getElementById('edit-supplier').value    = data.supplier || '';
     document.getElementById('edit-location').value    = data.location || '';
     document.getElementById('edit-qty').value         = data.qty || '0';
@@ -3435,14 +3534,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close on Escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            const confirmOverlay = document.getElementById('action-confirm-overlay');
+            if (confirmOverlay && confirmOverlay.classList.contains('active')) {
+                const cancelBtn = document.getElementById('action-confirm-cancel-btn');
+                if (cancelBtn) cancelBtn.click();
+                else closeActionConfirmDialog();
+                return;
+            }
+            const addOverlay = document.getElementById('add-modal-overlay');
+            if (addOverlay && addOverlay.classList.contains('active')) {
+                closeAddModal();
+                return;
+            }
             const overlay = document.getElementById('edit-modal-overlay');
-            if (overlay && overlay.classList.contains('active')) closeEditModal();
+            if (overlay && overlay.classList.contains('active')) {
+                closeEditModal();
+                return;
+            }
+            const archiveOverlay = document.getElementById('archive-modal-overlay');
+            if (archiveOverlay && archiveOverlay.classList.contains('active')) {
+                closeArchiveModal();
+                return;
+            }
+            const restoreOverlay = document.getElementById('restore-modal-overlay');
+            if (restoreOverlay && restoreOverlay.classList.contains('active')) {
+                closeRestoreModal();
+                return;
+            }
         }
     });
 
     // Close on backdrop click
     document.getElementById('edit-modal-overlay')?.addEventListener('click', function(e) {
         if (e.target === this) closeEditModal();
+    });
+    document.getElementById('add-modal-overlay')?.addEventListener('click', function(e) {
+        if (e.target === this) closeAddModal();
+    });
+    document.getElementById('action-confirm-overlay')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            const cancelBtn = document.getElementById('action-confirm-cancel-btn');
+            if (cancelBtn) cancelBtn.click();
+            else closeActionConfirmDialog();
+        }
+    });
+
+    // Action confirmation modal button events
+    document.getElementById('action-confirm-cancel-btn')?.addEventListener('click', function() {
+        var cb = _activeCancelCallback;
+        closeActionConfirmDialog();
+        if (cb) cb();
+    });
+    document.getElementById('action-confirm-ok-btn')?.addEventListener('click', function() {
+        var cb = _activeConfirmCallback;
+        closeActionConfirmDialog();
+        if (cb) cb();
     });
 
     // Prevent double-submit
@@ -3461,40 +3607,50 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function showToast(msg, type) {
-    const t = document.getElementById("toast-container");
-    const icon = document.getElementById("toast-icon");
-    document.getElementById("toast-message").innerText = msg;
-    t.className = 'show ' + (type === 'success' ? 'success' : 'error');
+// Filter & Search Feedback Toast
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.__iwFlashPending) return;
 
-    const icons = {
-        success: msg.toLowerCase().includes('archived')
-            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="21 8 21 21 3 21 3 8"></polyline><rect stroke-linecap="round" stroke-linejoin="round" x="1" y="3" width="22" height="5"></rect><line stroke-linecap="round" stroke-linejoin="round" x1="10" y1="12" x2="14" y2="12"></line></svg>'
-            : msg.toLowerCase().includes('restored')
-            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="1 4 1 10 7 10"></polyline><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>'
-            : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
-        error: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
-        warning: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>'
-    };
+    const urlParams = new URLSearchParams(window.location.search);
+    const q = (urlParams.get('q') || '').trim();
+    const cat = (urlParams.get('category') || '').trim();
+    const filter = (urlParams.get('filter') || '').trim();
+    const archived = urlParams.get('archived') === '1';
 
-    icon.innerHTML = icons[type === 'success' ? 'success' : (type === 'error' ? 'error' : 'warning')];
-    setTimeout(() => t.classList.remove('show'), 4000);
-}
+    if (!q && !cat && !filter && !archived) return;
+
+    const count = <?php echo (int)$total_items; ?>;
+    const parts = [];
+
+    if (q) parts.push(`"${q}"`);
+    if (cat) parts.push(cat);
+    if (filter) {
+        const filterNames = {
+            'low_stock': 'Low Stock',
+            'low': 'Low Stock',
+            'out_of_stock': 'Out of Stock',
+            'out': 'Out of Stock',
+            'in_stock': 'In Stock',
+            'good': 'In Stock'
+        };
+        parts.push(filterNames[filter] || filter);
+    }
+    if (archived) parts.push('Archived');
+
+    const desc = parts.join(' • ');
+
+    if (count === 0) {
+        showToast(`No products found for ${desc}`, 'warning');
+    } else {
+        const itemWord = count === 1 ? 'product' : 'products';
+        showToast(`Showing ${count.toLocaleString()} ${itemWord} for ${desc}`, 'info');
+    }
+});
 
 <?php if (($_GET['add'] ?? '') === '1'): ?>
 openAddModal();
 <?php endif; ?>
 
-// Barcode scanner integration
-function checkBarcodeDuplicate(barcode, onClear) {
-    if (!barcode || !barcode.trim() || !window.BarcodeScanner) return;
-    BarcodeScanner.lookup(barcode.trim()).then(function(data) {
-        if (data.found && data.product) {
-            BarcodeScanner.showDuplicate(data.product);
-            if (typeof onClear === 'function') onClear();
-        }
-    });
-}
 
 
 
@@ -3583,34 +3739,7 @@ document.addEventListener('keydown', function (e) {
     saveEdit(rowId);
 });
 
-document.getElementById('search-scan-barcode-btn')?.addEventListener('click', function() {
-    BarcodeScanner.open(function(code) {
-        var input = document.getElementById('product-search-input');
-        input.value = code;
-        input.closest('form').submit();
-    });
-});
 
-function initProductBarcodeInputs() {
-    if (!window.BarcodeScanner) return;
-
-    var searchInput = document.getElementById('product-search-input');
-    if (searchInput) {
-        BarcodeScanner.attachHidInput(searchInput, function(code) {
-            if (!BarcodeScanner.isUsbScannerConnected()) return;
-            searchInput.value = code;
-            searchInput.closest('form').submit();
-        });
-    }
-
-    var addInput = document.getElementById('add-barcode-input');
-    if (addInput) {
-        BarcodeScanner.attachHidInput(addInput, function(code) {
-            if (addBarcodeLocked || addBarcodeValidating) return;
-            validateAddBarcode(code);
-        });
-    }
-}
 </script>
 
 <script>
@@ -3655,7 +3784,21 @@ function editHandleImageUpload(input) {
     reader.readAsDataURL(file);
 }
 
-function editRemoveImage() {
+function editRemoveImage(force) {
+    if (!force) {
+        showActionConfirmDialog({
+            title: 'Remove Product Image?',
+            message: 'Are you sure you want to remove the image for this product? This will take effect when you save.',
+            confirmText: 'Remove Image',
+            cancelText: 'Keep Image',
+            type: 'warning',
+            onConfirm: function() {
+                editRemoveImage(true);
+            }
+        });
+        return;
+    }
+
     var actionField = document.getElementById('edit-image-action');
     var imgField    = document.getElementById('edit-image-b64');
     var fileInput   = document.getElementById('edit-image-file-input');
@@ -3667,6 +3810,49 @@ function editRemoveImage() {
     if (previewImg)  previewImg.src    = '';
 
     editSetImageState(false);
+}
+
+// ── Inventory View Mode Toggle (Grid vs Table) ──────────────────────────────
+function syncInventoryView() {
+    var view = 'grid';
+    try {
+        view = localStorage.getItem('inv_view_mode') || 'grid';
+    } catch (e) {}
+    setInventoryView(view, false);
+}
+
+function setInventoryView(view, save) {
+    if (save === undefined) save = true;
+    if (!view) view = 'grid';
+    if (save) {
+        try { localStorage.setItem('inv_view_mode', view); } catch (e) {}
+    }
+
+    var container = document.getElementById('inventory-products-content');
+    var gridEl    = document.getElementById('inventory-card-grid');
+    var tableEl   = document.getElementById('inventory-desktop-table');
+    var btnGrid   = document.getElementById('btn-view-grid');
+    var btnTable  = document.getElementById('btn-view-table');
+
+    if (view === 'table') {
+        if (container) {
+            container.classList.remove('view-mode-grid');
+            container.classList.add('view-mode-table');
+        }
+        if (gridEl)  gridEl.style.setProperty('display', 'none', 'important');
+        if (tableEl) tableEl.style.setProperty('display', 'block', 'important');
+        if (btnGrid) btnGrid.classList.remove('active');
+        if (btnTable) btnTable.classList.add('active');
+    } else {
+        if (container) {
+            container.classList.remove('view-mode-table');
+            container.classList.add('view-mode-grid');
+        }
+        if (gridEl)  gridEl.style.removeProperty('display');
+        if (tableEl) tableEl.style.setProperty('display', 'none', 'important');
+        if (btnGrid) btnGrid.classList.add('active');
+        if (btnTable) btnTable.classList.remove('active');
+    }
 }
 
 // ── In-place Ajax Pagination (No Full Page Reload) ───────────────────────────
@@ -3692,6 +3878,7 @@ async function loadInventoryPage(url, pushState = true) {
 
         if (contentEl && newContent) {
             contentEl.innerHTML = newContent.innerHTML;
+            syncInventoryView();
         }
         if (pagEl && newPag) {
             pagEl.innerHTML = newPag.innerHTML;
@@ -3732,6 +3919,8 @@ async function loadInventoryPage(url, pushState = true) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    syncInventoryView();
+
     document.addEventListener('click', function(e) {
         const btn = e.target.closest('.pagination-link');
         if (btn && btn.dataset.url) {
@@ -3801,11 +3990,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Call this after a product is positively identified (barcode lookup or OCR).
+     * Call this after a product is positively identified (OCR or AI vision).
      * Feeds the match score back to ImageScanner for adaptive threshold calibration.
      *
      * @param {number|string} productId
-     * @param {number}        score       raw cosine score (0–1); pass 1.0 for barcode confirms
+     * @param {number}        score       raw cosine score (0–1); pass 1.0 for positive confirms
      */
     window.notifyImageScannerSuccess = function (productId, score) {
         if (typeof ImageScanner !== 'undefined') {

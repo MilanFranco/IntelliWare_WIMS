@@ -1082,23 +1082,6 @@ var InventoryTransaction = (function () {
             }, true).then(function (res) {
                 _cameraBusy = false;
                 var rawText = (typeof res === 'object' && res.text != null) ? res.text : (res || '');
-                var detectedBarcode = (typeof res === 'object' && res.barcode) ? res.barcode : '';
-
-                if (detectedBarcode) {
-                    ensureCatalogLoaded().then(function (catalog) {
-                        var barcodeItem = catalog.find(function (it) {
-                            return it.barcode === detectedBarcode;
-                        });
-                        if (barcodeItem) {
-                            var added = addToCart(barcodeItem);
-                            if (added) {
-                                ProductCameraScanner.playBeep(true);
-                                setCameraStatus('✨ Scanned: ' + (barcodeItem.product_name || barcodeItem.name) + ' (Qty +1)', 'success');
-                                showToast('✨ Added ' + (barcodeItem.product_name || barcodeItem.name) + ' to transaction!', 'success');
-                            }
-                        }
-                    });
-                }
 
                 if (!rawText || !rawText.trim()) {
                     if (isManual) showToast('No text detected on packaging. Hold closer or adjust lighting.', 'error');

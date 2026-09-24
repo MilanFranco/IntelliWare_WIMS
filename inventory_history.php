@@ -29,9 +29,8 @@ if ($auditCheck && $auditCheck->num_rows > 0) {
 }
 
 $sql = "SELECT t.transaction_id, t.transaction_type, t.quantity, t.transaction_date, t.remarks,
-               t.barcode AS txn_barcode,
                " . ($hasAudit ? "t.previous_stock, t.new_stock," : "") . "
-               p.product_id, p.product_name, p.barcode AS product_barcode,
+               p.product_id, p.product_name,
                u.username
         FROM transactions t
         LEFT JOIN products p ON t.product_id = p.product_id
@@ -55,13 +54,11 @@ if ($filterType === 'in') {
 }
 
 if ($search !== '') {
-    $filterClause .= " AND (p.product_name LIKE ? OR t.barcode LIKE ? OR p.barcode LIKE ? OR CAST(t.transaction_id AS CHAR) LIKE ?)";
+    $filterClause .= " AND (p.product_name LIKE ? OR CAST(t.transaction_id AS CHAR) LIKE ?)";
     $term = '%' . $search . '%';
     $params[] = $term;
     $params[] = $term;
-    $params[] = $term;
-    $params[] = $term;
-    $types .= 'ssss';
+    $types .= 'ss';
 }
 
 if ($filterProduct !== '') {
@@ -191,7 +188,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
     .ih-table .col-id { width: 75px; text-align: left; }
     .ih-table .col-datetime { width: 160px; text-align: left; }
     .ih-table .col-product { min-width: 170px; text-align: left; }
-    .ih-table .col-barcode { width: 125px; text-align: left; }
     .ih-table .col-type { width: 85px; text-align: center; }
     .ih-table .col-qty { width: 80px; text-align: center; }
     .ih-table .col-prev { width: 80px; text-align: center; }
@@ -457,12 +453,16 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
     <!-- Enhanced Filter Form -->
     <form method="GET" class="p-5 border-b border-[#2A4484]/40 bg-[#0d1638]/40 ih-filter-bg">
         <div class="flex flex-col lg:flex-row lg:items-end gap-3 flex-wrap xl:flex-nowrap">
-            <div class="flex-1 min-w-[160px]">
-                <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Search ID / Barcode</label>
-                <div class="relative">
-                    <input type="text" name="q" class="premium-input w-full pl-9 pr-3" placeholder="ID, product, barcode..."
-                           value="<?php echo htmlspecialchars($search); ?>" style="height:42px; font-size:13px;">
-                    <svg class="absolute left-3 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <div class="w-full sm:w-72 md:w-80 shrink-0">
+                <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Search</label>
+                <div class="flex items-center gap-2">
+                    <div class="relative flex-1 min-w-0">
+                        <input type="text" name="q" class="premium-input w-full px-4" placeholder="ID, product name..."
+                               value="<?php echo htmlspecialchars($search); ?>" style="height:42px; font-size:13px;">
+                    </div>
+                    <button type="submit" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Audit Trail" aria-label="Search">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </button>
                 </div>
             </div>
             <div class="w-full sm:w-40 lg:w-36">
@@ -472,11 +472,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                     <option value="in" <?php echo $filterType === 'in' ? 'selected' : ''; ?>>IN (Receive)</option>
                     <option value="out" <?php echo $filterType === 'out' ? 'selected' : ''; ?>>OUT (Release)</option>
                 </select>
-            </div>
-            <div class="flex-1 min-w-[150px]">
-                <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Product Name</label>
-                <input type="text" name="product" class="premium-input w-full" placeholder="Filter product..."
-                       value="<?php echo htmlspecialchars($filterProduct); ?>" style="height:42px; font-size:13px;">
             </div>
             <div class="w-full sm:w-36 lg:w-32">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">From Date</label>
@@ -509,7 +504,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                         <th class="col-id">ID</th>
                         <th class="col-datetime">Date &amp; Time</th>
                         <th class="col-product">Product</th>
-                        <th class="col-barcode">Barcode</th>
                         <th class="col-type">Type</th>
                         <th class="col-qty">Quantity</th>
                         <?php if ($hasAudit): ?>
@@ -523,7 +517,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                 <tbody>
                     <?php if (empty($transactions)): ?>
                         <tr>
-                            <td colspan="<?php echo $hasAudit ? 10 : 8; ?>" class="text-center p-12 text-[#9aa6d1]">
+                            <td colspan="<?php echo $hasAudit ? 9 : 7; ?>" class="text-center p-12 text-[#9aa6d1]">
                                 <div class="flex flex-col items-center justify-center gap-2">
                                     <svg class="w-10 h-10 text-[#6b7aab]/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                     <span class="font-medium">No transactions found matching your criteria.</span>
@@ -537,7 +531,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                         <?php foreach ($transactions as $txn): ?>
                             <?php
                             $isIn    = $txn['transaction_type'] === 'stock_in';
-                            $barcode = $txn['txn_barcode'] ?? $txn['product_barcode'] ?? '—';
                             $qty     = (int)$txn['quantity'];
                             ?>
                             <tr>
@@ -553,13 +546,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                                     <div class="font-semibold text-white text-[13.5px] leading-snug">
                                         <?php echo htmlspecialchars($txn['product_name'] ?? 'Unknown'); ?>
                                     </div>
-                                </td>
-                                <td class="col-barcode">
-                                    <?php if (!empty($barcode) && $barcode !== '—'): ?>
-                                        <span class="font-mono text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo htmlspecialchars($barcode); ?></span>
-                                    <?php else: ?>
-                                        <span class="text-[#6b7aab] text-xs">—</span>
-                                    <?php endif; ?>
                                 </td>
                                 <td class="col-type text-center">
                                     <?php if ($isIn): ?>
@@ -625,7 +611,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                 $isIn     = $txn['transaction_type'] === 'stock_in';
                 $qtySign  = $isIn ? '+' : '−';
                 $qtyClass = $isIn ? 'text-emerald-400' : 'text-rose-400';
-                $barcode  = $txn['txn_barcode'] ?? $txn['product_barcode'] ?? '—';
                 $remarks  = trim($txn['remarks'] ?? '');
             ?>
             <div class="txnacc-item">
@@ -660,10 +645,6 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                     <div class="txnacc-row">
                         <span class="txnacc-row-label">Transaction ID</span>
                         <span class="txnacc-row-value mono">#<?php echo (int)$txn['transaction_id']; ?></span>
-                    </div>
-                    <div class="txnacc-row">
-                        <span class="txnacc-row-label">Barcode</span>
-                        <span class="txnacc-row-value mono"><?php echo htmlspecialchars($barcode ?: '—'); ?></span>
                     </div>
                     <?php if ($hasAudit): ?>
                     <div class="txnacc-row">

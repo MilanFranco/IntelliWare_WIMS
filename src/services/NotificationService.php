@@ -252,7 +252,6 @@ class NotificationService
             'product_name'   => $productName,
             'category'       => $product['category'] ?? 'General',
             'sku'            => $product['sku'] ?? ('P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT)),
-            'barcode'        => $product['barcode'] ?? null,
             'location'       => $product['location'] ?? null,
             'previous_stock' => $previousStock,
             'new_stock'      => $newStock,

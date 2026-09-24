@@ -3,8 +3,7 @@
  * GET /api/get_product_by_id.php?id={product_id}
  *
  * Looks up a product by its integer primary key and returns a JSON
- * payload with the same shape as get_product_by_barcode.php so the
- * Teachable Machine scanner can populate the product info panel.
+ * payload so the AI scanner can populate the product info panel.
  *
  * Query Parameters:
  *   id  – integer product_id (required)
@@ -16,7 +15,7 @@
  *     "product": {
  *       "product_id", "product_name", "category", "supplier",
  *       "location", "quantity", "reorder_point", "unit",
- *       "barcode", "price", "sku", "expiry_date", "batch_number",
+ *       "price", "sku", "expiry_date", "batch_number",
  *       "stock_status", "stock_status_label", "image_url"
  *     }
  *   }
@@ -88,7 +87,7 @@ if ($productId <= 0) {
 
 $stmt = $conn->prepare("
     SELECT p.product_id, p.product_name, p.category, p.supplier, p.location,
-           p.quantity, p.reorder_point, p.unit, p.barcode, p.price,
+           p.quantity, p.reorder_point, p.unit, p.price,
            CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku,
            (SELECT MIN(b.expiry_date)
               FROM inventory_batches b

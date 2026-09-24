@@ -390,18 +390,6 @@ if (empty($forecastData)) {
 $highlightProductId = null;
 if (isset($_GET['product_id']) && (int)$_GET['product_id'] > 0) {
     $highlightProductId = (int)$_GET['product_id'];
-} elseif (!empty($_GET['barcode']) && isset($conn)) {
-    $barcodeLookup = trim($_GET['barcode']);
-    $barcodeStmt = $conn->prepare("SELECT product_id FROM products WHERE barcode = ? LIMIT 1");
-    if ($barcodeStmt) {
-        $barcodeStmt->bind_param("s", $barcodeLookup);
-        $barcodeStmt->execute();
-        $barcodeResult = $barcodeStmt->get_result();
-        if ($barcodeRow = $barcodeResult->fetch_assoc()) {
-            $highlightProductId = (int)$barcodeRow['product_id'];
-        }
-        $barcodeStmt->close();
-    }
 }
 
 if ($highlightProductId && isset($conn)) {
@@ -1724,13 +1712,24 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     background: transparent !important;
 }
 
+[data-theme="light"] .forecast-table tbody tr {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+[data-theme="light"] .forecast-table tbody td {
+    border-bottom: 1px solid #F1F5F9 !important;
+}
+
 [data-theme="light"] .forecast-table tr:hover td {
     background: #F8FAFC !important;
 }
 
-[data-theme="light"] .forecast-row--highlighted td {
+[data-theme="light"] .forecast-row--highlighted td,
+[data-theme="light"] .forecast-table tbody tr.forecast-row--highlighted {
     background: #F0FDF4 !important;
-    border-bottom-color: #BBF7D0 !important;
+    border-color: #86EFAC !important;
 }
 
 [data-theme="light"] .forecast-table .product-title {
@@ -2089,7 +2088,12 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="card">
         <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Product Movement Analysis</div>
         <div class="search-filter-container">
-            <input type="text" id="productSearch" class="search-box" placeholder="Search products...">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px;">
+                <input type="text" id="productSearch" class="search-box" style="width: 100%; flex: 1;" placeholder="Search products...">
+                <button type="button" onclick="currentProductPage = 1; filterProductTable();" class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Products" aria-label="Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+            </div>
             <select id="categoryFilter" class="filter-select">
                 <option value="">All Categories</option>
                 <?php

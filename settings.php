@@ -488,9 +488,31 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
     }
 
     /* ── Light Mode Overrides ── */
-    [data-theme="light"] .cfg-kpi-pill {
-        background: #EFF6FF;
-        border-color: #BFDBFE;
+    [data-theme="light"] .cfg-kpi-pill,
+    [data-theme="light"] .cfg-metric-card,
+    [data-theme="light"] .bg-\[\#0D1638\]\/70,
+    [data-theme="light"] .bg-\[\#0d1638\]\/70 {
+        background: #EFF6FF !important;
+        border-color: #BFDBFE !important;
+        box-shadow: 0 1px 3px rgba(59, 130, 246, 0.05) !important;
+    }
+    [data-theme="light"] .cfg-metric-card .text-\[\#9aa6d1\],
+    [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#9aa6d1\] {
+        color: #475569 !important;
+    }
+    [data-theme="light"] .cfg-metric-card .text-white,
+    [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-white,
+    [data-theme="light"] .cfg-metric-card .text-\[\#E3E3E3\],
+    [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#E3E3E3\] {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .cfg-metric-card .text-\[\#64748b\],
+    [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#64748b\] {
+        color: #64748B !important;
+    }
+    [data-theme="light"] .cfg-metric-card .text-\[\#51D55A\],
+    [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#51D55A\] {
+        color: #0F6E2C !important;
     }
     [data-theme="light"] .cfg-tab {
         color: #475569;
@@ -1381,7 +1403,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 
         <div class="p-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40">
+                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 cfg-metric-card">
                     <div class="text-xs text-[#9aa6d1] uppercase tracking-wider font-semibold font-onest mb-1">Model State</div>
                     <div class="text-xl font-bold <?php echo $mlHasModel ? 'text-[#51D55A]' : 'text-amber-400'; ?>">
                         <?php echo $mlHasModel ? 'Trained & Operational' : 'Not Trained Yet'; ?>
@@ -1389,7 +1411,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     <div class="text-[11px] text-[#64748b] mt-1">Ready for demand projection</div>
                 </div>
 
-                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40">
+                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 cfg-metric-card">
                     <div class="text-xs text-[#9aa6d1] uppercase tracking-wider font-semibold font-onest mb-1">Forecast Accuracy</div>
                     <div class="text-xl font-bold text-[#51D55A]">
                         <?php echo $mlLastMetrics ? (number_format((float)$mlLastMetrics['forecast_accuracy'], 1) . '%') : 'N/A'; ?>
@@ -1397,7 +1419,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     <div class="text-[11px] text-[#64748b] mt-1">MAPE backtest verification</div>
                 </div>
 
-                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40">
+                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 cfg-metric-card">
                     <div class="text-xs text-[#9aa6d1] uppercase tracking-wider font-semibold font-onest mb-1">Last Trained At</div>
                     <div class="text-base font-bold text-white mt-1">
                         <?php echo $mlLastMetrics ? date('M d, Y · g:i A', strtotime($mlLastMetrics['training_date'])) : 'Never'; ?>
@@ -1405,7 +1427,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     <div class="text-[11px] text-[#64748b] mt-1">Stored in ml_training_state</div>
                 </div>
 
-                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40">
+                <div class="p-4 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 cfg-metric-card">
                     <div class="text-xs text-[#9aa6d1] uppercase tracking-wider font-semibold font-onest mb-1">Execution Status</div>
                     <div class="text-base font-bold text-[#E3E3E3] mt-1">
                         <?php echo htmlspecialchars($mlRunStatus['status'] ?? 'Idle'); ?>
@@ -1449,7 +1471,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                     Generate an immediate, portable <code>.sql</code> backup containing all 20 database tables (including users, inventory batches, movements, and audit records).
                 </p>
 
-                <div class="p-3.5 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 flex items-center justify-between">
+                <div class="p-3.5 rounded-xl bg-[#0D1638]/70 border border-[#2A4484]/40 flex items-center justify-between cfg-metric-card">
                     <span class="text-xs text-[#9aa6d1]">Last Backup Timestamp:</span>
                     <span class="text-xs text-white font-bold font-onest"><?php echo $lastBackupDate ? date('F j, Y · g:i A', strtotime($lastBackupDate)) : 'Never generated'; ?></span>
                 </div>
@@ -1605,32 +1627,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
-    // Standardized Bottom-Center Toast Notification (Color-Coded)
-    window.showToast = function(message, type = 'error') {
-        let t = document.getElementById('toast-container');
-        if (!t) {
-            t = document.createElement('div');
-            t.id = 'toast-container';
-            document.body.appendChild(t);
-        }
-        let icon = document.getElementById('toast-icon');
-        let msgEl = document.getElementById('toast-message');
-        if (!icon || !msgEl) {
-            t.innerHTML = '<span id="toast-icon"></span><span id="toast-message"></span>';
-            icon = document.getElementById('toast-icon');
-            msgEl = document.getElementById('toast-message');
-        }
-        msgEl.innerText = message;
-        t.className = 'show ' + (type === 'success' ? 'success' : 'error');
-
-        icon.innerHTML = type === 'success'
-            ? '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>'
-            : '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>';
-
-        clearTimeout(t._timer);
-        t._timer = setTimeout(() => t.classList.remove('show'), 3500);
-    };
 
     // Client-side Validation: Operator Profile
     const profileForm = document.getElementById('profileForm');

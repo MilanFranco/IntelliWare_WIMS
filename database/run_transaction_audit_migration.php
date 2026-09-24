@@ -43,14 +43,6 @@ if (!columnExists($conn, 'transactions', 'new_stock')) {
     }
 }
 
-if (!columnExists($conn, 'transactions', 'barcode')) {
-    if ($conn->query("ALTER TABLE `transactions` ADD COLUMN `barcode` VARCHAR(50) DEFAULT NULL AFTER `new_stock`")) {
-        $changes[] = 'barcode';
-    } else {
-        echo "ERROR adding barcode: " . $conn->error . "\n";
-        exit(1);
-    }
-}
 
 if (!indexExists($conn, 'transactions', 'idx_transactions_date')) {
     if ($conn->query("CREATE INDEX `idx_transactions_date` ON `transactions` (`transaction_date`)")) {

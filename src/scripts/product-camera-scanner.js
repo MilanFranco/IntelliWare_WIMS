@@ -1,16 +1,14 @@
 /**
  * product-camera-scanner.js
  *
- * High-accuracy, real-store camera OCR and barcode identification engine for IntelliWare.
+ * High-accuracy, real-store camera OCR and packaging identification engine for IntelliWare.
  *
  * Features:
- * 1. Live Continuous Barcode Scanner (Native BarcodeDetector): Instant 50ms detection with chime.
- * 2. Multi-source Barcode Lookup: Queries store database + Open Food Facts API for instant 100% accuracy.
- * 3. Dual-Polarity Image Preprocessing: Automatically detects dark-background packaging (e.g. Night Rider)
+ * 1. Dual-Polarity Image Preprocessing: Automatically detects dark-background packaging
  *    and inverts/enhances contrast so Tesseract reads white/silver text with high fidelity.
- * 4. Strict Gibberish & Noise Filter: Discards fragmented OCR tokens (e.g. "Lt En Bo Br Tae As")
+ * 2. Strict Gibberish & Noise Filter: Discards fragmented OCR tokens
  *    and filters batch/lot numbers, warnings, and fine print.
- * 5. Multi-Candidate Suggestion Generator & 1-Click Raw Text Drawer.
+ * 3. Multi-Candidate Suggestion Generator & 1-Click Raw Text Drawer.
  */
 var ProductCameraScanner = (function () {
     'use strict';
@@ -456,165 +454,6 @@ var ProductCameraScanner = (function () {
         });
     }
 
-    // ── Barcode Detection (Fast native browser BarcodeDetector) ────────────────
-    var _cachedDetector = null;
-    function getBarcodeDetector() {
-        if (!('BarcodeDetector' in window)) return null;
-        if (!_cachedDetector) {
-            try {
-                _cachedDetector = new BarcodeDetector({
-                    formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code']
-                });
-            } catch (e) {
-                return null;
-            }
-        }
-        return _cachedDetector;
-    }
-
-    function detectBarcode(imageSource) {
-        var detector = getBarcodeDetector();
-        if (!detector) return Promise.resolve(null);
-
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        return new Promise(function (resolve) {
-            img.onload = function () {
-                detector.detect(img).then(function (barcodes) {
-                    if (barcodes && barcodes.length > 0) {
-                        resolve(barcodes[0].rawValue || null);
-                    } else {
-                        resolve(null);
-                    }
-                }).catch(function () {
-                    resolve(null);
-                });
-            };
-            img.onerror = function () { resolve(null); };
-            img.src = (typeof imageSource === 'string') ? imageSource : (imageSource.toDataURL ? imageSource.toDataURL() : '');
-        });
-    }
-
-    // ── Continuous Live Barcode Scanner on Video Feed ─────────────────────────
-    var _liveScannerTimer = null;
-    var _liveScannerCanvas = null;
-
-    function startLiveBarcodeScanner(videoElement, onBarcodeFound) {
-        stopLiveBarcodeScanner();
-        var detector = getBarcodeDetector();
-        if (!detector || !videoElement) return;
-
-        if (!_liveScannerCanvas) {
-            _liveScannerCanvas = document.createElement('canvas');
-        }
-
-        _liveScannerTimer = setInterval(function () {
-            if (!videoElement || videoElement.paused || videoElement.ended || videoElement.readyState < 2) return;
-            try {
-                var w = videoElement.videoWidth || 640;
-                var h = videoElement.videoHeight || 480;
-                if (w === 0 || h === 0) return;
-
-                // Test video element directly with BarcodeDetector
-                detector.detect(videoElement).then(function (barcodes) {
-                    if (barcodes && barcodes.length > 0) {
-                        var code = barcodes[0].rawValue;
-                        if (code && typeof onBarcodeFound === 'function') {
-                            stopLiveBarcodeScanner();
-                            onBarcodeFound(code);
-                        }
-                    }
-                }).catch(function () {
-                    // Fallback to canvas snapshot for older BarcodeDetector implementations
-                    try {
-                        _liveScannerCanvas.width = Math.min(640, w);
-                        _liveScannerCanvas.height = Math.round(h * (_liveScannerCanvas.width / w));
-                        var ctx = _liveScannerCanvas.getContext('2d');
-                        ctx.drawImage(videoElement, 0, 0, _liveScannerCanvas.width, _liveScannerCanvas.height);
-                        detector.detect(_liveScannerCanvas).then(function (barcodes) {
-                            if (barcodes && barcodes.length > 0) {
-                                var code = barcodes[0].rawValue;
-                                if (code && typeof onBarcodeFound === 'function') {
-                                    stopLiveBarcodeScanner();
-                                    onBarcodeFound(code);
-                                }
-                            }
-                        }).catch(function () {});
-                    } catch (e) {}
-                });
-            } catch (err) {}
-        }, 180);
-    }
-
-    function stopLiveBarcodeScanner() {
-        if (_liveScannerTimer) {
-            clearInterval(_liveScannerTimer);
-            _liveScannerTimer = null;
-        }
-    }
-
-    // ── Multi-Source Barcode Lookup (Store Database + Open Food Facts) ─────────
-    function lookupBarcode(barcode) {
-        if (!barcode) return Promise.resolve(null);
-        var cleanCode = String(barcode).trim();
-
-        // 1. Query Local Store Database
-        var localUrl = 'api/get_product_by_barcode.php?barcode=' + encodeURIComponent(cleanCode);
-        return fetch(localUrl).then(function (res) {
-            return res.ok ? res.json() : null;
-        }).then(function (data) {
-            if (data && data.success && data.found && data.product) {
-                return {
-                    source: 'store_database',
-                    barcode: cleanCode,
-                    product_id: data.product.product_id,
-                    product_name: data.product.product_name,
-                    category: data.product.category,
-                    supplier: data.product.supplier,
-                    unit: data.product.unit,
-                    price: data.product.price,
-                    location: data.product.location,
-                    shelf_life: data.product.shelf_life,
-                    image_url: data.product.image_url
-                };
-            }
-
-            // 2. Query Open Food Facts / Consumer Goods Open Database (with 2.5s timeout)
-            var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-            var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 2500) : null;
-
-            var offUrl = 'https://world.openfoodfacts.org/api/v0/product/' + encodeURIComponent(cleanCode) + '.json';
-            return fetch(offUrl, { signal: controller ? controller.signal : undefined }).then(function (offRes) {
-                if (timeoutId) clearTimeout(timeoutId);
-                return offRes.ok ? offRes.json() : null;
-            }).then(function (offData) {
-                if (offData && offData.status === 1 && offData.product) {
-                    var p = offData.product;
-                    var name = p.product_name || p.product_name_en || '';
-                    var brand = p.brands || '';
-                    var cat = p.categories ? p.categories.split(',')[0].trim() : '';
-                    var img = p.image_front_url || p.image_url || '';
-
-                    return {
-                        source: 'open_food_facts',
-                        barcode: cleanCode,
-                        product_name: name,
-                        supplier: brand,
-                        category: cat,
-                        image_url: img
-                    };
-                }
-                return {
-                    source: 'none',
-                    barcode: cleanCode
-                };
-            }).catch(function () {
-                return { source: 'none', barcode: cleanCode };
-            });
-        }).catch(function () {
-            return { source: 'none', barcode: cleanCode };
-        });
-    }
 
     // ── Retail Label Parser (Zero Gibberish) ──────────────────────────────────
     function parseProductLabel(rawText, availableCategories, knownBrands) {
@@ -926,20 +765,16 @@ var ProductCameraScanner = (function () {
      * runOcr(imageSource, onProgress, isCameraSnapshot)
      *
      * Upgraded multi-pass, multi-PSM OCR pipeline:
-     *   1. Runs barcode detection concurrently (unchanged).
-     *   2. Preprocesses image in 3 modes (luminance, Otsu, CLAHE).
-     *   3. For each mode, runs Tesseract with PSM 3 (auto page) in parallel.
-     *   4. Also runs PSM 6 (uniform block) on Mode 0 in parallel.
-     *   5. Picks the attempt that produced the most usable (non-gibberish) text.
-     *   6. Returns { text, barcode, preprocessMode, psm }.
+     *   1. Preprocesses image in 3 modes (luminance, Otsu, CLAHE).
+     *   2. For each mode, runs Tesseract with PSM 3 (auto page) in parallel.
+     *   3. Also runs PSM 6 (uniform block) on Mode 0 in parallel.
+     *   4. Picks the attempt that produced the most usable (non-gibberish) text.
+     *   5. Returns { text, preprocessMode, psm }.
      */
     function runOcr(imageSource, onProgress, isCameraSnapshot) {
         var rawB64 = (typeof imageSource === 'string') ? imageSource : (imageSource.toDataURL ? imageSource.toDataURL('image/jpeg', 0.90) : '');
 
         if (typeof onProgress === 'function') onProgress(5, 'Enhancing label contrast…');
-
-        // Concurrent barcode detection
-        var barcodePromise = detectBarcode(rawB64);
 
         // Build 3-mode preprocessed images
         var ocrPromise = preprocessAllModes(rawB64, isCameraSnapshot).then(function (processedImages) {
@@ -999,10 +834,9 @@ var ProductCameraScanner = (function () {
             setTimeout(function () { reject(new Error('OCR scan timed out.')); }, 30000);
         });
 
-        return Promise.all([Promise.race([ocrPromise, timeout]), barcodePromise]).then(function (results) {
+        return Promise.race([ocrPromise, timeout]).then(function (textResult) {
             return {
-                text   : results[0] || '',
-                barcode: results[1] || ''
+                text: textResult || ''
             };
         });
     }
@@ -1147,10 +981,6 @@ var ProductCameraScanner = (function () {
     return {
         preprocessImage            : preprocessImage,
         preprocessAllModes         : preprocessAllModes,
-        detectBarcode              : detectBarcode,
-        startLiveBarcodeScanner    : startLiveBarcodeScanner,
-        stopLiveBarcodeScanner     : stopLiveBarcodeScanner,
-        lookupBarcode              : lookupBarcode,
         lookupByOcrText            : lookupByOcrText,
         extractProductWithAiVision : extractProductWithAiVision,
         isGibberishOrNoise         : isGibberishOrNoise,

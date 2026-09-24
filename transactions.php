@@ -76,23 +76,21 @@ $catResult = $conn->query("SELECT DISTINCT category FROM products WHERE category
 while ($row = $catResult->fetch_assoc()) { $categories[] = $row['category']; }
 
 // Fetch ALL products for the Transaction Form Dropdown (Select2)
-$dropQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, quantity as qty, unit as uom FROM products ORDER BY product_name";
+$dropQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, quantity as qty, unit as uom FROM products ORDER BY product_name";
 $dropRes = $conn->query($dropQuery);
 while ($r = $dropRes->fetch_assoc()) { $dropdownItems[] = $r; }
 
-$sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, reorder_point FROM products WHERE 1=1";
+$sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, reorder_point FROM products WHERE 1=1";
 $params = [];
 $types = "";
 
 // Apply Search Filter (Name or ID)
 if (!empty($search_q)) {
-    $sql .= " AND (product_name LIKE ? OR product_id LIKE ? OR barcode LIKE ? OR barcode = ?)";
+    $sql .= " AND (product_name LIKE ? OR product_id LIKE ?)";
     $searchTerm = "%$search_q%";
     $params[] = $searchTerm;
     $params[] = $searchTerm;
-    $params[] = $searchTerm;
-    $params[] = $search_q;
-    $types .= "ssss";
+    $types .= "ss";
 }
 
 // Apply Category Filter
@@ -103,7 +101,7 @@ if (!empty($filter_cat)) {
 }
 
 // Count total rows based on current filters to calculate pages
-$countSql = str_replace("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, barcode, category, quantity as qty, unit as uom, reorder_point", "SELECT COUNT(*) as total", $sql);
+$countSql = str_replace("SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, reorder_point", "SELECT COUNT(*) as total", $sql);
 $stmt = $conn->prepare($countSql);
 if (!empty($params)) { $stmt->bind_param($types, ...$params); }
 $stmt->execute();
@@ -865,7 +863,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 Stock Transactions &amp; Movement
             </h1>
             <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
-                Execute verified stock check-in (Receive) and check-out (Release) workflows with real-time barcode verification and audit tracking.
+                Execute verified stock check-in (Receive) and check-out (Release) workflows with real-time verification and audit tracking.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
@@ -941,13 +939,12 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                             <select class="w-full" name="id" id="productSelect" required>
                                 <option value="">-- Search or Select Product --</option>
                                 <?php foreach($dropdownItems as $it): ?>
-                                    <option value="<?php echo $it['id']; ?>" data-barcode="<?php echo htmlspecialchars($it['barcode'] ?? ''); ?>" data-qty="<?php echo (int)$it['qty']; ?>" data-uom="<?php echo htmlspecialchars($it['uom'] ?? ''); ?>">
-                                        <?php echo htmlspecialchars($it['sku'].' - '.$it['name']); ?><?php if(!empty($it['barcode'])) echo ' ['.htmlspecialchars($it['barcode']).']'; ?> (Qty: <?php echo $it['qty']; ?>)
+                                    <option value="<?php echo $it['id']; ?>" data-qty="<?php echo (int)$it['qty']; ?>" data-uom="<?php echo htmlspecialchars($it['uom'] ?? ''); ?>">
+                                         <?php echo htmlspecialchars($it['sku'].' - '.$it['name']); ?> (Qty: <?php echo $it['qty']; ?>)
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <button type="button" class="btn-secondary" id="txn-scan-barcode-btn" style="width:46px; height:46px; padding:0; border-radius:12px; flex-shrink:0;" title="Scan with camera"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg></button>
                     </div>
                 </div>
 
@@ -969,8 +966,6 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     <?php endif; ?>
 </div>
 
-<input type="text" id="txn-hid-barcode-input" class="hid-barcode-capture" aria-hidden="true" tabindex="-1" autocomplete="off">
-
 <div class="premium-card txn-page-card">
     <form method="GET" action="" class="p-6 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#13275B]/30">
         <div>
@@ -984,12 +979,13 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         </div>
         
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-            <div class="relative w-full sm:w-72">
-                <input type="text" name="q" id="txn-search-input" class="premium-input w-full pl-10 pr-11" placeholder="Search product or barcode..." 
-                       value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off" style="height:44px; font-size:13px;">
-                <svg class="absolute left-3.5 top-3.5 w-4 h-4 text-[#9aa6d1] pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <button type="button" id="txn-search-scan-btn" class="absolute right-1.5 top-1.5 flex items-center justify-center cursor-pointer transition-colors text-[#9aa6d1] hover:text-[#51D55A] hover:bg-[#1D387B]/60 rounded-lg" style="width:32px; height:32px;" title="Scan barcode with camera">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <div class="relative w-full sm:w-72">
+                    <input type="text" name="q" id="txn-search-input" class="premium-input w-full px-4" placeholder="Search product name or ID..." 
+                           value="<?php echo htmlspecialchars($search_q); ?>" autocomplete="off" style="height:44px; font-size:13px;">
+                </div>
+                <button type="submit" class="btn-secondary h-[44px] w-[44px] min-w-[44px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Transactions" aria-label="Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
             </div>
             
@@ -1016,8 +1012,6 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             
             <?php if($action): ?><input type="hidden" name="action" value="<?php echo $action; ?>"><?php endif; ?>
             <?php if($smartInsightActive): ?><input type="hidden" name="ref" value="insights"><?php endif; ?>
-            
-            <button type="submit" class="hidden">Search</button>
         </div>
     </form>
 
@@ -1050,12 +1044,6 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                             <div class="font-semibold text-white text-[14px] leading-snug">
                                 <?php echo htmlspecialchars($it['name']); ?>
                             </div>
-                            <?php if (!empty($it['barcode'])): ?>
-                                <div class="text-[11px] text-[#6b7aab] font-mono mt-0.5 flex items-center gap-1.5">
-                                    <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
-                                    <span><?php echo htmlspecialchars($it['barcode']); ?></span>
-                                </div>
-                            <?php endif; ?>
                         </td>
                         <td class="col-category">
                             <span class="txn-cat-badge" title="<?php echo htmlspecialchars($it['category'] ?? 'Uncategorized'); ?>">
@@ -1246,12 +1234,8 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 
 <?php renderLayoutContentEnd(); ?>
 
-<?php require_once 'src/partials/barcode_scanner_modal.php'; ?>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="src/scripts/barcode-scanner.js?v=<?php echo time(); ?>"></script>
 <script>
 $(document).ready(function() {
     $('#productSelect').select2({
@@ -1265,11 +1249,6 @@ $(document).ready(function() {
     document.addEventListener('themechange', function () {
         $('#productSelect').select2('close');
     });
-
-    if (window.BarcodeScanner) {
-        BarcodeScanner.init();
-        initTransactionBarcodeInputs();
-    }
 
     <?php if ($smartInsightActive): ?>
     <?php
@@ -1286,31 +1265,6 @@ $(document).ready(function() {
     ?>
     showToast(<?php echo json_encode($insightMsg); ?>, 'success');
     <?php endif; ?>
-});
-
-function selectProductByBarcode(barcode) {
-    BarcodeScanner.lookup(barcode).then(function(data) {
-        if (data.found && data.product) {
-            var p = data.product;
-            $('#productSelect').val(p.product_id).trigger('change');
-            showToast('Product found: ' + p.product_name, 'success');
-        } else {
-            showToast('No product found for barcode: ' + barcode, 'error');
-        }
-    }).catch(function() {
-        showToast('Failed to look up barcode.', 'error');
-    });
-}
-
-document.getElementById('txn-scan-barcode-btn')?.addEventListener('click', function() {
-    BarcodeScanner.open(selectProductByBarcode);
-});
-
-document.getElementById('txn-search-scan-btn')?.addEventListener('click', function() {
-    BarcodeScanner.open(function(code) {
-        document.getElementById('txn-search-input').value = code;
-        document.getElementById('txn-search-input').closest('form').submit();
-    });
 });
 
 function showToast(message, type) {
@@ -1349,33 +1303,6 @@ document.getElementById('txnSingleForm')?.addEventListener('submit', function(e)
 });
 document.getElementById('productSelect')?.addEventListener('change', function() { this.classList.remove('error-border'); });
 document.getElementById('txn-qty-input')?.addEventListener('input', function() { this.classList.remove('error-border'); });
-
-function initTransactionBarcodeInputs() {
-    if (!window.BarcodeScanner) return;
-
-    var searchInput = document.getElementById('txn-search-input');
-    if (searchInput) {
-        BarcodeScanner.attachHidInput(searchInput, function(code) {
-            searchInput.value = code;
-            searchInput.closest('form').submit();
-        });
-    }
-
-    var wedgeInput = document.getElementById('txn-hid-barcode-input');
-    if (wedgeInput) {
-        BarcodeScanner.attachHidInput(wedgeInput, function(code) {
-            wedgeInput.value = '';
-            selectProductByBarcode(code);
-        });
-    }
-
-    var scanHint = document.getElementById('txn-hid-focus-hint');
-    if (scanHint && wedgeInput) {
-        scanHint.addEventListener('click', function() {
-            BarcodeScanner.focusHidInput(wedgeInput);
-        });
-    }
-}
 </script>
 
 <?php renderLayoutEnd(); ?>

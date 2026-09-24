@@ -397,19 +397,51 @@ function renderLayoutFooter() {
 
     window.showToast = function(message, type) {
         var toast = document.getElementById('toast-container');
+        if (!toast) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    window.showToast(message, type);
+                });
+            }
+            return;
+        }
         var toastMsg = document.getElementById('toast-message');
         var toastIcon = document.getElementById('toast-icon');
-        if (!toast || !toastMsg) return;
+        if (!toastMsg || !toastIcon) {
+            toast.innerHTML = '<span id="toast-icon"></span><span id="toast-message"></span>';
+            toastMsg = document.getElementById('toast-message');
+            toastIcon = document.getElementById('toast-icon');
+        }
+        if (!toastMsg) return;
         toastMsg.innerText = message;
-        type = (type === 'success') ? 'success' : 'error';
+
+        // Normalise type
+        var validTypes = { success: 1, error: 1, warning: 1, info: 1 };
+        type = validTypes[type] ? type : 'error';
         toast.className = 'show ' + type;
+
+        // Icon map — special icons for archive/restore actions
         if (toastIcon) {
+            var msgLc = message.toLowerCase();
             if (type === 'success') {
-                toastIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-            } else {
-                toastIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                if (msgLc.includes('archived')) {
+                    toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="21 8 21 21 3 21 3 8"/><rect stroke-linecap="round" stroke-linejoin="round" x="1" y="3" width="22" height="5"/><line stroke-linecap="round" stroke-linejoin="round" x1="10" y1="12" x2="14" y2="12"/></svg>';
+                } else if (msgLc.includes('restored') || msgLc.includes('restore')) {
+                    toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="1 4 1 10 7 10"/><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>';
+                } else if (msgLc.includes('deleted') || msgLc.includes('removed')) {
+                    toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline stroke-linecap="round" stroke-linejoin="round" points="3 6 5 6 21 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path stroke-linecap="round" stroke-linejoin="round" d="M10 11v6m4-6v6"/></svg>';
+                } else {
+                    toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+                }
+            } else if (type === 'error') {
+                toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+            } else if (type === 'warning') {
+                toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+            } else { // info
+                toastIcon.innerHTML = '<svg class="w-5 h-5 flex-shrink-0" width="20" height="20" style="width:20px;height:20px;min-width:20px;min-height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
             }
         }
+
         clearTimeout(window.__toastTimer);
         window.__toastTimer = setTimeout(function() {
             toast.classList.remove('show');
@@ -742,6 +774,7 @@ function renderLayoutFooter() {
     }
 
     if ($queuedFlash): ?>
+    window.__iwFlashPending = true;
     document.addEventListener('DOMContentLoaded', function() {
         showToast(<?php echo json_encode($queuedFlash); ?>, <?php echo json_encode($queuedType); ?>);
     });

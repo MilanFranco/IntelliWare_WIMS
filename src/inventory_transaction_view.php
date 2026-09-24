@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $normalized[] = $entry;
             }
 
-            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['barcode', 'ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'barcode';
+            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'manual';
             $results = StockMovementService::executeBatchMovement(
                 $conn,
                 $normalized,
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $productId = (int)($_POST['product_id'] ?? 0);
             $qty = (int)($_POST['qty'] ?? 0);
-            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['barcode', 'ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'barcode';
+            $entrySource = (!empty($_POST['entry_source']) && in_array($_POST['entry_source'], ['ai_scan', 'manual'], true)) ? $_POST['entry_source'] : 'manual';
 
             $result = StockMovementService::executeMovement(
                 $conn,
@@ -219,6 +219,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         border-radius: 16px;
         overflow: hidden;
         box-shadow: var(--iw-shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        transform: translateZ(0);
     }
     .pos-panel:hover { transform: none; }
 
@@ -237,6 +238,42 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         flex-direction: column;
         gap: 14px;
         overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        transform: translateZ(0);
+        will-change: scroll-position;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(81, 213, 90, 0.35) transparent;
+    }
+    .pos-panel-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .pos-panel-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .pos-panel-body::-webkit-scrollbar-thumb {
+        background: rgba(81, 213, 90, 0.35);
+        border-radius: 6px;
+    }
+    .pos-panel-body::-webkit-scrollbar-thumb:hover {
+        background: rgba(81, 213, 90, 0.65);
+    }
+    [data-theme="light"] .pos-panel-body {
+        scrollbar-color: #CBD5E1 transparent !important;
+    }
+    [data-theme="light"] .pos-panel-body::-webkit-scrollbar-thumb {
+        background: #CBD5E1 !important;
+    }
+    [data-theme="light"] .pos-panel-body::-webkit-scrollbar-thumb:hover {
+        background: #94A3B8 !important;
+    }
+
+    /* Prevent backdrop-filter repaints on inputs inside scrolling panels */
+    .pos-panel-body .premium-input,
+    .pos-panel-body input {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transform: translateZ(0);
     }
 
     #inv-txn-form {
@@ -386,9 +423,37 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         flex: 1;
         min-height: 120px;
         overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        transform: translateZ(0);
+        will-change: scroll-position;
         border: 1px solid var(--iw-border);
         border-radius: 12px;
         background: var(--iw-bg-surface);
+        scrollbar-width: thin;
+        scrollbar-color: rgba(81, 213, 90, 0.35) transparent;
+    }
+    .pos-cart-wrap::-webkit-scrollbar {
+        width: 6px;
+    }
+    .pos-cart-wrap::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .pos-cart-wrap::-webkit-scrollbar-thumb {
+        background: rgba(81, 213, 90, 0.35);
+        border-radius: 6px;
+    }
+    .pos-cart-wrap::-webkit-scrollbar-thumb:hover {
+        background: rgba(81, 213, 90, 0.65);
+    }
+    [data-theme="light"] .pos-cart-wrap {
+        scrollbar-color: #CBD5E1 transparent !important;
+    }
+    [data-theme="light"] .pos-cart-wrap::-webkit-scrollbar-thumb {
+        background: #CBD5E1 !important;
+    }
+    [data-theme="light"] .pos-cart-wrap::-webkit-scrollbar-thumb:hover {
+        background: #94A3B8 !important;
     }
 
     .pos-cart-empty {
@@ -664,6 +729,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         color: #9aa6d1;
         font-size: 12px;
         position: relative;
+        transform: translateZ(0);
         transition: border-color 0.3s, box-shadow 0.3s;
     }
     .pos-info-image-wrap.has-image {
@@ -691,14 +757,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         z-index: 9999;
         background: rgba(0,0,0,0.88);
         backdrop-filter: blur(6px);
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: center;
         opacity: 0;
         pointer-events: none;
         transition: opacity 0.22s;
     }
-    .pos-img-lightbox.open { opacity: 1; pointer-events: auto; }
+    .pos-img-lightbox.open { display: flex; opacity: 1; pointer-events: auto; }
     .pos-img-lightbox img {
         max-width: min(90vw, 900px);
         max-height: 88vh;
@@ -785,6 +851,12 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     #toast-container.error   { background-color: rgba(45,12,18,0.96); border: 1.5px solid #ef4444; color: #fee2e2; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25); }
     [data-theme="light"] #toast-container.error { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important; }
     [data-theme="light"] #toast-container.success { background: #f0fdf4 !important; border-color: #22c55e !important; color: #166534 !important; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important; }
+
+    /* Light mode typography contrast for POS panel headers & detail fields */
+    [data-theme="light"] .pos-panel-header h3 { color: var(--iw-text-header, #0B1526) !important; }
+    [data-theme="light"] .pos-panel-header p { color: var(--iw-text-muted, #45526B) !important; }
+    [data-theme="light"] .pos-info-field dt { color: var(--iw-text-muted, #45526B) !important; }
+    [data-theme="light"] .pos-info-field dd { color: var(--iw-text, #0B1526) !important; }
 </style>
 
 <div id="toast-container"><span id="toast-icon"></span><span id="toast-message"></span></div>

@@ -524,11 +524,15 @@ html { scroll-behavior: smooth; }
             <p class="text-xs text-[#9aa6d1] mt-1">Detailed breakdown of all inventory movements</p>
         </div>
         
-        <div class="flex gap-2 w-full md:w-auto">
-            <div class="relative w-full md:w-64">
-                <input type="text" id="logSearch" onkeyup="filterTable()" placeholder="Search logs..." 
-                    class="w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
-                <svg class="absolute left-3 top-2.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <div class="flex gap-2 w-full md:w-auto items-center flex-wrap sm:flex-nowrap">
+            <div class="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="logSearch" onkeyup="filterTable()" placeholder="Search logs..." 
+                        class="w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                </div>
+                <button type="button" onclick="filterTable()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Logs" aria-label="Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
             </div>
             
             <button onclick="exportLogs()" class="premium-button text-xs py-2 px-4 whitespace-nowrap flex items-center gap-2">
@@ -585,10 +589,6 @@ html { scroll-behavior: smooth; }
                             if ($src === 'ai_scan'): ?>
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
                                     AI Scan
-                                </span>
-                            <?php elseif ($src === 'barcode'): ?>
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                                    Barcode
                                 </span>
                             <?php else: ?>
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
@@ -674,7 +674,7 @@ html { scroll-behavior: smooth; }
                         <span class="txnacc-row-value">
                             <?php
                             $src = $trans['transaction_source'] ?? 'manual';
-                            echo ($src === 'ai_scan') ? 'AI Scan' : (($src === 'barcode') ? 'Barcode' : 'Manual');
+                            echo ($src === 'ai_scan') ? 'AI Scan' : 'Manual';
                             ?>
                         </span>
                     </div>
@@ -874,10 +874,14 @@ function filterModalLogs() {
         
         <!-- Search & Info Bar -->
         <div class="sys-search-bar p-4 border-b border-[#2A4484]/40 bg-[#13275B]/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div class="relative flex-1">
-                <input type="text" id="modalLogSearch" onkeyup="filterModalLogs()" placeholder="Search logs by user or action..." 
-                    class="sys-search-input w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
-                <svg class="absolute left-3 top-2.5 w-4 h-4 text-[#9aa6d1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <div class="flex items-center gap-2 flex-1">
+                <div class="relative flex-1">
+                    <input type="text" id="modalLogSearch" onkeyup="filterModalLogs()" placeholder="Search logs by user or action..." 
+                        class="sys-search-input w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                </div>
+                <button type="button" onclick="filterModalLogs()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Logs" aria-label="Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
             </div>
             <div class="flex items-center gap-2">
                 <span class="sys-counter-badge text-xs text-[#9aa6d1] font-mono whitespace-nowrap bg-[#1D387B]/60 px-3 py-1.5 rounded-lg border border-[#2A4484]/50">

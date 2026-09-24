@@ -34,7 +34,6 @@ class StockMovementService
 
         $conn->query("ALTER TABLE `transactions` ADD COLUMN `previous_stock` INT(11) DEFAULT NULL AFTER `quantity`");
         $conn->query("ALTER TABLE `transactions` ADD COLUMN `new_stock` INT(11) DEFAULT NULL AFTER `previous_stock`");
-        $conn->query("ALTER TABLE `transactions` ADD COLUMN `barcode` VARCHAR(50) DEFAULT NULL AFTER `new_stock`");
 
         self::$auditColumnsChecked = true;
         self::$hasAuditColumns = true;
@@ -96,7 +95,7 @@ class StockMovementService
         self::ensureBatchColumn($conn);
 
         $productStmt = $conn->prepare(
-            'SELECT p.product_id, p.product_name, p.barcode, p.category, p.location, p.quantity, p.unit,
+            'SELECT p.product_id, p.product_name, p.category, p.location, p.quantity, p.unit,
                     p.reorder_point,
                     (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
                     (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date ASC LIMIT 1) AS batch_number,
@@ -145,25 +144,23 @@ class StockMovementService
         }
 
         $userId = self::getUserId($conn, $username);
-        $barcode = $product['barcode'] ?? null;
 
-        $validSources = ['manual', 'barcode', 'ai_scan'];
+        $validSources = ['manual', 'ai_scan'];
         $cleanSource = in_array(strtolower(trim($source)), $validSources, true) ? strtolower(trim($source)) : 'manual';
 
         $transStmt = $conn->prepare(
             'INSERT INTO transactions
-            (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, barcode, remarks, transaction_source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            (product_id, user_id, transaction_type, quantity, previous_stock, new_stock, remarks, transaction_source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $transStmt->bind_param(
-            'iisiiisss',
+            'iisiisss',
             $productId,
             $userId,
             $transactionType,
             $quantity,
             $previousStock,
             $newStock,
-            $barcode,
             $remarks,
             $cleanSource
         );

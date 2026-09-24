@@ -440,7 +440,7 @@ body::before {
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    padding: 13px 24px;
+    padding: 12px 22px;
     border-radius: 12px;
     font-family: 'Onest', sans-serif;
     font-size: 14px;
@@ -456,7 +456,13 @@ body::before {
     -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     pointer-events: auto;
-    max-width: 90vw;
+    width: max-content;
+    max-width: min(90vw, 550px);
+    height: auto !important;
+    max-height: 120px !important;
+    white-space: normal;
+    word-break: break-word;
+    color: #ffffff;
 }
 
 #toast-container.show {
@@ -481,7 +487,30 @@ body::before {
     box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25);
 }
 
+/* Warning: Color-Coded AMBER */
+#toast-container.warning {
+    background: rgba(55, 35, 10, 0.95);
+    border: 1.5px solid #fbbf24;
+    color: #fef3c7;
+    box-shadow: 0 10px 30px rgba(251, 191, 36, 0.25);
+}
+
+/* Info: Color-Coded BLUE */
+#toast-container.info {
+    background: rgba(16, 36, 75, 0.95);
+    border: 1.5px solid #60a5fa;
+    color: #dbeafe;
+    box-shadow: 0 10px 30px rgba(96, 165, 250, 0.25);
+}
+
 /* Light Theme Overrides for Toasts */
+[data-theme="light"] #toast-container {
+    background: #FFFFFF !important;
+    border-color: #D6E2F2 !important;
+    box-shadow: 0 8px 30px rgba(20, 80, 158, 0.18), 0 0 0 1px rgba(20, 80, 158, 0.08) !important;
+    color: #0B1526 !important;
+}
+
 [data-theme="light"] #toast-container.error {
     background: #fef2f2 !important;
     border-color: #ef4444 !important;
@@ -494,6 +523,59 @@ body::before {
     border-color: #22c55e !important;
     color: #166534 !important;
     box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important;
+}
+
+[data-theme="light"] #toast-container.warning {
+    background: #fffbeb !important;
+    border-color: #f59e0b !important;
+    color: #92400e !important;
+    box-shadow: 0 10px 25px rgba(245, 158, 11, 0.15) !important;
+}
+
+[data-theme="light"] #toast-container.info {
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    color: #1e40af !important;
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.15) !important;
+}
+
+#toast-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+    flex-shrink: 0 !important;
+}
+
+#toast-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+    flex-shrink: 0 !important;
+    display: block !important;
+}
+
+#toast-message {
+    font-size: 14px;
+    line-height: 1.4;
+    color: inherit;
+    flex: 1;
+}
+
+#toast-container:has(.toast-box) {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
 }
 
 /* Field Validation Border: Color-Coded RED for Error */
@@ -1145,27 +1227,6 @@ select.premium-input:disabled {
 }
 
 /* --- Added sidebar hidden state --- */
-/* Handheld barcode scanner (HID keyboard wedge) — visually hidden capture input */
-.hid-barcode-capture {
-    position: fixed !important;
-    top: 0 !important;
-    left: -9999px !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-    border: 0 !important;
-    opacity: 0 !important;
-    pointer-events: none;
-}
-
-.barcode-scan-hint {
-    font-size: 11px;
-    color: #9aa6d1;
-    margin-top: 6px;
-    font-family: 'Onest', sans-serif;
-}
 
 .sidebar-hidden {
     margin-left: -290px !important;

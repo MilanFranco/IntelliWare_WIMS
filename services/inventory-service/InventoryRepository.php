@@ -35,10 +35,10 @@ class InventoryRepository
         $types = 'i';
 
         if ($q !== '') {
-            $where[] = '(p.product_name LIKE ? OR p.supplier LIKE ? OR p.barcode LIKE ? OR p.barcode = ?)';
+            $where[] = '(p.product_name LIKE ? OR p.supplier LIKE ?)';
             $like = "%{$q}%";
-            array_push($params, $like, $like, $like, $q);
-            $types .= 'ssss';
+            array_push($params, $like, $like);
+            $types .= 'ss';
         }
 
         if ($category !== '') {
@@ -89,7 +89,6 @@ class InventoryRepository
                 p.product_id AS id,
                 CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku,
                 p.product_name AS name,
-                p.barcode,
                 p.category,
                 p.quantity AS qty,
                 p.unit AS uom,
@@ -148,7 +147,6 @@ class InventoryRepository
                 p.product_id AS id,
                 CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku,
                 p.product_name AS name,
-                p.barcode,
                 p.category,
                 p.quantity AS qty,
                 p.unit AS uom,
