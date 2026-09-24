@@ -44,14 +44,46 @@ $userResult = $userStmt->get_result();
 $userInfo = $userResult->fetch_assoc();
 $userStmt->close();
 
-// Metrics Calculation
+// Metrics Calculation & Inventory Aggregates (matching products.php)
+$statQuery = "SELECT 
+    COUNT(*) AS total_items,
+    COALESCE(SUM(quantity), 0) AS total_units,
+    COALESCE(SUM(quantity * price), 0) AS total_stock_value,
+    COALESCE(SUM(CASE WHEN quantity > 0 AND quantity <= reorder_point THEN 1 ELSE 0 END), 0) AS low_stock_count,
+    COALESCE(SUM(CASE WHEN quantity <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_count,
+    COUNT(DISTINCT category) AS total_categories
+FROM products 
+WHERE archived = 0";
+$statRes = $conn->query($statQuery);
+$statRow = ($statRes && $statRes->num_rows > 0) ? $statRes->fetch_assoc() : [];
+
+$totalItems       = (int)($statRow['total_items'] ?? count($items));
+$totalUnits       = (int)($statRow['total_units'] ?? 0);
+$totalStockValue   = (float)($statRow['total_stock_value'] ?? 0.0);
+$lowStockCount     = (int)($statRow['low_stock_count'] ?? 0);
+$outOfStockCount   = (int)($statRow['out_of_stock_count'] ?? 0);
+$totalCategories   = (int)($statRow['total_categories'] ?? 0);
+$totalSKUs         = $totalItems;
+$totalQty          = $totalUnits;
+
 $lowStockItems = array_filter($items, function($i){ 
     return (int)$i['qty'] <= (int)($i['reorder_point'] ?? 10); 
 });
-$lowStockCount = count($lowStockItems);
-$totalSKUs = count($items);
-$totalQty = array_sum(array_map(function($i){return (int)$i['qty'];}, $items));
-$totalCategories = count(array_unique(array_map(function($i){return $i['category'];}, $items)));
+
+if (!function_exists('formatStockValue')) {
+    function formatStockValue(float $value): string {
+        if ($value >= 1000000000) {
+            return '&#8369;' . number_format($value / 1000000000, 2) . 'B';
+        }
+        if ($value >= 1000000) {
+            return '&#8369;' . number_format($value / 1000000, 2) . 'M';
+        }
+        if ($value >= 1000) {
+            return '&#8369;' . number_format($value / 1000, 2) . 'K';
+        }
+        return '&#8369;' . number_format($value, 2);
+    }
+}
 
 // Recent Transactions (Last 5)
 $recentTransactions = [];
@@ -246,22 +278,28 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
 
 <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
   <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php'">
-    <div>Total Stock-keeping Unit</div>
-    <div class="num"><?php echo $totalSKUs; ?></div>
+    <div class="card-title" style="margin-bottom:0; font-size:14px;">Stock value</div>
+    <div class="num"><?php echo formatStockValue($totalStockValue); ?></div>
+    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo number_format($totalUnits); ?> units on hand</div>
   </div>
   <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php'">
-    <div>Total Quantity</div>
-    <div class="num"><?php echo number_format($totalQty); ?></div>
+    <div class="card-title" style="margin-bottom:0; font-size:14px;">Total Products</div>
+    <div class="num"><?php echo number_format($totalItems); ?></div>
+    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;">Active catalog SKUs</div>
   </div>
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='reports.php'">
-    <div>Low Stock Items</div>
-    <div class="num" style="<?php echo $lowStockCount > 0 ? 'color:#f87171; -webkit-text-fill-color:#f87171;' : ''; ?>">
-        <?php echo $lowStockCount; ?>
+  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php?filter=low_stock'">
+    <div class="card-title" style="margin-bottom:0; font-size:14px;">Low Stock</div>
+    <div class="num" style="<?php echo $lowStockCount > 0 ? 'color:#f59e0b; -webkit-text-fill-color:#f59e0b;' : ''; ?>">
+        <?php echo number_format($lowStockCount); ?>
     </div>
+    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo $lowStockCount === 1 ? '1 item needs reorder' : number_format($lowStockCount) . ' items need reorder'; ?></div>
   </div>
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php'">
-    <div>Categories</div>
-    <div class="num"><?php echo $totalCategories; ?></div>
+  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php?filter=out_of_stock'">
+    <div class="card-title" style="margin-bottom:0; font-size:14px;">Out of Stock</div>
+    <div class="num" style="<?php echo $outOfStockCount > 0 ? 'color:#ef4444; -webkit-text-fill-color:#ef4444;' : ''; ?>">
+        <?php echo number_format($outOfStockCount); ?>
+    </div>
+    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo $outOfStockCount === 1 ? '1 item fully depleted' : number_format($outOfStockCount) . ' items fully depleted'; ?></div>
   </div>
 </div>
 

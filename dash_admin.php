@@ -54,14 +54,46 @@ $userStmt->execute();
 $userInfo = $userStmt->get_result()->fetch_assoc();
 $userStmt->close();
 
-// 3. Calculate Metrics
+// 3. Calculate Metrics & Inventory Aggregates (matching products.php)
+$statQuery = "SELECT 
+    COUNT(*) AS total_items,
+    COALESCE(SUM(quantity), 0) AS total_units,
+    COALESCE(SUM(quantity * price), 0) AS total_stock_value,
+    COALESCE(SUM(CASE WHEN quantity > 0 AND quantity <= reorder_point THEN 1 ELSE 0 END), 0) AS low_stock_count,
+    COALESCE(SUM(CASE WHEN quantity <= 0 THEN 1 ELSE 0 END), 0) AS out_of_stock_count,
+    COUNT(DISTINCT category) AS total_categories
+FROM products 
+WHERE archived = 0";
+$statRes = $conn->query($statQuery);
+$statRow = ($statRes && $statRes->num_rows > 0) ? $statRes->fetch_assoc() : [];
+
+$totalItems       = (int)($statRow['total_items'] ?? count($items));
+$totalUnits       = (int)($statRow['total_units'] ?? 0);
+$totalStockValue   = (float)($statRow['total_stock_value'] ?? 0.0);
+$lowStockCount     = (int)($statRow['low_stock_count'] ?? 0);
+$outOfStockCount   = (int)($statRow['out_of_stock_count'] ?? 0);
+$totalCategories   = (int)($statRow['total_categories'] ?? 0);
+$totalSKUs         = $totalItems;
+$totalQty          = $totalUnits;
+
 $lowStockItems = array_filter($items, function($i){ 
     return (int)$i['qty'] <= (int)($i['reorder_point'] ?? 10); 
 });
-$lowStockCount = count($lowStockItems);
-$totalSKUs = count($items);
-$totalQty = array_sum(array_map(function($i){return (int)$i['qty'];}, $items));
-$totalCategories = count(array_unique(array_map(function($i){return $i['category'];}, $items)));
+
+if (!function_exists('formatStockValue')) {
+    function formatStockValue(float $value): string {
+        if ($value >= 1000000000) {
+            return '&#8369;' . number_format($value / 1000000000, 2) . 'B';
+        }
+        if ($value >= 1000000) {
+            return '&#8369;' . number_format($value / 1000000, 2) . 'M';
+        }
+        if ($value >= 1000) {
+            return '&#8369;' . number_format($value / 1000, 2) . 'K';
+        }
+        return '&#8369;' . number_format($value, 2);
+    }
+}
 
 // 4. Recent Transactions — use index on transaction_date
 $recentTransactions = [];
@@ -281,51 +313,55 @@ renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SE
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="premium-card stat-card-items relative p-6 flex items-center justify-between group hover:border-emerald-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Stock value</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo formatStockValue($totalStockValue); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo number_format($totalUnits); ?> units on hand</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform border border-emerald-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        </div>
+    </div>
+
     <div class="premium-card stat-card-skus relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
         <div>
-            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total SKUs</div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
             <div class="premium-metric">
-                <span class="num text-3xl"><?php echo number_format($totalSKUs); ?></span>
+                <span class="num text-3xl"><?php echo number_format($totalItems); ?></span>
             </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest">Active catalog SKUs</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
         </div>
     </div>
 
-    <div class="premium-card stat-card-items relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+    <div class="premium-card stat-card-categories relative p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php?filter=low_stock'">
         <div>
-            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Items</div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock</div>
             <div class="premium-metric">
-                <span class="num text-3xl"><?php echo number_format($totalQty); ?></span>
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($lowStockCount); ?></span>
             </div>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-        </div>
-    </div>
-
-    <div class="premium-card stat-card-low-stock relative p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="window.location.href='insights.php'">
-        <div>
-            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock Alert</div>
-            <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo $lowStockCount; ?></span>
-            </div>
-        </div>
-        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform border border-red-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        </div>
-    </div>
-
-    <div class="premium-card stat-card-categories relative p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
-        <div>
-            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Active Categories</div>
-            <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo $totalCategories; ?></span>
-            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $lowStockCount === 1 ? '1 item needs reorder' : number_format($lowStockCount) . ' items need reorder'; ?></div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform border border-amber-500/20">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+        </div>
+    </div>
+
+    <div class="premium-card stat-card-low-stock relative p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php?filter=out_of_stock'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Out of Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($outOfStockCount); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $outOfStockCount === 1 ? '1 item fully depleted' : number_format($outOfStockCount) . ' items fully depleted'; ?></div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform border border-red-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
         </div>
     </div>
 </div>

@@ -316,6 +316,19 @@
   font-size: 26px !important;
 }
 
+.stat-card-sub {
+  font-family: 'Onest', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #9aa6d1;
+  margin-top: 4px;
+}
+
+[data-theme="light"] .stat-card-sub {
+  color: #7A90B0 !important;
+  font-weight: 500 !important;
+}
+
 
 /* Light Mode Hero Banner */
 [data-theme="light"] .dashboard-hero-banner {
