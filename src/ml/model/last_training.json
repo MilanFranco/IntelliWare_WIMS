@@ -1,12 +1,15 @@
 {
-  "model_type": "gradient_boosting",
-  "model_version": "2.5.0",
-  "trained_at": "2026-09-18T14:38:53.552087",
+  "model_type": "tri_ensemble",
+  "model_version": "3.2.0",
+  "trained_at": "2026-09-27T00:59:08.556937",
   "metrics": {
-    "mae": 194.3159,
-    "rmse": 614.2801,
-    "mape": 63.2973,
-    "forecast_accuracy": 53.42,
-    "error_rate": 46.58
+    "mae": 67.6545,
+    "rmse": 111.7696,
+    "mape": 13.8595,
+    "forecast_accuracy": 88.67,
+    "error_rate": 11.33,
+    "wape_7d": 11.13,
+    "wape_14d": 8.1925,
+    "wf_cv_accuracy": 72.98
   }
 }

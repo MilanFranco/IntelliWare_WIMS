@@ -1,8 +1,34 @@
+/* Anti-flicker: disable transitions during initial page load */
+html.theme-loading,
+html.theme-loading *,
+html.theme-loading *::before,
+html.theme-loading *::after {
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -o-transition: none !important;
+    -ms-transition: none !important;
+    transition: none !important;
+}
+
+html {
+    background-color: #020A27;
+}
+
+html[data-theme="dark"] {
+    background-color: #020A27 !important;
+    color-scheme: dark;
+}
+
+html[data-theme="light"] {
+    background-color: #EDF4FB !important;
+    color-scheme: light;
+}
+
 /* IntelliWare Theme System — dark is default */
 :root,
 [data-theme="dark"] {
     --iw-bg-shell: #020A27;
-    --iw-bg-wrapper: #e5e7eb;
+    --iw-bg-wrapper: #020A27;
     --iw-bg-content: #0b1438;
     --iw-bg-sidebar: linear-gradient(180deg, #1D387B 0%, #13275B 100%);
     --iw-bg-header: linear-gradient(135deg, #1D387B);
@@ -38,6 +64,7 @@
     --iw-text-profile-role: #9aa6d1;
 
     --iw-border: rgba(42, 68, 132, 0.6);
+    --iw-border-soft: rgba(42, 68, 132, 0.32);
     --iw-border-subtle: rgba(42, 68, 132, 0.35);
     --iw-border-solid: #2A4484;
     --iw-border-input: rgba(48, 67, 116, 0.6);
@@ -47,7 +74,8 @@
     --iw-accent: #51D55A;
     --iw-accent-hover: #4BC052;
     --iw-accent-gradient: linear-gradient(135deg, #51D55A 0%, #4BC052 100%);
-    --iw-shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --iw-shadow-card: 0 10px 30px rgba(0, 0, 0, 0.22);
+    --iw-shadow-card-hover: 0 12px 32px rgba(0, 0, 0, 0.35);
     --iw-shadow-dropdown: 0 20px 60px rgba(0, 0, 0, 0.4);
 
     --iw-chart-text: #9aa6d1;
@@ -97,9 +125,10 @@
     --iw-text-profile-role: #45526B;
 
     /* ── Borders ── */
-    --iw-border: #D0DFF2;
-    --iw-border-subtle: #E2EDF8;
-    --iw-border-solid: #D0DFF2;
+    --iw-border: #BFCFE0;
+    --iw-border-soft: #D0DCE8;
+    --iw-border-subtle: #D0DCE8;
+    --iw-border-solid: #BFCFE0;
     --iw-border-input: #CDD9EF;
     --iw-border-accent: #A8C8F0;
     --iw-border-dropdown: #D0DFF2;
@@ -110,8 +139,8 @@
     --iw-accent-gradient: linear-gradient(135deg, #1A64C0 0%, #0D3E7A 100%);
 
     /* ── Shadows ── */
-    --iw-shadow-card: 0 1px 3px rgba(16,24,43,0.05), 0 6px 20px -10px rgba(16,24,43,0.14);
-    --iw-shadow-card-hover: 0 4px 16px rgba(16,24,43,0.09), 0 18px 38px -16px rgba(20,80,158,0.20);
+    --iw-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08);
+    --iw-shadow-card-hover: 0 8px 22px rgba(55, 75, 99, 0.15);
     --iw-shadow-dropdown: 0 4px 8px rgba(11,21,38,0.06), 0 16px 36px -8px rgba(11,21,38,0.14), 0 0 0 1px rgba(208,223,242,0.9);
     --iw-shadow-sidebar: 2px 0 16px rgba(20,80,158,0.07), inset -1px 0 0 #E4EFF9;
     --iw-shadow-header: 0 1px 0 #E4EFF9, 0 2px 12px -4px rgba(16,24,43,0.06);
@@ -280,17 +309,65 @@
     border-color: #A8C8F0;
 }
 
+/* ── Unified Cards & Effects — Exactly Matching Insights Page ── */
 .card,
+.forecast-card,
+.metric-card,
 .premium-card,
-.premium-metric-card {
+.premium-metric-card,
+.inv-summary-card,
+.inv-card,
+.stat-card-items,
+.stat-card-skus,
+.stat-card-categories,
+.stat-card-low-stock,
+.iw-quick-access,
+.iw-recent-activity {
     background: var(--iw-bg-card) !important;
-    border-color: var(--iw-border) !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
     box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.3s !important;
+}
+
+.card:hover,
+.forecast-card:hover,
+.metric-card:hover,
+.premium-card:hover,
+.premium-metric-card:hover,
+.inv-summary-card:hover,
+.inv-card:hover,
+.stat-card-items:hover,
+.stat-card-skus:hover,
+.stat-card-categories:hover,
+.stat-card-low-stock:hover,
+.iw-quick-access:hover,
+.iw-recent-activity:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: var(--iw-shadow-card-hover) !important;
+}
+
+[data-theme="light"] .card:hover,
+[data-theme="light"] .forecast-card:hover,
+[data-theme="light"] .metric-card:hover,
+[data-theme="light"] .premium-card:hover,
+[data-theme="light"] .premium-metric-card:hover,
+[data-theme="light"] .inv-summary-card:hover,
+[data-theme="light"] .inv-card:hover,
+[data-theme="light"] .stat-card-items:hover,
+[data-theme="light"] .stat-card-skus:hover,
+[data-theme="light"] .stat-card-categories:hover,
+[data-theme="light"] .stat-card-low-stock:hover,
+[data-theme="light"] .iw-quick-access:hover,
+[data-theme="light"] .iw-recent-activity:hover {
+    border-color: #A8C8F0 !important;
+    box-shadow: 0 8px 22px rgba(55, 75, 99, 0.15) !important;
 }
 
 /* ── Card panel headers: round top to match card border-radius ── */
-/* Prevents the colored header background from having sharp corners
-   inside the card's rounded frame. Works for all card types. */
 .premium-card > div:first-child,
 .card > div:first-child,
 .premium-metric-card > div:first-child {
@@ -298,16 +375,30 @@
     border-top-right-radius: 15px;
 }
 
-/* Page Hero Banner Cards (Matching User Management) */
+/* Page Hero Banner Cards (Matching Insights Page Intel Banner) */
 .user-hero-card,
-.page-hero-card {
-    background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
-    border: 1px solid rgba(42, 68, 132, 0.6);
-    border-radius: 18px;
+.page-hero-card,
+.dashboard-hero-banner {
+    background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%) !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
     padding: 24px 28px;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+    box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     position: relative;
     overflow: hidden;
+}
+
+[data-theme="light"] .user-hero-card,
+[data-theme="light"] .page-hero-card,
+[data-theme="light"] .dashboard-hero-banner {
+    background: #FFFFFF !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
 }
 .user-hero-card::after,
 .page-hero-card::after {
@@ -933,43 +1024,61 @@
     background-color: var(--iw-bg-wrapper) !important;
 }
 
-/* Light mode — unified card depth */
+/* Light mode — unified card depth matching Insights page */
 [data-theme="light"] .card,
+[data-theme="light"] .forecast-card,
+[data-theme="light"] .metric-card,
 [data-theme="light"] .premium-card,
-[data-theme="light"] .premium-metric-card {
-    backdrop-filter: none !important;
-    border: 1px solid var(--iw-border-solid) !important;
+[data-theme="light"] .premium-metric-card,
+[data-theme="light"] .inv-summary-card,
+[data-theme="light"] .inv-card,
+[data-theme="light"] .stat-card-items,
+[data-theme="light"] .stat-card-skus,
+[data-theme="light"] .stat-card-categories,
+[data-theme="light"] .stat-card-low-stock,
+[data-theme="light"] .iw-quick-access,
+[data-theme="light"] .iw-recent-activity {
+    background: #FFFFFF !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
     box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 [data-theme="light"] .card:hover,
+[data-theme="light"] .forecast-card:hover,
+[data-theme="light"] .metric-card:hover,
 [data-theme="light"] .premium-card:hover,
-[data-theme="light"] .premium-metric-card:hover {
-    transform: translateY(-2px);
+[data-theme="light"] .premium-metric-card:hover,
+[data-theme="light"] .inv-summary-card:hover,
+[data-theme="light"] .inv-card:hover,
+[data-theme="light"] .stat-card-items:hover,
+[data-theme="light"] .stat-card-skus:hover,
+[data-theme="light"] .stat-card-categories:hover,
+[data-theme="light"] .stat-card-low-stock:hover,
+[data-theme="light"] .iw-quick-access:hover,
+[data-theme="light"] .iw-recent-activity:hover {
+    transform: translateY(-2px) !important;
     box-shadow: var(--iw-shadow-card-hover) !important;
     border-color: var(--iw-border-accent) !important;
 }
 
 [data-theme="light"] .premium-card::before,
 [data-theme="light"] .premium-metric-card::before {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 2px !important;
-    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
-    border-radius: 16px 16px 0 0 !important;
-    z-index: 2 !important;
-    pointer-events: none !important;
+    display: none !important;
 }
 
 [data-theme="light"] .user-hero-card,
-[data-theme="light"] .page-hero-card {
-    background: linear-gradient(145deg, #E0F2FE 0%, #BAE6FD 100%) !important;
-    border: 1px solid var(--iw-border-solid) !important;
+[data-theme="light"] .page-hero-card,
+[data-theme="light"] .dashboard-hero-banner {
+    background: #FFFFFF !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
     box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
 }
 [data-theme="light"] .user-hero-card::after,
 [data-theme="light"] .page-hero-card::after {
@@ -1455,37 +1564,34 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     box-shadow: 0 2px 6px rgba(179, 35, 28, 0.35) !important;
 }
 
-/* ---- Cards: white with spec border+shadow ---- */
+/* ---- Cards: white with Insights spec border+shadow ---- */
 [data-theme="light"] .card,
+[data-theme="light"] .forecast-card,
+[data-theme="light"] .metric-card,
 [data-theme="light"] .premium-card,
 [data-theme="light"] .premium-metric-card {
     background: #FFFFFF !important;
-    border: 1px solid #D0DFF2 !important;
-    box-shadow: 0 1px 3px rgba(16,24,43,0.05), 0 6px 20px -10px rgba(16,24,43,0.14) !important;
-    backdrop-filter: none !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 [data-theme="light"] .card:hover,
+[data-theme="light"] .forecast-card:hover,
+[data-theme="light"] .metric-card:hover,
 [data-theme="light"] .premium-card:hover,
 [data-theme="light"] .premium-metric-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(16,24,43,0.09), 0 18px 38px -16px rgba(20,80,158,0.20) !important;
-    border-color: #A8C8F0 !important;
+    box-shadow: var(--iw-shadow-card-hover) !important;
+    border-color: var(--iw-border-accent) !important;
 }
 
-/* Premium card ::before green gradient line across the top for light mode */
-[data-theme="light"] .premium-card::before {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 2px !important;
-    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
-    border-radius: 16px 16px 0 0 !important;
-    z-index: 2 !important;
-    pointer-events: none !important;
+[data-theme="light"] .premium-card::before,
+[data-theme="light"] .premium-metric-card::before {
+    display: none !important;
 }
 
 /* ---- Hero card gradient overlay — replace dark navy tint with neutral ---- */
@@ -1557,93 +1663,35 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* These use inline onclick so we identify by proximity — the ::before stripe is drawn */
 /* on the card using a pseudo via a scoped class we'll also set in admin_dashboard.css  */
 
-/* ── Stat card shared base — real depth in light mode ── */
+/* ── Stat card shared base — uniform Insights styling in light mode ── */
 [data-theme="light"] .stat-card-skus,
 [data-theme="light"] .stat-card-items,
 [data-theme="light"] .stat-card-low-stock,
 [data-theme="light"] .stat-card-categories {
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    background: #FFFFFF !important;
+    border: 1px solid var(--iw-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--iw-shadow-card) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
-/* Total SKUs card — blue shadow */
-[data-theme="light"] .stat-card-skus {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 4px 12px rgba(20, 80, 158, 0.10),
-        0 12px 28px -8px rgba(20, 80, 158, 0.18) !important;
-    border-color: #C0D4EE !important;
-}
-[data-theme="light"] .stat-card-skus:hover {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 6px 18px rgba(20, 80, 158, 0.16),
-        0 20px 36px -10px rgba(20, 80, 158, 0.24) !important;
-    border-color: #A8C8F0 !important;
-}
-
-/* Total Items card — green shadow */
-[data-theme="light"] .stat-card-items {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 4px 12px rgba(27, 143, 62, 0.10),
-        0 12px 28px -8px rgba(27, 143, 62, 0.18) !important;
-    border-color: #B0D9BC !important;
-}
-[data-theme="light"] .stat-card-items:hover {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 6px 18px rgba(27, 143, 62, 0.16),
-        0 20px 36px -10px rgba(27, 143, 62, 0.24) !important;
-    border-color: #86C997 !important;
-}
-
-/* Low Stock Alert card — red shadow */
-[data-theme="light"] .stat-card-low-stock {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 4px 12px rgba(179, 35, 28, 0.10),
-        0 12px 28px -8px rgba(179, 35, 28, 0.18) !important;
-    border-color: #F0B8B5 !important;
-}
-[data-theme="light"] .stat-card-low-stock:hover {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 6px 18px rgba(179, 35, 28, 0.16),
-        0 20px 36px -10px rgba(179, 35, 28, 0.24) !important;
-    border-color: #E88B88 !important;
-}
-
-/* Active Categories card — amber shadow */
-[data-theme="light"] .stat-card-categories {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 4px 12px rgba(161, 92, 0, 0.10),
-        0 12px 28px -8px rgba(161, 92, 0, 0.18) !important;
-    border-color: #E8CEAA !important;
-}
+[data-theme="light"] .stat-card-skus:hover,
+[data-theme="light"] .stat-card-items:hover,
+[data-theme="light"] .stat-card-low-stock:hover,
 [data-theme="light"] .stat-card-categories:hover {
-    box-shadow:
-        0 1px 3px rgba(16,24,43,0.06),
-        0 6px 18px rgba(161, 92, 0, 0.16),
-        0 20px 36px -10px rgba(161, 92, 0, 0.22) !important;
-    border-color: #D4A97A !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--iw-shadow-card-hover) !important;
+    border-color: var(--iw-border-accent) !important;
 }
 
-/* Stat cards — green gradient line across the top for light mode */
+/* Stat cards — disable pseudo top bar */
 [data-theme="light"] .stat-card-skus::before,
 [data-theme="light"] .stat-card-items::before,
 [data-theme="light"] .stat-card-low-stock::before,
 [data-theme="light"] .stat-card-categories::before {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 2px !important;
-    background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.22) 20%, rgba(81, 213, 90, 0.48) 50%, rgba(81, 213, 90, 0.22) 80%, transparent) !important;
-    border-radius: 16px 16px 0 0 !important;
-    z-index: 2 !important;
-    pointer-events: none !important;
+    display: none !important;
 }
 
 /* Raised icon chip in stat cards */
@@ -1679,6 +1727,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] .stat-card-categories .text-\[\#9aa6d1\] {
     color: #45526B !important;
     font-weight: 700 !important;
+}
+
+.stat-card-sub {
+    font-family: 'Onest', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #9aa6d1;
+    margin-top: 4px;
+}
+
+[data-theme="light"] .stat-card-sub {
+    color: #7A90B0 !important;
+    font-weight: 500 !important;
 }
 
 /* ---- Quick access section header ---- */

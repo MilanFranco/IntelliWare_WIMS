@@ -95,7 +95,8 @@ function renderHeader($pageTitle, $userRole, $username, $lowStockCount = 0) {
     echo '<div class="admin-user-section">';
     
     echo '<div class="user-profile">';
-    echo '<img src="https://ui-avatars.com/api/?name=' . urlencode($username) . '&background=51D55A&color=fff&size=40&bold=true" alt="User Avatar" class="user-avatar" />';
+    $userInitial = strtoupper(substr($username, 0, 1));
+    echo '<div class="user-avatar" style="width:40px;height:40px;border-radius:50%;background:#51D55A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">' . htmlspecialchars($userInitial) . '</div>';
     echo '<div class="user-details">';
     echo '<div class="user-name">' . htmlspecialchars($username) . '</div>';
     echo '<div class="user-role">' . ucfirst($userRole) . '</div>';
@@ -113,9 +114,9 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<meta charset="UTF-8" />';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0" />';
     echo '<link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">';
-    echo '<script src="https://cdn.tailwindcss.com"></script>';
+    echo '<script src="assets/vendor/tailwindcss.js"></script>';
     echo '<link href="styles.css" rel="stylesheet" />'; 
-    echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">';
+    echo '<link href="assets/fonts.css" rel="stylesheet">';
     echo '<title>' . htmlspecialchars($pageTitle) . ' | IntelliWare</title>';
     
     // --- LAYOUT CSS ---

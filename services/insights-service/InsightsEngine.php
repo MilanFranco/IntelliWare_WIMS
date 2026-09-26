@@ -482,6 +482,7 @@ class InsightsEngine
                 FROM forecast_results fr
                 JOIN products p ON fr.product_id = p.product_id
                 WHERE fr.product_id > 0
+                  AND fr.horizon_type = 'daily'
                   AND fr.forecast_date >= CURDATE()
                   AND fr.forecast_date < DATE_ADD(CURDATE(), INTERVAL {$forecastDays} DAY)
                 GROUP BY p.product_id

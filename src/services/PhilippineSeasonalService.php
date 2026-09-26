@@ -501,7 +501,7 @@ class PhilippineSeasonalService
                     [
                         'name' => 'Vitamin C & Flu Remedies (Ascorbic Acid, Citrus Drinks)',
                         'category' => 'Personal Care',
-                        'keywords' => ['vitamin', 'soap', 'hygiene', 'medicine', 'care'],
+                        'keywords' => ['vitamin', 'ascorbic', 'citrus', 'biogesic', 'flu', 'cough', 'paracetamol', 'medicine', 'neozep'],
                         'demand_lift' => '+30%',
                         'multiplier' => 1.30,
                         'reason' => 'Immunity boosting during sudden temperature drops and wet monsoon season.',
@@ -896,7 +896,9 @@ class PhilippineSeasonalService
                     p.category AS category_name,
                     p.quantity AS current_stock,
                     p.reorder_point,
-                    COALESCE(t.monthly_sales, 0) AS baseline_monthly_sales
+                    COALESCE(t.monthly_sales, 0) AS baseline_monthly_sales,
+                    COALESCE(t_all.total_sales, 0) AS total_sales,
+                    COALESCE(t_all.active_months, 0) AS active_months
                 FROM products p
                 LEFT JOIN (
                     SELECT product_id, SUM(quantity) AS monthly_sales
@@ -905,6 +907,13 @@ class PhilippineSeasonalService
                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                     GROUP BY product_id
                 ) t ON p.product_id = t.product_id
+                LEFT JOIN (
+                    SELECT product_id, SUM(quantity) AS total_sales,
+                           COUNT(DISTINCT DATE_FORMAT(transaction_date, '%Y-%m')) AS active_months
+                    FROM transactions
+                    WHERE transaction_type = 'stock_out'
+                    GROUP BY product_id
+                ) t_all ON p.product_id = t_all.product_id
                 WHERE p.archived = 0
                 ORDER BY p.quantity ASC
             ";
@@ -913,13 +922,16 @@ class PhilippineSeasonalService
         }
         $allProducts = self::$cachedAllProducts ?? [];
 
-        // Pre-fetch all ML predictions grouped by month ONCE for all months
+        // Pre-fetch all ML predictions grouped by month ONCE for all months (only latest model version)
         if (self::$cachedMlPredictions === null && $conn !== null) {
             self::$cachedMlPredictions = [];
             $mlSql = "
-                SELECT product_id, MONTH(forecast_date) as f_month, SUM(predicted_quantity) as total_predicted
+                SELECT product_id, MONTH(forecast_date) as f_month,
+                       MAX(CASE WHEN horizon_type = 'monthly' THEN predicted_quantity ELSE 0 END) as monthly_qty,
+                       SUM(CASE WHEN horizon_type = 'daily' THEN predicted_quantity ELSE 0 END) as daily_sum
                 FROM forecast_results
                 WHERE product_id > 0
+                  AND model_version = (SELECT model_version FROM forecast_results ORDER BY result_id DESC LIMIT 1)
                 GROUP BY product_id, MONTH(forecast_date)
             ";
             $mlRes = @$conn->query($mlSql);
@@ -927,7 +939,9 @@ class PhilippineSeasonalService
                 while ($r = $mlRes->fetch_assoc()) {
                     $mNum = (int)$r['f_month'];
                     $pId  = (int)$r['product_id'];
-                    self::$cachedMlPredictions[$mNum][$pId] = (float)$r['total_predicted'];
+                    $mQty = (float)($r['monthly_qty'] ?? 0);
+                    $dSum = (float)($r['daily_sum'] ?? 0);
+                    self::$cachedMlPredictions[$mNum][$pId] = $mQty > 0 ? $mQty : $dSum;
                 }
             }
         }
@@ -935,72 +949,79 @@ class PhilippineSeasonalService
 
         $matchedProductIds = [];
 
+        // 1. Process curated profile items with precise keyword matching
         foreach ($topProducts as $item) {
-            $keywords = $item['keywords'] ?? [];
-            $cat = $item['category'] ?? '';
+            $keywords   = $item['keywords'] ?? [];
             $multiplier = (float)($item['multiplier'] ?? 1.25);
-            $matched = null;
+            $matched    = null;
+            $bestScore  = 0;
 
-            // 1. Try to find matched product in inventory by keywords
+            // Two-Pass Product Matching:
+            // Score all products by keyword matches — highest score wins!
             foreach ($allProducts as $p) {
+                $pid = (int)$p['product_id'];
+                if (isset($matchedProductIds[$pid])) {
+                    continue;
+                }
                 $pName = strtolower($p['product_name']);
-                $pCat = strtolower($p['category_name'] ?? '');
-                $matchFound = false;
+                $score = 0;
 
                 foreach ($keywords as $kw) {
-                    if (stripos($pName, strtolower($kw)) !== false) {
-                        $matchFound = true;
-                        break;
+                    $kwLower = strtolower(trim($kw));
+                    if ($kwLower === '') continue;
+                    // Boundary match scores higher (3 pts) than substring (1 pt)
+                    if (preg_match('/\b' . preg_quote($kwLower, '/') . '\b/i', $pName)) {
+                        $score += 3;
+                    } elseif (stripos($pName, $kwLower) !== false) {
+                        $score += 1;
                     }
                 }
 
-                if (!$matchFound && !empty($cat) && stripos($pCat, strtolower($cat)) !== false) {
-                    // Match by category if not already matched
-                    if (!isset($matchedProductIds[(int)$p['product_id']])) {
-                        $matchFound = true;
-                    }
-                }
-
-                if ($matchFound && !isset($matchedProductIds[(int)$p['product_id']])) {
-                    $matched = $p;
-                    $matchedProductIds[(int)$p['product_id']] = true;
-                    break;
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $matched   = $p;
                 }
             }
 
-            if ($matched) {
-                $stock = (int)$matched['current_stock'];
-                $reorder = (int)$matched['reorder_point'];
+            // If genuine keyword match found (score >= 1)
+            if ($matched && $bestScore > 0) {
+                $matchedProductIds[(int)$matched['product_id']] = true;
+                $stock     = (int)$matched['current_stock'];
+                $reorder   = (int)$matched['reorder_point'];
                 $baseSales = (float)$matched['baseline_monthly_sales'];
 
-                // If base sales is zero, estimate from reorder point or category baseline
+                // If recent 30d sales are 0, check all-time active average monthly sales
                 if ($baseSales <= 0) {
-                    $baseSales = max(10, $reorder > 0 ? (float)$reorder : 15.0);
+                    $totSales  = (float)($matched['total_sales'] ?? 0);
+                    $actMonths = max(1, (int)($matched['active_months'] ?? 1));
+                    $baseSales = $totSales > 0 ? round($totSales / $actMonths, 1) : max(5, $reorder > 0 ? (float)$reorder : 10.0);
                 }
 
                 $pid = (int)$matched['product_id'];
                 if (isset($mlPredictions[$pid]) && $mlPredictions[$pid] > 0) {
-                    $projectedDemand = round($mlPredictions[$pid]);
+                    $projectedDemand = (int)round($mlPredictions[$pid]);
                 } else {
                     $projectedDemand = (int)round($baseSales * $multiplier);
                 }
 
-                $deficit = max(0, $projectedDemand - $stock);
-                $coveragePct = ($projectedDemand > 0) ? round(($stock / $projectedDemand) * 100, 1) : 100;
-                $dailyRate = $projectedDemand / 30.0;
-                $daysOfSupply = $dailyRate > 0 ? round($stock / $dailyRate, 1) : 999;
+                $deficit      = max(0, $projectedDemand - $stock);
+                $coveragePct  = ($projectedDemand > 0) ? round(($stock / $projectedDemand) * 100, 1) : 100;
+                $dailyRate    = $projectedDemand / 30.0;
+                $daysOfSupply = $dailyRate > 0 ? round($stock / $dailyRate, 1) : ($stock > 0 ? 999 : 0);
+                $targetSafety = max(5, $reorder > 0 ? $reorder : 10);
 
-                // Health Classification
+                // Health Classification & Action Callout
                 if ($stock <= 0) {
                     $status = 'Critical Stockout';
                     $statusType = 'critical';
-                    $recOrder = max(20, (int)round($projectedDemand * 1.2));
+                    $recOrder = max(15, $projectedDemand + $targetSafety);
                     $action = "Immediate Restock: Order at least <strong>" . number_format($recOrder) . " units</strong> to capture " . $profile['month_name'] . " Philippine seasonal demand peak.";
                 } elseif ($stock < $projectedDemand * 0.4 || ($reorder > 0 && $stock <= $reorder)) {
                     $status = 'High Risk of Stockout';
                     $statusType = 'high_risk';
-                    $recOrder = max($deficit, (int)round($projectedDemand * 0.6));
-                    $action = "Stock is critically low (only {$daysOfSupply} days of supply). Place order for <strong>" . number_format($recOrder) . " units</strong> before demand peaks.";
+                    $recOrder = max(10, ($projectedDemand + $targetSafety) - $stock);
+                    $supplyText = ($daysOfSupply >= 999) ? "stock at or below reorder point" : "only {$daysOfSupply} days of supply";
+                    $action = "Stock is critically low ({$supplyText}). Place order for <strong>" . number_format($recOrder) . " units</strong> before demand peaks.";
                 } elseif ($stock < $projectedDemand) {
                     $status = 'Moderate Buffer';
                     $statusType = 'moderate';
@@ -1012,10 +1033,24 @@ class PhilippineSeasonalService
                     $action = "Comfortable stock coverage ({$daysOfSupply} days of supply). Maintain regular replenishment.";
                 }
 
+                $itemImg = null;
+                $mPid = (int)($matched['product_id'] ?? 0);
+                if ($mPid > 0) {
+                    if (file_exists(__DIR__ . '/../../uploads/products/' . $mPid . '.png')) {
+                        $itemImg = 'uploads/products/' . $mPid . '.png';
+                    } elseif (file_exists(__DIR__ . '/../../uploads/products/' . $mPid . '.jpg')) {
+                        $itemImg = 'uploads/products/' . $mPid . '.jpg';
+                    }
+                }
+                if (!$itemImg && file_exists(__DIR__ . '/../../uploads/products/graham_gelatin.png') && stripos($matched['product_name'] ?? '', 'Graham') !== false) {
+                    $itemImg = 'uploads/products/graham_gelatin.png';
+                }
+
                 $results[] = [
                     'product_id'        => $matched['product_id'],
                     'product_name'      => $matched['product_name'],
                     'category_name'     => $matched['category_name'],
+                    'image_url'         => $itemImg,
                     'current_stock'     => $stock,
                     'reorder_point'     => $reorder,
                     'baseline_sales'    => $baseSales,
@@ -1033,11 +1068,16 @@ class PhilippineSeasonalService
                 ];
             } else {
                 // Item not found in current inventory catalog — market opportunity suggestion
-                $estDemand = (int)round(30 * $multiplier);
+                $estDemand = (int)round(25 * $multiplier);
+                $oppImg = null;
+                if (file_exists(__DIR__ . '/../../uploads/products/graham_gelatin.png') && stripos($item['name'] ?? '', 'Graham') !== false) {
+                    $oppImg = 'uploads/products/graham_gelatin.png';
+                }
                 $results[] = [
                     'product_id'        => null,
                     'product_name'      => $item['name'],
                     'category_name'     => $item['category'],
+                    'image_url'         => $oppImg,
                     'current_stock'     => 0,
                     'reorder_point'     => 15,
                     'baseline_sales'    => 0,
@@ -1054,6 +1094,87 @@ class PhilippineSeasonalService
                     'matched_in_stock'  => false
                 ];
             }
+        }
+
+        // 2. Also surface any critically low/out-of-stock warehouse items in active seasonal categories
+        $inDemandCats = array_keys($profile['in_demand_categories'] ?? []);
+        foreach ($allProducts as $p) {
+            $pid = (int)$p['product_id'];
+            if (isset($matchedProductIds[$pid])) continue;
+            $cat = $p['category_name'] ?? '';
+            if (!in_array($cat, $inDemandCats, true)) continue;
+
+            $stock = (int)$p['current_stock'];
+            $reorder = (int)$p['reorder_point'];
+            // Only add if stock is critical or below reorder point
+            if ($stock > $reorder && $stock > 15) continue;
+
+            $matchedProductIds[$pid] = true;
+            $mult = (float)($profile['in_demand_categories'][$cat] ?? 1.25);
+            $baseSales = (float)$p['baseline_monthly_sales'];
+            if ($baseSales <= 0) {
+                $totSales = (float)($p['total_sales'] ?? 0);
+                $actMonths = max(1, (int)($p['active_months'] ?? 1));
+                $baseSales = $totSales > 0 ? round($totSales / $actMonths, 1) : max(5, $reorder > 0 ? (float)$reorder : 10.0);
+            }
+            if (isset($mlPredictions[$pid]) && $mlPredictions[$pid] > 0) {
+                $projectedDemand = (int)round($mlPredictions[$pid]);
+            } else {
+                $projectedDemand = (int)round($baseSales * $mult);
+            }
+
+            $deficit = max(0, $projectedDemand - $stock);
+            $coveragePct = ($projectedDemand > 0) ? round(($stock / $projectedDemand) * 100, 1) : 100;
+            $dailyRate = $projectedDemand / 30.0;
+            $daysOfSupply = $dailyRate > 0 ? round($stock / $dailyRate, 1) : ($stock > 0 ? 999 : 0);
+            $targetSafety = max(5, $reorder > 0 ? $reorder : 10);
+
+            if ($stock <= 0) {
+                $status = 'Critical Stockout';
+                $statusType = 'critical';
+                $recOrder = max(15, $projectedDemand + $targetSafety);
+                $action = "Immediate Restock: Order at least <strong>" . number_format($recOrder) . " units</strong> to capture {$profile['month_name']} seasonal demand.";
+            } else {
+                $status = 'High Risk of Stockout';
+                $statusType = 'high_risk';
+                $recOrder = max(10, ($projectedDemand + $targetSafety) - $stock);
+                $supplyText = ($daysOfSupply >= 999) ? "stock at or below reorder point" : "only {$daysOfSupply} days of supply";
+                $action = "Stock is critically low ({$supplyText}). Place order for <strong>" . number_format($recOrder) . " units</strong> before demand peaks.";
+            }
+
+            $pName = $p['product_name'];
+            $reason = "High seasonal demand category ({$cat}) — active inventory requires replenishment to prevent stockouts during {$profile['month_name']}.";
+
+            $itemImg = null;
+            if (file_exists(__DIR__ . '/../../uploads/products/' . $pid . '.png')) {
+                $itemImg = 'uploads/products/' . $pid . '.png';
+            } elseif (file_exists(__DIR__ . '/../../uploads/products/' . $pid . '.jpg')) {
+                $itemImg = 'uploads/products/' . $pid . '.jpg';
+            }
+
+            $liftPct = round(($mult - 1.0) * 100);
+            $results[] = [
+                'product_id'        => $pid,
+                'product_name'      => $pName,
+                'category_name'     => $cat,
+                'image_url'         => $itemImg,
+                'current_stock'     => $stock,
+                'reorder_point'     => $reorder,
+                'baseline_sales'    => $baseSales,
+                'projected_demand'  => $projectedDemand,
+                'demand_lift'       => "+{$liftPct}%",
+                'multiplier'        => $mult,
+                'reason'            => $reason,
+                'status'            => $status,
+                'status_type'       => $statusType,
+                'coverage_pct'      => $coveragePct,
+                'days_of_supply'    => $daysOfSupply,
+                'recommended_order' => $deficit > 0 ? max($deficit, 10) : 0,
+                'action_text'       => $action,
+                'matched_in_stock'  => true
+            ];
+
+            if (count($results) >= 8) break;
         }
 
         $monthResult = [
@@ -1252,6 +1373,24 @@ class PhilippineSeasonalService
                 $key = ($item['product_id'] ? 'id_' . $item['product_id'] : 'name_' . strtolower(trim($item['product_name'])));
                 if (!isset($seen[$key])) {
                     $seen[$key] = true;
+                    // Scale demand projection for 3-month cycle
+                    $item['projected_demand'] = (int)round($item['projected_demand'] * 2.8);
+                    $stock = (int)$item['current_stock'];
+                    $deficit = max(0, $item['projected_demand'] - $stock);
+                    $item['recommended_order'] = max(10, $deficit);
+
+                    if (!empty($item['action_text'])) {
+                        $item['action_text'] = preg_replace(
+                            '/to capture [A-Za-z]+ Philippine seasonal demand peak/',
+                            "to capture {$profile['quarter_name']} Philippine seasonal demand",
+                            $item['action_text']
+                        );
+                        $item['action_text'] = preg_replace(
+                            '/during [A-Za-z]+/',
+                            "during {$profile['short_name']}",
+                            $item['action_text']
+                        );
+                    }
                     $items[] = $item;
                 }
             }
@@ -1279,6 +1418,24 @@ class PhilippineSeasonalService
                 $key = ($item['product_id'] ? 'id_' . $item['product_id'] : 'name_' . strtolower(trim($item['product_name'])));
                 if (!isset($seen[$key])) {
                     $seen[$key] = true;
+                    // Scale demand projection for 6-month cycle
+                    $item['projected_demand'] = (int)round($item['projected_demand'] * 5.2);
+                    $stock = (int)$item['current_stock'];
+                    $deficit = max(0, $item['projected_demand'] - $stock);
+                    $item['recommended_order'] = max(15, $deficit);
+
+                    if (!empty($item['action_text'])) {
+                        $item['action_text'] = preg_replace(
+                            '/to capture [A-Za-z]+ Philippine seasonal demand peak/',
+                            "to capture {$profile['semester_name']} Philippine seasonal demand",
+                            $item['action_text']
+                        );
+                        $item['action_text'] = preg_replace(
+                            '/during [A-Za-z]+/',
+                            "during {$profile['short_name']}",
+                            $item['action_text']
+                        );
+                    }
                     $items[] = $item;
                 }
             }
@@ -1290,4 +1447,5 @@ class PhilippineSeasonalService
         ];
     }
 }
+
 

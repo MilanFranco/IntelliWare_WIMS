@@ -131,7 +131,7 @@ require_once 'src/layout.php';
 renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 ?>
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+<link href="assets/vendor/select2.min.css" rel="stylesheet" />
 
 <style>
     /* Select2 — base layout */
@@ -1229,8 +1229,8 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
 
 <?php renderLayoutContentEnd(); ?>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script src="assets/vendor/jquery.min.js"></script>
+<script src="assets/vendor/select2.min.js"></script>
 <script>
 $(document).ready(function() {
     $('#productSelect').select2({

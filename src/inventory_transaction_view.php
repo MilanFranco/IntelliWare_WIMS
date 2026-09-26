@@ -1104,7 +1104,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 <script src="src/scripts/inventory-transaction.js?v=<?php echo time(); ?>"></script>
 
 <!-- TensorFlow.js + Image Similarity Scanner (MobileNetV3-Large, 1280-dim) -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="assets/vendor/tf.min.js"></script>
 <script src="src/scripts/image-scanner.js?v=<?php echo time(); ?>"></script>
 <script>
 (function () {

@@ -5,15 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">
     <title>IntelliWare - Login</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/vendor/tailwindcss.js"></script>
     <link href="styles.css?v=1.0" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;700&display=swap" rel="stylesheet">
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <link href="assets/fonts.css" rel="stylesheet">
     <style>
 
         * { box-sizing: border-box; margin: 0; padding: 0; }

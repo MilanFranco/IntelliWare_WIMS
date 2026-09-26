@@ -558,7 +558,8 @@ class ForecastDataService
              FROM forecast_results fr
              INNER JOIN products p ON fr.product_id = p.product_id
              WHERE fr.product_id > 0
-               AND fr.forecast_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+               AND fr.horizon_type = 'daily'
+               AND fr.forecast_date >= CURDATE()
                AND fr.forecast_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
              GROUP BY fr.product_id, p.product_name
              ORDER BY forecast_demand DESC

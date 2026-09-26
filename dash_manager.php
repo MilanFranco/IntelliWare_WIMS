@@ -147,31 +147,40 @@ $conn->close();
 renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="assets/vendor/chart.umd.min.js"></script>
 
 <style>
-    /* Glassmorphism Card Effect */
+    /* Glassmorphism Card Effect — Matching Insights Page */
     .premium-metric-card {
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--iw-bg-card, linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%));
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6));
         border-radius: 16px;
         padding: 24px;
-        backdrop-filter: blur(10px);
-        color: white;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        color: var(--iw-text, white);
         font-family: 'Onest', sans-serif;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22));
         display: flex;
         flex-direction: column;
         justify-content: center;
         position: relative;
         overflow: hidden;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    [data-theme="light"] .premium-metric-card {
+        background: #FFFFFF !important;
+        border: 1px solid var(--iw-border, #BFCFE0) !important;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+        color: var(--iw-text, #0B1526) !important;
     }
 
     /* Card Titles & Numbers */
     .premium-metric-card .card-title {
         font-size: 16px;
         font-weight: 600;
-        color: #9aa6d1;
+        color: var(--iw-text-muted, #9aa6d1);
         margin-bottom: 16px;
     }
 
@@ -187,14 +196,20 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
     /* Clickable Interactions */
     .premium-metric-card.clickable {
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
 
-    .premium-metric-card.clickable:hover {
-        transform: translateY(-4px);
-        border-color: rgba(81, 213, 90, 0.3);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    .premium-metric-card.clickable:hover,
+    .premium-metric-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--iw-border-accent, rgba(81, 213, 90, 0.3));
+        box-shadow: var(--iw-shadow-card-hover, 0 12px 32px rgba(0, 0, 0, 0.35));
+    }
+
+    [data-theme="light"] .premium-metric-card.clickable:hover,
+    [data-theme="light"] .premium-metric-card:hover {
+        border-color: var(--iw-border-accent, #A8C8F0) !important;
+        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15)) !important;
     }
 
     /* Tables in Dashboard */
@@ -217,13 +232,15 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
 </style>
 
 <style>
-    /* ── Page Hero Card ────────────────────────────────────────── */
+    /* ── Page Hero Card — Matching Insights Intel Banner ────────────────────────── */
     .page-hero-card {
-        background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
-        border: 1px solid rgba(42, 68, 132, 0.6);
-        border-radius: 18px;
+        background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%) !important;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6)) !important;
+        border-radius: 16px !important;
         padding: 24px 28px;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22)) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
         position: relative;
         overflow: hidden;
     }
@@ -238,9 +255,12 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
         pointer-events: none;
     }
     [data-theme="light"] .page-hero-card {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        border-color: #93c5fd;
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        background: #FFFFFF !important;
+        border: 1px solid var(--iw-border, #BFCFE0) !important;
+        border-radius: 16px !important;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
     }
     [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
     [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }

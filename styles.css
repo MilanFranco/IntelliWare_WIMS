@@ -5,20 +5,50 @@
     width: 100%;
 }
 
+/* Layout & Base Body — theme aware without flashes */
 body {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
     margin: 0;
+    background: var(--iw-bg-shell, #020A27);
+    position: relative;
+}
+
+body.iw-body-shell {
+    background: var(--iw-bg-shell, #020A27) !important;
+    background-color: var(--iw-bg-shell, #020A27) !important;
+    animation: none !important;
+}
+
+body.iw-body-shell::before {
+    display: none !important;
+}
+
+[data-theme="light"] body,
+html[data-theme="light"] body {
+    background: var(--iw-bg-shell, #EDF4FB) !important;
+    background-color: var(--iw-bg-shell, #EDF4FB) !important;
+    animation: none !important;
+}
+
+[data-theme="light"] body::before,
+html[data-theme="light"] body::before {
+    display: none !important;
+}
+
+/* Standalone Auth/Signin background */
+body.auth-page,
+.signin-body {
     background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f0f23 75%, #1a1a2e 100%);
     background-size: 400% 400%;
     background-repeat: no-repeat;
     background-attachment: fixed;
     animation: gradientShift 15s ease infinite;
-    position: relative;
 }
 
-body::before {
+body.auth-page::before,
+.signin-body::before {
     content: '';
     position: fixed;
     top: 0;
@@ -1237,6 +1267,17 @@ select.premium-input:disabled {
 /* Offline-resilient app shell — navigation works without Tailwind CDN */
 html {
     height: 100%;
+    background-color: var(--iw-bg-shell, #020A27);
+}
+
+[data-theme="light"] html,
+html[data-theme="light"] {
+    background-color: #EDF4FB !important;
+}
+
+[data-theme="dark"] html,
+html[data-theme="dark"] {
+    background-color: #020A27 !important;
 }
 
 body {

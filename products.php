@@ -248,10 +248,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             if ($imgAction === 'remove') {
                 // Delete stored image if it exists
-                if (file_exists($imgPath)) {
-                    @unlink($imgPath);
+                foreach (['jpg', 'png', 'jpeg', 'webp'] as $ext) {
+                    if (file_exists($imgDir . $id . '.' . $ext)) {
+                        @unlink($imgDir . $id . '.' . $ext);
+                    }
                 }
             } elseif ($imgAction === 'replace' && $imgB64 !== '') {
+                // Clean up any other extension variants
+                foreach (['png', 'jpeg', 'webp'] as $ext) {
+                    if (file_exists($imgDir . $id . '.' . $ext)) {
+                        @unlink($imgDir . $id . '.' . $ext);
+                    }
+                }
                 // Decode and overwrite
                 $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $imgB64));
                 if ($imgData !== false) {
@@ -551,115 +559,50 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         font-family: 'Onest', sans-serif;
     }
 
-    /* ── Inventory Summary Metric Cards ─────────────────────────── */
+    /* ── Inventory Summary Metric Cards (Exact Match to Dashboard Stat Cards) ── */
     .inv-summary-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
+        gap: 20px;
         margin-bottom: 24px;
     }
-    @media (max-width: 1024px) {
+    @media (max-width: 1200px) {
         .inv-summary-grid {
             grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
+            gap: 16px;
+        }
+    }
+    @media (max-width: 640px) {
+        .inv-summary-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
         }
     }
     .inv-summary-card {
-        background: #ffffff;
-        border: 1.5px solid #D6E8F7;
+        background: var(--iw-bg-card, #ffffff);
+        border: 1px solid var(--iw-border, #BFCFE0);
         border-radius: 16px;
-        padding: 18px 22px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.07);
-        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        padding: 24px;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         text-decoration: none;
         position: relative;
         overflow: hidden;
     }
     .inv-summary-card:hover {
         transform: translateY(-2px);
-        border-color: #A8C8F0;
-        box-shadow: 0 6px 22px rgba(20, 80, 158, 0.13);
+        border-color: var(--iw-border-accent, #A8C8F0);
+        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15));
     }
-    .inv-summary-card-label {
-        font-family: 'Onest', sans-serif;
-        font-size: 13px;
-        font-weight: 600;
-        color: #5B6B86;
-        margin-bottom: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .inv-summary-card-value {
-        font-family: 'Onest', sans-serif;
-        font-size: 26px;
-        font-weight: 800;
-        color: #0B1526;
-        line-height: 1.2;
-        margin-bottom: 4px;
-        letter-spacing: -0.02em;
-        font-variant-numeric: tabular-nums;
-    }
-    .inv-summary-card-sub {
-        font-family: 'Onest', sans-serif;
-        font-size: 13px;
-        font-weight: 500;
-        color: #7A90B0;
-    }
-    @media (max-width: 767px) {
-        .inv-summary-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
+    @media (max-width: 640px) {
         .inv-summary-card {
-            padding: 14px 15px;
-            min-height: 96px;
-            border-radius: 14px;
-        }
-        .inv-summary-card-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 4px;
-        }
-        .inv-summary-card-label svg {
-            width: 18px;
-            height: 18px;
-            flex-shrink: 0;
-        }
-        .inv-summary-card-value {
-            font-size: 24px;
-            font-weight: 800;
-            line-height: 1.2;
-            margin-bottom: 4px;
-            letter-spacing: -0.02em;
-        }
-        .inv-summary-card-sub {
-            font-size: 11px;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-    }
-    @media (max-width: 360px) {
-        .inv-summary-card {
-            padding: 12px 11px;
-            min-height: 90px;
-        }
-        .inv-summary-card-label {
-            font-size: 10px;
-        }
-        .inv-summary-card-value {
-            font-size: 21px;
-        }
-        .inv-summary-card-sub {
-            font-size: 10px;
+            padding: 18px 16px !important;
         }
     }
 
@@ -754,21 +697,23 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     /* ── Product Card (Compact & Modern Grid Card) ─────────────────────── */
     .inv-card {
-        background: #ffffff;
-        border: 1.5px solid #D9E8F6;
-        border-radius: 14px;
+        background: var(--iw-bg-card, #ffffff);
+        border: 1px solid var(--iw-border, #BFCFE0);
+        border-radius: 16px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(20, 80, 158, 0.05);
-        transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         cursor: default;
         position: relative;
     }
     .inv-card:hover {
-        border-color: #A8C8F0;
-        box-shadow: 0 8px 24px rgba(20, 80, 158, 0.12);
+        border-color: var(--iw-border-accent, #A8C8F0);
+        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15));
         transform: translateY(-2px);
     }
 
@@ -935,28 +880,36 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .inv-card-btn--archive:hover svg,
     .inv-card-btn--restore:hover svg { stroke: #DC2626; }
 
-    /* Dark-mode overrides for summary cards & product cards */
+    /* Dark-mode overrides for summary cards & product cards — matching Insights page */
     [data-theme="dark"] .inv-summary-card {
-        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
-        border-color: rgba(42, 68, 132, 0.55);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%) !important;
+        border: 1px solid rgba(42, 68, 132, 0.6) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
     }
     [data-theme="dark"] .inv-summary-card:hover {
-        border-color: rgba(81, 213, 90, 0.35);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        border-color: rgba(81, 213, 90, 0.3) !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
+        transform: translateY(-2px) !important;
     }
     [data-theme="dark"] .inv-summary-card-label { color: #9aa6d1; }
     [data-theme="dark"] .inv-summary-card-value { color: #ffffff; }
     [data-theme="dark"] .inv-summary-card-sub   { color: #6b7aab; }
 
     [data-theme="dark"] .inv-card {
-        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
-        border-color: rgba(42, 68, 132, 0.55);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%) !important;
+        border: 1px solid rgba(42, 68, 132, 0.6) !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
     }
     [data-theme="dark"] .inv-card:hover {
-        border-color: rgba(81, 213, 90, 0.35);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        border-color: rgba(81, 213, 90, 0.3) !important;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
+        transform: translateY(-2px) !important;
     }
     [data-theme="dark"] .inv-card-thumb {
         background: rgba(13, 22, 56, 0.7);
@@ -1537,55 +1490,64 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 </div>
 
 <!-- ── Inventory Summary Metric Cards ────────────────────────────── -->
+<!-- ── Inventory Summary Metric Cards (Exact Match to Dashboard Stat Cards) ────────────────────────────── -->
 <div class="inv-summary-grid" id="inventory-summary-cards">
-    <!-- Stock Value Card (matches user reference design) -->
-    <div class="inv-summary-card" title="Total inventory value: ₱<?php echo number_format($total_stock_value, 2); ?>">
+    <!-- Stock Value Card -->
+    <div class="premium-card inv-summary-card stat-card-items relative p-6 flex items-center justify-between group hover:border-emerald-500/50 cursor-pointer transition-all" title="Total inventory value: ₱<?php echo number_format($total_stock_value, 2); ?>">
         <div>
-            <div class="inv-summary-card-label">
-                <span>Stock value</span>
-                <svg width="18" height="18" fill="none" stroke="#51D55A" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Stock value</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo formatStockValue($total_stock_value); ?></span>
             </div>
-            <div class="inv-summary-card-value"><?php echo formatStockValue($total_stock_value); ?></div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo number_format($total_units); ?> units on hand</div>
         </div>
-        <div class="inv-summary-card-sub"><?php echo number_format($total_units); ?> units on hand</div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform border border-emerald-500/20 shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        </div>
     </div>
 
-    <!-- Total Products -->
-    <div class="inv-summary-card">
+    <!-- Total Products Card -->
+    <a href="products.php" class="premium-card inv-summary-card stat-card-skus relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all no-underline">
         <div>
-            <div class="inv-summary-card-label">
-                <span>Total Products</span>
-                <svg width="18" height="18" fill="none" stroke="#3B82F6" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo number_format($total_items); ?></span>
             </div>
-            <div class="inv-summary-card-value"><?php echo number_format($total_items); ?></div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $show_archived ? 'Archived catalog items' : 'Active catalog SKUs'; ?></div>
         </div>
-        <div class="inv-summary-card-sub"><?php echo $show_archived ? 'Archived catalog items' : 'Active catalog SKUs'; ?></div>
-    </div>
-
-    <!-- Low Stock -->
-    <a href="products.php?filter=low_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
-       class="inv-summary-card" style="cursor: pointer;" title="Click to view low stock items">
-        <div>
-            <div class="inv-summary-card-label">
-                <span>Low Stock</span>
-                <svg width="18" height="18" fill="none" stroke="#F59E0B" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
-            </div>
-            <div class="inv-summary-card-value" style="color: #D97706;"><?php echo number_format($low_stock_count); ?></div>
+        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20 shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
         </div>
-        <div class="inv-summary-card-sub"><?php echo $low_stock_count === 1 ? '1 item needs reorder' : $low_stock_count . ' items need reorder'; ?></div>
     </a>
 
-    <!-- Out of Stock -->
-    <a href="products.php?filter=out_of_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
-       class="inv-summary-card" style="cursor: pointer;" title="Click to view out of stock items">
+    <!-- Low Stock Card -->
+    <a href="products.php?filter=low_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
+       class="premium-card inv-summary-card stat-card-categories relative p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all no-underline" title="Click to view low stock items">
         <div>
-            <div class="inv-summary-card-label">
-                <span>Out of Stock</span>
-                <svg width="18" height="18" fill="none" stroke="#EF4444" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($low_stock_count); ?></span>
             </div>
-            <div class="inv-summary-card-value" style="color: #DC2626;"><?php echo number_format($out_of_stock_count); ?></div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $low_stock_count === 1 ? '1 item needs reorder' : number_format($low_stock_count) . ' items need reorder'; ?></div>
         </div>
-        <div class="inv-summary-card-sub"><?php echo $out_of_stock_count === 1 ? '1 item fully depleted' : $out_of_stock_count . ' items fully depleted'; ?></div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform border border-amber-500/20 shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+        </div>
+    </a>
+
+    <!-- Out of Stock Card -->
+    <a href="products.php?filter=out_of_stock<?php echo $q ? '&q='.urlencode($q) : ''; ?><?php echo $category_param ? '&category='.urlencode($category_param) : ''; ?>" 
+       class="premium-card inv-summary-card stat-card-low-stock relative p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all no-underline" title="Click to view out of stock items">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Out of Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($out_of_stock_count); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $out_of_stock_count === 1 ? '1 item fully depleted' : number_format($out_of_stock_count) . ' items fully depleted'; ?></div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform border border-red-500/20 shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+        </div>
     </a>
 </div>
 
@@ -1691,8 +1653,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             $isLow       = !$isOut && $qty <= $reorder;
             $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
             $statusLabel = $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD');
-            $imgFile     = __DIR__ . '/uploads/products/' . (int)$it['id'] . '.jpg';
-            $hasThumb    = file_exists($imgFile);
+            $thumbSrc = null;
+            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
+                if (file_exists(__DIR__ . '/uploads/products/' . (int)$it['id'] . '.' . $ext)) {
+                    $thumbSrc = 'uploads/products/' . (int)$it['id'] . '.' . $ext;
+                    break;
+                }
+            }
+            $hasThumb    = !empty($thumbSrc);
         ?>
         <div class="inv-card"
              data-id="<?php echo $it['id']; ?>"
@@ -1705,13 +1673,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
              data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
              data-reorder="<?php echo $reorder; ?>"
              data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-             data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
+             data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>"
+             data-image="<?php echo htmlspecialchars($thumbSrc ?: ''); ?>">
 
             <!-- Top: thumb + info + badge -->
             <div class="inv-card-top">
                 <div class="inv-card-thumb">
                     <?php if ($hasThumb): ?>
-                        <img src="uploads/products/<?php echo (int)$it['id']; ?>.jpg" alt="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>" class="inv-card-thumb-img" loading="lazy">
+                        <img src="<?php echo htmlspecialchars($thumbSrc); ?>" alt="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>" class="inv-card-thumb-img" loading="lazy">
                     <?php else: ?>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
@@ -1785,6 +1754,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </thead>
                 <tbody>
                     <?php foreach ($items as $it): ?>
+                    <?php
+                        $tblThumb = null;
+                        foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
+                            if (file_exists(__DIR__ . '/uploads/products/' . (int)$it['id'] . '.' . $ext)) {
+                                $tblThumb = 'uploads/products/' . (int)$it['id'] . '.' . $ext;
+                                break;
+                            }
+                        }
+                    ?>
                     <tr id="row-<?php echo $it['id']; ?>"
                         class="hover:bg-[#1D387B]/50 transition-colors"
                         data-id="<?php echo $it['id']; ?>"
@@ -1797,7 +1775,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         data-uom="<?php echo htmlspecialchars($it['uom'], ENT_QUOTES); ?>"
                         data-reorder="<?php echo (int)$it['reorder_point']; ?>"
                         data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
-                        data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>">
+                        data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>"
+                        data-image="<?php echo htmlspecialchars($tblThumb ?: ''); ?>">
                         <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
                         <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
                         <td><?php echo htmlspecialchars($it['category']); ?></td>
@@ -3480,17 +3459,32 @@ function openEditModal(data) {
     if (statusLabel) statusLabel.textContent = 'Current image';
 
     // Probe whether a product image exists on the server
-    var imgUrl = 'uploads/products/' + data.id + '.jpg?_=' + Date.now();
-    var probe  = new Image();
-    probe.onload  = function() {
-        if (previewImg) previewImg.src = imgUrl;
+    var knownImg = data.image || '';
+    if (knownImg) {
+        if (previewImg) previewImg.src = knownImg + (knownImg.includes('?') ? '&' : '?') + '_=' + Date.now();
         editSetImageState(true);
-    };
-    probe.onerror = function() {
-        if (previewImg) previewImg.src = '';
-        editSetImageState(false);
-    };
-    probe.src = imgUrl;
+    } else {
+        var pngUrl = 'uploads/products/' + data.id + '.png?_=' + Date.now();
+        var probe = new Image();
+        probe.onload = function() {
+            if (previewImg) previewImg.src = pngUrl;
+            editSetImageState(true);
+        };
+        probe.onerror = function() {
+            var jpgUrl = 'uploads/products/' + data.id + '.jpg?_=' + Date.now();
+            var probe2 = new Image();
+            probe2.onload = function() {
+                if (previewImg) previewImg.src = jpgUrl;
+                editSetImageState(true);
+            };
+            probe2.onerror = function() {
+                if (previewImg) previewImg.src = '';
+                editSetImageState(false);
+            };
+            probe2.src = jpgUrl;
+        };
+        probe.src = pngUrl;
+    }
 
     const editScroll = document.querySelector('#edit-modal-overlay .modal-body-scroll');
     if (editScroll) editScroll.scrollTop = 0;
@@ -3938,7 +3932,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- TensorFlow.js + Image Similarity Scanner (MobileNetV3-Large) -->
 <!-- Load TF.js from CDN; defer model initialisation until the add-product panel is opened -->
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="assets/vendor/tf.min.js"></script>
 <script src="src/scripts/image-scanner.js?v=<?php echo time(); ?>"></script>
 <script>
 (function () {

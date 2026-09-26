@@ -176,7 +176,7 @@ function renderHeader($pageTitle, $userRole, $username) {
         echo '</div>';
     }
 
-    echo '<button type="button" class="theme-toggle" id="themeToggleBtn" onclick="IWTheme.toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">';
+    echo '<button type="button" class="theme-toggle" id="themeToggleBtn" onclick="IWTheme.toggleTheme()" ondblclick="IWTheme.resetToPhilippineTime()" title="Theme based on Philippine Time (Click to toggle, Double-click to reset)" aria-label="Toggle light/dark mode">';
     echo '<svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>';
     echo '<svg class="icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>';
     echo '</button>';
@@ -208,21 +208,73 @@ function renderHeader($pageTitle, $userRole, $username) {
 }
 
 function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0) {
+    if (function_exists('date_default_timezone_set')) {
+        @date_default_timezone_set('Asia/Manila');
+    }
+    // 1. Determine Philippine Time baseline (Asia/Manila = UTC+8)
+    // 6:00 AM - 5:59 PM PHT: Light Mode | 6:00 PM - 5:59 AM PHT: Dark Mode
+    $phTz = new DateTimeZone('Asia/Manila');
+    $phNow = new DateTime('now', $phTz);
+    $phHour = (int)$phNow->format('G');
+    $phAutoTheme = ($phHour >= 6 && $phHour < 18) ? 'light' : 'dark';
+
+    // 2. Resolve initial server theme: Check cookie 'iw-theme' first (set by client on toggle or sync)
+    $cookieTheme = $_COOKIE['iw-theme'] ?? null;
+    $initialTheme = ($cookieTheme === 'light' || $cookieTheme === 'dark') ? $cookieTheme : $phAutoTheme;
+
     echo '<!DOCTYPE html>';
-    echo '<html lang="en">';
+    echo '<html lang="en" data-theme="' . $initialTheme . '" class="theme-loading">';
     echo '<head>';
     echo '<meta charset="UTF-8" />';
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0" />';
     echo '<link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">';
-    echo '<script>(function(){var t=localStorage.getItem("iw-theme")||"dark";document.documentElement.setAttribute("data-theme",t);})();</script>';
+
+    // Critical instant theme synchronization before ANY stylesheet or layout paints:
+    echo '<script>';
+    echo '(function(){';
+    echo '  try {';
+    echo '    var m = sessionStorage.getItem("iw-theme-manual") || localStorage.getItem("iw-theme-override");';
+    echo '    var theme;';
+    echo '    if (m === "light" || m === "dark") {';
+    echo '      theme = m;';
+    echo '    } else {';
+    echo '      var s = localStorage.getItem("iw-theme");';
+    echo '      if (s === "light" || s === "dark") {';
+    echo '        theme = s;';
+    echo '      } else {';
+    echo '        var h;';
+    echo '        try {';
+    echo '          var f = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", hour: "numeric", hour12: false });';
+    echo '          h = parseInt(f.format(new Date()), 10);';
+    echo '          if (h === 24) h = 0;';
+    echo '        } catch (e) {';
+    echo '          h = (new Date().getUTCHours() + 8) % 24;';
+    echo '        }';
+    echo '        theme = (h >= 6 && h < 18) ? "light" : "dark";';
+    echo '      }';
+    echo '    }';
+    echo '    document.documentElement.setAttribute("data-theme", theme);';
+    echo '    document.cookie = "iw-theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";';
+    echo '  } catch (err) {}';
+    echo '})();';
+    echo '</script>';
+
+    // Anti-FOUC critical styles — completely prevents flash of white/dark and disables transitions during initial load
+    echo '<style id="iw-anti-fouc">';
+    echo 'html.theme-loading, html.theme-loading *, html.theme-loading *::before, html.theme-loading *::after { -webkit-transition: none !important; -moz-transition: none !important; -o-transition: none !important; -ms-transition: none !important; transition: none !important; }';
+    echo 'html { background-color: #020A27; }';
+    echo 'html[data-theme="dark"], html[data-theme="dark"] body { background-color: #020A27 !important; color-scheme: dark; }';
+    echo 'html[data-theme="light"], html[data-theme="light"] body { background-color: #EDF4FB !important; color-scheme: light; }';
+    echo '</style>';
+
     $cssVerStyles = file_exists(__DIR__ . '/../styles.css') ? filemtime(__DIR__ . '/../styles.css') : time();
     $cssVerTheme  = file_exists(__DIR__ . '/../theme.css') ? filemtime(__DIR__ . '/../theme.css') : time();
     $cssVerMobile = file_exists(__DIR__ . '/../mobile.css') ? filemtime(__DIR__ . '/../mobile.css') : time();
     echo '<link href="styles.css?v=' . $cssVerStyles . '" rel="stylesheet" />';
     echo '<link href="theme.css?v=' . $cssVerTheme . '" rel="stylesheet" />';
     echo '<script src="theme.js" defer></script>';
-    // Tailwind CDN must load BEFORE mobile.css so our !important overrides win the cascade
-    echo '<script src="https://cdn.tailwindcss.com" onerror="document.documentElement.classList.add(\'iw-no-tailwind\')"></script>';
+    // Local offline Tailwind CSS engine
+    echo '<script src="assets/vendor/tailwindcss.js"></script>';
     echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
@@ -230,10 +282,9 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
         echo '<link href="admin_dashboard.css?v=' . $cssVerAdmin . '" rel="stylesheet">';
     }
 
-    echo '<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>';
-    echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
-    echo '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media=\'all\'">';
-    echo '<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Onest:wght@200;300;400;500;600;700&family=Overpass:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>';
+    // Local offline Fonts (Onest, Inter, Overpass)
+    $cssVerFonts = file_exists(__DIR__ . '/../assets/fonts.css') ? filemtime(__DIR__ . '/../assets/fonts.css') : time();
+    echo '<link href="assets/fonts.css?v=' . $cssVerFonts . '" rel="stylesheet">';
     echo '<title>' . htmlspecialchars($pageTitle) . ' | IntelliWare</title>';
     echo '<style>';
     echo 'body { font-family: \'Inter\', sans-serif; }';

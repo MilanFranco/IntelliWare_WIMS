@@ -65,36 +65,45 @@ $conn->close();
 renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="assets/vendor/chart.umd.min.js"></script>
 
 <style>
-    /* --- PREMIUM METRIC CARDS --- */
+    /* --- PREMIUM METRIC CARDS — Matching Insights Page --- */
     .premium-metric-card {
-        background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
-        border: 1px solid rgba(42, 68, 132, 0.6);
+        background: var(--iw-bg-card, linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%));
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6));
         border-radius: 16px;
         padding: 24px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
+        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         position: relative;
         overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
 
+    [data-theme="light"] .premium-metric-card {
+        background: #FFFFFF !important;
+        border: 1px solid var(--iw-border, #BFCFE0) !important;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+    }
+
     .premium-metric-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0; height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.5), transparent);
+        display: none;
     }
 
     .premium-metric-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-        border-color: rgba(81, 213, 90, 0.3);
+        transform: translateY(-2px);
+        box-shadow: var(--iw-shadow-card-hover, 0 12px 32px rgba(0, 0, 0, 0.35));
+        border-color: var(--iw-border-accent, rgba(81, 213, 90, 0.3));
+    }
+
+    [data-theme="light"] .premium-metric-card:hover {
+        border-color: var(--iw-border-accent, #A8C8F0) !important;
+        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15)) !important;
     }
 
     /* Typography for Metrics */
@@ -293,13 +302,15 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
 </style>
 
 <style>
-    /* ── Page Hero Card ────────────────────────────────────────── */
+    /* ── Page Hero Card — Matching Insights Intel Banner ────────────────────────── */
     .page-hero-card {
-        background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
-        border: 1px solid rgba(42, 68, 132, 0.6);
-        border-radius: 18px;
+        background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%) !important;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6)) !important;
+        border-radius: 16px !important;
         padding: 24px 28px;
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22)) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
         position: relative;
         overflow: hidden;
     }
@@ -314,15 +325,13 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
         pointer-events: none;
     }
     [data-theme="light"] .page-hero-card {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        border-color: #93c5fd;
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        background: #FFFFFF !important;
+        border: 1px solid var(--iw-border, #BFCFE0) !important;
+        border-radius: 16px !important;
+        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
     }
-    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
 </style>
 
 <!-- Hero Page Header Banner -->

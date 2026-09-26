@@ -1,37 +1,26 @@
 /* Dashboard-specific styles */
 
 .premium-metric-card {
-  background: linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%);
-  border: 1px solid rgba(42, 68, 132, 0.6);
+  background: var(--iw-bg-card, linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%));
+  border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6));
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(81, 213, 90, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   position: relative;
   overflow: hidden;
 }
 
 .premium-metric-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(81, 213, 90, 0.5), transparent);
+  display: none;
 }
 
 .premium-metric-card:hover {
   transform: translateY(-2px);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(81, 213, 90, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  border-color: rgba(81, 213, 90, 0.3);
+  box-shadow: var(--iw-shadow-card-hover, 0 12px 32px rgba(0, 0, 0, 0.35));
+  border-color: var(--iw-border-accent, rgba(81, 213, 90, 0.3));
 }
 
 .premium-metric {
@@ -282,7 +271,6 @@
 [data-theme="light"] .stat-card-low-stock,
 [data-theme="light"] .stat-card-categories {
   overflow: hidden !important;
-  padding-top: 24px !important; /* push content below the top accent bar */
 }
 
 /* Clear the green text-fill on inline-gradient nums in light mode → neutral bold black */
@@ -332,16 +320,16 @@
 
 /* Light Mode Hero Banner */
 [data-theme="light"] .dashboard-hero-banner {
-  background: 
-    radial-gradient(ellipse 65% 120% at 58% 38%, rgba(214, 236, 255, 0.9) 0%, rgba(235, 245, 255, 0.55) 45%, rgba(255, 255, 255, 0) 72%),
-    #FFFFFF !important;
-  border: 1px solid #D6E2F2 !important;
-  box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--iw-border, #BFCFE0) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
 }
 
 [data-theme="light"] .dashboard-hero-banner::after {
-  background: radial-gradient(circle, rgba(20, 80, 158, 0.06) 0%, rgba(0,0,0,0) 70%) !important;
-  display: block !important;
+  display: none !important;
 }
 
 [data-theme="light"] .dashboard-greeting-title {

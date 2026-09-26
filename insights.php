@@ -81,6 +81,25 @@ function resolveInsightCategory(string $category, mysqli $conn): string
     return $category;
 }
 
+if (!function_exists('formatSafeSeasonalHtml')) {
+    function formatSafeSeasonalHtml(?string $str): string {
+        if ($str === null || $str === '') {
+            return '';
+        }
+        $str = str_ireplace(
+            ['&lt;strong&gt;', '&lt;/strong&gt;', '&lt;b&gt;', '&lt;/b&gt;', '&lt;em&gt;', '&lt;/em&gt;'],
+            ['<strong>', '</strong>', '<b>', '</b>', '<em>', '</em>'],
+            $str
+        );
+        $escaped = htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+        return str_ireplace(
+            ['&lt;strong&gt;', '&lt;/strong&gt;', '&lt;b&gt;', '&lt;/b&gt;', '&lt;em&gt;', '&lt;/em&gt;'],
+            ['<strong>', '</strong>', '<b>', '</b>', '<em>', '</em>'],
+            $escaped
+        );
+    }
+}
+
 $weeklyDefaults = [
     'Jan' => [
         1 => ['name' => 'Dona Maria Rice 5kg', 'cat' => 'Dry Goods', 'reason' => 'Households refill staples after New Year feasts.'],
@@ -512,9 +531,7 @@ require_once 'src/layout.php';
 renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
 ?>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@100..900&display=swap" rel="stylesheet">
+
 
 <style>
 :root, [data-theme="dark"] {
@@ -1187,6 +1204,14 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     line-height: 1.35;
     margin-top: 6px;
 }
+.table-action-callout strong {
+    font-weight: 700;
+    color: inherit;
+}
+.table-intel-sentence strong {
+    font-weight: 700;
+    color: var(--insights-heading);
+}
 .table-action-callout.callout-urgent {
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.3);
@@ -1254,102 +1279,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     background: rgba(81, 213, 90, 0.08);
 }
 
-/* ─── Philippine Seasonal Intelligence Modal ───────────────── */
-.ph-seasonal-modal-overlay {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: rgba(4, 9, 20, 0.85) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    isolation: isolate !important;
-    display: none;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 9999999 !important;
-    padding: 20px !important;
-    box-sizing: border-box !important;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-.ph-seasonal-modal-overlay.open {
-    display: flex !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-}
-.btn-seasonal-guide {
-    position: relative !important;
-    z-index: 50 !important;
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    user-select: none !important;
-}
-.btn-seasonal-guide:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 16px rgba(81, 213, 90, 0.4) !important;
-}
-.ph-seasonal-modal-dialog {
-    background: var(--insights-surface);
-    border: 1px solid var(--insights-border);
-    border-radius: 20px;
-    width: 100%;
-    max-width: 1100px;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.55);
-    overflow: hidden;
-    position: relative;
-    contain: content;
-    will-change: transform;
-    transform: translate3d(0, 0, 0);
-    backface-visibility: hidden;
-    animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes modalPopIn {
-    from { transform: scale(0.96) translateY(10px); opacity: 0; }
-    to { transform: scale(1) translateY(0); opacity: 1; }
-}
-.ph-seasonal-modal-header {
-    padding: 18px 24px;
-    border-bottom: 1px solid var(--insights-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--insights-surface-alt);
-    flex-shrink: 0;
-}
-.ph-seasonal-modal-body {
-    padding: 24px;
-    overflow-y: auto;
-    flex: 1;
-    overscroll-behavior: contain;
-    scroll-behavior: smooth;
-}
-.ph-seasonal-modal-close {
-    background: rgba(148, 163, 184, 0.12);
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--insights-text-muted);
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.ph-seasonal-modal-close:hover {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: #ef4444;
-    color: #f87171;
-    transform: rotate(90deg) scale(1.05);
-}
+/* Philippine Seasonal Intelligence styles moved to src/partials/ph_seasonal_modal.php */
 
 .smart-restock-banner {
     background: var(--insights-banner);
@@ -1851,20 +1781,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     transform: translateY(-1px) !important;
 }
 
-/* Philippine Seasonal Guide Button in Light Mode */
-[data-theme="light"] .btn-seasonal-guide {
-    background: #F0FDF4 !important;
-    color: #15803D !important;
-    border-color: #86EFAC !important;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15) !important;
-}
-
-[data-theme="light"] .btn-seasonal-guide:hover {
-    background: #16A34A !important;
-    color: #FFFFFF !important;
-    border-color: #16A34A !important;
-    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3) !important;
-}
+/* Philippine Seasonal Guide Button (FAB) styles moved to src/partials/ph_seasonal_modal.php */
 
 [data-theme="light"] .pagination-info-pill {
     background: #F1F5F9 !important;
@@ -2004,10 +1921,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
-            <button type="button" class="btn-seasonal-guide inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-bold text-xs text-white shadow-md hover:scale-105 transition-all cursor-pointer" onclick="openPhilippineSeasonalModal()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
-                <span style="font-size: 14px;">🇵🇭</span>
-                <span>PH Seasonal Guide</span>
-            </button>
             <span class="insights-hero-pill-a inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
                 <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
                 Active: <strong class="text-white"><?php echo htmlspecialchars($_SESSION['Username']); ?></strong>
@@ -2288,11 +2201,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <span>Demand Forecasting &amp; Smart Restock</span>
         </div>
         <div style="display: flex; align-items: center; gap: 10px;">
-            <button type="button" class="btn-seasonal-guide" onclick="openPhilippineSeasonalModal()" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; padding: 8px 18px; border-radius: 10px; background: rgba(81, 213, 90, 0.12); color: #51D55A; border: 1.5px solid rgba(81, 213, 90, 0.45); cursor: pointer !important; position: relative !important; z-index: 50 !important; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); user-select: none;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                <span>Philippine Seasonal Market Intelligence</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </button>
+            <!-- PH Seasonal Guide button replaced by floating FAB (see #phSeasonalFab) -->
         </div>
     </div>
 
@@ -2575,7 +2484,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="assets/vendor/chart.umd.min.js"></script>
 <script>
 // --- Pagination Logic ---
 const itemsPerPage = 10;
@@ -2659,6 +2568,20 @@ window.setForecastPage = (p) => { forecastPage = p; renderPagination('forecastTa
 let currentSeasonalModalItems = [];
 let currentSeasonalPeriodName = '';
 
+function formatSafeSeasonalHtml(str) {
+    if (!str) return '';
+    let normalized = String(str)
+        .replace(/&lt;strong&gt;/gi, '<strong>')
+        .replace(/&lt;\/strong&gt;/gi, '</strong>')
+        .replace(/&lt;b&gt;/gi, '<b>')
+        .replace(/&lt;\/b&gt;/gi, '</b>');
+    return escapeHtml(normalized)
+        .replace(/&lt;strong&gt;/gi, '<strong>')
+        .replace(/&lt;\/strong&gt;/gi, '</strong>')
+        .replace(/&lt;b&gt;/gi, '<b>')
+        .replace(/&lt;\/b&gt;/gi, '</b>');
+}
+
 function renderSeasonalModalRow(item, periodDisplayName) {
     const typeStr = item.type || item.status || '';
     const statusType = (item.status_type || '').toLowerCase();
@@ -2700,21 +2623,21 @@ function renderSeasonalModalRow(item, periodDisplayName) {
             actionCalloutHtml = `
                 <div class="table-action-callout callout-urgent">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    <span>${escapeHtml(actionText)}</span>
+                    <span>${formatSafeSeasonalHtml(actionText)}</span>
                 </div>
             `;
         } else if (actionNeeded === 'restock' || actionNeeded === 'monitor' || statusType === 'moderate') {
             actionCalloutHtml = `
                 <div class="table-action-callout callout-warning">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <span>${escapeHtml(actionText)}</span>
+                    <span>${formatSafeSeasonalHtml(actionText)}</span>
                 </div>
             `;
         } else if (statusType === 'opportunity' || actionNeeded === 'opportunity') {
             actionCalloutHtml = `
                 <div class="table-action-callout callout-opportunity">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                    <span>${escapeHtml(actionText)}</span>
+                    <span>${formatSafeSeasonalHtml(actionText)}</span>
                 </div>
             `;
         }
@@ -2725,18 +2648,39 @@ function renderSeasonalModalRow(item, periodDisplayName) {
         ? `${Number(item.current_stock).toLocaleString()} <span class="table-stock-label">units</span>`
         : `<span class="table-stock-label">Not in catalog</span>`;
 
+    const imgUrl = item.image_url || (item.product_id ? `uploads/products/${item.product_id}.png` : ((item.product_name && item.product_name.includes('Graham')) ? 'uploads/products/graham_gelatin.png' : ''));
+    const thumbHtml = imgUrl ? `
+        <div class="seasonal-product-thumb" title="${escapeHtml(item.product_name || 'Product')}">
+            <img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(item.product_name || 'Product')}" class="seasonal-product-img" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';">
+            <div class="seasonal-thumb-fallback" style="display:none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+        </div>
+    ` : `
+        <div class="seasonal-product-thumb" title="${escapeHtml(item.product_name || 'Product')}">
+            <div class="seasonal-thumb-fallback">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            </div>
+        </div>
+    `;
+
     return `
         <tr>
             <td style="width: 34%;">
-                <div class="table-product-name">${escapeHtml(item.product_name || 'Product')}</div>
-                <div class="table-product-meta">
-                    <span>${escapeHtml(item.category_name || '')}</span>
-                    ${surgeHtml}
+                <div class="seasonal-product-cell">
+                    ${thumbHtml}
+                    <div class="seasonal-product-info">
+                        <div class="table-product-name">${escapeHtml(item.product_name || 'Product')}</div>
+                        <div class="table-product-meta">
+                            <span>${escapeHtml(item.category_name || '')}</span>
+                            ${surgeHtml}
+                        </div>
+                        ${statusPillHtml ? `<div style="margin-top: 4px;">${statusPillHtml}</div>` : ''}
+                    </div>
                 </div>
-                ${statusPillHtml ? `<div style="margin-top: 4px;">${statusPillHtml}</div>` : ''}
             </td>
             <td style="width: 48%;">
-                <div class="table-intel-sentence">${escapeHtml(intelSentence)}</div>
+                <div class="table-intel-sentence">${formatSafeSeasonalHtml(intelSentence)}</div>
                 ${actionCalloutHtml}
             </td>
             <td style="width: 18%; text-align: right;">
@@ -3796,244 +3740,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Philippine Seasonal Demand Intelligence Modal -->
-<div id="philippineSeasonalModal" class="ph-seasonal-modal-overlay" onclick="handleSeasonalModalBackdrop(event)">
-    <div class="ph-seasonal-modal-dialog" onclick="event.stopPropagation()">
-        <div class="ph-seasonal-modal-header">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(81, 213, 90, 0.12); border: 1.5px solid rgba(81, 213, 90, 0.45); display: flex; align-items: center; justify-content: center; color: #51D55A; flex-shrink: 0;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                </div>
-                <div>
-                    <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--insights-heading);">
-                        Philippine market and seasonal demand intelligence
-                    </h3>
-                    <div style="font-size: 12px; color: var(--insights-text-muted); margin-top: 2px;">
-                        Multi-horizon retail forecasts, climate drivers and inventory stock alignment
-                    </div>
-                </div>
-            </div>
-            <button type="button" class="ph-seasonal-modal-close" onclick="closePhilippineSeasonalModal()" title="Close (Esc)">&times;</button>
-        </div>
-        
-        <div class="ph-seasonal-modal-body">
-            <!-- Forecast Horizon & Target Period Dual Dropdowns -->
-            <div class="seasonal-dropdown-row">
-                <!-- Dropdown 1: Forecast Horizon -->
-                <div class="seasonal-dropdown-group">
-                    <label for="seasonalHorizonSelect" class="seasonal-dropdown-label">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        <span>Forecast Horizon</span>
-                    </label>
-                    <div class="seasonal-select-wrapper">
-                        <select id="seasonalHorizonSelect" class="seasonal-dropdown-control" onchange="handleSeasonalHorizonDropdownChange(this.value)">
-                            <option value="monthly" <?php echo ($currentHorizon ?? 'monthly') === 'monthly' ? 'selected' : ''; ?>>Monthly (30-Day View)</option>
-                            <option value="quarterly" <?php echo ($currentHorizon ?? '') === 'quarterly' ? 'selected' : ''; ?>>Quarterly (3-Month Cycle)</option>
-                            <option value="semi-annual" <?php echo ($currentHorizon ?? '') === 'semi-annual' ? 'selected' : ''; ?>>Semi-Annual (6-Month Cycle)</option>
-                        </select>
-                        <svg class="seasonal-dropdown-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </div>
-                </div>
-
-                <!-- Dropdown 2: Target Period -->
-                <div class="seasonal-dropdown-group">
-                    <label for="seasonalPeriodSelect" class="seasonal-dropdown-label">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                        <span id="seasonalPeriodFieldLabel">Target Month</span>
-                    </label>
-                    <div class="seasonal-select-wrapper">
-                        <select id="seasonalPeriodSelect" class="seasonal-dropdown-control" onchange="handleSeasonalPeriodDropdownChange(this.value)">
-                            <?php 
-                            $currMonthNum = (int)date('n');
-                            for ($m = 1; $m <= 12; $m++):
-                                $prof = $philippineProfiles[$m] ?? [];
-                                $name = $prof['month_name'] ?? date('F', mktime(0, 0, 0, $m, 10));
-                                $badge = !empty($prof['season_badge']) ? " ({$prof['season_badge']})" : '';
-                                $isCurr = ($currMonthNum === $m) ? ' • Current Month' : '';
-                                $isSelected = ($m === (int)$selectedMonth) ? 'selected' : '';
-                            ?>
-                            <option value="<?php echo $m; ?>" <?php echo $isSelected; ?>>
-                                <?php echo htmlspecialchars($name . $badge . $isCurr); ?>
-                            </option>
-                            <?php endfor; ?>
-                        </select>
-                        <svg class="seasonal-dropdown-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Active Period Intelligence Overview Banner -->
-            <div id="modalSeasonalBanner" class="ph-intel-banner">
-                <div class="ph-header-meta">
-                    <span class="ph-season-pill"><?php echo htmlspecialchars($activeMonthProfile['season_badge'] ?? 'Seasonal Cycle'); ?></span>
-                    <span class="ph-weather-subtitle"><?php echo htmlspecialchars($activeMonthProfile['weather_ph'] ?? ''); ?></span>
-                </div>
-                <h3 class="ph-main-heading">
-                    <?php echo htmlspecialchars($activeMonthProfile['month_name']); ?>: <?php echo htmlspecialchars($activeMonthProfile['tagline'] ?? ''); ?>
-                </h3>
-                <p class="ph-main-subtext">
-                    Philippine macroeconomic drivers, cultural events, and inventory stock alignment.
-                </p>
-
-                <div class="ph-section-label">CONSUMPTION TRIGGERS</div>
-                <div class="consumption-triggers-grid">
-                    <?php foreach ($activeMonthProfile['cultural_drivers'] as $driver): ?>
-                    <div class="trigger-card"><?php echo htmlspecialchars($driver); ?></div>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="ph-section-label">PROJECTED DEMAND LIFT VS. BASELINE</div>
-                <div class="demand-lift-grid">
-                    <?php foreach ($activeMonthProfile['in_demand_categories'] as $catName => $mult): 
-                        $pctLift = round(($mult - 1.0) * 100);
-                        $liftSign = $pctLift >= 0 ? "+{$pctLift}%" : "{$pctLift}%";
-                    ?>
-                    <div class="metric-lift-card">
-                        <div class="metric-lift-label"><?php echo htmlspecialchars($catName); ?></div>
-                        <div class="metric-lift-value">
-                            <span class="lift-multiplier"><?php echo $mult; ?>x</span>
-                            <span class="lift-percentage"><?php echo $liftSign; ?></span>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-            <!-- In-Demand Products Line-Item Table -->
-            <div class="ph-products-container" style="margin-top: 22px;">
-                <div class="ph-table-header-row">
-                    <div>
-                        <div style="color: var(--insights-heading); font-weight: 700; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                            <span id="modalTableTitle">Seasonal Demand &amp; Stock Alignment: <?php echo htmlspecialchars($activeMonthProfile['month_name']); ?></span>
-                        </div>
-                        <div style="color: var(--insights-text-muted); font-size: 12px; margin-top: 3px;">
-                            Cross-referenced with real-time stock inventory and seasonal multipliers.
-                        </div>
-                    </div>
-                </div>
-
-                <div style="overflow-x: auto;">
-                    <table class="ph-line-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 34%;">In-Demand Product / Category</th>
-                                <th style="width: 48%;">Market Intelligence &amp; Recommendation</th>
-                                <th style="width: 18%; text-align: right;">Stock &amp; Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modalSeasonalTableBody">
-                            <?php 
-                            $rawMonthData = $allSeasonalMonthsData[$selectedMonth] ?? [];
-                            $currMonthData = isset($rawMonthData['items']) ? $rawMonthData['items'] : (is_array($rawMonthData) ? $rawMonthData : []);
-                            if (empty($currMonthData)):
-                            ?>
-                            <tr>
-                                <td colspan="3" style="text-align:center; padding: 28px; color: var(--insights-text-muted);">
-                                    No products found matching the seasonal profile for this period.
-                                </td>
-                            </tr>
-                            <?php else:
-                            $modalInitialIdx = 0;
-                            foreach ($currMonthData as $item): 
-                                $rowDisplayAttr = ($modalInitialIdx >= 5) ? 'style="display: none;"' : '';
-                                $modalInitialIdx++;
-
-                                $typeStr = $item['type'] ?? $item['status'] ?? '';
-                                $statusType = strtolower($item['status_type'] ?? '');
-                                $actionNeeded = strtolower($item['action_needed'] ?? '');
-
-                                // Status Pill for notable states only (recedes for routine)
-                                $statusPillHtml = '';
-                                if ($statusType === 'critical' || $statusType === 'high_risk' || stripos($typeStr, 'Critical') !== false || stripos($typeStr, 'Out of Stock') !== false) {
-                                    $statusPillHtml = '<span class="table-status-pill status-critical">' . htmlspecialchars($typeStr ?: 'Critical Understock') . '</span>';
-                                } elseif ($statusType === 'moderate' || $actionNeeded === 'restock' || stripos($typeStr, 'Risk') !== false || stripos($typeStr, 'Low') !== false) {
-                                    $statusPillHtml = '<span class="table-status-pill status-warning">' . htmlspecialchars($typeStr ?: 'Reorder Needed') . '</span>';
-                                } elseif ($statusType === 'opportunity' || stripos($typeStr, 'Opportunity') !== false) {
-                                    $statusPillHtml = '<span class="table-status-pill status-opportunity">' . htmlspecialchars($typeStr ?: 'Market Opportunity') . '</span>';
-                                }
-
-                                // Collapsed single sentence combining Context and Forecast
-                                $desc = trim($item['descriptive'] ?? $item['reason'] ?? '');
-                                $pred = trim($item['predictive'] ?? '');
-                                if ($desc && $pred) {
-                                    $cleanDesc = (substr($desc, -1) === '.') ? $desc : $desc . '.';
-                                    $intelSentence = "{$cleanDesc} {$pred}";
-                                } elseif ($pred) {
-                                    $intelSentence = $pred;
-                                } elseif ($desc) {
-                                    $intelSentence = $desc;
-                                } else {
-                                    $units = number_format((int)($item['projected_demand'] ?? 0));
-                                    $intelSentence = "Anticipated seasonal demand surge during {$activeMonthProfile['month_name']} with projected volume of ~{$units} units.";
-                                }
-
-                                // Non-routine action callout only
-                                $actionText = trim($item['prescriptive'] ?? $item['action_text'] ?? '');
-                                $actionCalloutHtml = '';
-                                if (!empty($actionText)) {
-                                    if ($actionNeeded === 'urgent' || $statusType === 'critical' || $statusType === 'high_risk') {
-                                        $actionCalloutHtml = '<div class="table-action-callout callout-urgent">'
-                                            . '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
-                                            . '<span>' . htmlspecialchars($actionText) . '</span>'
-                                            . '</div>';
-                                    } elseif ($actionNeeded === 'restock' || $actionNeeded === 'monitor' || $statusType === 'moderate') {
-                                        $actionCalloutHtml = '<div class="table-action-callout callout-warning">'
-                                            . '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
-                                            . '<span>' . htmlspecialchars($actionText) . '</span>'
-                                            . '</div>';
-                                    } elseif ($statusType === 'opportunity' || $actionNeeded === 'opportunity') {
-                                        $actionCalloutHtml = '<div class="table-action-callout callout-opportunity">'
-                                            . '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>'
-                                            . '<span>' . htmlspecialchars($actionText) . '</span>'
-                                            . '</div>';
-                                    }
-                                }
-
-                                // Stock display
-                                $hasStock = isset($item['current_stock']) && ($item['matched_in_stock'] ?? true);
-                                $stockDisplay = $hasStock
-                                    ? number_format((int)$item['current_stock']) . ' <span class="table-stock-label">units</span>'
-                                    : '<span class="table-stock-label">Not in catalog</span>';
-                            ?>
-                            <tr <?php echo $rowDisplayAttr; ?>>
-                                <td style="width: 34%;">
-                                    <div class="table-product-name"><?php echo htmlspecialchars($item['product_name'] ?? 'Product'); ?></div>
-                                    <div class="table-product-meta">
-                                        <span><?php echo htmlspecialchars($item['category_name'] ?? ''); ?></span>
-                                        <?php if (!empty($item['demand_lift'])): ?>
-                                        <span class="meta-sep">&middot;</span><span class="surge-tag"><?php echo htmlspecialchars($item['demand_lift']); ?> Surge</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <?php if ($statusPillHtml): ?>
-                                    <div style="margin-top: 4px;"><?php echo $statusPillHtml; ?></div>
-                                    <?php endif; ?>
-                                </td>
-                                <td style="width: 48%;">
-                                    <div class="table-intel-sentence"><?php echo htmlspecialchars($intelSentence); ?></div>
-                                    <?php echo $actionCalloutHtml; ?>
-                                </td>
-                                <td style="width: 18%; text-align: right;">
-                                    <div class="table-stock-wrap">
-                                        <div class="table-stock-num"><?php echo $stockDisplay; ?></div>
-                                        <button type="button" class="btn-table-check check-stock-btn"
-                                            data-product="<?php echo htmlspecialchars($item['product_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-category="<?php echo htmlspecialchars($item['category_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                            Check stock &rarr;
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <?php endforeach; endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Seasonal Demand Table Pagination -->
-                <div id="modalSeasonalPagination" class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--insights-border-soft); flex-wrap: wrap; gap: 12px;"></div>
-            </div>
-        </div>
-    </div>
-</div>
+<?php require_once 'src/partials/ph_seasonal_modal.php'; ?>
 
 <?php
 renderLayoutEnd();

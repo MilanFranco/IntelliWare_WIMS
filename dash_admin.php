@@ -254,7 +254,7 @@ $conn->close();
 renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SESSION['Username'], $lowStockCount);
 ?>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="assets/vendor/chart.umd.min.js"></script>
 
 
 <div class="page-hero-card dashboard-hero-banner mb-6">
