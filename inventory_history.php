@@ -447,8 +447,8 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
 
     <!-- Enhanced Filter Form -->
     <form method="GET" class="p-5 border-b border-[#2A4484]/40 bg-[#0d1638]/40 ih-filter-bg">
-        <div class="flex flex-col lg:flex-row lg:items-end gap-3 flex-wrap xl:flex-nowrap">
-            <div class="w-full sm:w-72 md:w-80 shrink-0">
+        <div class="flex flex-col lg:flex-row lg:items-end gap-3 w-full flex-wrap xl:flex-nowrap">
+            <div class="w-full sm:flex-1 lg:flex-[1.4] min-w-0 sm:min-w-[200px]">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Search</label>
                 <div class="flex items-center gap-2">
                     <div class="relative flex-1 min-w-0">
@@ -460,7 +460,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                     </button>
                 </div>
             </div>
-            <div class="w-full sm:w-40 lg:w-36">
+            <div class="w-full sm:flex-1 min-w-0 sm:min-w-[130px]">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">Movement Type</label>
                 <select name="type" class="premium-input inventory-select w-full cursor-pointer" style="height:42px; font-size:13px;">
                     <option value="">All Types</option>
@@ -468,17 +468,17 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                     <option value="out" <?php echo $filterType === 'out' ? 'selected' : ''; ?>>OUT (Release)</option>
                 </select>
             </div>
-            <div class="w-full sm:w-36 lg:w-32">
+            <div class="w-full sm:flex-1 min-w-0 sm:min-w-[130px]">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">From Date</label>
-                <input type="date" name="date_from" class="premium-input w-full px-2"
-                       value="<?php echo htmlspecialchars($dateFrom); ?>" style="height:42px; font-size:12px;">
+                <input type="date" name="date_from" class="premium-input w-full px-3"
+                       value="<?php echo htmlspecialchars($dateFrom); ?>" style="height:42px; font-size:13px;">
             </div>
-            <div class="w-full sm:w-36 lg:w-32">
+            <div class="w-full sm:flex-1 min-w-0 sm:min-w-[130px]">
                 <label class="block text-[#9aa6d1] text-xs font-semibold mb-1.5">To Date</label>
-                <input type="date" name="date_to" class="premium-input w-full px-2"
-                       value="<?php echo htmlspecialchars($dateTo); ?>" style="height:42px; font-size:12px;">
+                <input type="date" name="date_to" class="premium-input w-full px-3"
+                       value="<?php echo htmlspecialchars($dateTo); ?>" style="height:42px; font-size:13px;">
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="flex items-center gap-2 shrink-0">
                 <button type="submit" class="premium-button" style="height:42px; padding:0 16px; font-size:13px;">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
                     Filter

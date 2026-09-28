@@ -487,16 +487,16 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
     
     <div class="p-5">
-        <form method="GET" action="reports.php" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-4 items-end">
-            <div class="xl:col-span-2">
+        <form method="GET" action="reports.php" class="flex flex-col lg:flex-row lg:items-end gap-3 w-full flex-wrap xl:flex-nowrap">
+            <div class="w-full sm:flex-1 min-w-0">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Date Added (From)</label>
                 <input type="date" name="date_from" class="premium-input w-full h-[46px]" value="<?php echo htmlspecialchars($dateFrom); ?>" />
             </div>
-            <div class="xl:col-span-2">
+            <div class="w-full sm:flex-1 min-w-0">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Date Added (To)</label>
                 <input type="date" name="date_to" class="premium-input w-full h-[46px]" value="<?php echo htmlspecialchars($dateTo); ?>" />
             </div>
-            <div class="xl:col-span-2">
+            <div class="w-full sm:flex-1 min-w-0">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Category</label>
                 <select name="category" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Categories</option>
@@ -507,7 +507,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="xl:col-span-2">
+            <div class="w-full sm:flex-1 min-w-0">
                 <label class="block text-[#9aa6d1] text-xs font-onest font-semibold mb-2">Stock Status</label>
                 <select name="status" class="premium-input inventory-select w-full h-[46px] cursor-pointer">
                     <option value="">All Status</option>
@@ -518,7 +518,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                 </select>
             </div>
 
-            <div class="md:col-span-2 xl:col-span-4 flex items-center gap-2">
+            <div class="flex items-center gap-2 shrink-0">
                 <button class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" type="submit" title="Search Reports" aria-label="Search">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
