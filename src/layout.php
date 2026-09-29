@@ -275,7 +275,6 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<script src="theme.js" defer></script>';
     // Local offline Tailwind CSS engine
     echo '<script src="assets/vendor/tailwindcss.js"></script>';
-    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
 
     if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
         $cssVerAdmin = file_exists(__DIR__ . '/../admin_dashboard.css') ? filemtime(__DIR__ . '/../admin_dashboard.css') : time();
@@ -321,8 +320,10 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.action-btn:hover svg, .check-stock-btn:hover svg { stroke: #ffffff !important; color: #ffffff !important; }';
     // Visual Hierarchy: Tier 3 Pagination & Navigation Buttons
     echo '.pagination-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 38px; min-width: 38px; padding: 0 12px; background: rgba(19, 39, 91, 0.95) !important; border: 1.5px solid rgba(81, 213, 90, 0.5) !important; border-radius: 10px; color: #51D55A !important; font-family: \'Onest\', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08); text-decoration: none; user-select: none; white-space: nowrap; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }';
-    echo '.pagination-btn.pagination-num { min-width: 38px !important; width: 38px !important; height: 38px !important; padding: 0 !important; }';
-    echo '.pagination-btn.pagination-nav { height: 38px !important; min-width: 86px !important; padding: 0 16px !important; }';
+    echo '@media (min-width: 641px) {';
+    echo '  .pagination-btn.pagination-num { min-width: 38px; width: 38px; height: 38px; padding: 0; }';
+    echo '  .pagination-btn.pagination-nav { height: 38px; min-width: 86px; padding: 0 16px; }';
+    echo '}';
     echo '.pagination-btn:hover:not(:disabled):not(.disabled) { background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important; color: #ffffff !important; border-color: #51D55A !important; box-shadow: 0 4px 16px rgba(81, 213, 90, 0.45); transform: translateY(-1.5px); }';
     echo '.pagination-btn:hover:not(:disabled):not(.disabled) svg { stroke: #ffffff !important; }';
     echo '.pagination-btn:active:not(:disabled):not(.disabled) { transform: translateY(1px); box-shadow: 0 1px 4px rgba(81, 213, 90, 0.2); }';
@@ -438,6 +439,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .premium-menu-item.active { background: #2563EB !important; border-color: #2563EB !important; color: #FFFFFF !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28) !important; }';
     echo '[data-theme="light"] .premium-menu-item.active .sidebar-icon, [data-theme="light"] .premium-menu-item.active .sidebar-text { color: #FFFFFF !important; stroke: #FFFFFF !important; }';
     echo '</style>';
+    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
     echo '</head>';
     echo '<body class="w-full h-screen iw-body-shell flex items-start justify-center">';
     // Mobile sidebar overlay backdrop

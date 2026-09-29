@@ -337,7 +337,7 @@ class InsightsEngine
             LEFT JOIN (
                 SELECT product_id, SUM(quantity) AS total_sales
                 FROM transactions
-                WHERE transaction_type = 'stock_out' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                WHERE transaction_type = 'stock_out'
                 GROUP BY product_id
             ) t ON p.product_id = t.product_id
             WHERE p.archived = 0
@@ -406,7 +406,7 @@ class InsightsEngine
             LEFT JOIN (
                 SELECT product_id, SUM(quantity) AS monthly_sales
                 FROM transactions
-                WHERE transaction_type = 'stock_out' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                WHERE transaction_type = 'stock_out'
                 GROUP BY product_id
             ) t ON p.product_id = t.product_id
             WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.quantity > 0

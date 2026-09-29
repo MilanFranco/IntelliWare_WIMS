@@ -501,16 +501,18 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         white-space: nowrap;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .pagination-btn.pagination-num {
-        min-width: 38px !important;
-        width: 38px !important;
-        height: 38px !important;
-        padding: 0 !important;
-    }
-    .pagination-btn.pagination-nav {
-        height: 38px !important;
-        min-width: 86px !important;
-        padding: 0 16px !important;
+    @media (min-width: 641px) {
+        .pagination-btn.pagination-num {
+            min-width: 38px;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+        }
+        .pagination-btn.pagination-nav {
+            height: 38px;
+            min-width: auto;
+            padding: 0 14px;
+        }
     }
     .pagination-btn:hover:not(:disabled):not(.disabled) {
         background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
@@ -1573,6 +1575,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <button type="submit" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Inventory" aria-label="Search">
                         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </button>
+                    <a href="products.php<?php echo $show_archived ? '?archived=1' : ''; ?>" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
+                        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </a>
                 </div>
                 <select name="category" class="premium-input inventory-select cursor-pointer text-sm w-full sm:w-36 md:w-40 shrink-0" style="height:42px;" onchange="this.form.submit()">
                     <option value="">All Categories</option>
@@ -1584,9 +1589,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <option value="out_of_stock" <?php echo in_array($filter_param, ['out', 'out_of_stock']) ? 'selected' : ''; ?>>Out of Stock</option>
                     <option value="in_stock" <?php echo in_array($filter_param, ['good', 'in_stock']) ? 'selected' : ''; ?>>In Stock</option>
                 </select>
-                <?php if($q||$category_param||$filter_param): ?>
-                    <a href="products.php<?php echo $show_archived ? '?archived=1' : ''; ?>" class="btn-secondary whitespace-nowrap h-[42px] flex items-center justify-center px-3 shrink-0" title="Clear filters"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></a>
-                <?php endif; ?>
             </form>
             <div id="inv-action-btns" class="flex flex-row items-center gap-2 w-full md:w-auto shrink-0">
                 <div class="inv-view-toggle items-center" title="Toggle view">
@@ -1826,7 +1828,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     <div id="inventory-pagination-container">
     <?php if ($total_pages > 1): ?>
-    <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
+    <div class="pagination-container p-2.5 sm:p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4 flex-wrap">
         <?php
             $params = ['q' => $q, 'category' => $category_param, 'filter' => $filter_param ?: null, 'archived' => $show_archived ? '1' : null];
             $qs = http_build_query(array_filter($params, function($v) { return $v !== '' && $v !== null; }));
@@ -1838,51 +1840,60 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $total_items; ?> entries
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="pagination-btn-group flex items-center gap-1 sm:gap-2">
             <?php if ($page > 1): ?>
-                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>">
+                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
             <?php endif; ?>
 
             <?php
-                $startPage = max(1, $page - 2);
-                $endPage = min($total_pages, $page + 2);
-                if ($startPage > 1) {
-                    echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=1">1</button>';
-                    if ($startPage > 2) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
+                if ($total_pages <= 7) {
+                    $pageItems = range(1, $total_pages);
+                } elseif ($page <= 3) {
+                    $pageItems = [1, 2, 3, 4, 5, '...', $total_pages];
+                } elseif ($page >= $total_pages - 2) {
+                    $pageItems = [1, '...', $total_pages - 4, $total_pages - 3, $total_pages - 2, $total_pages - 1, $total_pages];
+                } else {
+                    $pageItems = [1, '...', $page - 1, $page, $page + 1, '...', $total_pages];
                 }
-                for ($p = $startPage; $p <= $endPage; $p++) {
-                    if ($p === $page) {
-                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+
+                foreach ($pageItems as $item) {
+                    if ($item === '...') {
+                        echo '<span class="pagination-ellipsis">&hellip;</span>';
+                    } elseif ($item === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $item . '</button>';
                     } else {
-                        echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=' . $p . '">' . $p . '</button>';
+                        $isNeighbor = false;
+                        if ($total_pages > 7) {
+                            if ($page <= 3) {
+                                $isNeighbor = ($item === 4 || $item === 5);
+                            } elseif ($page >= $total_pages - 2) {
+                                $isNeighbor = ($item === $total_pages - 4 || $item === $total_pages - 3);
+                            } else {
+                                $isNeighbor = ($item === $page - 1 || $item === $page + 1);
+                            }
+                        }
+                        $neighborClass = $isNeighbor ? ' pagination-neighbor' : '';
+                        echo '<button type="button" class="pagination-btn pagination-num' . $neighborClass . ' pagination-link" data-url="products.php?' . $qsPrefix . 'page=' . $item . '">' . $item . '</button>';
                     }
-                }
-                if ($endPage < $total_pages) {
-                    if ($endPage < $total_pages - 1) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
-                    echo '<button type="button" class="pagination-btn pagination-num pagination-link" data-url="products.php?' . $qsPrefix . 'page=' . $total_pages . '">' . $total_pages . '</button>';
                 }
             ?>
 
             <?php if ($page < $total_pages): ?>
-                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>">
-                    Next
+                <button type="button" class="pagination-btn pagination-nav pagination-link" data-url="products.php?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
-                    Next
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             <?php endif; ?>

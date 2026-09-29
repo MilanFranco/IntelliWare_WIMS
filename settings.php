@@ -488,29 +488,62 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
     }
 
     /* ── Light Mode Overrides ── */
+    [data-theme="light"] .settings-hero-card {
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
+    }
+    [data-theme="light"] .settings-hero-gradient {
+        display: none !important;
+    }
+    [data-theme="light"] .settings-hero-card h1.text-white,
+    [data-theme="light"] .settings-hero-card .text-white {
+        color: #0B1526 !important;
+    }
+    [data-theme="light"] .settings-hero-card p.text-\[\#9aa6d1\],
+    [data-theme="light"] .settings-hero-card .text-\[\#9aa6d1\] {
+        color: #45526B !important;
+    }
+    [data-theme="light"] .settings-hero-status-pill {
+        background: rgba(220, 234, 252, 0.7) !important;
+        border-color: #D6E2F2 !important;
+        color: #45526B !important;
+    }
+    [data-theme="light"] .settings-hero-role-pill {
+        background: rgba(219, 234, 254, 0.6) !important;
+        border-color: #BFDBFE !important;
+        color: #1E40AF !important;
+    }
+    [data-theme="light"] .settings-hero-status-border {
+        border-color: #E2E8F0 !important;
+    }
     [data-theme="light"] .cfg-kpi-pill,
     [data-theme="light"] .cfg-metric-card,
     [data-theme="light"] .bg-\[\#0D1638\]\/70,
     [data-theme="light"] .bg-\[\#0d1638\]\/70 {
-        background: #EFF6FF !important;
-        border-color: #BFDBFE !important;
-        box-shadow: 0 1px 3px rgba(59, 130, 246, 0.05) !important;
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 3px rgba(16, 24, 43, 0.05) !important;
     }
     [data-theme="light"] .cfg-metric-card .text-\[\#9aa6d1\],
+    [data-theme="light"] .cfg-kpi-pill .text-\[\#9aa6d1\],
     [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#9aa6d1\] {
-        color: #475569 !important;
+        color: #64748B !important;
     }
     [data-theme="light"] .cfg-metric-card .text-white,
+    [data-theme="light"] .cfg-kpi-pill .text-white,
     [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-white,
     [data-theme="light"] .cfg-metric-card .text-\[\#E3E3E3\],
     [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#E3E3E3\] {
         color: #0F172A !important;
     }
     [data-theme="light"] .cfg-metric-card .text-\[\#64748b\],
+    [data-theme="light"] .cfg-kpi-pill .text-\[\#64748b\],
     [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#64748b\] {
         color: #64748B !important;
     }
     [data-theme="light"] .cfg-metric-card .text-\[\#51D55A\],
+    [data-theme="light"] .cfg-kpi-pill .text-\[\#51D55A\],
     [data-theme="light"] .bg-\[\#0D1638\]\/70 .text-\[\#51D55A\] {
         color: #0F6E2C !important;
     }
@@ -536,8 +569,8 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
 </style>
 
 <!-- Header Banner Card -->
-<div class="premium-card p-6 md:p-8 mb-6 relative overflow-hidden">
-    <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none"></div>
+<div class="page-hero-card settings-hero-card mb-6 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-[#1D387B]/40 via-transparent to-[#51D55A]/5 pointer-events-none settings-hero-gradient"></div>
     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
         <div class="space-y-2">
             <div class="flex items-center gap-3">
@@ -555,18 +588,18 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-            <div class="px-3.5 py-2 rounded-xl bg-[#13275B]/70 border border-[#2A4484] text-xs text-[#9aa6d1] font-onest flex items-center gap-2">
+            <div class="settings-hero-status-pill px-3.5 py-2 rounded-xl bg-[#13275B]/70 border border-[#2A4484] text-xs text-[#9aa6d1] font-onest flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
                 <span>PHP <?php echo PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION; ?> • MySQL Online</span>
             </div>
-            <span class="px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 text-xs text-blue-300 font-onest font-semibold uppercase tracking-wider">
+            <span class="settings-hero-role-pill px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 text-xs text-blue-300 font-onest font-semibold uppercase tracking-wider">
                 Role: <?php echo ucfirst($currentRole); ?>
             </span>
         </div>
     </div>
 
     <!-- Quick Status Indicators Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-[#2A4484]/40">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-[#2A4484]/40 settings-hero-status-border">
         <div class="cfg-kpi-pill">
             <div>
                 <div class="text-[11px] text-[#9aa6d1] uppercase tracking-wider font-semibold font-onest">Active Operator</div>

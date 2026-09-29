@@ -821,6 +821,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         border: 1px solid rgba(42, 68, 132, 0.6);
         border-radius: 18px;
         padding: 24px 28px;
+        margin-bottom: 24px;
         box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
         position: relative;
         overflow: hidden;
@@ -836,15 +837,18 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         pointer-events: none;
     }
     [data-theme="light"] .page-hero-card {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        border-color: #93c5fd;
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
     }
-    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
+    [data-theme="light"] .page-hero-card::after {
+        display: none !important;
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #0B1526 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
 </style>
 
 <!-- Hero Page Header Banner -->
@@ -982,6 +986,9 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 <button type="submit" class="btn-secondary h-[44px] w-[44px] min-w-[44px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Transactions" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
+                <a href="transactions.php<?php echo $action ? '?action=' . urlencode($action) : ''; ?>" class="btn-secondary h-[44px] w-[44px] min-w-[44px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </a>
             </div>
             
             <select name="category" class="premium-input inventory-select cursor-pointer text-xs w-full sm:w-44" onchange="this.form.submit()" style="height:44px;">
@@ -997,13 +1004,6 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                     </option>
                 <?php endif; ?>
             </select>
-
-            <?php if (!empty($search_q) || !empty($filter_cat)): ?>
-                <a href="transactions.php" class="inline-flex items-center justify-center px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold transition-colors" style="height:44px;" title="Reset filters">
-                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    Reset
-                </a>
-            <?php endif; ?>
             
             <?php if($action): ?><input type="hidden" name="action" value="<?php echo $action; ?>"><?php endif; ?>
             <?php if($smartInsightActive): ?><input type="hidden" name="ref" value="insights"><?php endif; ?>
@@ -1162,7 +1162,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     </div><!-- /.txn-inv-mobile -->
 
     <?php if ($totalPages > 1): ?>
-    <div class="p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
+    <div class="pagination-container p-2.5 sm:p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4 flex-wrap">
         <?php 
             $params = $_GET; 
             unset($params['page']);
@@ -1174,51 +1174,60 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         <div class="pagination-info-pill">
             Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $totalRows; ?> entries
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="pagination-btn-group flex items-center gap-1 sm:gap-2">
             <?php if ($page > 1): ?>
-                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav">
+                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </a>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
             <?php endif; ?>
 
             <?php
-                $startPage = max(1, $page - 2);
-                $endPage = min($totalPages, $page + 2);
-                if ($startPage > 1) {
-                    echo '<a href="?' . $qsPrefix . 'page=1" class="pagination-btn pagination-num">1</a>';
-                    if ($startPage > 2) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
+                if ($totalPages <= 7) {
+                    $pageItems = range(1, $totalPages);
+                } elseif ($page <= 3) {
+                    $pageItems = [1, 2, 3, 4, 5, '...', $totalPages];
+                } elseif ($page >= $totalPages - 2) {
+                    $pageItems = [1, '...', $totalPages - 4, $totalPages - 3, $totalPages - 2, $totalPages - 1, $totalPages];
+                } else {
+                    $pageItems = [1, '...', $page - 1, $page, $page + 1, '...', $totalPages];
                 }
-                for ($p = $startPage; $p <= $endPage; $p++) {
-                    if ($p === $page) {
-                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+
+                foreach ($pageItems as $item) {
+                    if ($item === '...') {
+                        echo '<span class="pagination-ellipsis">&hellip;</span>';
+                    } elseif ($item === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $item . '</button>';
                     } else {
-                        echo '<a href="?' . $qsPrefix . 'page=' . $p . '" class="pagination-btn pagination-num">' . $p . '</a>';
+                        $isNeighbor = false;
+                        if ($totalPages > 7) {
+                            if ($page <= 3) {
+                                $isNeighbor = ($item === 4 || $item === 5);
+                            } elseif ($page >= $totalPages - 2) {
+                                $isNeighbor = ($item === $totalPages - 4 || $item === $totalPages - 3);
+                            } else {
+                                $isNeighbor = ($item === $page - 1 || $item === $page + 1);
+                            }
+                        }
+                        $neighborClass = $isNeighbor ? ' pagination-neighbor' : '';
+                        echo '<a href="?' . $qsPrefix . 'page=' . $item . '" class="pagination-btn pagination-num' . $neighborClass . '">' . $item . '</a>';
                     }
-                }
-                if ($endPage < $totalPages) {
-                    if ($endPage < $totalPages - 1) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
-                    echo '<a href="?' . $qsPrefix . 'page=' . $totalPages . '" class="pagination-btn pagination-num">' . $totalPages . '</a>';
                 }
             ?>
 
             <?php if ($page < $totalPages): ?>
-                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav">
-                    Next
+                <a href="?<?php echo $qsPrefix; ?>page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </a>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
-                    Next
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             <?php endif; ?>

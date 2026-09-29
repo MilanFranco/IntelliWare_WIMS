@@ -252,17 +252,42 @@ if (!function_exists('formatSafeSeasonalHtml')) {
         0 4px 14px rgba(5, 150, 105, 0.35),
         inset 0 1px 0 rgba(255,255,255,0.25);
 }
+[data-theme="light"] .ph-fab-divider {
+    background: rgba(0, 0, 0, 0.12) !important;
+}
 @media (max-width: 580px) {
     #phSeasonalFab {
-        bottom: 20px !important;
-        right: 20px !important;
-        padding: 6px 8px !important;
-        gap: 0 !important;
+        bottom: 18px !important;
+        right: 16px !important;
+        padding: 5px 6px 5px 12px !important;
+        gap: 8px !important;
     }
-    .ph-fab-text-col { display: none !important; }
-    .ph-fab-badge    { display: none !important; }
-    .ph-fab-icon-disc { width: 48px; height: 48px; }
-    .ph-fab-icon-disc svg { width: 25px; height: 25px; }
+    .ph-fab-text-col {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1px !important;
+    }
+    .ph-fab-title {
+        font-size: 11.5px !important;
+        line-height: 1.15 !important;
+    }
+    .ph-fab-badge {
+        display: inline-flex !important;
+        font-size: 9px !important;
+        padding: 1px 5px !important;
+        line-height: 1.1 !important;
+    }
+    .ph-fab-divider {
+        height: 22px !important;
+    }
+    .ph-fab-icon-disc {
+        width: 36px !important;
+        height: 36px !important;
+    }
+    .ph-fab-icon-disc svg {
+        width: 19px !important;
+        height: 19px !important;
+    }
 }
 
 /* ── Modal (Optimized 60fps Smooth Scroll, No Lag) ────────── */
@@ -561,7 +586,7 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     </div>
 
     <!-- Divider -->
-    <div aria-hidden="true" style="width:1px;height:28px;background:rgba(255,255,255,0.1);flex-shrink:0;"></div>
+    <div class="ph-fab-divider" aria-hidden="true" style="width:1px;height:28px;background:rgba(255,255,255,0.1);flex-shrink:0;"></div>
 
     <!-- Right: icon disc -->
     <div class="ph-fab-icon-disc" aria-hidden="true">

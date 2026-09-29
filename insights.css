@@ -126,24 +126,18 @@
 /* Metric Card Styles */
 .metric-card { 
     cursor: pointer; 
-    transition: all 0.3s ease; 
-    background: #13275B; 
-    padding: 20px; 
-    border-radius: 12px; 
-    border: 2px solid #2A4484; 
-    text-align: center;
+    transition: all 0.25s ease; 
+    text-align: left;
 }
 
 .metric-card:hover { 
-    transform: translateY(-4px); 
-    box-shadow: 0 6px 24px rgba(81, 213, 90, 0.3); 
-    border-color: #51D55A; 
+    transform: translateY(-2px); 
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); 
 }
 
 .metric-card.active { 
-    border-color: #51D55A; 
-    background: linear-gradient(135deg, #13275B 0%, #1D387B 100%); 
-    box-shadow: 0 6px 24px rgba(81, 213, 90, 0.4); 
+    border-color: rgba(81, 213, 90, 0.6) !important; 
+    box-shadow: 0 2px 10px rgba(81, 213, 90, 0.15) !important; 
 }
 
 /* Progress Bar */
@@ -268,7 +262,21 @@
         flex-direction: column;
     }
     
-    .search-box, .filter-select {
+    .search-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .search-input-group .search-box {
+        min-width: 0;
+        flex: 1;
+        width: auto;
+    }
+    
+    .filter-select {
         min-width: 100%;
     }
 }

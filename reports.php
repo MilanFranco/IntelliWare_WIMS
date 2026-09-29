@@ -425,6 +425,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         border: 1px solid rgba(42, 68, 132, 0.6);
         border-radius: 18px;
         padding: 24px 28px;
+        margin-bottom: 24px;
         box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
         position: relative;
         overflow: hidden;
@@ -440,15 +441,18 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         pointer-events: none;
     }
     [data-theme="light"] .page-hero-card {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        border-color: #93c5fd;
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
     }
-    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
+    [data-theme="light"] .page-hero-card::after {
+        display: none !important;
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #0B1526 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
 </style>
 
 <!-- Hero Page Header Banner -->
@@ -520,8 +524,11 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
 
             <div class="flex items-center gap-2 shrink-0">
                 <button class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" type="submit" title="Search Reports" aria-label="Search">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
+                <a href="reports.php" class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
+                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </a>
                 <button type="button" onclick="downloadPDF()" class="premium-button h-[46px] px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" title="Generate &amp; Download PDF Report">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span>PDF</span>
@@ -530,12 +537,6 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span>Excel</span>
                 </button>
-                <?php if ($dateFrom || $dateTo || $categoryFilter || $statusFilter): ?>
-                    <a href="reports.php" title="Clear Filters" class="h-[46px] px-3.5 rounded-xl border border-[#2A4484] bg-[#13275B] text-[#9aa6d1] hover:text-white flex items-center justify-center transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l5 5 5 15 5-5 5-15H4z"></path></svg>
-                        <span class="ml-1 text-xs">Reset</span>
-                    </a>
-                <?php endif; ?>
             </div>
         </form>
     </div>

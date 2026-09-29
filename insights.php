@@ -655,25 +655,26 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     border: 1px solid var(--insights-border);
     border-radius: 16px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
     box-shadow: var(--insights-shadow);
+    text-align: left !important;
 }
 .metric-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 .metric-card.active {
-    border-color: #51D55A !important;
-    box-shadow: 0 0 0 1px #51D55A, 0 12px 30px rgba(81, 213, 90, 0.25) !important;
+    border-color: rgba(81, 213, 90, 0.6) !important;
+    box-shadow: 0 2px 10px rgba(81, 213, 90, 0.15) !important;
 }
 [data-theme="light"] .metric-card:hover {
-    box-shadow: 0 8px 22px rgba(55, 75, 99, 0.15);
+    box-shadow: 0 6px 18px rgba(55, 75, 99, 0.1);
 }
 [data-theme="light"] .metric-card.active {
-    border-color: var(--insights-accent) !important;
-    box-shadow: 0 8px 22px rgba(22, 163, 74, 0.18), 0 0 0 2px rgba(22, 163, 74, 0.35) !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12) !important;
 }
 
 .tab-container {
@@ -720,6 +721,10 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     vertical-align: middle;
 }
 .table tr:hover td { background-color: var(--insights-row-hover); }
+.table tr.hidden, .table tbody tr.hidden, tr.hidden,
+.table tr[style*="display: none"], .table tr[style*="display:none"] {
+    display: none !important;
+}
 
 .badge {
     padding: 4px 10px;
@@ -1902,6 +1907,132 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         background: var(--insights-accent);
         border-radius: 999px;
     }
+
+    /* ── 4. SUMMARY METRIC CARDS — Row layout matching standard summary cards ── */
+    .metric-card {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        text-align: left !important;
+        padding: 14px 14px !important;
+        min-height: 84px !important;
+        border-radius: 14px !important;
+        box-sizing: border-box !important;
+    }
+    .metric-card > div:first-child {
+        min-width: 0;
+        flex: 1;
+    }
+    .metric-card .text-xs {
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+        letter-spacing: 0.03em !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    .metric-card .num {
+        font-size: 24px !important;
+        line-height: 1.2 !important;
+        font-weight: 800 !important;
+    }
+    .metric-card .w-12.h-12 {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        border-radius: 11px !important;
+        flex-shrink: 0 !important;
+    }
+    .metric-card .w-12.h-12 svg {
+        width: 20px !important;
+        height: 20px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* ── 5. PAGINATION — Single compact row, prevent wrapping next button ── */
+    #productPagination,
+    .pagination-container {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+    .pagination-btn-group,
+    #productPagination .pagination-btn-group,
+    .pagination-container .pagination-btn-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+        width: auto !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+    #productPageNumbers {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 3px !important;
+    }
+    .pagination-nav-text {
+        display: none !important;
+    }
+    .pagination-neighbor {
+        display: none !important;
+    }
+    .pagination-btn {
+        height: 32px !important;
+        font-size: 12px !important;
+        border-radius: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .pagination-btn.pagination-num {
+        min-width: 28px !important;
+        width: 28px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        font-size: 12px !important;
+        flex-shrink: 0 !important;
+    }
+    .pagination-btn.pagination-nav,
+    #prevPageBtn,
+    #nextPageBtn {
+        min-width: 32px !important;
+        width: 32px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+    .pagination-btn svg {
+        width: 13px !important;
+        height: 13px !important;
+        flex-shrink: 0 !important;
+    }
+    .pagination-info-pill {
+        font-size: 11px !important;
+        padding: 4px 10px !important;
+    }
+    .pagination-ellipsis {
+        font-size: 11px !important;
+        padding: 0 1px !important;
+        min-width: 8px !important;
+        text-align: center !important;
+        flex-shrink: 0 !important;
+    }
 }
 </style>
 
@@ -1942,7 +2073,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalProducts); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 border border-[#51D55A]/20 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 border border-[#51D55A]/20 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
     </div>
@@ -1954,7 +2085,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($attentionNeededCount); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </div>
     </div>
@@ -1966,7 +2097,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($fastMovingCount); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
         </div>
     </div>
@@ -1978,7 +2109,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($expiringSoonCount); ?></span>
             </div>
         </div>
-        <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
         </div>
     </div>
@@ -1996,39 +2127,44 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="card">
         <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Product Movement Analysis</div>
         <div class="search-filter-container">
-            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px;">
-                <input type="text" id="productSearch" class="search-box" style="width: 100%; flex: 1;" placeholder="Search products...">
-                <button type="button" onclick="currentProductPage = 1; filterProductTable();" class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Products" aria-label="Search">
+            <div class="search-input-group flex items-center gap-2 flex-1 w-full min-w-0">
+                <input type="text" id="productSearch" oninput="currentProductPage = 1; filterProductTable();" onkeydown="if(event.key==='Enter'){event.preventDefault(); currentProductPage = 1; filterProductTable();}" class="search-box flex-1 min-w-0" style="height: 42px; width: 100%;" placeholder="Search products...">
+                <button type="button" onclick="currentProductPage = 1; filterProductTable();" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Products" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
+                <button type="button" onclick="resetProductFilters();" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
-            <select id="categoryFilter" class="filter-select">
+            <select id="categoryFilter" onchange="currentProductPage = 1; filterProductTable();" class="filter-select">
                 <option value="">All Categories</option>
                 <?php
-                $categories = array_unique(array_column($productMovement, 'category_name'));
+                $categories = array_filter(array_unique(array_column($productMovement, 'category_name')));
+                sort($categories);
                 foreach ($categories as $category) {
-                    if (!empty($category)) { echo "<option value=\"$category\">$category</option>"; }
+                    $catEsc = htmlspecialchars($category, ENT_QUOTES, 'UTF-8');
+                    echo "<option value=\"$catEsc\">$catEsc</option>";
                 }
                 ?>
             </select>
-            <select id="movementFilter" class="filter-select">
+            <select id="movementFilter" onchange="currentProductPage = 1; filterProductTable();" class="filter-select">
                 <option value="">All Movement Types</option>
                 <option value="fast_moving">Fast Moving</option>
                 <option value="medium_moving">Medium Moving</option>
                 <option value="slow_moving">Slow Moving</option>
                 <option value="non_moving">Non Moving</option>
             </select>
-            <select id="stockFilter" class="filter-select">
+            <select id="stockFilter" onchange="currentProductPage = 1; filterProductTable();" class="filter-select">
                 <option value="">All Stock Status</option>
-                <option value="attention_needed">Low & Out of Stock</option>
+                <option value="attention_needed">Low &amp; Out of Stock</option>
                 <option value="normal">Normal</option>
                 <option value="low_stock">Low Stock</option>
                 <option value="out_of_stock">Out of Stock</option>
                 <option value="overstocked">Overstocked</option>
             </select>
         </div>
-        <div style="overflow-x: auto;">
-            <table class="table" id="productTable">
+        <div class="iw-table-scroll overflow-x-auto" style="overflow-x: auto;">
+            <table class="table" id="productTable" style="min-width: 680px;">
                 <thead>
                     <tr>
                         <th>Product</th><th>Category</th><th>Current Stock</th><th>Monthly Sales</th>
@@ -2040,7 +2176,8 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     <tr data-category="<?php echo htmlspecialchars($product['category_name']); ?>"
                         data-movement="<?php echo $product['movement_class']; ?>"
                         data-stock="<?php echo $product['stock_status']; ?>"
-                        <?php echo $index >= 8 ? 'style="display: none;"' : ''; ?>>
+                        class="product-row <?php echo $index >= 8 ? 'hidden' : ''; ?>"
+                        <?php echo $index >= 8 ? 'style="display: none !important;"' : ''; ?>>
                         <td style="font-weight: 500; color: #fff;"><?php echo htmlspecialchars($product['product_name']); ?></td>
                         <td style="color: #9aa6d1;"><?php echo htmlspecialchars($product['category_name']); ?></td>
                         <td><?php echo $product['current_stock']; ?></td>
@@ -2054,18 +2191,18 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 </tbody>
             </table>
         </div>
-        <div id="productPagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(42, 68, 132, 0.3); flex-wrap: wrap; gap: 12px;">
+        <div id="productPagination" class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(42, 68, 132, 0.3); flex-wrap: wrap; gap: 12px;">
             <div class="pagination-info-pill">
                 Showing <span id="paginationInfoStart"><?php echo !empty($productMovement) ? '1' : '0'; ?></span> to <span id="paginationInfoEnd"><?php echo min(8, count($productMovement)); ?></span> of <span id="paginationInfoTotal"><?php echo count($productMovement); ?></span> entries
             </div>
-            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                <button type="button" class="pagination-btn" id="prevPageBtn">
+            <div class="pagination-btn-group flex items-center gap-1 sm:gap-1.5">
+                <button type="button" class="pagination-btn pagination-nav" id="prevPageBtn" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
-                <div id="productPageNumbers" style="display:flex; gap:6px; align-items:center;"></div>
-                <button type="button" class="pagination-btn" id="nextPageBtn">
-                    Next
+                <div id="productPageNumbers" class="flex items-center gap-1 sm:gap-1.5"></div>
+                <button type="button" class="pagination-btn pagination-nav" id="nextPageBtn" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             </div>
@@ -2458,7 +2595,23 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div class="recommendation-card warning" onclick="openPhilippineSeasonalModal()" style="cursor: pointer; position: relative; transition: all 0.2s ease;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div class="card-label">Seasonal Stock Build-up</div>
-                <span style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);">🇵🇭 View Guide &rarr;</span>
+                <span class="seasonal-guide-action-badge" title="Open Philippine Seasonal Guide" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 999px; background: rgba(245, 158, 11, 0.16); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); flex-shrink: 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                        <circle cx="12" cy="12" r="3.8" fill="rgba(245, 158, 11, 0.25)" stroke="currentColor" stroke-width="1.6"/>
+                        <line x1="12" y1="2.2"  x2="12" y2="5"    stroke="currentColor" stroke-width="1.8"/>
+                        <line x1="12" y1="19"   x2="12" y2="21.8" stroke="currentColor" stroke-width="1.8"/>
+                        <line x1="2.2" y1="12" x2="5"   y2="12"   stroke="currentColor" stroke-width="1.8"/>
+                        <line x1="19"  y1="12" x2="21.8" y2="12"  stroke="currentColor" stroke-width="1.8"/>
+                        <line x1="5.1"  y1="5.1"  x2="7"    y2="7"    stroke="currentColor" stroke-width="1.5"/>
+                        <line x1="17"   y1="17"   x2="18.9" y2="18.9" stroke="currentColor" stroke-width="1.5"/>
+                        <line x1="5.1"  y1="18.9" x2="7"    y2="17"   stroke="currentColor" stroke-width="1.5"/>
+                        <line x1="17"   y1="7"    x2="18.9" y2="5.1"  stroke="currentColor" stroke-width="1.5"/>
+                        <polyline points="8.2,14.5 10.2,11.8 12,13.2 14.5,9.8" stroke="currentColor" stroke-width="1.7" fill="none"/>
+                    </svg>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                        <path d="M5 12h14m-6-6 6 6-6 6"/>
+                    </svg>
+                </span>
             </div>
             <div class="card-copy">Prepare for seasonal demand shifts across Philippine retail categories. Click to explore 12-month recommendations.</div>
         </div>
@@ -2521,36 +2674,49 @@ function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc, custo
         pagContainer.style.flexWrap = 'wrap';
         pagContainer.style.gap = '12px';
         
+        let pageItems = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pageItems.push(i);
+        } else if (pageVar <= 3) {
+            pageItems = [1, 2, 3, 4, 5, '...', totalPages];
+        } else if (pageVar >= totalPages - 2) {
+            pageItems = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        } else {
+            pageItems = [1, '...', pageVar - 1, pageVar, pageVar + 1, '...', totalPages];
+        }
+
         let pageNumbersHtml = '';
-        const startP = Math.max(1, pageVar - 2);
-        const endP = Math.min(totalPages, pageVar + 2);
-        
-        if (startP > 1) {
-            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(1); return false;">1</button>`;
-            if (startP > 2) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-        }
-        for (let p = startP; p <= endP; p++) {
-            if (p === pageVar) {
-                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${p}</button>`;
+        pageItems.forEach(item => {
+            if (item === '...') {
+                pageNumbersHtml += `<span class="pagination-ellipsis">&hellip;</span>`;
+            } else if (item === pageVar) {
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${item}</button>`;
             } else {
-                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(${p}); return false;">${p}</button>`;
+                let isNeighbor = false;
+                if (totalPages > 7) {
+                    if (pageVar <= 3) {
+                        isNeighbor = (item === 4 || item === 5);
+                    } else if (pageVar >= totalPages - 2) {
+                        isNeighbor = (item === totalPages - 4 || item === totalPages - 3);
+                    } else {
+                        isNeighbor = (item === pageVar - 1 || item === pageVar + 1);
+                    }
+                }
+                const neighborClass = isNeighbor ? ' pagination-neighbor' : '';
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num${neighborClass}" onclick="event.preventDefault(); ${setPageFunc}(${item}); return false;">${item}</button>`;
             }
-        }
-        if (endP < totalPages) {
-            if (endP < totalPages - 1) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="event.preventDefault(); ${setPageFunc}(${totalPages}); return false;">${totalPages}</button>`;
-        }
+        });
 
         pagContainer.innerHTML = `
             <div class="pagination-info-pill">Showing ${allRows.length === 0 ? 0 : start + 1} to ${Math.min(end, allRows.length)} of ${allRows.length} entries</div>
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                <button type="button" class="pagination-btn pagination-nav" ${pageVar === 1 ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar - 1}); return false;">
+            <div class="pagination-btn-group flex items-center gap-1 sm:gap-1.5">
+                <button type="button" class="pagination-btn pagination-nav" ${pageVar === 1 ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar - 1}); return false;" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
                 ${pageNumbersHtml}
-                <button type="button" class="pagination-btn pagination-nav" ${pageVar === totalPages ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar + 1}); return false;">
-                    Next
+                <button type="button" class="pagination-btn pagination-nav" ${pageVar === totalPages ? 'disabled' : ''} onclick="event.preventDefault(); ${setPageFunc}(${pageVar + 1}); return false;" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             </div>
@@ -2728,36 +2894,49 @@ window.setSeasonalModalPage = function(page) {
 
     if (pagContainer) {
         pagContainer.style.display = 'flex';
-        let pageNumbersHtml = '';
-        const startP = Math.max(1, validPage - 2);
-        const endP = Math.min(totalPages, validPage + 2);
+        let pageItems = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pageItems.push(i);
+        } else if (validPage <= 3) {
+            pageItems = [1, 2, 3, 4, 5, '...', totalPages];
+        } else if (validPage >= totalPages - 2) {
+            pageItems = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        } else {
+            pageItems = [1, '...', validPage - 1, validPage, validPage + 1, '...', totalPages];
+        }
 
-        if (startP > 1) {
-            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setSeasonalModalPage(1)">1</button>`;
-            if (startP > 2) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-        }
-        for (let p = startP; p <= endP; p++) {
-            if (p === validPage) {
-                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${p}</button>`;
+        let pageNumbersHtml = '';
+        pageItems.forEach(item => {
+            if (item === '...') {
+                pageNumbersHtml += `<span class="pagination-ellipsis">&hellip;</span>`;
+            } else if (item === validPage) {
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${item}</button>`;
             } else {
-                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setSeasonalModalPage(${p})">${p}</button>`;
+                let isNeighbor = false;
+                if (totalPages > 7) {
+                    if (validPage <= 3) {
+                        isNeighbor = (item === 4 || item === 5);
+                    } else if (validPage >= totalPages - 2) {
+                        isNeighbor = (item === totalPages - 4 || item === totalPages - 3);
+                    } else {
+                        isNeighbor = (item === validPage - 1 || item === validPage + 1);
+                    }
+                }
+                const neighborClass = isNeighbor ? ' pagination-neighbor' : '';
+                pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num${neighborClass}" onclick="setSeasonalModalPage(${item})">${item}</button>`;
             }
-        }
-        if (endP < totalPages) {
-            if (endP < totalPages - 1) pageNumbersHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-            pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setSeasonalModalPage(${totalPages})">${totalPages}</button>`;
-        }
+        });
 
         pagContainer.innerHTML = `
             <div class="pagination-info-pill">Showing ${totalItems === 0 ? 0 : start + 1} to ${end} of ${totalItems} entries</div>
-            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                <button type="button" class="pagination-btn pagination-nav" ${validPage === 1 ? 'disabled' : ''} onclick="setSeasonalModalPage(${validPage - 1})">
+            <div class="pagination-btn-group flex items-center gap-1 sm:gap-1.5">
+                <button type="button" class="pagination-btn pagination-nav" ${validPage === 1 ? 'disabled' : ''} onclick="setSeasonalModalPage(${validPage - 1})" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
                 ${pageNumbersHtml}
-                <button type="button" class="pagination-btn pagination-nav" ${validPage === totalPages ? 'disabled' : ''} onclick="setSeasonalModalPage(${validPage + 1})">
-                    Next
+                <button type="button" class="pagination-btn pagination-nav" ${validPage === totalPages ? 'disabled' : ''} onclick="setSeasonalModalPage(${validPage + 1})" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             </div>
@@ -2776,10 +2955,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // ------------------------
 
 const chartTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-Chart.defaults.color = chartTheme === 'light' ? '#64748b' : '#9aa6d1';
-Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)';
-Chart.defaults.font.family = "'Onest', sans-serif";
-Chart.defaults.font.size = 12;
+if (typeof Chart !== 'undefined') {
+    Chart.defaults.color = chartTheme === 'light' ? '#64748b' : '#9aa6d1';
+    Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)';
+    Chart.defaults.font.family = "'Onest', sans-serif";
+    Chart.defaults.font.size = 12;
+}
 
 const categoriesLabels = <?php echo json_encode(array_column($categoryPerformance, 'category_name')); ?>;
 const monthlySalesData = <?php echo json_encode(array_column($categoryPerformance, 'monthly_sales')); ?>;
@@ -3478,84 +3659,41 @@ document.querySelectorAll('.tab').forEach(tab => {
 let currentProductPage = 1;
 const productsPerPage = 8;
 
-// Bind search/filter controls and pagination inside DOMContentLoaded so that
-// all elements are guaranteed to exist (safe on mobile and when external scripts
-// like Chart.js cause a synchronous delay that can defer inline-script parsing).
-document.addEventListener('DOMContentLoaded', function () {
-    var productSearch   = document.getElementById('productSearch');
-    var categoryFilter  = document.getElementById('categoryFilter');
-    var movementFilter  = document.getElementById('movementFilter');
-    var stockFilter     = document.getElementById('stockFilter');
-    var prevPageBtn     = document.getElementById('prevPageBtn');
-    var nextPageBtn     = document.getElementById('nextPageBtn');
-
-    if (productSearch) {
-        productSearch.addEventListener('input', function () { currentProductPage = 1; filterProductTable(); });
-    }
-
-    // Helper: bind both 'change' (desktop) and 'touchend' (iOS Safari fallback)
-    // so that native select pickers on mobile correctly trigger the filter.
-    function bindSelectFilter(el) {
-        if (!el) return;
-        el.addEventListener('change', function () { currentProductPage = 1; filterProductTable(); });
-        // iOS Safari sometimes doesn't fire 'change' until focus leaves the select;
-        // 'touchend' on the element itself fires immediately after a pick is confirmed.
-        el.addEventListener('touchend', function () {
-            // Use a tiny delay so the selected value is committed before we read it.
-            setTimeout(function () { currentProductPage = 1; filterProductTable(); }, 0);
-        });
-    }
-
-    bindSelectFilter(categoryFilter);
-    bindSelectFilter(movementFilter);
-    bindSelectFilter(stockFilter);
-
-    if (prevPageBtn) {
-        prevPageBtn.addEventListener('click', function () {
-            if (currentProductPage > 1) {
-                currentProductPage--;
-                filterProductTable();
-            }
-        });
-    }
-
-    if (nextPageBtn) {
-        nextPageBtn.addEventListener('click', function () {
-            currentProductPage++;
-            filterProductTable();
-        });
-    }
-
-    // Initial render — set up pagination and show the first page.
-    filterProductTable();
-});
-
 function filterProductTable() {
-    const searchTerm = document.getElementById('productSearch').value.toLowerCase();
-    const categoryFilter = document.getElementById('categoryFilter').value;
-    const movementFilter = document.getElementById('movementFilter').value;
-    const stockFilter = document.getElementById('stockFilter').value;
+    const searchEl = document.getElementById('productSearch');
+    const categoryEl = document.getElementById('categoryFilter');
+    const movementEl = document.getElementById('movementFilter');
+    const stockEl = document.getElementById('stockFilter');
+
+    const searchTerm = (searchEl ? searchEl.value : '').toLowerCase().trim();
+    const categoryFilter = categoryEl ? categoryEl.value : '';
+    const movementFilter = movementEl ? movementEl.value : '';
+    const stockFilter = stockEl ? stockEl.value : '';
     
     const allRows = document.querySelectorAll('#productTableBody tr');
     let matchingRows = [];
     
     allRows.forEach(row => {
-        const productName = row.cells[0].textContent.toLowerCase();
-        const category = row.getAttribute('data-category');
-        const movement = row.getAttribute('data-movement');
-        const stock = row.getAttribute('data-stock');
+        if (row.id === 'noProductMatchRow') return;
+        if (!row.cells || row.cells.length < 8) return;
+
+        const productName = (row.cells[0].textContent || '').toLowerCase().trim();
+        const category = (row.getAttribute('data-category') || row.dataset.category || '').trim();
+        const movement = (row.getAttribute('data-movement') || row.dataset.movement || '').trim();
+        const stock = (row.getAttribute('data-stock') || row.dataset.stock || '').trim();
         
-        const matchesSearch = productName.includes(searchTerm);
-        const matchesCategory = !categoryFilter || category === categoryFilter;
-        const matchesMovement = !movementFilter || movement === movementFilter;
-        const matchesStock = !stockFilter || (stockFilter === 'attention_needed' && (stock === 'low_stock' || stock === 'out_of_stock')) || stock === stockFilter;
+        const matchesSearch = !searchTerm || productName.includes(searchTerm) || category.toLowerCase().includes(searchTerm) || (row.textContent || '').toLowerCase().includes(searchTerm);
+        const matchesCategory = !categoryFilter || category.toLowerCase() === categoryFilter.toLowerCase();
+        const matchesMovement = !movementFilter || movement.toLowerCase() === movementFilter.toLowerCase();
+        const matchesStock = !stockFilter || (stockFilter === 'attention_needed' && (stock.toLowerCase() === 'low_stock' || stock.toLowerCase() === 'out_of_stock')) || stock.toLowerCase() === stockFilter.toLowerCase();
         
         if (matchesSearch && matchesCategory && matchesMovement && matchesStock) {
             row.setAttribute('data-matched', 'true');
             matchingRows.push(row);
         } else {
             row.setAttribute('data-matched', 'false');
-            row.style.display = 'none';
+            row.style.setProperty('display', 'none', 'important');
+            row.classList.add('hidden');
         }
     });
     
@@ -3574,11 +3712,31 @@ function filterProductTable() {
     
     matchingRows.forEach((row, index) => {
         if (index >= startIndex && index < endIndex) {
-            row.style.display = '';
+            row.style.removeProperty('display');
+            row.classList.remove('hidden');
         } else {
-            row.style.display = 'none';
+            row.style.setProperty('display', 'none', 'important');
+            row.classList.add('hidden');
         }
     });
+
+    // Empty state handling
+    let noMatchRow = document.getElementById('noProductMatchRow');
+    if (totalMatches === 0) {
+        if (!noMatchRow) {
+            noMatchRow = document.createElement('tr');
+            noMatchRow.id = 'noProductMatchRow';
+            noMatchRow.innerHTML = '<td colspan="8" style="text-align:center; padding:32px 16px; color:#9aa6d1; font-size:14px; position:static !important; background:transparent !important; box-shadow:none !important;">No products match the selected criteria.</td>';
+            const tbody = document.getElementById('productTableBody');
+            if (tbody) tbody.appendChild(noMatchRow);
+        } else {
+            noMatchRow.style.removeProperty('display');
+            noMatchRow.classList.remove('hidden');
+        }
+    } else if (noMatchRow) {
+        noMatchRow.style.setProperty('display', 'none', 'important');
+        noMatchRow.classList.add('hidden');
+    }
     
     // Update pagination controls UI
     const infoStart = document.getElementById('paginationInfoStart');
@@ -3591,59 +3749,150 @@ function filterProductTable() {
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
     if (prevBtn) {
-        prevBtn.disabled = currentProductPage === 1;
-        if (currentProductPage === 1) prevBtn.classList.add('disabled'); else prevBtn.classList.remove('disabled');
+        prevBtn.disabled = currentProductPage <= 1;
+        if (currentProductPage <= 1) prevBtn.classList.add('disabled'); else prevBtn.classList.remove('disabled');
     }
     if (nextBtn) {
-        nextBtn.disabled = currentProductPage === totalPages;
-        if (currentProductPage === totalPages) nextBtn.classList.add('disabled'); else nextBtn.classList.remove('disabled');
+        nextBtn.disabled = currentProductPage >= totalPages;
+        if (currentProductPage >= totalPages) nextBtn.classList.add('disabled'); else nextBtn.classList.remove('disabled');
     }
 
     const pageNumbersEl = document.getElementById('productPageNumbers');
     if (pageNumbersEl) {
+        let pageItems = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pageItems.push(i);
+        } else if (currentProductPage <= 3) {
+            pageItems = [1, 2, 3, 4, 5, '...', totalPages];
+        } else if (currentProductPage >= totalPages - 2) {
+            pageItems = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        } else {
+            pageItems = [1, '...', currentProductPage - 1, currentProductPage, currentProductPage + 1, '...', totalPages];
+        }
+
         let pagesHtml = '';
-        const startP = Math.max(1, currentProductPage - 2);
-        const endP = Math.min(totalPages, currentProductPage + 2);
-        if (startP > 1) {
-            pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(1)">1</button>`;
-            if (startP > 2) pagesHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-        }
-        for (let p = startP; p <= endP; p++) {
-            if (p === currentProductPage) {
-                pagesHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${p}</button>`;
+        pageItems.forEach(item => {
+            if (item === '...') {
+                pagesHtml += `<span class="pagination-ellipsis">&hellip;</span>`;
+            } else if (item === currentProductPage) {
+                pagesHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${item}</button>`;
             } else {
-                pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(${p})">${p}</button>`;
+                let isNeighbor = false;
+                if (totalPages > 7) {
+                    if (currentProductPage <= 3) {
+                        isNeighbor = (item === 4 || item === 5);
+                    } else if (currentProductPage >= totalPages - 2) {
+                        isNeighbor = (item === totalPages - 4 || item === totalPages - 3);
+                    } else {
+                        isNeighbor = (item === currentProductPage - 1 || item === currentProductPage + 1);
+                    }
+                }
+                const neighborClass = isNeighbor ? ' pagination-neighbor' : '';
+                pagesHtml += `<button type="button" class="pagination-btn pagination-num${neighborClass}" onclick="setProductPage(${item})">${item}</button>`;
             }
-        }
-        if (endP < totalPages) {
-            if (endP < totalPages - 1) pagesHtml += `<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>`;
-            pagesHtml += `<button type="button" class="pagination-btn pagination-num" onclick="setProductPage(${totalPages})">${totalPages}</button>`;
-        }
+        });
         pageNumbersEl.innerHTML = pagesHtml;
     }
 }
+
+window.filterProductTable = filterProductTable;
 
 window.setProductPage = function(page) {
     currentProductPage = page;
     filterProductTable();
 };
 
+window.resetProductFilters = function() {
+    var searchEl = document.getElementById('productSearch');
+    var catEl = document.getElementById('categoryFilter');
+    var movEl = document.getElementById('movementFilter');
+    var stockEl = document.getElementById('stockFilter');
+    if (searchEl) searchEl.value = '';
+    if (catEl) catEl.value = '';
+    if (movEl) movEl.value = '';
+    if (stockEl) stockEl.value = '';
+    document.querySelectorAll('.metric-card').forEach(function(card) { card.classList.remove('active'); });
+    currentProductPage = 1;
+    filterProductTable();
+};
+
+function initProductFilters() {
+    var productSearch   = document.getElementById('productSearch');
+    var categoryFilter  = document.getElementById('categoryFilter');
+    var movementFilter  = document.getElementById('movementFilter');
+    var stockFilter     = document.getElementById('stockFilter');
+    var prevPageBtn     = document.getElementById('prevPageBtn');
+    var nextPageBtn     = document.getElementById('nextPageBtn');
+
+    if (productSearch) {
+        productSearch.oninput = function () { currentProductPage = 1; filterProductTable(); };
+    }
+
+    function bindSelectFilter(el) {
+        if (!el) return;
+        el.onchange = function () { currentProductPage = 1; filterProductTable(); };
+        el.oninput = function () { currentProductPage = 1; filterProductTable(); };
+    }
+
+    bindSelectFilter(categoryFilter);
+    bindSelectFilter(movementFilter);
+    bindSelectFilter(stockFilter);
+
+    if (prevPageBtn) {
+        prevPageBtn.onclick = function () {
+            if (currentProductPage > 1) {
+                currentProductPage--;
+                filterProductTable();
+            }
+        };
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.onclick = function () {
+            currentProductPage++;
+            filterProductTable();
+        };
+    }
+
+    filterProductTable();
+}
+
+window.initProductFilters = initProductFilters;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProductFilters);
+} else {
+    initProductFilters();
+}
+
 
 function filterData(filterType) {
     document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active'));
-    document.querySelector(`.metric-card[data-filter="${filterType}"]`).classList.add('active');
+    const targetCard = document.querySelector(`.metric-card[data-filter="${filterType}"]`);
+    if (targetCard) targetCard.classList.add('active');
     
     currentProductPage = 1;
     
+    const searchEl = document.getElementById('productSearch');
+    const catEl = document.getElementById('categoryFilter');
+    const movEl = document.getElementById('movementFilter');
+    const stockEl = document.getElementById('stockFilter');
+
     switch(filterType) {
         case 'attention_needed': 
             document.querySelector('.tab[data-tab="product-analysis"]').click();
-            document.getElementById('stockFilter').value = 'attention_needed';
+            if (searchEl) searchEl.value = '';
+            if (catEl) catEl.value = '';
+            if (movEl) movEl.value = '';
+            if (stockEl) stockEl.value = 'attention_needed';
             filterProductTable();
             break;
         case 'fast_moving':
             document.querySelector('.tab[data-tab="product-analysis"]').click();
-            document.getElementById('movementFilter').value = 'fast_moving';
+            if (searchEl) searchEl.value = '';
+            if (catEl) catEl.value = '';
+            if (movEl) movEl.value = 'fast_moving';
+            if (stockEl) stockEl.value = '';
             filterProductTable();
             break;
         case 'expiring':
@@ -3651,8 +3900,10 @@ function filterData(filterType) {
             break;
         default:
             document.querySelector('.tab[data-tab="product-analysis"]').click();
-            document.getElementById('stockFilter').value = '';
-            document.getElementById('movementFilter').value = '';
+            if (searchEl) searchEl.value = '';
+            if (catEl) catEl.value = '';
+            if (movEl) movEl.value = '';
+            if (stockEl) stockEl.value = '';
             filterProductTable();
     }
 }

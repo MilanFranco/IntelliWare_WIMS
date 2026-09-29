@@ -301,6 +301,7 @@ html { scroll-behavior: smooth; }
         border: 1px solid rgba(42, 68, 132, 0.6);
         border-radius: 18px;
         padding: 24px 28px;
+        margin-bottom: 24px;
         box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
         position: relative;
         overflow: hidden;
@@ -316,15 +317,18 @@ html { scroll-behavior: smooth; }
         pointer-events: none;
     }
     [data-theme="light"] .page-hero-card {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        border-color: #93c5fd;
-        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
     }
-    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .text-white { color: #020617 !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(219,234,254,0.8) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(191,219,254,0.6) !important; border-color: #93c5fd !important; color: #1e3a5f !important; }
-    [data-theme="light"] .page-hero-card strong { color: #020617 !important; }
+    [data-theme="light"] .page-hero-card::after {
+        display: none !important;
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #0B1526 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
 </style>
 
 <!-- Hero Page Header Banner -->
@@ -523,10 +527,13 @@ html { scroll-behavior: smooth; }
             <div class="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-initial">
                 <div class="relative w-full sm:w-64">
                     <input type="text" id="logSearch" onkeyup="filterTable()" placeholder="Search logs..." 
-                        class="w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                        class="w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]" style="height:38px;">
                 </div>
                 <button type="button" onclick="filterTable()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Logs" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+                <button type="button" onclick="document.getElementById('logSearch').value = ''; filterTable();" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Search" aria-label="Reset Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             
@@ -684,7 +691,7 @@ html { scroll-behavior: smooth; }
         <?php endif; ?>
     </div><!-- /.txnlog-mobile -->
 
-    <div class="flex flex-col md:flex-row justify-between items-center p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30 gap-4 flex-wrap">
+    <div class="pagination-container flex flex-col md:flex-row justify-between items-center p-2.5 sm:p-4 border-t border-[#2A4484]/50 bg-[#13275B]/30 gap-3 sm:gap-4 flex-wrap">
         <?php 
             $showing_start = ($totalRows > 0) ? (($page - 1) * $perPage + 1) : 0;
             $showing_end = min($page * $perPage, $totalRows);
@@ -692,51 +699,60 @@ html { scroll-behavior: smooth; }
         <div class="pagination-info-pill">
             Showing <?php echo $showing_start; ?> to <?php echo $showing_end; ?> of <?php echo $totalRows; ?> entries
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="pagination-btn-group flex items-center gap-1 sm:gap-2">
             <?php if ($page > 1): ?>
-                <a href="?page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav">
+                <a href="?page=<?php echo $page - 1; ?>" class="pagination-btn pagination-nav" aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </a>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Previous page" title="Previous page">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                    Previous
+                    <span class="pagination-nav-text">Previous</span>
                 </button>
             <?php endif; ?>
 
             <?php
-                $startPage = max(1, $page - 2);
-                $endPage = min($totalPages, $page + 2);
-                if ($startPage > 1) {
-                    echo '<a href="?page=1" class="pagination-btn pagination-num">1</a>';
-                    if ($startPage > 2) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
+                if ($totalPages <= 7) {
+                    $pageItems = range(1, $totalPages);
+                } elseif ($page <= 3) {
+                    $pageItems = [1, 2, 3, 4, 5, '...', $totalPages];
+                } elseif ($page >= $totalPages - 2) {
+                    $pageItems = [1, '...', $totalPages - 4, $totalPages - 3, $totalPages - 2, $totalPages - 1, $totalPages];
+                } else {
+                    $pageItems = [1, '...', $page - 1, $page, $page + 1, '...', $totalPages];
                 }
-                for ($p = $startPage; $p <= $endPage; $p++) {
-                    if ($p === $page) {
-                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $p . '</button>';
+
+                foreach ($pageItems as $item) {
+                    if ($item === '...') {
+                        echo '<span class="pagination-ellipsis">&hellip;</span>';
+                    } elseif ($item === $page) {
+                        echo '<button type="button" class="pagination-btn pagination-num active" disabled>' . $item . '</button>';
                     } else {
-                        echo '<a href="?page=' . $p . '" class="pagination-btn pagination-num">' . $p . '</a>';
+                        $isNeighbor = false;
+                        if ($totalPages > 7) {
+                            if ($page <= 3) {
+                                $isNeighbor = ($item === 4 || $item === 5);
+                            } elseif ($page >= $totalPages - 2) {
+                                $isNeighbor = ($item === $totalPages - 4 || $item === $totalPages - 3);
+                            } else {
+                                $isNeighbor = ($item === $page - 1 || $item === $page + 1);
+                            }
+                        }
+                        $neighborClass = $isNeighbor ? ' pagination-neighbor' : '';
+                        echo '<a href="?page=' . $item . '" class="pagination-btn pagination-num' . $neighborClass . '">' . $item . '</a>';
                     }
-                }
-                if ($endPage < $totalPages) {
-                    if ($endPage < $totalPages - 1) {
-                        echo '<span style="color:#6b7aab; padding:0 4px; display:inline-flex; align-items:center;">&hellip;</span>';
-                    }
-                    echo '<a href="?page=' . $totalPages . '" class="pagination-btn pagination-num">' . $totalPages . '</a>';
                 }
             ?>
 
             <?php if ($page < $totalPages): ?>
-                <a href="?page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav">
-                    Next
+                <a href="?page=<?php echo $page + 1; ?>" class="pagination-btn pagination-nav" aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </a>
             <?php else: ?>
-                <button type="button" class="pagination-btn pagination-nav" disabled>
-                    Next
+                <button type="button" class="pagination-btn pagination-nav" disabled aria-label="Next page" title="Next page">
+                    <span class="pagination-nav-text">Next</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                 </button>
             <?php endif; ?>
@@ -872,10 +888,13 @@ function filterModalLogs() {
             <div class="flex items-center gap-2 flex-1">
                 <div class="relative flex-1">
                     <input type="text" id="modalLogSearch" onkeyup="filterModalLogs()" placeholder="Search logs by user or action..." 
-                        class="sys-search-input w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]">
+                        class="sys-search-input w-full bg-[#1D387B] border border-[#2A4484] text-[#E3E3E3] text-sm rounded-lg px-4 py-2 focus:outline-none focus:border-[#51D55A] focus:ring-1 focus:ring-[#51D55A] transition-all placeholder-[#9aa6d1]" style="height:38px;">
                 </div>
                 <button type="button" onclick="filterModalLogs()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Logs" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+                <button type="button" onclick="document.getElementById('modalLogSearch').value = ''; filterModalLogs();" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Search" aria-label="Reset Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
             <div class="flex items-center gap-2">

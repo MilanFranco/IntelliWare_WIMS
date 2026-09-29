@@ -306,8 +306,9 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
     .page-hero-card {
         background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%) !important;
         border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6)) !important;
-        border-radius: 16px !important;
-        padding: 24px 28px;
+        border-radius: 18px !important;
+        padding: 24px 28px !important;
+        margin-bottom: 24px !important;
         box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22)) !important;
         backdrop-filter: blur(12px) !important;
         -webkit-backdrop-filter: blur(12px) !important;
@@ -326,12 +327,20 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
     }
     [data-theme="light"] .page-hero-card {
         background: #FFFFFF !important;
-        border: 1px solid var(--iw-border, #BFCFE0) !important;
-        border-radius: 16px !important;
-        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
+        border: 1px solid #D6E2F2 !important;
+        border-radius: 18px !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
         backdrop-filter: blur(12px) !important;
         -webkit-backdrop-filter: blur(12px) !important;
     }
+    [data-theme="light"] .page-hero-card::after {
+        display: none !important;
+    }
+    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .text-white { color: #0B1526 !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
+    [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
 </style>
 
 <!-- Hero Page Header Banner -->

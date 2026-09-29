@@ -310,6 +310,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         border: 1px solid rgba(42, 68, 132, 0.6);
         border-radius: 18px;
         padding: 24px 28px;
+        margin-bottom: 24px;
         box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
         position: relative;
         overflow: hidden;
@@ -491,10 +492,15 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
     .btn-no:hover { background: rgba(255,255,255,0.2); }
 
     /* ── Light Mode Overrides ── */
-    [data-theme="light"] .user-hero-card {
-        background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-        border-color: #93C5FD;
-        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
+    [data-theme="light"] .user-hero-card,
+    [data-theme="light"] .page-hero-card {
+        background: #FFFFFF !important;
+        border: 1px solid #D6E2F2 !important;
+        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
+    }
+    [data-theme="light"] .user-hero-card::after,
+    [data-theme="light"] .page-hero-card::after {
+        display: none !important;
     }
     [data-theme="light"] .premium-card {
         background: #FFFFFF;
@@ -542,6 +548,188 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
     [data-theme="light"] .btn-no:hover {
         background: #CBD5E1;
     }
+
+/* ── Users Mobile Accordion (≤767px only) ───────────────── */
+.useracc-list { display: none; }
+
+@media (max-width: 767px) {
+    .useracc-list {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding: 14px 16px 18px !important;
+    }
+    .iw-users-desktop-table { display: none !important; }
+
+    .useracc-item {
+        background: linear-gradient(160deg, #1b2f6e 0%, #111e4a 100%);
+        border: 1px solid rgba(42, 68, 132, 0.55);
+        border-radius: 14px;
+        overflow: hidden;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+    .useracc-item.is-open {
+        border-color: rgba(81, 213, 90, 0.35);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .useracc-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 14px;
+        cursor: pointer;
+        gap: 12px;
+        user-select: none;
+        transition: background 0.15s ease;
+    }
+    .useracc-header:active {
+        background: rgba(255, 255, 255, 0.04);
+    }
+    .useracc-avatar-wrap { flex-shrink: 0; }
+    .useracc-info { flex: 1; min-width: 0; }
+    .useracc-name {
+        font-family: 'Onest', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        color: #e3e3e3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .useracc-email {
+        font-family: 'Onest', sans-serif;
+        font-size: 11px;
+        color: #9aa6d1;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .useracc-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    .useracc-chevron {
+        color: #9aa6d1;
+        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+    .useracc-item.is-open .useracc-chevron {
+        transform: rotate(180deg);
+        color: #51D55A;
+    }
+
+    .useracc-body {
+        display: none;
+        border-top: 1px solid rgba(42, 68, 132, 0.4);
+        padding: 12px 14px;
+        background: rgba(10, 18, 42, 0.35);
+    }
+    .useracc-item.is-open .useracc-body {
+        display: block;
+        animation: useraccFadeIn 0.2s ease;
+    }
+    @keyframes useraccFadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .useracc-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.2);
+    }
+    .useracc-row:last-child { border-bottom: none; }
+    .useracc-row-label {
+        font-family: 'Onest', sans-serif;
+        font-size: 10.5px;
+        color: #6b7aab;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+    }
+    .useracc-row-value {
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        color: #e3e3e3;
+        text-align: right;
+        max-width: 65%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .useracc-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(42, 68, 132, 0.3);
+    }
+    .useracc-actions button {
+        min-height: 36px;
+        border-radius: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        cursor: pointer;
+    }
+    .useracc-actions button svg { width: 14px; height: 14px; }
+
+    /* Light Theme Styling for Accordion Dropdown Cards */
+    [data-theme="light"] .useracc-item {
+        background: #FFFFFF !important;
+        border-color: #E2E8F0 !important;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
+    }
+    [data-theme="light"] .useracc-item.is-open {
+        border-color: rgba(37, 99, 235, 0.35) !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1) !important;
+    }
+    [data-theme="light"] .useracc-header:active {
+        background: #F8FAFC !important;
+    }
+    [data-theme="light"] .useracc-name { color: #0F172A !important; }
+    [data-theme="light"] .useracc-email { color: #64748B !important; }
+    [data-theme="light"] .useracc-chevron { color: #94A3B8 !important; }
+    [data-theme="light"] .useracc-item.is-open .useracc-chevron { color: #2563EB !important; }
+    [data-theme="light"] .useracc-row-label { color: #64748B !important; }
+    [data-theme="light"] .useracc-row-value { color: #0F172A !important; }
+    [data-theme="light"] .useracc-row-value .bg-\[\#13275B\] {
+        background: #F1F5F9 !important;
+        border-color: #CBD5E1 !important;
+        color: #0F172A !important;
+    }
+    [data-theme="light"] .useracc-body {
+        border-top-color: #E2E8F0 !important;
+        background: #F8FAFC !important;
+    }
+    [data-theme="light"] .useracc-row { border-bottom-color: #F1F5F9 !important; }
+    [data-theme="light"] .useracc-actions { border-top-color: #E2E8F0 !important; }
+    [data-theme="light"] .useracc-actions .text-blue-400 { color: #2563EB !important; }
+    [data-theme="light"] .useracc-actions .text-orange-400 { color: #D97706 !important; }
+    [data-theme="light"] .useracc-actions .text-red-400 { color: #DC2626 !important; }
+    [data-theme="light"] .useracc-item .text-amber-400 { color: #B45309 !important; }
+    [data-theme="light"] .useracc-item .text-red-400 { color: #DC2626 !important; }
+    [data-theme="light"] .useracc-item .text-\[\#51D55A\] { color: #16A34A !important; }
+}
 </style>
 
 <!-- 1. Hero Page Header Banner -->
@@ -802,12 +990,15 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             </div>
 
             <!-- Live Search -->
-            <div class="flex items-center gap-2 flex-1 sm:w-64 sm:flex-initial">
-                <div class="relative flex-1">
+            <div class="flex items-center gap-2 flex-1 sm:w-auto sm:flex-initial">
+                <div class="relative flex-1 sm:w-60">
                     <input type="text" id="userSearchInput" onkeyup="filterUserTable()" placeholder="Search directory..." class="premium-input px-3.5 h-[38px] text-xs w-full" />
                 </div>
                 <button type="button" onclick="filterUserTable()" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Directory" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </button>
+                <button type="button" onclick="document.getElementById('userSearchInput').value = ''; filterUserTable();" class="btn-secondary h-[38px] w-[38px] min-w-[38px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Search" aria-label="Reset Search">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
 
@@ -817,7 +1008,7 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         </div>
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto iw-users-desktop-table">
         <table class="premium-table w-full text-left" id="userTable">
             <thead>
                 <tr class="border-b border-[#2A4484]/40 bg-[#13275B]/25">
@@ -933,6 +1124,138 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             </tbody>
         </table>
     </div>
+
+    <!-- Mobile: Accordion Dropdown Cards (≤767px) -->
+    <div class="useracc-list" id="usersMobileAccordion">
+        <?php foreach($users as $u): 
+            $uDataJson = htmlspecialchars(json_encode([
+                'user_id' => $u['user_id'],
+                'username' => $u['username'],
+                'full_name' => $u['full_name'] ?? '',
+                'email' => $u['email'] ?? '',
+                'role' => $u['role'],
+                'notif_email_enabled' => $u['notif_email_enabled'] ?? null,
+                'notification_email' => $u['notification_email'] ?? ''
+            ]), ENT_QUOTES, 'UTF-8');
+
+            $rLower = strtolower($u['role']);
+            $isEnrolled = ($u['notif_email_enabled'] === null || $u['notif_email_enabled'] === '')
+                ? ($rLower === 'admin')
+                : ((int)$u['notif_email_enabled'] === 1);
+            $targetAlertEmail = trim(!empty($u['notification_email']) ? $u['notification_email'] : ($u['email'] ?? ''));
+
+            $roleStyle = match($rLower) {
+                'admin' => 'bg-red-500/15 text-red-400 border-red-500/30',
+                'manager' => 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                default => 'bg-[#51D55A]/15 text-[#51D55A] border-[#51D55A]/30'
+            };
+            $dotColor = $rLower === 'admin' ? 'bg-red-400' : ($rLower === 'manager' ? 'bg-amber-400' : 'bg-[#51D55A]');
+            $searchContent = htmlspecialchars(strtolower(($u['full_name'] ?? '') . ' ' . $u['username'] . ' ' . ($u['email'] ?? '') . ' ' . $u['role'] . ' ' . ($u['notification_email'] ?? '')));
+        ?>
+        <div class="useracc-item"
+             data-role="<?php echo htmlspecialchars($rLower); ?>"
+             data-search="<?php echo $searchContent; ?>">
+
+            <!-- Collapsed Header (Click to toggle dropdown card) -->
+            <div class="useracc-header" onclick="userAccToggle(this)">
+                <div class="useracc-avatar-wrap">
+                    <?php renderUserAvatar($u['full_name'] ?: $u['username'], 38, 'iw-avatar-initials--md'); ?>
+                </div>
+                <div class="useracc-info">
+                    <div class="useracc-name"><?php echo htmlspecialchars($u['full_name'] ?: $u['username']); ?></div>
+                    <div class="useracc-email"><?php echo htmlspecialchars($u['email'] ?: '@' . $u['username']); ?></div>
+                </div>
+                <div class="useracc-right">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border <?php echo $roleStyle; ?>">
+                        <span class="w-1.5 h-1.5 rounded-full <?php echo $dotColor; ?>"></span>
+                        <?php echo ucfirst($u['role']); ?>
+                    </span>
+                    <span class="useracc-chevron">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Expanded Body (Dropdown details) -->
+            <div class="useracc-body">
+                <div class="useracc-row">
+                    <span class="useracc-row-label">Username</span>
+                    <span class="useracc-row-value font-mono">
+                        <span class="px-2 py-0.5 rounded bg-[#13275B] border border-[#2A4484] text-[#E3E3E3]">@<?php echo htmlspecialchars($u['username']); ?></span>
+                    </span>
+                </div>
+
+                <div class="useracc-row">
+                    <span class="useracc-row-label">Role Tier</span>
+                    <span class="useracc-row-value">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border <?php echo $roleStyle; ?>">
+                            <span class="w-1.5 h-1.5 rounded-full <?php echo $dotColor; ?>"></span>
+                            <?php echo ucfirst($u['role']); ?>
+                        </span>
+                    </span>
+                </div>
+
+                <div class="useracc-row">
+                    <span class="useracc-row-label">Stock Alerts</span>
+                    <span class="useracc-row-value">
+                        <?php if ($isEnrolled): ?>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" title="Subscribed: <?php echo htmlspecialchars($targetAlertEmail ?: 'No address'); ?>">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Subscribed <?php echo !empty($u['notification_email']) ? '<span class="text-[10px] text-emerald-300/80">(Custom)</span>' : ''; ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-500/15 text-slate-400 border border-slate-500/30">
+                                Opted Out
+                            </span>
+                        <?php endif; ?>
+                    </span>
+                </div>
+
+                <div class="useracc-row">
+                    <span class="useracc-row-label">Registered</span>
+                    <span class="useracc-row-value text-[#9aa6d1] text-xs">
+                        <span class="inline-flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-[#2A4484]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <?php echo !empty($u['created_at']) ? date('M j, Y · g:i A', strtotime($u['created_at'])) : '—'; ?>
+                        </span>
+                    </span>
+                </div>
+
+                <div class="useracc-actions">
+                    <!-- Edit User -->
+                    <button type="button" onclick='openEditModal(<?php echo $uDataJson; ?>)' class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 text-xs font-semibold transition-all" title="Edit Profile & Role">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        Edit
+                    </button>
+
+                    <!-- Quick Reset Password -->
+                    <button type="button" onclick="quickSelectReset(<?php echo $u['user_id']; ?>)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 text-xs font-semibold transition-all" title="Quick Reset Password">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                        Reset Pass
+                    </button>
+
+                    <!-- Delete User -->
+                    <?php if ($u['username'] === $_SESSION['Username']): ?>
+                        <span class="text-[10px] text-[#9aa6d1] px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 font-medium">Self</span>
+                    <?php else: ?>
+                        <button type="button" onclick="confirmDelete(<?php echo $u['user_id']; ?>, '<?php echo htmlspecialchars($u['username']); ?>')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-semibold transition-all" title="Revoke Account">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Delete
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+
+        <div id="noUsersMobile" style="display:none;" class="text-center py-10 px-4">
+            <div class="w-12 h-12 rounded-2xl bg-[#13275B] border border-[#2A4484] flex items-center justify-center text-[#9aa6d1] mb-3 mx-auto">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+            </div>
+            <div class="text-white font-semibold font-onest text-sm">No Accounts Found</div>
+            <div class="text-xs text-[#9aa6d1] mt-1">No user records matched your search query or selected role filter.</div>
+        </div>
+    </div>
 </div>
 
 <!-- Edit User Modal -->
@@ -1028,12 +1351,22 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         filterUserTable();
     }
 
-    // Live Search and Filter in Table
+    // Accordion Toggle for Mobile Cards
+    function userAccToggle(header) {
+        const item = header.closest('.useracc-item');
+        if (item) {
+            item.classList.toggle('is-open');
+        }
+    }
+
+    // Live Search and Filter in Table & Mobile Accordion Cards
     function filterUserTable() {
         const query = (document.getElementById('userSearchInput').value || '').toLowerCase().trim();
         const rows = document.querySelectorAll('#userTable tbody tr.user-row');
+        const accItems = document.querySelectorAll('#usersMobileAccordion .useracc-item');
         let visibleCount = 0;
 
+        // 1. Desktop table rows
         rows.forEach(row => {
             const searchText = (row.getAttribute('data-search') || '').toLowerCase();
             const role = (row.getAttribute('data-role') || '').toLowerCase();
@@ -1049,13 +1382,36 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
             }
         });
 
+        // 2. Mobile accordion cards
+        let mobileCount = 0;
+        accItems.forEach(item => {
+            const searchText = (item.getAttribute('data-search') || '').toLowerCase();
+            const role = (item.getAttribute('data-role') || '').toLowerCase();
+
+            const matchesQuery = !query || searchText.includes(query);
+            const matchesRole = activeRoleFilter === 'all' || role === activeRoleFilter;
+
+            if (matchesQuery && matchesRole) {
+                item.style.display = '';
+                mobileCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        // Toggle empty states
         const noRow = document.getElementById('noUsersRow');
         if (noRow) {
             noRow.style.display = (visibleCount === 0) ? '' : 'none';
         }
+        const noUsersMobile = document.getElementById('noUsersMobile');
+        if (noUsersMobile) {
+            noUsersMobile.style.display = (mobileCount === 0) ? '' : 'none';
+        }
+
         const countDisplay = document.getElementById('userCountDisplay');
         if (countDisplay) {
-            countDisplay.innerText = visibleCount;
+            countDisplay.innerText = Math.max(visibleCount, mobileCount);
         }
     }
 
