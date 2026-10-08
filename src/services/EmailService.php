@@ -575,6 +575,40 @@ class EmailService
     }
 
     /**
+     * Send a custom email (e.g. Password Reset, System Notification) to specified recipient(s).
+     */
+    public static function sendCustomEmail(
+        ?mysqli $conn,
+        string|array $to,
+        string $subject,
+        string $htmlBody,
+        string $plainText = '',
+        string $contextName = 'Custom Notification'
+    ): array {
+        $settings = getAllNotificationSettings($conn);
+        $recipients = is_array($to) ? $to : [trim($to)];
+        $recipients = array_values(array_filter($recipients, function($email) {
+            return filter_var($email, FILTER_VALIDATE_EMAIL);
+        }));
+
+        if (empty($recipients)) {
+            return [
+                'success' => false,
+                'error'   => 'No valid recipient email address provided.',
+                'sent_to' => []
+            ];
+        }
+
+        if (empty($plainText)) {
+            $plainText = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $htmlBody));
+        }
+
+        self::savePreviewHtml($htmlBody);
+
+        return self::dispatchMail($settings, $recipients, $subject, $htmlBody, $plainText, $contextName);
+    }
+
+    /**
      * Dispatch email via PHPMailer using configured SMTP settings.
      */
     private static function dispatchMail(

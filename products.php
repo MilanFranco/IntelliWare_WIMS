@@ -26,6 +26,7 @@ $page = max(1, (int)($_GET['page'] ?? 1));
 $q = trim($_GET['q'] ?? ($_GET['search'] ?? ''));
 $category_param = trim($_GET['category'] ?? '');
 $filter_param = strtolower(trim($_GET['filter'] ?? ($_GET['status'] ?? '')));
+$view_id = (int)($_GET['view_id'] ?? ($_GET['product_id'] ?? 0));
 
 if (!function_exists('setFlashMessage')) {
     function setFlashMessage($type, $message) {
@@ -103,6 +104,44 @@ if ($brand_query) {
     }
 }
 $brands = array_values(array_unique($brands));
+
+$autoOpenProduct = null;
+if ($view_id > 0) {
+    $vStmt = $conn->prepare("
+        SELECT p.product_id, p.product_name, p.category, p.supplier, p.location,
+               p.quantity, p.reorder_point, p.unit, p.price, p.shelf_life,
+               CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku
+        FROM products p
+        WHERE p.product_id = ?
+    ");
+    if ($vStmt) {
+        $vStmt->bind_param("i", $view_id);
+        $vStmt->execute();
+        $vRes = $vStmt->get_result();
+        if ($vRow = $vRes->fetch_assoc()) {
+            $autoOpenProduct = [
+                'id'       => (string)$vRow['product_id'],
+                'name'     => $vRow['product_name'],
+                'category' => $vRow['category'] ?? '',
+                'supplier' => $vRow['supplier'] ?? '',
+                'location' => $vRow['location'] ?? '',
+                'qty'      => (string)(int)$vRow['quantity'],
+                'price'    => number_format((float)($vRow['price'] ?? 0), 2, '.', ''),
+                'uom'      => $vRow['unit'] ?? '',
+                'reorder'  => (string)(int)$vRow['reorder_point'],
+                'shelf'    => $vRow['shelf_life'] !== null ? (string)(int)$vRow['shelf_life'] : '',
+                'sku'      => $vRow['sku'],
+            ];
+            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
+                if (file_exists(__DIR__ . '/uploads/products/' . (int)$vRow['product_id'] . '.' . $ext)) {
+                    $autoOpenProduct['image'] = 'uploads/products/' . (int)$vRow['product_id'] . '.' . $ext;
+                    break;
+                }
+            }
+        }
+        $vStmt->close();
+    }
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   
@@ -2303,6 +2342,7 @@ const editInputs = <?php echo json_encode($edit_inputs); ?>;
 const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 const DB_BRANDS = <?php echo json_encode($brands); ?>;
 const DB_CATEGORIES = <?php echo json_encode($categories); ?>;
+const AUTO_OPEN_PRODUCT = <?php echo json_encode($autoOpenProduct); ?>;
 
 const editableFields = ['name', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
 
@@ -3605,6 +3645,45 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.disabled = true;
         btn.textContent = 'Saving…';
     });
+
+    // Auto-open product details modal if requested (e.g. from Stock Transactions page)
+    if (typeof AUTO_OPEN_PRODUCT !== 'undefined' && AUTO_OPEN_PRODUCT && AUTO_OPEN_PRODUCT.id) {
+        setTimeout(function() {
+            openEditModal(AUTO_OPEN_PRODUCT);
+        }, 150);
+    } else {
+        var urlParams = new URLSearchParams(window.location.search);
+        var targetViewId = urlParams.get('view_id') || urlParams.get('product_id');
+        if (targetViewId) {
+            var rowCard = document.querySelector('[data-id="' + targetViewId + '"]');
+            if (rowCard && rowCard.dataset) {
+                setTimeout(function() { openEditModal(rowCard.dataset); }, 150);
+            } else {
+                fetch('api/get_product_by_id.php?id=' + encodeURIComponent(targetViewId))
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res && res.success && res.found && res.product) {
+                            var p = res.product;
+                            openEditModal({
+                                id: String(p.product_id),
+                                name: p.product_name,
+                                category: p.category || '',
+                                supplier: p.supplier || '',
+                                location: p.location || '',
+                                qty: String(p.quantity || 0),
+                                price: String(p.price || '0.00'),
+                                uom: p.unit || '',
+                                reorder: String(p.reorder_point || 10),
+                                shelf: p.shelf_life != null ? String(p.shelf_life) : '',
+                                sku: p.sku || '',
+                                image: p.image_url || ''
+                            });
+                        }
+                    })
+                    .catch(function(e) { console.warn('Could not auto-open product modal:', e); });
+            }
+        }
+    }
 });
 
 // Filter & Search Feedback Toast

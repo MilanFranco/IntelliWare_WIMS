@@ -365,7 +365,7 @@
 
                     <div class="fieldrow">
                         <div class="tfieldname">Password</div>
-                        <div class="forgotpass"><a href="#">Forgot password?</a></div>
+                        <div class="forgotpass"><a href="forgot_password.php" id="forgotPasswordLink">Forgot password?</a></div>
                     </div>
 
                     <div class="tf">
@@ -467,6 +467,17 @@
         passwordField.addEventListener('input', () => {
             if (passwordField.value.trim() !== '') passwordField.classList.remove('error-border');
         });
+
+        const forgotLink = document.getElementById('forgotPasswordLink');
+        if (forgotLink && usernameField) {
+            forgotLink.addEventListener('click', function(e) {
+                const val = usernameField.value.trim();
+                if (val && val.includes('@')) {
+                    e.preventDefault();
+                    window.location.href = 'forgot_password.php?account=' + encodeURIComponent(val);
+                }
+            });
+        }
     </script>
 </body>
 </html>

@@ -842,7 +842,8 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                                         <div class="table-stock-num"><?php echo $stockDisplay; ?></div>
                                         <button type="button" class="btn-table-check check-stock-btn"
                                             data-product="<?php echo htmlspecialchars($item['product_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                            data-category="<?php echo htmlspecialchars($item['category_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                            data-category="<?php echo htmlspecialchars($item['category_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                            <?php if (!empty($item['product_id'])): ?>data-id="<?php echo (int)$item['product_id']; ?>"<?php endif; ?>>
                                             Check stock &rarr;
                                         </button>
                                     </div>

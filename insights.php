@@ -2456,7 +2456,8 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                         <td>
                             <button type="button" class="action-btn check-stock-btn"
                                 data-product="<?php echo htmlspecialchars($item['product_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                                data-category="<?php echo htmlspecialchars($item['category_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                data-category="<?php echo htmlspecialchars($item['category_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                <?php if (!empty($item['product_id'])): ?>data-id="<?php echo (int)$item['product_id']; ?>"<?php endif; ?>>
                                 Check Stock
                             </button>
                         </td>
@@ -2854,7 +2855,8 @@ function renderSeasonalModalRow(item, periodDisplayName) {
                     <div class="table-stock-num">${stockDisplay}</div>
                     <button type="button" class="btn-table-check check-stock-btn"
                         data-product="${escapeHtml(item.product_name || '')}"
-                        data-category="${escapeHtml(item.category_name || '')}">
+                        data-category="${escapeHtml(item.category_name || '')}"
+                        data-id="${escapeHtml(item.product_id || '')}">
                         Check stock &rarr;
                     </button>
                 </div>
@@ -3252,8 +3254,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 <?php endif; ?>
 
-function checkStock(productName, categoryName) {
+function checkStock(productName, categoryName, productId) {
     var params = new URLSearchParams();
+    if (productId) params.set('product_id', productId);
     if (categoryName) params.set('category', categoryName);
     if (productName) params.set('q', productName);
     params.set('ref', 'insights');
@@ -3263,7 +3266,7 @@ function checkStock(productName, categoryName) {
 document.addEventListener('click', function (e) {
     var btn = e.target.closest('.check-stock-btn');
     if (!btn) return;
-    checkStock(btn.dataset.product || '', btn.dataset.category || '');
+    checkStock(btn.dataset.product || '', btn.dataset.category || '', btn.dataset.id || '');
 });
 
 function loadForecastContent(e, url) {

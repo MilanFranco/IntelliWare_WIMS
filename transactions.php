@@ -22,19 +22,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['smart_insight_referra
     $redirectParams = ['ref' => 'insights'];
     $category = trim($_POST['filter_category'] ?? '');
     $product = trim($_POST['filter_product_name'] ?? '');
+    $pid = (int)($_POST['filter_product_id'] ?? 0);
     if ($category !== '') {
         $redirectParams['category'] = $category;
     }
     if ($product !== '') {
         $redirectParams['q'] = $product;
     }
+    if ($pid > 0) {
+        $redirectParams['product_id'] = $pid;
+    }
     header('Location: transactions.php?' . http_build_query($redirectParams));
     exit();
 }
 
 // Standard search and filter inputs from GET request
-$search_q = $_GET['q'] ?? '';
-$filter_cat = $_GET['category'] ?? '';
+$search_q = trim($_GET['q'] ?? '');
+$filter_cat = trim($_GET['category'] ?? '');
+$filter_product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
 $smartInsightActive = (($_GET['ref'] ?? '') === 'insights');
 
 // Set current page, ensuring it's at least 1
@@ -84,8 +89,12 @@ $sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, 
 $params = [];
 $types = "";
 
-// Apply Search Filter (Name or ID)
-if (!empty($search_q)) {
+// Apply Product ID or Search Filter
+if ($filter_product_id > 0) {
+    $sql .= " AND product_id = ?";
+    $params[] = $filter_product_id;
+    $types .= "i";
+} elseif (!empty($search_q)) {
     $sql .= " AND (product_name LIKE ? OR product_id LIKE ?)";
     $searchTerm = "%$search_q%";
     $params[] = $searchTerm;
@@ -123,6 +132,25 @@ $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) { $tableItems[] = $row; }
 $stmt->close();
 $conn->close();
+
+// Identify target product if coming from Insights or single item search
+$targetProduct = null;
+if (!empty($tableItems)) {
+    if ($filter_product_id > 0) {
+        foreach ($tableItems as $cand) {
+            if ((int)$cand['id'] === $filter_product_id) {
+                $targetProduct = $cand;
+                break;
+            }
+        }
+    }
+    if (!$targetProduct && (!empty($search_q) || count($tableItems) === 1)) {
+        $targetProduct = $tableItems[0];
+    }
+}
+if ($filter_product_id > 0 && empty($search_q) && $targetProduct) {
+    $search_q = $targetProduct['name'];
+}
 
 // ---------------------------------------------------------
 // 10. LAYOUT AND RESOURCES
@@ -676,6 +704,62 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
         color: #64748b !important;
     }
 
+    /* Clickable product and SKU styling */
+    .txn-product-link, .txn-sku-link {
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .txn-sku-badge {
+        transition: all 0.2s ease;
+    }
+    .txn-sku-link:hover .txn-sku-badge {
+        border-color: rgba(81, 213, 90, 0.7) !important;
+        color: #51D55A !important;
+        background: rgba(81, 213, 90, 0.14) !important;
+    }
+    /* Row action button */
+    .txn-row-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 13px;
+        border-radius: 9px;
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        user-select: none;
+    }
+    .txn-row-receive-btn {
+        background: rgba(81, 213, 90, 0.12);
+        border: 1px solid rgba(81, 213, 90, 0.4);
+        color: #51D55A;
+    }
+    .txn-row-receive-btn:hover {
+        background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%);
+        color: #ffffff;
+        border-color: #51D55A;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(81, 213, 90, 0.35);
+    }
+    .txn-row-receive-btn:hover svg {
+        stroke: #ffffff;
+    }
+    [data-theme="light"] .txn-row-receive-btn {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.45);
+        color: #047857;
+    }
+    [data-theme="light"] .txn-row-receive-btn:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: #ffffff;
+        border-color: #059669;
+        box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+    }
+
     /* ── Inventory Status Responsive Toggle ─────────────────────── */
     .txn-inv-desktop { display: block; }
     .txn-inv-mobile  { display: none; }
@@ -893,15 +977,36 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     </div>
     
     <div class="p-6">
+        <?php
+        $topReceiveHref = $targetProduct 
+            ? 'receive.php?product_id=' . (int)$targetProduct['id'] . '&sku=' . urlencode($targetProduct['sku']) . '&q=' . urlencode($targetProduct['name'])
+            : 'receive.php';
+        $topReleaseHref = $targetProduct 
+            ? 'release.php?product_id=' . (int)$targetProduct['id'] . '&sku=' . urlencode($targetProduct['sku']) . '&q=' . urlencode($targetProduct['name'])
+            : 'release.php';
+        ?>
         <div class="txn-action-grid">
-            <a href="receive.php" class="txn-action-card txn-action-receive">
+            <a href="<?php echo $topReceiveHref; ?>" class="txn-action-card txn-action-receive" <?php if ($targetProduct): ?>title="Receive <?php echo htmlspecialchars($targetProduct['name']); ?>"<?php endif; ?>>
                 <div class="txn-action-left">
                     <div class="txn-action-icon">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
                     </div>
                     <div>
-                        <div class="txn-action-title">Receive Inventory</div>
-                        <div class="txn-action-sub">Check in and record incoming stock</div>
+                        <div class="txn-action-title flex items-center gap-2">
+                            <span>Receive Inventory</span>
+                            <?php if ($targetProduct): ?>
+                                <span class="text-[10px] font-semibold text-[#51D55A] bg-[#51D55A]/15 border border-[#51D55A]/30 px-2 py-0.5 rounded-full">
+                                    <?php echo htmlspecialchars($targetProduct['sku']); ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="txn-action-sub">
+                            <?php if ($targetProduct): ?>
+                                Check in stock for <strong class="text-white"><?php echo htmlspecialchars($targetProduct['name']); ?></strong>
+                            <?php else: ?>
+                                Check in and record incoming stock
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="txn-action-arrow">
@@ -909,14 +1014,27 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                 </div>
             </a>
 
-            <a href="release.php" class="txn-action-card txn-action-release">
+            <a href="<?php echo $topReleaseHref; ?>" class="txn-action-card txn-action-release" <?php if ($targetProduct): ?>title="Release <?php echo htmlspecialchars($targetProduct['name']); ?>"<?php endif; ?>>
                 <div class="txn-action-left">
                     <div class="txn-action-icon">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
                     </div>
                     <div>
-                        <div class="txn-action-title">Release Inventory</div>
-                        <div class="txn-action-sub">Dispatch and record outgoing stock</div>
+                        <div class="txn-action-title flex items-center gap-2">
+                            <span>Release Inventory</span>
+                            <?php if ($targetProduct): ?>
+                                <span class="text-[10px] font-semibold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                                    <?php echo htmlspecialchars($targetProduct['sku']); ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="txn-action-sub">
+                            <?php if ($targetProduct): ?>
+                                Dispatch stock for <strong class="text-white"><?php echo htmlspecialchars($targetProduct['name']); ?></strong>
+                            <?php else: ?>
+                                Dispatch and record outgoing stock
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <div class="txn-action-arrow">
@@ -1006,6 +1124,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
             </select>
             
             <?php if($action): ?><input type="hidden" name="action" value="<?php echo $action; ?>"><?php endif; ?>
+            <?php if($filter_product_id > 0): ?><input type="hidden" name="product_id" value="<?php echo $filter_product_id; ?>"><?php endif; ?>
             <?php if($smartInsightActive): ?><input type="hidden" name="ref" value="insights"><?php endif; ?>
         </div>
     </form>
@@ -1022,6 +1141,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                         <th class="col-qty">Quantity</th>
                         <th class="col-unit">Unit</th>
                         <th class="col-status">Status</th>
+                        <th class="col-action text-right" style="text-align: right; width: 130px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1033,12 +1153,17 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                     ?>
                     <tr>
                         <td class="col-sku">
-                            <span class="txn-sku-badge"><?php echo htmlspecialchars($it['sku']); ?></span>
+                            <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="txn-sku-link group inline-block" title="View product details in Inventory">
+                                <span class="txn-sku-badge group-hover:border-[#51D55A]/70 group-hover:text-[#51D55A] transition-all"><?php echo htmlspecialchars($it['sku']); ?></span>
+                            </a>
                         </td>
                         <td class="col-product">
-                            <div class="font-semibold text-white text-[14px] leading-snug">
-                                <?php echo htmlspecialchars($it['name']); ?>
-                            </div>
+                            <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="txn-product-link group inline-block" title="View product details in Inventory">
+                                <div class="font-semibold text-white text-[14px] leading-snug col-product-name flex items-center gap-1.5">
+                                    <span><?php echo htmlspecialchars($it['name']); ?></span>
+                                    <svg class="w-3 h-3 text-[#9aa6d1] opacity-40 group-hover:opacity-100 group-hover:text-[#51D55A] transition-all shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </div>
+                            </a>
                         </td>
                         <td class="col-category">
                             <span class="txn-cat-badge" title="<?php echo htmlspecialchars($it['category'] ?? 'Uncategorized'); ?>">
@@ -1069,11 +1194,17 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                                 </span>
                             <?php endif; ?>
                         </td>
+                        <td class="col-action text-right" style="text-align: right;">
+                            <a href="receive.php?product_id=<?php echo (int)$it['id']; ?>&sku=<?php echo urlencode($it['sku']); ?>&q=<?php echo urlencode($it['name']); ?>" class="txn-row-action-btn txn-row-receive-btn" title="Receive stock for <?php echo htmlspecialchars($it['name']); ?>">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                <span>Receive</span>
+                            </a>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php if (empty($tableItems)): ?>
                     <tr>
-                        <td colspan="6" class="text-center p-12 text-[#9aa6d1]">
+                        <td colspan="7" class="text-center p-12 text-[#9aa6d1]">
                             <div class="flex flex-col items-center justify-center gap-2">
                                 <svg class="w-10 h-10 text-[#6b7aab]/60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                                 <span class="font-medium">No products found matching your search or filter.</span>
@@ -1114,9 +1245,18 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                         </svg>
                     </div>
                     <div class="txn-ic-info">
-                        <div class="txn-ic-name"><?php echo htmlspecialchars($it['name']); ?></div>
+                        <div class="txn-ic-name">
+                            <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="text-white hover:text-[#51D55A] transition-colors flex items-center gap-1.5" title="View product details in Inventory">
+                                <span><?php echo htmlspecialchars($it['name']); ?></span>
+                                <svg class="w-3 h-3 text-[#9aa6d1] opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            </a>
+                        </div>
                         <div class="txn-ic-cat"><?php echo htmlspecialchars($it['category'] ?? '—'); ?></div>
-                        <div class="mt-1"><span class="txn-sku-badge"><?php echo htmlspecialchars($it['sku']); ?></span></div>
+                        <div class="mt-1">
+                            <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="inline-block" title="View product details in Inventory">
+                                <span class="txn-sku-badge hover:border-[#51D55A]/70 hover:text-[#51D55A] transition-colors"><?php echo htmlspecialchars($it['sku']); ?></span>
+                            </a>
+                        </div>
                     </div>
                     <div>
                         <?php if ($isOut): ?>
@@ -1154,6 +1294,16 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                         <span class="txn-ic-label">UNIT</span>
                         <span class="txn-ic-value" style="font-size:14px;padding-top:3px;"><?php echo htmlspecialchars($it['uom'] ?: 'pcs'); ?></span>
                     </div>
+                </div>
+
+                <div class="txn-ic-actions mt-3 pt-3 border-t border-[#2A4484]/30 flex justify-between items-center">
+                    <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="text-xs text-[#9aa6d1] hover:text-[#51D55A] flex items-center gap-1 font-medium transition-colors">
+                        <span>View Details</span> &rarr;
+                    </a>
+                    <a href="receive.php?product_id=<?php echo (int)$it['id']; ?>&sku=<?php echo urlencode($it['sku']); ?>&q=<?php echo urlencode($it['name']); ?>" class="txn-row-action-btn txn-row-receive-btn">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                        <span>Receive</span>
+                    </a>
                 </div>
             </div>
             <?php endforeach; ?>

@@ -182,6 +182,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
+$autoloadProduct = null;
+$paramProductId = isset($_GET['product_id']) ? (int)$_GET['product_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+$paramSku       = trim($_GET['sku'] ?? '');
+$paramQ         = trim($_GET['q'] ?? '');
+
+if ($paramProductId > 0 || $paramSku !== '' || $paramQ !== '') {
+    $autoSql = "
+        SELECT p.product_id, p.product_name, p.category, p.supplier, p.location,
+               p.quantity, p.reorder_point, p.unit, p.price, p.shelf_life,
+               CONCAT('P-', LPAD(p.product_id, 4, '0')) AS sku,
+               (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
+               (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date IS NULL ASC, b.expiry_date ASC LIMIT 1) AS batch_number
+        FROM products p
+        WHERE 1=1
+    ";
+    $autoParams = [];
+    $autoTypes = "";
+    if ($paramProductId > 0) {
+        $autoSql .= " AND p.product_id = ?";
+        $autoParams[] = $paramProductId;
+        $autoTypes .= "i";
+    } elseif ($paramSku !== '') {
+        $autoSql .= " AND CONCAT('P-', LPAD(p.product_id, 4, '0')) = ?";
+        $autoParams[] = $paramSku;
+        $autoTypes .= "s";
+    } elseif ($paramQ !== '') {
+        $autoSql .= " AND (p.product_name LIKE ? OR p.product_name = ?)";
+        $autoParams[] = '%' . $paramQ . '%';
+        $autoParams[] = $paramQ;
+        $autoTypes .= "ss";
+    }
+    $autoSql .= " LIMIT 1";
+
+    $autoStmt = $conn->prepare($autoSql);
+    if ($autoStmt) {
+        if (!empty($autoParams)) {
+            $autoStmt->bind_param($autoTypes, ...$autoParams);
+        }
+        $autoStmt->execute();
+        $autoRes = $autoStmt->get_result();
+        if ($autoRow = $autoRes->fetch_assoc()) {
+            $aQty = (int)$autoRow['quantity'];
+            $aRp  = (int)($autoRow['reorder_point'] ?? 10);
+            $stockStatus = getStockStatus($aQty, $aRp);
+            $stockStatusLabel = getStockStatusLabel($stockStatus);
+            $img = getProductImageUrl((int)$autoRow['product_id']);
+
+            $autoloadProduct = [
+                'product_id'         => (int)$autoRow['product_id'],
+                'id'                 => (int)$autoRow['product_id'],
+                'product_name'       => $autoRow['product_name'],
+                'name'               => $autoRow['product_name'],
+                'category'           => $autoRow['category'] ?? '',
+                'supplier'           => $autoRow['supplier'] ?? '',
+                'location'           => $autoRow['location'] ?? '',
+                'quantity'           => $aQty,
+                'currentStock'       => $aQty,
+                'reorder_point'      => $aRp,
+                'reorderPoint'       => $aRp,
+                'unit'               => $autoRow['unit'] ?? '',
+                'uom'                => $autoRow['unit'] ?? '',
+                'price'              => (float)($autoRow['price'] ?? 0),
+                'shelf_life'         => $autoRow['shelf_life'] !== null ? (int)$autoRow['shelf_life'] : null,
+                'shelfLife'          => $autoRow['shelf_life'] !== null ? (int)$autoRow['shelf_life'] : null,
+                'sku'                => $autoRow['sku'] ?? '',
+                'expiry_date'        => $autoRow['expiry_date'] ?? null,
+                'batch_number'       => $autoRow['batch_number'] ?? '',
+                'stock_status'       => $stockStatus,
+                'stock_status_label' => $stockStatusLabel,
+                'image_url'          => $img,
+                'imageUrl'           => $img
+            ];
+        }
+        $autoStmt->close();
+    }
+}
+
 $conn->close();
 
 $txnIcon = $TXN_MODE === 'in'
@@ -1149,6 +1226,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
 
 <script>
+window.AUTOLOAD_PRODUCT = <?php echo json_encode($autoloadProduct); ?>;
 <?php if (isset($_SESSION['toast'])): ?>
 document.addEventListener('DOMContentLoaded', function() {
     InventoryTransaction.showToast(

@@ -858,6 +858,38 @@ var InventoryTransaction = (function () {
         renderCart();
         clearProductInfo();
 
+        // Immediately display preloaded or requested product
+        if (window.AUTOLOAD_PRODUCT && window.AUTOLOAD_PRODUCT.product_id) {
+            addToCart(window.AUTOLOAD_PRODUCT);
+            showProductInfo(window.AUTOLOAD_PRODUCT);
+        } else {
+            var urlParams = new URLSearchParams(window.location.search);
+            var targetId  = urlParams.get('product_id') || urlParams.get('id');
+            var targetSku = urlParams.get('sku');
+            var targetQ   = urlParams.get('q');
+            if (targetId) {
+                fetch('api/get_product_by_id.php?id=' + encodeURIComponent(targetId))
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (res && res.success && res.found && res.product) {
+                            addToCart(res.product);
+                            showProductInfo(res.product);
+                        }
+                    })
+                    .catch(function (e) { console.warn('Could not autoload product by ID:', e); });
+            } else if (targetQ || targetSku) {
+                fetch('api/search_products.php?q=' + encodeURIComponent(targetQ || targetSku))
+                    .then(function (r) { return r.json(); })
+                    .then(function (res) {
+                        if (res && res.success && res.data && res.data.length > 0) {
+                            addToCart(res.data[0]);
+                            showProductInfo(res.data[0]);
+                        }
+                    })
+                    .catch(function (e) { console.warn('Could not autoload product by query:', e); });
+            }
+        }
+
         // Search
         initSearch();
 
