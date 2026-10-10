@@ -43,10 +43,16 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     from { opacity: 0; transform: translateY(18px) scale(0.92); }
     to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
-/* Ambient glow pulse on the outer ring */
-@keyframes phFabGlowPulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(81, 213, 90, 0); }
-    50%       { box-shadow: 0 0 0 6px rgba(81, 213, 90, 0.18); }
+/* Ambient glow pulse for live status dot */
+@keyframes phFabDotPulse {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 6px rgba(81, 213, 90, 0.85), 0 0 12px rgba(81, 213, 90, 0.45);
+    }
+    50% {
+        opacity: 0.65;
+        box-shadow: 0 0 3px rgba(81, 213, 90, 0.5);
+    }
 }
 /* Slow spin for the sun icon on hover */
 @keyframes phSunSpin {
@@ -63,13 +69,13 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 /* ── Main pill ── */
 #phSeasonalFab {
     position: fixed !important;
-    bottom: 28px !important;
-    right: 28px !important;
+    bottom: 24px !important;
+    right: 24px !important;
     z-index: 999990 !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 10px !important;
-    padding: 6px 8px 6px 14px !important;
+    gap: 12px !important;
+    padding: 7px 9px 7px 15px !important;
     border-radius: 999px !important;
     cursor: pointer !important;
     outline: none !important;
@@ -79,36 +85,34 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     background: linear-gradient(135deg, rgba(10, 22, 55, 0.96) 0%, rgba(14, 30, 72, 0.94) 100%) !important;
     backdrop-filter: blur(18px) saturate(1.6) !important;
     -webkit-backdrop-filter: blur(18px) saturate(1.6) !important;
-    /* Gradient border via box-shadow layering */
-    border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
+    border: 1.5px solid rgba(81, 213, 90, 0.5) !important;
     box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.5),
-        0 4px 16px rgba(16, 185, 129, 0.22),
-        inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+        0 12px 36px rgba(0, 0, 0, 0.5),
+        0 4px 14px rgba(16, 185, 129, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
     /* Smooth spring lift */
     transition:
         transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1),
         box-shadow 0.26s ease,
         border-color 0.22s ease,
         background 0.22s ease !important;
-    /* Slide in on load */
     animation: phFabSlideIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both !important;
 }
 #phSeasonalFab:hover {
-    transform: translateY(-4px) scale(1.04) !important;
-    border-color: rgba(81, 213, 90, 0.8) !important;
+    transform: translateY(-4px) scale(1.03) !important;
+    border-color: rgba(81, 213, 90, 0.85) !important;
     background: linear-gradient(135deg, rgba(12, 26, 65, 0.98) 0%, rgba(20, 46, 100, 0.97) 100%) !important;
     box-shadow:
-        0 16px 48px rgba(0, 0, 0, 0.6),
-        0 6px 22px rgba(16, 185, 129, 0.4),
-        0 0 0 4px rgba(81, 213, 90, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        0 16px 44px rgba(0, 0, 0, 0.55),
+        0 6px 20px rgba(16, 185, 129, 0.35),
+        0 0 0 3px rgba(81, 213, 90, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 #phSeasonalFab:active {
-    transform: translateY(-1px) scale(0.975) !important;
+    transform: translateY(-1px) scale(0.98) !important;
     box-shadow:
-        0 6px 20px rgba(0, 0, 0, 0.4),
-        0 2px 10px rgba(16, 185, 129, 0.25) !important;
+        0 6px 18px rgba(0, 0, 0, 0.4),
+        0 2px 10px rgba(16, 185, 129, 0.2) !important;
 }
 #phSeasonalFab:focus-visible {
     outline: 2px solid #51D55A !important;
@@ -119,19 +123,21 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 .ph-fab-text-col {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 4px;
 }
 .ph-fab-title {
-    font-family: 'Onest', sans-serif;
-    font-size: 12.5px;
+    font-family: 'Onest', -apple-system, sans-serif;
+    font-size: 13.5px;
     font-weight: 700;
-    color: #e8f4ff;
+    color: #ffffff;
     white-space: nowrap;
     letter-spacing: 0.15px;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 .ph-fab-subtitle {
-    font-family: 'Onest', sans-serif;
+    font-family: 'Onest', -apple-system, sans-serif;
     font-size: 10px;
     font-weight: 500;
     color: rgba(154, 166, 209, 0.75);
@@ -140,79 +146,81 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     line-height: 1.2;
 }
 
-/* ── Month pill badge ── */
+/* ── Month pill badge (Enhanced alignment & typography) ── */
 .ph-fab-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    background: rgba(81, 213, 90, 0.14);
-    color: #5be469;
-    font-family: 'Onest', sans-serif;
-    font-size: 10px;
-    font-weight: 800;
-    padding: 2px 7px;
-    border-radius: 20px;
-    border: 1px solid rgba(81, 213, 90, 0.32);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    justify-content: center;
+    gap: 5px;
+    background: rgba(16, 185, 129, 0.16) !important;
+    color: #4ade80 !important;
+    font-family: 'Onest', -apple-system, sans-serif !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    padding: 3px 10px 3px 8px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(81, 213, 90, 0.4) !important;
+    text-transform: none !important;
+    letter-spacing: 0.3px !important;
+    line-height: 1 !important;
     align-self: flex-start;
+    box-sizing: border-box;
 }
 .ph-fab-badge::before {
     content: '';
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: #51D55A;
     display: inline-block;
-    animation: phFabGlowPulse 2s ease-in-out infinite;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(81, 213, 90, 0.8);
+    animation: phFabDotPulse 2s ease-in-out infinite;
 }
 
 /* ── Right icon disc ── */
 .ph-fab-icon-disc {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    /* Rich gradient background */
-    background: linear-gradient(145deg, #0e9f6e 0%, #047857 50%, #065f46 100%);
-    border: 2.5px solid rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, #10b981 0%, #059669 60%, #047857 100%) !important;
+    border: 2px solid rgba(255, 255, 255, 0.25) !important;
     box-shadow:
-        0 0 0 3px rgba(81, 213, 90, 0.22),
-        0 4px 14px rgba(5, 150, 105, 0.45),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+        0 2px 10px rgba(5, 150, 105, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
     position: relative;
     overflow: hidden;
 }
-/* Sheen sweep on hover */
 .ph-fab-icon-disc::after {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: linear-gradient(130deg, rgba(255,255,255,0.22) 0%, transparent 55%);
+    background: linear-gradient(130deg, rgba(255,255,255,0.25) 0%, transparent 60%);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.25s ease;
 }
 #phSeasonalFab:hover .ph-fab-icon-disc {
-    transform: rotate(22deg) scale(1.1);
+    transform: rotate(15deg) scale(1.08);
     box-shadow:
-        0 0 0 4px rgba(81, 213, 90, 0.35),
-        0 6px 20px rgba(5, 150, 105, 0.65),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        0 4px 16px rgba(5, 150, 105, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
 }
 #phSeasonalFab:hover .ph-fab-icon-disc::after {
     opacity: 1;
 }
 .ph-fab-icon-disc svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     color: #ffffff;
     flex-shrink: 0;
-    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.3));
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));
 }
 
 /* ── Light theme overrides ── */
@@ -346,18 +354,24 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     border-bottom: 1px solid var(--insights-border, rgba(42, 68, 132, 0.6));
     display: flex; justify-content: space-between; align-items: center;
     background: #11224d; flex-shrink: 0;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
 }
 [data-theme="light"] .ph-seasonal-modal-header {
     background: #f8fafc;
     border-color: #e2e8f0;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
 }
 .ph-seasonal-modal-body {
-    padding: 24px;
+    padding: 24px 24px 36px 24px;
     overflow-y: auto;
     overflow-x: hidden;
     flex: 1 1 auto;
     min-height: 0 !important;
     overscroll-behavior: contain;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
     -webkit-overflow-scrolling: touch;
     transform: translateZ(0); /* Clean compositor layer without will-change/contain:paint jank */
 }
@@ -904,15 +918,27 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     font-family: 'Onest', sans-serif !important;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.3px;
-    background: rgba(81, 213, 90, 0.12);
-    color: #51D55A;
-    border: 1px solid rgba(81, 213, 90, 0.35);
+    letter-spacing: 0.2px;
+    background: rgba(148, 163, 184, 0.12);
+    color: #E2E8F0;
+    border: 1px solid rgba(148, 163, 184, 0.28);
 }
 [data-theme="light"] .ph-briefing-pill {
-    background: rgba(81, 213, 90, 0.15) !important;
-    color: #15803D !important;
-    border-color: rgba(22, 163, 74, 0.4) !important;
+    background: #F1F5F9 !important;
+    color: #1E293B !important;
+    border-color: #CBD5E1 !important;
+}
+.ph-briefing-subline {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--insights-text-muted, #9aa6d1);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+[data-theme="light"] .ph-briefing-subline {
+    color: #64748B !important;
 }
 .ph-spending-badge {
     display: inline-flex;
@@ -933,6 +959,24 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     color: #1E293B !important;
 }
 
+/* Briefing Card Footer */
+.ph-briefing-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--insights-border-soft, rgba(42, 68, 132, 0.32));
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11px;
+    color: var(--insights-text-muted, #9aa6d1);
+    opacity: 0.85;
+}
+[data-theme="light"] .ph-briefing-footer {
+    border-top-color: #E2E8F0 !important;
+    color: #64748B !important;
+}
+
 .ph-trending-chips {
     display: flex;
     align-items: center;
@@ -944,6 +988,15 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 }
 [data-theme="light"] .ph-trending-chips {
     border-top-color: #E2E8F0 !important;
+}
+.ph-trending-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--insights-text-muted, #9aa6d1);
+    letter-spacing: 0.1px;
+}
+[data-theme="light"] .ph-trending-label {
+    color: #64748B !important;
 }
 .ph-trend-chip {
     display: inline-flex;
@@ -963,11 +1016,11 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     color: #475569 !important;
 }
 .ph-trend-chip strong {
-    color: #51D55A;
+    color: var(--insights-heading, #FFFFFF);
     font-weight: 700;
 }
 [data-theme="light"] .ph-trend-chip strong {
-    color: #16A34A !important;
+    color: #0F172A !important;
 }
 
 /* Consumer Wants Grid & Equal-Height Cards */
@@ -1016,48 +1069,71 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     flex: 1 1 auto;
 }
 
-/* Card Header: Surge badge row & full-width title */
-.ph-want-top-badge-row {
+/* Card Header: Title on Left, Large Surge Number in Top-Right */
+.ph-want-header-row {
     display: flex;
-    align-items: center;
-    justify-content: flex-start;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
     margin-bottom: 8px;
 }
-.ph-want-surge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-family: 'Onest', sans-serif !important;
-    font-size: 11px;
-    font-weight: 700;
-    color: #51D55A;
-    background: rgba(81, 213, 90, 0.12);
-    border: 1px solid rgba(81, 213, 90, 0.35);
-    padding: 3px 9px;
-    border-radius: 6px;
-    white-space: nowrap;
-    line-height: 1.25;
-}
-[data-theme="light"] .ph-want-surge {
-    background: #DCFCE7 !important;
-    border-color: #86EFAC !important;
-    color: #15803D !important;
-}
-
 .ph-want-title {
+    flex: 1 1 auto;
     font-family: 'Onest', sans-serif !important;
-    font-size: 15px;
+    font-size: 15.5px;
     font-weight: 700;
     color: var(--insights-heading, #FFFFFF);
     line-height: 1.35;
-    margin: 0 0 8px 0;
+    margin: 0;
     word-break: break-word;
 }
 [data-theme="light"] .ph-want-title {
     color: #0F172A !important;
 }
 
-/* Category and Audience chips on one wrapping row */
+.ph-want-surge-stat {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    padding: 3px 8px;
+    background: rgba(81, 213, 90, 0.1);
+    border: 1px solid rgba(81, 213, 90, 0.3);
+    border-radius: 8px;
+}
+[data-theme="light"] .ph-want-surge-stat {
+    background: #F0FDF4 !important;
+    border-color: #BBF7D0 !important;
+}
+.ph-surge-number {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 20px;
+    font-weight: 800;
+    color: #51D55A;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+}
+[data-theme="light"] .ph-surge-number {
+    color: #16A34A !important;
+}
+.ph-surge-caption {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 10px;
+    font-weight: 700;
+    color: #51D55A;
+    opacity: 0.9;
+    text-transform: none;
+    line-height: 1.15;
+    margin-top: 2px;
+    max-width: 140px;
+    word-break: break-word;
+}
+[data-theme="light"] .ph-surge-caption {
+    color: #15803D !important;
+}
+
+/* Category and Audience chips: Neutral Gray (Green kept strictly for Surge & Primary Buttons) */
 .ph-want-meta-row {
     display: flex;
     flex-wrap: wrap;
@@ -1077,51 +1153,43 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     white-space: nowrap;
     line-height: 1.25;
 }
-.ph-meta-chip.category-chip {
-    background: rgba(19, 39, 91, 0.7);
-    color: var(--insights-text-muted, #9aa6d1);
-    border: 1px solid rgba(42, 68, 132, 0.45);
-}
-[data-theme="light"] .ph-meta-chip.category-chip {
-    background: #F1F5F9 !important;
-    color: #475569 !important;
-    border-color: #CBD5E1 !important;
-}
+.ph-meta-chip.category-chip,
 .ph-meta-chip.buyer-chip {
-    background: rgba(81, 213, 90, 0.1);
-    color: #51D55A;
-    border: 1px solid rgba(81, 213, 90, 0.28);
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.25);
 }
+[data-theme="light"] .ph-meta-chip.category-chip,
 [data-theme="light"] .ph-meta-chip.buyer-chip {
-    background: #DCFCE7 !important;
-    color: #15803D !important;
-    border-color: #86EFAC !important;
+    background: #F1F5F9 !important;
+    color: #64748B !important;
+    border-color: #CBD5E1 !important;
 }
 
 /* "Why Filipinos want this today" box */
 .ph-want-reason {
     background: rgba(19, 39, 91, 0.5);
-    border-left: 3px solid #51D55A;
+    border-left: 3px solid rgba(148, 163, 184, 0.4);
     padding: 10px 12px;
     border-radius: 0 8px 8px 0;
     margin-bottom: 4px;
 }
 [data-theme="light"] .ph-want-reason {
     background: #F8FAFC !important;
-    border-left-color: #16A34A !important;
+    border-left-color: #CBD5E1 !important;
 }
 .ph-reason-tag {
     display: block;
     font-family: 'Onest', sans-serif !important;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #51D55A;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.2px;
+    color: var(--insights-text-muted, #9aa6d1);
     margin-bottom: 4px;
 }
 [data-theme="light"] .ph-reason-tag {
-    color: #15803D !important;
+    color: #64748B !important;
 }
 .ph-reason-text {
     font-family: 'Onest', sans-serif !important;
@@ -1272,10 +1340,12 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    padding-top: 12px;
+    gap: 8px;
+    padding-top: 14px;
     border-top: 1px solid var(--insights-border-soft, rgba(42, 68, 132, 0.32));
-    margin-top: 6px;
+    margin-top: auto;
+    width: 100%;
+    box-sizing: border-box;
 }
 [data-theme="light"] .ph-want-footer {
     border-top-color: #E2E8F0 !important;
@@ -1284,15 +1354,19 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 .ph-status-tag {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    justify-content: center;
+    gap: 6px;
     font-family: 'Onest', sans-serif !important;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    padding: 3px 8px;
-    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.1px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
     white-space: nowrap;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 .ph-status-tag.in-stock {
     background: rgba(81, 213, 90, 0.12);
@@ -1337,14 +1411,15 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 
 /* Action buttons in cards */
 .btn-table-check,
-.btn-table-check.check-stock-btn {
+.btn-table-check.check-stock-btn,
+.btn-table-onboard {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 5px !important;
-    padding: 0 13px !important;
+    padding: 0 12px !important;
     height: 32px !important;
-    min-width: 105px !important;
+    min-width: 95px !important;
     width: auto !important;
     background: rgba(81, 213, 90, 0.12) !important;
     border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
@@ -1356,8 +1431,8 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     cursor: pointer !important;
     text-decoration: none !important;
     white-space: nowrap !important;
+    box-sizing: border-box !important;
     flex-shrink: 0 !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
 }
 .btn-table-check:hover,
@@ -1770,32 +1845,28 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     <!-- Left: text labels -->
     <div class="ph-fab-text-col">
         <span class="ph-fab-title">PH Seasonal</span>
-        <span class="ph-fab-badge"><?php echo htmlspecialchars($_psi_activeProfile['short_name'] ?? date('M')); ?></span>
+        <span class="ph-fab-badge"><?php echo htmlspecialchars($_psi_activeProfile['month_name'] ?? date('F')); ?></span>
     </div>
 
     <!-- Divider -->
-    <div class="ph-fab-divider" aria-hidden="true" style="width:1px;height:28px;background:rgba(255,255,255,0.1);flex-shrink:0;"></div>
+    <div class="ph-fab-divider" aria-hidden="true" style="width:1px;height:24px;background:rgba(255,255,255,0.18);flex-shrink:0;"></div>
 
     <!-- Right: icon disc -->
     <div class="ph-fab-icon-disc" aria-hidden="true">
-        <!-- Philippine Sun + analytics spark merged icon -->
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
-             stroke-linecap="round" stroke-linejoin="round">
-            <!-- 8-ray Philippine sun -->
-            <circle cx="12" cy="12" r="3.8" fill="rgba(255,255,255,0.25)" stroke="white" stroke-width="1.6"/>
-            <!-- Cardinal rays -->
-            <line x1="12" y1="2.2"  x2="12" y2="5"    stroke="white" stroke-width="1.8"/>
-            <line x1="12" y1="19"   x2="12" y2="21.8" stroke="white" stroke-width="1.8"/>
-            <line x1="2.2" y1="12" x2="5"   y2="12"   stroke="white" stroke-width="1.8"/>
-            <line x1="19"  y1="12" x2="21.8" y2="12"  stroke="white" stroke-width="1.8"/>
-            <!-- Diagonal rays -->
-            <line x1="5.1"  y1="5.1"  x2="7"    y2="7"    stroke="white" stroke-width="1.5"/>
-            <line x1="17"   y1="17"   x2="18.9" y2="18.9" stroke="white" stroke-width="1.5"/>
-            <line x1="5.1"  y1="18.9" x2="7"    y2="17"   stroke="white" stroke-width="1.5"/>
-            <line x1="17"   y1="7"    x2="18.9" y2="5.1"  stroke="white" stroke-width="1.5"/>
-            <!-- Analytics spark (trend line) -->
-            <polyline points="8.2,14.5 10.2,11.8 12,13.2 14.5,9.8"
-                      stroke="rgba(255,255,255,0.9)" stroke-width="1.7" fill="none"/>
+        <!-- Crisp 8-ray Philippine Sun icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;display:block;">
+            <!-- Center sun core with subtle glow fill -->
+            <circle cx="12" cy="12" r="4.2" fill="rgba(255,255,255,0.22)" stroke="#FFFFFF" stroke-width="2"/>
+            <!-- 8 balanced rays -->
+            <line x1="12" y1="2"    x2="12" y2="4.8"  stroke="#FFFFFF" stroke-width="2.2"/>
+            <line x1="12" y1="19.2" x2="12" y2="22"   stroke="#FFFFFF" stroke-width="2.2"/>
+            <line x1="2"    y1="12" x2="4.8"  y2="12"  stroke="#FFFFFF" stroke-width="2.2"/>
+            <line x1="19.2" y1="12" x2="22"   y2="12"  stroke="#FFFFFF" stroke-width="2.2"/>
+            <line x1="4.9"  y1="4.9"  x2="7"    y2="7"    stroke="#FFFFFF" stroke-width="2"/>
+            <line x1="17"   y1="17"   x2="19.1" y2="19.1" stroke="#FFFFFF" stroke-width="2"/>
+            <line x1="4.9"  y1="19.1" x2="7"    y2="17"   stroke="#FFFFFF" stroke-width="2"/>
+            <line x1="17"   y1="7"    x2="19.1" y2="4.9"  stroke="#FFFFFF" stroke-width="2"/>
         </svg>
     </div>
 </div>
@@ -1915,21 +1986,6 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                 <div class="consumption-triggers-grid">
                     <?php foreach (($_psi_activeProfile['cultural_drivers'] ?? []) as $driver): ?>
                     <div class="trigger-card"><?php echo htmlspecialchars($driver); ?></div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="ph-section-label">PROJECTED DEMAND LIFT VS. BASELINE</div>
-                <div class="demand-lift-grid">
-                    <?php foreach (($_psi_activeProfile['in_demand_categories'] ?? []) as $catName => $mult):
-                        $pctLift  = round(($mult - 1.0) * 100);
-                        $liftSign = $pctLift >= 0 ? "+{$pctLift}%" : "{$pctLift}%";
-                    ?>
-                    <div class="metric-lift-card">
-                        <div class="metric-lift-label"><?php echo htmlspecialchars($catName); ?></div>
-                        <div class="metric-lift-value">
-                            <span class="lift-multiplier"><?php echo $mult; ?>x</span>
-                            <span class="lift-percentage"><?php echo $liftSign; ?></span>
-                        </div>
-                    </div>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -2073,34 +2129,44 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                 <!-- Preset Quick Buttons -->
                 <div class="ph-preset-chips-wrap" role="toolbar" aria-label="Quick Philippine consumer scenarios">
                     <button type="button" class="ph-preset-btn active" data-preset="payday" onclick="selectPulsePreset('payday', this)">
-                        <span>💰</span> Payday Quincena (15th/30th)
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        <span>Payday Quincena (15th/30th)</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="tgif" onclick="selectPulsePreset('tgif', this)">
-                        <span>🍻</span> TGIF Friday Inuman
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+                        <span>TGIF Friday Inuman</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="weekend_groceries" onclick="selectPulsePreset('weekend_groceries', this)">
-                        <span>🛒</span> Saturday Grocery Run
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                        <span>Saturday Grocery Run</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="sunday_salusalo" onclick="selectPulsePreset('sunday_salusalo', this)">
-                        <span>🍲</span> Sunday Family Salu-salo
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span>Sunday Family Salu-Salo</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="rainy_comfort" onclick="selectPulsePreset('rainy_comfort', this)">
-                        <span>🌧️</span> Tag-ulan Rainy Day Comfort
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><line x1="16" y1="13" x2="16" y2="21"></line><line x1="8" y1="13" x2="8" y2="21"></line><line x1="12" y1="15" x2="12" y2="23"></line><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path></svg>
+                        <span>Tag-Ulan Rainy Day Comfort</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="summer_heat" onclick="selectPulsePreset('summer_heat', this)">
-                        <span>☀️</span> Tag-init Summer Heatwave
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                        <span>Tag-Init Summer Heatwave</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="undas" onclick="selectPulsePreset('undas', this)">
-                        <span>🕯️</span> Undas / All Saints' Day
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"></path></svg>
+                        <span>Undas / All Saints' Day</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="simbang_gabi" onclick="selectPulsePreset('simbang_gabi', this)">
-                        <span>🎄</span> Paskong Pinoy &amp; Simbang Gabi
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
+                        <span>Paskong Pinoy &amp; Simbang Gabi</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="holy_week" onclick="selectPulsePreset('holy_week', this)">
-                        <span>✝️</span> Semana Santa Holy Week
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        <span>Semana Santa Holy Week</span>
                     </button>
                     <button type="button" class="ph-preset-btn" data-preset="back_to_school" onclick="selectPulsePreset('back_to_school', this)">
-                        <span>🎒</span> Balik-Eskwela Season
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                        <span>Balik-Eskwela Season</span>
                     </button>
                 </div>
 
@@ -2316,6 +2382,13 @@ window.generateGeminiPulse = function() {
     });
 };
 
+function toFormalCase(str) {
+    if (!str) return '';
+    return String(str).replace(/\b\w+/g, function(txt) {
+        return txt.charAt(0).toUpperCase() + txt.slice(1);
+    });
+}
+
 function renderGeminiPulseResults(data) {
     const resultsEl = document.getElementById('geminiPulseResults');
     if (!resultsEl) return;
@@ -2328,49 +2401,85 @@ function renderGeminiPulseResults(data) {
     const briefing = data.briefing || {};
     const wants = data.top_consumer_wants || data.recommended_wants || [];
     const isLive = Boolean(data.is_ai_live);
-    const model = data.model || 'Gemini 3.5 Flash';
-    const eventName = data.day_type_label || data.target_event || data.primary_driver || 'Daily Market Demand';
+    const model = data.model || 'Gemini';
+    const eventName = toFormalCase(data.day_type_label || data.target_event || data.primary_driver || 'Daily Market Demand');
     const region = data.region || 'Philippines';
     const dateStr = data.target_date || data.query_date || '';
     const headline = data.primary_driver || (briefing && briefing.headline) || eventName;
     const sentimentSummary = data.consumer_sentiment_summary || (briefing && briefing.cultural_driver) || '';
     const spendingMood = data.spending_power_level || (briefing && briefing.spending_mood) || '';
 
-    // Cravings & Trending Categories chips
+    // Standardized line icons (Feather / Lucide set)
+    const flameSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"></path></svg>`;
+    const creditCardSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`;
+    const lightbulbSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .5 2.5 1.5 3.5.76.76 1.23 1.52 1.41 2.5"></path></svg>`;
+    const sparkSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.75;flex-shrink:0;"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></svg>`;
+
+    // Format date and location into one muted text line with full month word: "October 10, 2026 · Nationwide"
+    let formattedDate = dateStr;
+    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const parts = dateStr.split('-');
+        const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        if (!isNaN(dObj.getTime())) {
+            formattedDate = dObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        }
+    } else if (dateStr) {
+        formattedDate = dateStr.replace(/\bJan\b/i, 'January')
+                               .replace(/\bFeb\b/i, 'February')
+                               .replace(/\bMar\b/i, 'March')
+                               .replace(/\bApr\b/i, 'April')
+                               .replace(/\bMay\b/i, 'May')
+                               .replace(/\bJun\b/i, 'June')
+                               .replace(/\bJul\b/i, 'July')
+                               .replace(/\bAug\b/i, 'August')
+                               .replace(/\bSep\b/i, 'September')
+                               .replace(/\bOct\b/i, 'October')
+                               .replace(/\bNov\b/i, 'November')
+                               .replace(/\bDec\b/i, 'December');
+    }
+    let regionClean = (region || 'Nationwide')
+        .replace(/^PHILIPPINES\s*\(NATIONWIDE\)$/i, 'Nationwide')
+        .replace(/^PHILIPPINES$/i, 'Nationwide');
+    if (regionClean === regionClean.toUpperCase()) {
+        regionClean = regionClean.toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+    const dateLocationLine = `${escapePulseHtml(formattedDate)}${regionClean ? ' &middot; ' + escapePulseHtml(regionClean) : ''}`;
+
+    // Updated timestamp for footer (e.g., "8:51 pm")
+    const now = new Date();
+    const updatedTimeFormatted = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+
+    // Trending Categories chips with SVG line icon
     let cravingsHtml = '';
     if (data.trending_categories && Array.isArray(data.trending_categories)) {
         data.trending_categories.forEach(function(item) {
             const catName = typeof item === 'string' ? item : (item.name || '');
             const lift = (typeof item === 'object' && item.lift_pct) ? ' (' + item.lift_pct + ')' : '';
             if (catName) {
-                cravingsHtml += '<span class="ph-trend-chip">🔥 <strong>' + escapePulseHtml(catName) + '</strong>' + escapePulseHtml(lift) + '</span>';
+                cravingsHtml += '<span class="ph-trend-chip">' + flameSvg + '<strong>' + escapePulseHtml(catName) + '</strong>' + escapePulseHtml(lift) + '</span>';
             }
         });
     } else if (briefing.trending_cravings && Array.isArray(briefing.trending_cravings)) {
         briefing.trending_cravings.forEach(function(item) {
-            cravingsHtml += '<span class="ph-trend-chip">🔥 <strong>' + escapePulseHtml(item) + '</strong></span>';
+            cravingsHtml += '<span class="ph-trend-chip">' + flameSvg + '<strong>' + escapePulseHtml(item) + '</strong></span>';
         });
     }
 
-    // Briefing card HTML
+    // Briefing card HTML (no model badge in hero card, merged date & location, subtle footer)
     const briefingCardHtml = `
         <div class="ph-briefing-card">
             <div class="ph-briefing-meta">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                     <span class="ph-briefing-pill">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                         </svg>
-                        ${escapePulseHtml(eventName)}
+                        <span>${escapePulseHtml(eventName)}</span>
                     </span>
-                    <span class="ph-spending-badge">📅 ${escapePulseHtml(dateStr)}</span>
-                    <span class="ph-spending-badge">📍 ${escapePulseHtml(region)}</span>
+                    <span class="ph-briefing-subline">${dateLocationLine}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <span class="ph-ai-badge" style="background:${isLive ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(148,163,184,0.3)'};">
-                        ${isLive ? '✨ Live ' + escapePulseHtml(model) : '🛡️ Live Warehouse DB Sync'}
-                    </span>
-                    ${spendingMood ? '<span class="ph-spending-badge" style="color:#51D55A;border-color:rgba(81,213,90,0.4);">💳 ' + escapePulseHtml(spendingMood) + '</span>' : ''}
+                    ${spendingMood ? '<span class="ph-spending-badge">' + creditCardSvg + ' <span>' + escapePulseHtml(toFormalCase(spendingMood)) + '</span></span>' : ''}
                 </div>
             </div>
             <h4 style="font-size:17px;font-weight:700;color:var(--insights-heading,#FFFFFF);margin:0 0 8px 0;line-height:1.35;">
@@ -2379,7 +2488,11 @@ function renderGeminiPulseResults(data) {
             <p style="font-size:13px;line-height:1.55;color:var(--insights-text-muted,#9aa6d1);margin:0;">
                 ${escapePulseHtml(sentimentSummary)}
             </p>
-            ${cravingsHtml ? '<div class="ph-trending-chips"><span style="font-size:11px;font-weight:700;color:var(--insights-text-muted,#9aa6d1);text-transform:uppercase;letter-spacing:0.5px;">Surging Product Categories:</span> ' + cravingsHtml + '</div>' : ''}
+            ${cravingsHtml ? '<div class="ph-trending-chips"><span class="ph-trending-label">Surging Product Categories:</span> ' + cravingsHtml + '</div>' : ''}
+            <div class="ph-briefing-footer">
+                ${sparkSvg}
+                <span>Powered by Gemini &middot; updated ${updatedTimeFormatted}</span>
+            </div>
         </div>
     `;
 
@@ -2392,10 +2505,27 @@ function renderGeminiPulseResults(data) {
         const pName = want.product_name;
         const pCat = want.category || 'Retail Goods';
         const pId = want.product_id || '';
-        const surge = want.demand_surge || want.surge_factor || '+50% Surge';
+        const rawSurge = want.demand_surge || want.surge_factor || '+50% Surge';
         const stockStatus = want.stock_status || (inCatalog ? (stockUnits <= 0 ? 'out_of_stock' : (reorderPoint > 0 && stockUnits <= reorderPoint ? 'low_stock' : 'in_stock')) : 'opportunity');
 
-        // Meta chips
+        // Parse surge for big number display in top-right with formal title case
+        let surgeDisplay = String(rawSurge).trim();
+        let surgeNum = surgeDisplay;
+        let surgeCap = 'Demand Surge';
+        const surgeMatch = surgeDisplay.match(/^([+]?\d+%?)(.*)$/i);
+        if (surgeMatch) {
+            surgeNum = surgeMatch[1];
+            if (!surgeNum.includes('%')) surgeNum += '%';
+            if (!surgeNum.startsWith('+')) surgeNum = '+' + surgeNum;
+            const rest = surgeMatch[2].trim();
+            if (rest) {
+                surgeCap = toFormalCase(rest);
+            } else {
+                surgeCap = 'Demand Surge';
+            }
+        }
+
+        // Neutral gray chips
         const categoryChip = `
             <span class="ph-meta-chip category-chip">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -2414,15 +2544,15 @@ function renderGeminiPulseResults(data) {
                 <span>${escapePulseHtml(want.target_buyer)}</span>
             </span>` : '';
 
-        // Merchandising Tip (Icon column + text, without redundant "Tip:" word)
+        // Merchandising Tip (SVG line icon)
         const tipText = want.retail_merchandising_tip || want.merchandising_tip || '';
         const tipHtml = tipText ? `
             <div class="ph-want-tip">
-                <span class="ph-tip-icon" aria-hidden="true">💡</span>
+                <span class="ph-tip-icon" aria-hidden="true">${lightbulbSvg}</span>
                 <div class="ph-tip-text">${escapePulseHtml(tipText)}</div>
             </div>` : '';
 
-        // Fully Dynamic Stock status with DB reorder point threshold (NO hardcoded numbers!)
+        // Fully Dynamic Stock status with DB reorder point threshold (formal title case)
         let stockStatusKey = 'stock-opp';
         let dotKey = 'blue';
         let statusBadgeHtml = '';
@@ -2434,7 +2564,7 @@ function renderGeminiPulseResults(data) {
         } else if (stockStatus === 'low_stock' || (inCatalog && reorderPoint > 0 && stockUnits <= reorderPoint)) {
             stockStatusKey = 'stock-low';
             dotKey = 'amber';
-            statusBadgeHtml = `<span class="ph-status-tag low"><span class="ph-stock-dot amber"></span> Low Stock (${stockUnits} units &bull; Min: ${reorderPoint})</span>`;
+            statusBadgeHtml = `<span class="ph-status-tag low"><span class="ph-stock-dot amber"></span> Low Stock (${stockUnits} units &middot; Min: ${reorderPoint})</span>`;
         } else if (stockStatus === 'in_stock' || inCatalog) {
             stockStatusKey = 'stock-in';
             dotKey = 'green';
@@ -2442,7 +2572,7 @@ function renderGeminiPulseResults(data) {
         } else {
             stockStatusKey = 'stock-opp';
             dotKey = 'blue';
-            statusBadgeHtml = `<span class="ph-status-tag opportunity"><span class="ph-stock-dot blue"></span> Market Opp</span>`;
+            statusBadgeHtml = `<span class="ph-status-tag opportunity"><span class="ph-stock-dot blue"></span> Market Opportunity</span>`;
         }
 
         const stockNoteHtml = want.stock_advice ? `
@@ -2451,7 +2581,7 @@ function renderGeminiPulseResults(data) {
                 <div class="ph-stock-note-text">${escapePulseHtml(want.stock_advice)}</div>
             </div>` : '';
 
-        // Action button
+        // Action button (formal Title Case)
         let actionBtnHtml = '';
         if (inCatalog) {
             actionBtnHtml = `
@@ -2460,12 +2590,12 @@ function renderGeminiPulseResults(data) {
                         data-category="${escapePulseHtml(pCat)}"
                         data-id="${escapePulseHtml(pId)}"
                         onclick="handleCheckStockClick(event, this)">
-                    Check stock &rarr;
+                    Check Stock &rarr;
                 </button>
             `;
         } else {
             actionBtnHtml = `
-                <a href="inventory.php?new_item=${encodeURIComponent(want.product_name)}" class="btn-table-onboard" title="Add product to warehouse inventory">
+                <a href="products.php?add=1&new_item=${encodeURIComponent(want.product_name)}" class="btn-table-onboard" title="Add product to warehouse inventory">
                     + Onboard Item
                 </a>
             `;
@@ -2474,10 +2604,13 @@ function renderGeminiPulseResults(data) {
         cardsHtml += `
             <div class="ph-want-card">
                 <div class="ph-want-card-body">
-                    <div class="ph-want-top-badge-row">
-                        <span class="ph-want-surge">${escapePulseHtml(surge)}</span>
+                    <div class="ph-want-header-row">
+                        <div class="ph-want-title">${escapePulseHtml(want.product_name)}</div>
+                        <div class="ph-want-surge-stat">
+                            <span class="ph-surge-number">${escapePulseHtml(surgeNum)}</span>
+                            <span class="ph-surge-caption">${escapePulseHtml(surgeCap)}</span>
+                        </div>
                     </div>
-                    <div class="ph-want-title">${escapePulseHtml(want.product_name)}</div>
                     <div class="ph-want-meta-row">
                         ${categoryChip}
                         ${buyerChip}
@@ -2492,8 +2625,8 @@ function renderGeminiPulseResults(data) {
                     ${tipHtml}
                     ${stockNoteHtml}
                     <div class="ph-want-footer">
-                        <div>${statusBadgeHtml}</div>
-                        <div>${actionBtnHtml}</div>
+                        ${statusBadgeHtml}
+                        ${actionBtnHtml}
                     </div>
                 </div>
             </div>

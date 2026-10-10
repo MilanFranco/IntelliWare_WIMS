@@ -4,6 +4,12 @@
  * Run this script once to set up the product_recommendations, forecast_runs, and anomalies tables
  */
 
+session_start();
+if (php_sapi_name() !== 'cli' && (!isset($_SESSION['Username']) || ($_SESSION['Role'] ?? '') !== 'admin')) {
+    http_response_code(403);
+    die("Access denied: Admin only.");
+}
+
 require_once 'config/db.php';
 
 // Check connection

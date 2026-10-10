@@ -3,6 +3,12 @@
  * Apply Venv Python Path
  */
 
+session_start();
+if (php_sapi_name() !== 'cli' && (!isset($_SESSION['Username']) || ($_SESSION['Role'] ?? '') !== 'admin')) {
+    http_response_code(403);
+    die("Error: Admin access required.");
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['python_path'])) {
     $python_path = $_POST['python_path'];
     $helper_file = __DIR__ . '/src/ml/PythonHelper.php';

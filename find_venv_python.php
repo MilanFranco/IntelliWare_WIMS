@@ -1,4 +1,9 @@
 <?php
+session_start();
+if (php_sapi_name() !== 'cli' && (!isset($_SESSION['Username']) || ($_SESSION['Role'] ?? '') !== 'admin')) {
+    header('Location: signin.php');
+    exit();
+}
 
 header('Content-Type: text/html; charset=utf-8');
 ?>

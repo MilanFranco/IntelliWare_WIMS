@@ -17,7 +17,7 @@ if (isset($_SESSION['Username'])) {
     <link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">
     <title>IntelliWare - Login</title>
     <script src="assets/vendor/tailwindcss.js"></script>
-    <link href="styles.css?v=1.0" rel="stylesheet">
+    <link href="assets/css/styles.css?v=1.0" rel="stylesheet">
     <link href="assets/fonts.css" rel="stylesheet">
     <style>
 

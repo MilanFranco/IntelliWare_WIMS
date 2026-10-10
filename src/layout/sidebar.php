@@ -115,7 +115,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '<meta name="viewport" content="width=device-width, initial-scale=1.0" />';
     echo '<link rel="icon" type="image/svg+xml" href="img/systemlogo.svg?v=2">';
     echo '<script src="assets/vendor/tailwindcss.js"></script>';
-    echo '<link href="styles.css" rel="stylesheet" />'; 
+    echo '<link href="assets/css/styles.css" rel="stylesheet" />'; 
     echo '<link href="assets/fonts.css" rel="stylesheet">';
     echo '<title>' . htmlspecialchars($pageTitle) . ' | IntelliWare</title>';
     

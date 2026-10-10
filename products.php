@@ -161,9 +161,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $location     = trim($_POST['location'] ?? '');
             $unit         = trim($_POST['unit'] ?? '');
             $quantity     = parseNonNegativeInt($_POST['quantity'] ?? null);
-            $reorder_point= parseNonNegativeInt($_POST['reorder_point'] ?? '10', 10);
+            $categoryPresetsROP = [
+                'Beverages'                      => 25,
+                'Canned Goods'                   => 20,
+                'Dry Goods'                      => 20,
+                'Dairy Products'                 => 15,
+                'Frozen Foods'                   => 15,
+                'Bakery Products'                => 12,
+                'Personal Care'                  => 10,
+                'Household Items'                => 10,
+                'Pet Supplies'                   => 10,
+                'Stationery and Office Supplies' => 8
+            ];
+            $defaultRp = $categoryPresetsROP[$category] ?? 10;
+            $reorder_point= parseNonNegativeInt($_POST['reorder_point'] ?? (string)$defaultRp, $defaultRp);
             $price        = parseNonNegativeDecimal($_POST['price'] ?? '0', 0.00);
             $shelf_life   = empty($_POST['shelf_life']) ? null : parseNonNegativeInt($_POST['shelf_life']);
+            $expiry_date  = !empty($_POST['expiry_date']) ? trim($_POST['expiry_date']) : null;
+            $batch_number = !empty($_POST['batch_number']) ? trim($_POST['batch_number']) : null;
             $product_image_b64 = trim($_POST['product_image_b64'] ?? '');
 
             if ($product_name === '') {
@@ -183,6 +198,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
             if ($shelf_life === false) {
                 throw new Exception('Shelf life must be a positive number of days or empty.');
+            }
+            if ($expiry_date !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $expiry_date)) {
+                throw new Exception('Expiry date must be in YYYY-MM-DD format.');
+            }
+
+            // Intelligent Expiry & Shelf Life Sync:
+            // 1. If opening stock > 0, shelf_life is set, but expiry_date was left blank -> auto-derive expiry date
+            if ($quantity > 0 && empty($expiry_date) && !empty($shelf_life) && $shelf_life > 0) {
+                $expiry_date = date('Y-m-d', strtotime("+{$shelf_life} days"));
+            }
+            // 2. If expiry_date is set, but shelf_life was left blank -> auto-derive shelf_life for catalog
+            if (empty($shelf_life) && !empty($expiry_date)) {
+                $daysDiff = (int)round((strtotime($expiry_date) - strtotime(date('Y-m-d'))) / 86400);
+                if ($daysDiff > 0) {
+                    $shelf_life = $daysDiff;
+                }
+            }
+            // 3. If opening stock > 0 and no batch number given -> generate standard initial batch code
+            if ($quantity > 0 && empty($batch_number)) {
+                $batch_number = 'BATCH-' . date('Ymd') . '-INIT';
             }
 
             $changedField = ($_POST['sync_driver'] ?? 'category') === 'location' ? 'location' : 'category';
@@ -210,9 +245,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
                 if ($openingQty > 0) {
+                    $metadata = [
+                        'source' => 'opening_stock'
+                    ];
+                    if (!empty($expiry_date)) {
+                        $metadata['expiry_date'] = $expiry_date;
+                    }
+                    if (!empty($batch_number)) {
+                        $metadata['batch_number'] = $batch_number;
+                    }
                     ApiClient::receiveInventory(
                         $newProductId, $openingQty,
-                        $_SESSION['Username'], 'Opening stock on product create'
+                        $_SESSION['Username'], 'Opening stock on product create',
+                        $metadata
                     );
                 }
 
@@ -1130,6 +1175,17 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         overflow: hidden;
         margin: auto;
     }
+    #add-product-form,
+    #edit-product-form {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+        margin: 0;
+        overflow: hidden;
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+    }
     .modal-header {
         padding: 24px 30px;
         background: rgba(13, 22, 56, 0.5);
@@ -1137,6 +1193,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        flex-shrink: 0;
     }
     .modal-title h3 {
         color: #fff;
@@ -1152,7 +1211,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .modal-body-scroll {
         overflow-y: auto;
         overflow-x: hidden;
-        flex: 1;
+        flex: 1 1 auto;
         max-height: min(560px, calc(100vh - 220px));
         scrollbar-color: #51D55A rgba(19, 39, 91, 0.3);
         scrollbar-width: thin;
@@ -1172,6 +1231,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         background: rgba(13, 22, 56, 0.4);
         flex-shrink: 0;
         flex-wrap: wrap;
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+        margin-top: auto;
     }
 
 
@@ -1243,12 +1305,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     [data-theme="light"] .modal-overlay { background: var(--iw-bg-overlay) !important; }
     [data-theme="light"] .modal-box {
         background: #FFFFFF !important;
-        border-color: #D6E8F7 !important;
-        box-shadow: 0 20px 40px -8px rgba(20, 80, 158, 0.18), 0 0 0 1px rgba(20, 80, 158, 0.08) !important;
+        border: 1px solid #CBD5E1 !important;
+        box-shadow: 0 20px 45px -10px rgba(15, 23, 42, 0.16) !important;
     }
     [data-theme="light"] .modal-header {
         background: #F8FAFC !important;
-        border-bottom-color: #E2E8F0 !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        border-top-left-radius: 20px !important;
+        border-top-right-radius: 20px !important;
     }
     [data-theme="light"] .modal-title h3 { color: #0F172A !important; }
     [data-theme="light"] .modal-subtitle,
@@ -1265,7 +1329,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     [data-theme="light"] .modal-footer {
         background: #F8FAFC !important;
-        border-top-color: #E2E8F0 !important;
+        border-top: 1px solid #E2E8F0 !important;
+        border-bottom-left-radius: 20px !important;
+        border-bottom-right-radius: 20px !important;
     }
     [data-theme="light"] .modal-body-scroll {
         background: #FFFFFF !important;
@@ -1283,10 +1349,6 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-thumb:hover {
         background: #94A3B8 !important;
-    }
-    [data-theme="light"] .modal-footer {
-        background: #F8FAFC !important;
-        border-top-color: #E2E8F0 !important;
     }
     [data-theme="light"] .form-keyboard-hint {
         color: #64748B !important;
@@ -2129,12 +2191,36 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <label class="form-label">Reorder Point (Low Stock Alert)</label>
                     <input type="number" name="reorder_point" id="add-reorder-point" class="premium-input w-full add-form-field" style="height:46px;" value="10" min="0" step="1" inputmode="numeric" disabled>
                     <p class="add-field-error" id="add-reorder-point-error" hidden></p>
+                    <span id="add-reorder-hint" style="font-size:11px; color:#9aa6d1; margin-top:4px; display:block;">⚡ Auto-suggests based on category (customizable)</span>
                 </div>
 
-                <div style="grid-column: span 2;">
+                <!-- ── VISUAL HIERARCHY: 4. PERISHABILITY & EXPIRY CONTROL ── -->
+                <div style="grid-column: span 2; display:flex; align-items:center; gap:10px; margin-top:8px;">
+                    <span style="font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#51D55A; font-family:'Onest',sans-serif; display:flex; align-items:center; gap:6px;">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/></svg>
+                        4. Perishability &amp; Expiry Control
+                    </span>
+                    <div style="flex:1; height:1px; background:rgba(42,68,132,0.4);"></div>
+                </div>
+
+                <div>
                     <label class="form-label">Shelf Life (Days)</label>
-                    <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 365 (leave blank if non-perishable)" disabled>
+                    <input type="number" name="shelf_life" id="add-shelf-life" class="premium-input w-full add-form-field" style="height:46px;" min="0" step="1" inputmode="numeric" placeholder="e.g. 180 (leave blank if non-perishable)" disabled>
                     <p class="add-field-error" id="add-shelf-life-error" hidden></p>
+                    <span style="font-size:11px; color:#9aa6d1; margin-top:4px; display:block;">⚡ Auto-computes expiry date when entered</span>
+                </div>
+
+                <div id="add-expiry-date-group">
+                    <label class="form-label">Opening Batch Expiry Date</label>
+                    <input type="date" name="expiry_date" id="add-expiry-date" class="premium-input w-full add-form-field" style="height:46px;" disabled>
+                    <p class="add-field-error" id="add-expiry-date-error" hidden></p>
+                    <span id="add-expiry-hint" style="font-size:11px; color:#9aa6d1; margin-top:4px; display:block;">Initial stock expiry (leave blank if non-perishable)</span>
+                </div>
+
+                <div id="add-batch-number-group" style="grid-column: span 2;">
+                    <label class="form-label">Batch / Lot Number (Optional)</label>
+                    <input type="text" name="batch_number" id="add-batch-number" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. BATCH-2026-001 (auto-generated if empty)" maxlength="50" disabled>
+                    <p class="add-field-error" id="add-batch-number-error" hidden></p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2355,7 +2441,9 @@ const ADD_FORM_FIELD_ORDER = [
     'add-location',
     'add-unit',
     'add-reorder-point',
-    'add-shelf-life'
+    'add-shelf-life',
+    'add-expiry-date',
+    'add-batch-number'
 ];
 
 const EDIT_FIELD_ORDER = ['name', 'category', 'supplier', 'location', 'qty', 'price', 'uom', 'reorder_point', 'shelf_life'];
@@ -2412,6 +2500,9 @@ function syncCategoryFromLocation(locationValue, categoryInput, syncDriverInput)
     } else {
         categoryInput.value = mapped;
     }
+    if (categoryInput.id === 'add-category') {
+        applyCategoryPresets(mapped);
+    }
     if (syncDriverInput) syncDriverInput.value = 'location';
     locationCategorySyncLock = false;
 }
@@ -2423,6 +2514,7 @@ function initLocationCategorySync() {
 
     addCategory?.addEventListener('change', function () {
         syncLocationFromCategory(this.value, addLocation, addSyncDriver);
+        applyCategoryPresets(this.value);
     });
     addLocation?.addEventListener('change', function () {
         syncCategoryFromLocation(this.value, addCategory, addSyncDriver);
@@ -3028,6 +3120,16 @@ function validateAddProductForm() {
         firstInvalid = firstInvalid || document.getElementById('add-shelf-life');
     }
 
+    var expRaw = (document.getElementById('add-expiry-date')?.value || '').trim();
+    if (expRaw !== '') {
+        var expDate = new Date(expRaw + 'T00:00:00');
+        if (isNaN(expDate.getTime())) {
+            setAddFieldError('add-expiry-date', 'add-expiry-date-error', 'Please enter a valid expiry date.');
+            valid = false;
+            firstInvalid = firstInvalid || document.getElementById('add-expiry-date');
+        }
+    }
+
     if (firstInvalid) firstInvalid.focus();
     return valid;
 }
@@ -3042,6 +3144,11 @@ function resetAddProductForm() {
     addFormSubmitting = false;
     clearAddFormErrors();
     setAddSubmitState(false);
+    var expHint = document.getElementById('add-expiry-hint');
+    if (expHint) expHint.textContent = 'Initial stock expiry (leave blank if non-perishable)';
+    _userHasManuallyEditedRop = false;
+    var rpHtmlHint = document.getElementById('add-reorder-hint');
+    if (rpHtmlHint) rpHtmlHint.textContent = '⚡ Auto-suggests based on category (customizable)';
     // Stop any running camera stream
     _stopAddProductCamera();
 
@@ -3218,9 +3325,15 @@ function hasAddProductFormData() {
         if (rVal !== '' && rVal !== '10') return true;
     }
 
-    // 6. Check shelf life
+    // 6. Check shelf life, expiry date, and batch number
     var shelf = document.getElementById('add-shelf-life');
     if (shelf && shelf.value && shelf.value.toString().trim() !== '') return true;
+
+    var exp = document.getElementById('add-expiry-date');
+    if (exp && exp.value && exp.value.trim() !== '') return true;
+
+    var batch = document.getElementById('add-batch-number');
+    if (batch && batch.value && batch.value.trim() !== '') return true;
 
     // 7. Check camera live view active
     var camArea = document.getElementById('ai-camera-area');
@@ -3726,8 +3839,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-<?php if (($_GET['add'] ?? '') === '1'): ?>
+<?php if (($_GET['add'] ?? '') === '1' || !empty($_GET['new_item'])): ?>
 openAddModal();
+<?php 
+$initialItemName = trim($_GET['new_item'] ?? ($_GET['name'] ?? ''));
+if ($initialItemName !== ''): ?>
+(function() {
+    const prefillName = <?php echo json_encode($initialItemName); ?>;
+    const nameInput = document.getElementById('add-product-name');
+    if (nameInput) {
+        nameInput.value = prefillName;
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+})();
+<?php endif; ?>
 <?php endif; ?>
 
 
@@ -3755,11 +3880,20 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
     ['add-product-name', 'add-product-name-error'],
     ['add-quantity', 'add-quantity-error'],
     ['add-reorder-point', 'add-reorder-point-error'],
-    ['add-price', 'add-price-error']
+    ['add-price', 'add-price-error'],
+    ['add-shelf-life', 'add-shelf-life-error'],
+    ['add-expiry-date', 'add-expiry-date-error'],
+    ['add-batch-number', 'add-batch-number-error']
 ].forEach(function (pair) {
-    document.getElementById(pair[0])?.addEventListener('input', function () {
-        clearAddFieldError(pair[0], pair[1]);
-    });
+    var el = document.getElementById(pair[0]);
+    if (el) {
+        el.addEventListener('input', function () {
+            clearAddFieldError(pair[0], pair[1]);
+        });
+        el.addEventListener('change', function () {
+            clearAddFieldError(pair[0], pair[1]);
+        });
+    }
 });
 
 ['add-quantity', 'add-reorder-point'].forEach(function (fieldId) {
@@ -3818,6 +3952,146 @@ document.addEventListener('keydown', function (e) {
     saveEdit(rowId);
 });
 
+// ── Smart Expiry & Shelf Life 2-Way Sync ─────────────────────
+function setupExpiryShelfLifeSync() {
+    var shelfInput  = document.getElementById('add-shelf-life');
+    var expiryInput = document.getElementById('add-expiry-date');
+    var hintEl      = document.getElementById('add-expiry-hint');
+    var qtyInput    = document.getElementById('add-quantity');
+
+    function formatDateYMD(d) {
+        var year  = d.getFullYear();
+        var month = String(d.getMonth() + 1).padStart(2, '0');
+        var day   = String(d.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+
+    if (shelfInput && expiryInput) {
+        // Shelf Life (Days) -> Expiry Date
+        shelfInput.addEventListener('input', function () {
+            var days = parseInt(this.value, 10);
+            if (!isNaN(days) && days > 0) {
+                var d = new Date();
+                d.setDate(d.getDate() + days);
+                expiryInput.value = formatDateYMD(d);
+                if (hintEl) hintEl.textContent = '⚡ Auto-calculated: Today + ' + days + ' days';
+            } else if (!this.value) {
+                if (hintEl) hintEl.textContent = 'Initial stock expiry (leave blank if non-perishable)';
+            }
+        });
+
+        // Expiry Date -> Shelf Life (Days)
+        expiryInput.addEventListener('change', function () {
+            if (this.value) {
+                var picked = new Date(this.value + 'T00:00:00');
+                var today  = new Date();
+                today.setHours(0, 0, 0, 0);
+                var diffMs   = picked.getTime() - today.getTime();
+                var diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0) {
+                    shelfInput.value = diffDays;
+                    if (hintEl) hintEl.textContent = '⚡ Auto-calculated: ' + diffDays + ' days shelf life';
+                } else {
+                    if (hintEl) hintEl.textContent = '⚠️ Note: Expiry date is in the past';
+                }
+            }
+        });
+    }
+
+    if (qtyInput && hintEl) {
+        qtyInput.addEventListener('input', function () {
+            var qty = parseInt(this.value, 10);
+            if (!isNaN(qty) && qty > 0) {
+                if (!expiryInput?.value && !shelfInput?.value) {
+                    hintEl.textContent = '📦 Enter expiry date or shelf life for this initial stock';
+                }
+            }
+        });
+    }
+}
+document.addEventListener('DOMContentLoaded', setupExpiryShelfLifeSync);
+
+// ── Category Smart Presets (ROP & Shelf Life) ───────────────
+const CATEGORY_ROP_PRESETS = {
+    'Beverages':                     25,
+    'Canned Goods':                  20,
+    'Dry Goods':                     20,
+    'Dairy Products':                15,
+    'Frozen Foods':                  15,
+    'Bakery Products':               12,
+    'Personal Care':                 10,
+    'Household Items':               10,
+    'Pet Supplies':                  10,
+    'Stationery and Office Supplies': 8
+};
+
+const CATEGORY_SHELF_LIFE_PRESETS = {
+    'Bakery Products':               7,
+    'Frozen Foods':                  180,
+    'Dairy Products':                270,
+    'Beverages':                     365,
+    'Dry Goods':                     365,
+    'Canned Goods':                  1095,
+    'Personal Care':                 730,
+    'Household Items':               730,
+    'Pet Supplies':                  365
+};
+
+var _userHasManuallyEditedRop = false;
+
+function applyCategoryPresets(category) {
+    category = (category || '').trim();
+    if (!category) return;
+
+    var rpInput = document.getElementById('add-reorder-point');
+    var rpHtmlHint = document.getElementById('add-reorder-hint');
+    var shelfInput = document.getElementById('add-shelf-life');
+
+    // 1. Smart Reorder Point Suggestion
+    if (CATEGORY_ROP_PRESETS.hasOwnProperty(category)) {
+        var suggestedRop = CATEGORY_ROP_PRESETS[category];
+        if (rpInput && !_userHasManuallyEditedRop) {
+            rpInput.value = suggestedRop;
+            if (rpHtmlHint) {
+                rpHtmlHint.textContent = '⚡ Suggested ' + suggestedRop + ' units for ' + category + ' (customizable)';
+            }
+        }
+    } else if (rpHtmlHint && !_userHasManuallyEditedRop) {
+        if (rpInput) rpInput.value = 10;
+        rpHtmlHint.textContent = '⚡ Default threshold: 10 units (customizable)';
+    }
+
+    // 2. Smart Shelf Life Default
+    if (CATEGORY_SHELF_LIFE_PRESETS.hasOwnProperty(category)) {
+        var suggestedShelf = CATEGORY_SHELF_LIFE_PRESETS[category];
+        if (shelfInput && (!shelfInput.value || shelfInput.value === '0')) {
+            shelfInput.value = suggestedShelf;
+            shelfInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+}
+
+function setupCategorySmartPresets() {
+    var catSelect = document.getElementById('add-category');
+    var rpInput   = document.getElementById('add-reorder-point');
+
+    if (catSelect) {
+        catSelect.addEventListener('change', function () {
+            applyCategoryPresets(this.value);
+        });
+    }
+
+    if (rpInput) {
+        rpInput.addEventListener('input', function () {
+            _userHasManuallyEditedRop = true;
+            var rpHtmlHint = document.getElementById('add-reorder-hint');
+            if (rpHtmlHint) {
+                rpHtmlHint.textContent = 'Custom threshold set: ' + (this.value || 0) + ' units';
+            }
+        });
+    }
+}
+document.addEventListener('DOMContentLoaded', setupCategorySmartPresets);
 
 </script>
 

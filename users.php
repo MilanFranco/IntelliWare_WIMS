@@ -175,7 +175,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 // 2. Unlink from transactions table
                 $conn->query("UPDATE transactions SET user_id = NULL WHERE user_id = $userId");
 
-                // 3. Delete user record
+                // 3. Unlink from notifications table
+                $conn->query("UPDATE notifications SET user_id = NULL WHERE user_id = $userId");
+
+                // 4. Remove active password resets
+                $conn->query("DELETE FROM password_resets WHERE user_id = $userId");
+
+                // 5. Delete user record
                 $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
                 $stmt->bind_param("i", $userId);
                 

@@ -267,18 +267,18 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo 'html[data-theme="light"], html[data-theme="light"] body { background-color: #EDF4FB !important; color-scheme: light; }';
     echo '</style>';
 
-    $cssVerStyles = file_exists(__DIR__ . '/../styles.css') ? filemtime(__DIR__ . '/../styles.css') : time();
-    $cssVerTheme  = file_exists(__DIR__ . '/../theme.css') ? filemtime(__DIR__ . '/../theme.css') : time();
-    $cssVerMobile = file_exists(__DIR__ . '/../mobile.css') ? filemtime(__DIR__ . '/../mobile.css') : time();
-    echo '<link href="styles.css?v=' . $cssVerStyles . '" rel="stylesheet" />';
-    echo '<link href="theme.css?v=' . $cssVerTheme . '" rel="stylesheet" />';
-    echo '<script src="theme.js" defer></script>';
+    $cssVerStyles = file_exists(__DIR__ . '/../assets/css/styles.css') ? filemtime(__DIR__ . '/../assets/css/styles.css') : time();
+    $cssVerTheme  = file_exists(__DIR__ . '/../assets/css/theme.css') ? filemtime(__DIR__ . '/../assets/css/theme.css') : time();
+    $cssVerMobile = file_exists(__DIR__ . '/../assets/css/mobile.css') ? filemtime(__DIR__ . '/../assets/css/mobile.css') : time();
+    echo '<link href="assets/css/styles.css?v=' . $cssVerStyles . '" rel="stylesheet" />';
+    echo '<link href="assets/css/theme.css?v=' . $cssVerTheme . '" rel="stylesheet" />';
+    echo '<script src="assets/js/theme.js" defer></script>';
     // Local offline Tailwind CSS engine
     echo '<script src="assets/vendor/tailwindcss.js"></script>';
 
     if (in_array(basename($_SERVER['PHP_SELF']), ['dash_admin.php', 'dash_staff.php', 'dash_manager.php'])) {
-        $cssVerAdmin = file_exists(__DIR__ . '/../admin_dashboard.css') ? filemtime(__DIR__ . '/../admin_dashboard.css') : time();
-        echo '<link href="admin_dashboard.css?v=' . $cssVerAdmin . '" rel="stylesheet">';
+        $cssVerAdmin = file_exists(__DIR__ . '/../assets/css/admin_dashboard.css') ? filemtime(__DIR__ . '/../assets/css/admin_dashboard.css') : time();
+        echo '<link href="assets/css/admin_dashboard.css?v=' . $cssVerAdmin . '" rel="stylesheet">';
     }
 
     // Local offline Fonts (Onest, Inter, Overpass)
@@ -439,7 +439,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .premium-menu-item.active { background: #2563EB !important; border-color: #2563EB !important; color: #FFFFFF !important; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28) !important; }';
     echo '[data-theme="light"] .premium-menu-item.active .sidebar-icon, [data-theme="light"] .premium-menu-item.active .sidebar-text { color: #FFFFFF !important; stroke: #FFFFFF !important; }';
     echo '</style>';
-    echo '<link href="mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
+    echo '<link href="assets/css/mobile.css?v=' . $cssVerMobile . '" rel="stylesheet" />';
     echo '</head>';
     echo '<body class="w-full h-screen iw-body-shell flex items-start justify-center">';
     // Mobile sidebar overlay backdrop

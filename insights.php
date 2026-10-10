@@ -919,16 +919,26 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     width: 15px;
     height: 15px;
     flex-shrink: 0;
+    position: relative;
+}
+.refresh-default-icon {
+    display: inline-block !important;
 }
 .refresh-spinner-svg {
     animation: forecastSpin 0.75s linear infinite;
-    display: none;
+    display: none !important;
+}
+.refresh-check-icon {
+    display: none !important;
 }
 .refresh-forecast-btn.is-loading .refresh-default-icon {
     display: none !important;
 }
 .refresh-forecast-btn.is-loading .refresh-spinner-svg {
     display: inline-block !important;
+}
+.refresh-forecast-btn.is-loading .refresh-check-icon {
+    display: none !important;
 }
 .refresh-forecast-btn.is-success .refresh-default-icon,
 .refresh-forecast-btn.is-success .refresh-spinner-svg {
@@ -2611,8 +2621,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
                 <button type="button" id="btnRefreshSmartRestock" class="refresh-forecast-btn" onclick="refreshSmartRestockForecast(event)" title="Reconcile and recalculate forecast using live warehouse inventory">
                     <span class="refresh-icon-holder">
-                        <svg class="refresh-default-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        <svg class="refresh-default-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                            <path d="M21 3v5h-5"/>
                         </svg>
                         <svg class="refresh-spinner-svg" width="14" height="14" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.8" opacity="0.25"/>
@@ -2624,14 +2635,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     </span>
                     <span class="refresh-text" id="refreshBtnLabel">Refresh Forecast</span>
                 </button>
-
-                <div class="tooltip-container">
-                    <div class="info-circle">?</div>
-                    <div class="tooltip-text">
-                        <strong>How this works:</strong><br><br>
-                        Synthesizes 30-day transactional velocity, stockout hazard levels, and real-time warehouse inventory to prescribe optimal restock orders.
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -3435,21 +3438,6 @@ function renderActiveHorizonIntelligence() {
             <div class="trigger-card">${escapeHtml(d)}</div>
         `).join('');
 
-        const liftEntries = Object.entries(profile.in_demand_categories || {});
-        const liftHtml = liftEntries.map(([cat, mult]) => {
-            const liftPct = Math.round((mult - 1.0) * 100);
-            const liftSign = liftPct >= 0 ? `+${liftPct}%` : `${liftPct}%`;
-            return `
-                <div class="metric-lift-card">
-                    <div class="metric-lift-label">${escapeHtml(cat)}</div>
-                    <div class="metric-lift-value">
-                        <span class="lift-multiplier">${mult}x</span>
-                        <span class="lift-percentage">${liftSign}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
         bannerEl.innerHTML = `
             <div class="ph-header-meta">
                 <span class="ph-season-pill">${escapeHtml(profile.season_badge || 'Seasonal Cycle')}</span>
@@ -3465,11 +3453,6 @@ function renderActiveHorizonIntelligence() {
             <div class="ph-section-label">CONSUMPTION TRIGGERS</div>
             <div class="consumption-triggers-grid">
                 ${driversHtml}
-            </div>
-
-            <div class="ph-section-label">PROJECTED DEMAND LIFT VS. BASELINE</div>
-            <div class="demand-lift-grid">
-                ${liftHtml}
             </div>
         `;
     }
