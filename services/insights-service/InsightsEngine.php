@@ -117,12 +117,16 @@ class InsightsEngine
      * Get period forecast (weekly, monthly, quarterly, semi-annual, annual).
      * Reads directly from pre-calculated cache (<15ms) or dynamically computes for custom months.
      */
-    public function getForecast(string $period = 'monthly', ?int $month = null, bool $autoGenerateIfEmpty = true): array
+    public function getForecast(string $period = 'monthly', ?int $month = null, bool $autoGenerateIfEmpty = true, bool $forceRefresh = false): array
     {
         $period = in_array($period, ['weekly', 'monthly', 'quarterly', 'semi-annual', 'annual'], true) ? $period : 'monthly';
         $currentKey = ($period === 'monthly' && $month !== null && $month >= 1 && $month <= 12) 
             ? (date('Y-') . sprintf('%02d', $month))
             : $this->resolvePeriodKey($period);
+
+        if ($forceRefresh) {
+            $this->computeAndStoreForecasts();
+        }
 
         $stmt = $this->conn->prepare("
             SELECT predictions_data, computed_at 
@@ -142,7 +146,13 @@ class InsightsEngine
                 if (is_array($data)) {
                     $data['computed_at'] = $row['computed_at'];
                     $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
-                    $data['source'] = 'cache';
+                    $data['source'] = $forceRefresh ? 'recomputed' : 'cache';
+
+                    // Dynamically hydrate each item with real-time stock levels from the products table
+                    if (!empty($data['items']) && is_array($data['items'])) {
+                        $this->hydrateForecastItemsWithLiveStock($data['items']);
+                    }
+
                     return $data;
                 }
             }
@@ -150,10 +160,93 @@ class InsightsEngine
 
         if ($autoGenerateIfEmpty) {
             $this->computeAndStoreForecasts();
-            return $this->getForecast($period, $month, false);
+            return $this->getForecast($period, $month, false, false);
         }
 
         return ['source' => 'empty', 'items' => []];
+    }
+
+    /**
+     * Dynamically synchronizes forecast items with real-time warehouse stock from the products table.
+     * Prevents replenished products from remaining falsely flagged as 'Critical Outage' or 'Stock: 0'.
+     */
+    public function hydrateForecastItemsWithLiveStock(array &$items): void
+    {
+        if (empty($items)) {
+            return;
+        }
+
+        $productIds = [];
+        foreach ($items as $item) {
+            if (!empty($item['product_id'])) {
+                $productIds[] = (int)$item['product_id'];
+            }
+        }
+
+        if (empty($productIds)) {
+            return;
+        }
+
+        $idList = implode(',', array_unique($productIds));
+        $res = $this->conn->query("
+            SELECT product_id, product_name, quantity, reorder_point, category, archived
+            FROM products
+            WHERE product_id IN ($idList)
+        ");
+
+        $liveMap = [];
+        if ($res && $res->num_rows > 0) {
+            while ($r = $res->fetch_assoc()) {
+                $liveMap[(int)$r['product_id']] = $r;
+            }
+        }
+
+        foreach ($items as &$item) {
+            $pid = (int)($item['product_id'] ?? 0);
+            if (isset($liveMap[$pid])) {
+                $live = $liveMap[$pid];
+                $liveStock = (int)$live['quantity'];
+                $liveReorder = isset($live['reorder_point']) ? (int)$live['reorder_point'] : 10;
+                $demand = (float)($item['total_historical_sales'] ?? $item['predicted_quantity'] ?? 0);
+                $forecastDays = (int)($item['forecast_days'] ?? 30);
+                $isMl = !empty($item['is_ml']);
+
+                $item['current_stock'] = $liveStock;
+                $item['reorder_point'] = $liveReorder;
+                if (!empty($live['product_name'])) {
+                    $item['product_name'] = $live['product_name'];
+                }
+                if (!empty($live['category'])) {
+                    $item['category_name'] = $live['category'];
+                }
+
+                // Recalculate smart insight with current inventory level
+                $insight = self::buildSmartInsight($liveStock, $demand, $forecastDays, $liveReorder, $isMl);
+                $item['type']          = $insight['type'];
+                $item['action_needed'] = $insight['action_needed'];
+                $item['descriptive']   = $insight['descriptive'];
+                $item['predictive']    = $insight['predictive'];
+                $item['prescriptive']  = $insight['prescriptive'];
+                $item['insight']       = $insight['insight'];
+            }
+        }
+        unset($item);
+
+        // Sort dynamically: Critical Outage -> High Risk -> Low Cover -> Optimal -> Slow Moving
+        usort($items, function($a, $b) {
+            $score = function($type) {
+                if (stripos($type, 'Critical') !== false || stripos($type, 'Out of Stock') !== false) return 1;
+                if (stripos($type, 'Risk') !== false || stripos($type, 'Low Stock') !== false) return 2;
+                if (stripos($type, 'Cover') !== false) return 3;
+                if (stripos($type, 'Optimal') !== false || stripos($type, 'Well Stocked') !== false) return 4;
+                if (stripos($type, 'Slow') !== false) return 5;
+                return 6;
+            };
+            $sa = $score($a['type'] ?? '');
+            $sb = $score($b['type'] ?? '');
+            if ($sa !== $sb) return $sa - $sb;
+            return ((int)($a['current_stock'] ?? 0)) - ((int)($b['current_stock'] ?? 0));
+        });
     }
 
     /**
@@ -216,7 +309,7 @@ class InsightsEngine
                 COUNT(p.product_id) AS product_count,
                 SUM(p.quantity) AS total_stock,
                 AVG(p.quantity) AS avg_stock,
-                COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) AS low_stock_count,
+                COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) AS low_stock_count,
                 COALESCE(sales.total_sales, 0) AS monthly_sales
             FROM products p
             LEFT JOIN (
@@ -258,7 +351,7 @@ class InsightsEngine
                 SUM(p.quantity) as total_stock_value,
                 AVG(p.quantity) as avg_stock_per_product,
                 COALESCE(s_sales.sales_count, 0) as monthly_sales,
-                COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) as low_stock_count
+                COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) as low_stock_count
             FROM products p 
             LEFT JOIN (
                 SELECT p2.supplier, COUNT(*) as sales_count

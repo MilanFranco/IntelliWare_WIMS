@@ -8,7 +8,6 @@ if (!isset($_SESSION['Username'])) {
 }
 
 // STRICT ROLE CHECK: Only allow Managers
-// If Admin tries to access, send to Admin Dash. If Staff, send to Staff Dash.
 if (($_SESSION['Role'] ?? '') !== 'manager') { 
     if (($_SESSION['Role'] ?? '') === 'admin') {
         header('Location: dash_admin.php');
@@ -22,11 +21,13 @@ if (($_SESSION['Role'] ?? '') !== 'manager') {
 require_once 'src/layout.php';
 require_once 'config/db.php';
 
+date_default_timezone_set('Asia/Manila');
+
 // --- DATA FETCHING ---
 
 $items = [];
 // Get Products for calculations
-$productQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, reorder_point FROM products";
+$productQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, reorder_point FROM products WHERE archived = 0";
 $productResult = $conn->query($productQuery);
 
 if ($productResult && $productResult->num_rows > 0) {
@@ -87,10 +88,10 @@ if (!function_exists('formatStockValue')) {
 
 // Recent Transactions (Last 5)
 $recentTransactions = [];
-$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, p.product_name, u.username
+$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, COALESCE(p.product_name, 'Archived Product') as product_name, COALESCE(u.username, 'System') as username
                 FROM transactions t
-                JOIN products p ON t.product_id = p.product_id
-                JOIN users u ON t.user_id = u.user_id
+                LEFT JOIN products p ON t.product_id = p.product_id
+                LEFT JOIN users u ON t.user_id = u.user_id
                 ORDER BY t.transaction_date DESC LIMIT 5";
 $transResult = $conn->query($transQuery);
 if ($transResult && $transResult->num_rows > 0) {
@@ -99,48 +100,121 @@ if ($transResult && $transResult->num_rows > 0) {
     }
 }
 
-// Chart Data (Last 7 Days)
-$chartData = ['labels' => [], 'stock_in' => [], 'stock_out' => []];
-$tempData = [];
-for ($i = 6; $i >= 0; $i--) {
-    $date = date('Y-m-d', strtotime("-$i days"));
-    $chartData['labels'][] = date('M j', strtotime("-$i days"));
-    $tempData[$date] = ['stock_in' => 0, 'stock_out' => 0];
-}
-
-$sevenDaysAgo = date('Y-m-d', strtotime('-6 days')); 
-$chartQuery = $conn->prepare("SELECT DATE(transaction_date) as tx_date, transaction_type, COALESCE(SUM(quantity), 0) as total_quantity FROM transactions WHERE transaction_date >= ? GROUP BY tx_date, transaction_type ORDER BY tx_date");
-$chartQuery->bind_param("s", $sevenDaysAgo);
-$chartQuery->execute();
-$chartResult = $chartQuery->get_result();
-
-if ($chartResult) {
-    while ($row = $chartResult->fetch_assoc()) {
-        if (isset($tempData[$row['tx_date']])) {
-            $type = htmlspecialchars($row['transaction_type']);
-            if (array_key_exists($type, $tempData[$row['tx_date']])) {
-                 $tempData[$row['tx_date']][$type] = (int)$row['total_quantity'];
-            }
-        }
-    }
-}
-$chartQuery->close();
-
-foreach ($tempData as $dateData) {
-    $chartData['stock_in'][] = $dateData['stock_in'];
-    $chartData['stock_out'][] = $dateData['stock_out'];
-}
-
-// Heatmap Data (Top 7 Stock-Outs)
-$heatmapData = ['labels' => [], 'data' => []];
-$heatQuery = "SELECT p.product_name, SUM(t.quantity) as demand_qty FROM transactions t JOIN products p ON t.product_id = p.product_id WHERE t.transaction_type = 'stock_out' GROUP BY p.product_id ORDER BY demand_qty DESC LIMIT 7";
+// Heatmap Data (Top 7 Stock-Outs, last 90 days)
+$heatmapData = ['labels' => [], 'data' => [], 'ids' => []];
+$heatNinetyDaysAgo = date('Y-m-d', strtotime('-90 days'));
+$heatQuery = "SELECT p.product_id, p.product_name, SUM(t.quantity) as demand_qty
+              FROM transactions t
+              JOIN products p ON t.product_id = p.product_id
+              WHERE t.transaction_type = 'stock_out' AND p.archived = 0 AND t.transaction_date >= '$heatNinetyDaysAgo'
+              GROUP BY p.product_id ORDER BY demand_qty DESC LIMIT 7";
 $heatResult = $conn->query($heatQuery);
 if ($heatResult) {
     while($row = $heatResult->fetch_assoc()) {
         $heatmapData['labels'][] = $row['product_name'];
         $heatmapData['data'][] = (int)$row['demand_qty'];
+        $heatmapData['ids'][] = (int)$row['product_id'];
     }
 }
+
+// Hero Banner Data
+$displayName = trim($userInfo['full_name'] ?? '') ?: $_SESSION['Username'];
+$userRoleLabel = ucfirst($userInfo['role'] ?? $_SESSION['Role'] ?? 'manager');
+$hour = (int)date('G');
+if ($hour < 12) {
+    $greeting = 'Good morning';
+} elseif ($hour < 17) {
+    $greeting = 'Good afternoon';
+} else {
+    $greeting = 'Good evening';
+}
+
+if ($lowStockCount === 0) {
+    $statusSummary = "All {$totalSKUs} SKUs across {$totalCategories} " . ($totalCategories === 1 ? 'category are' : 'categories are') . " well stocked.";
+} else {
+    $statusSummary = "You have {$lowStockCount} " . ($lowStockCount === 1 ? 'item' : 'items') . " low on stock across {$totalSKUs} SKUs in {$totalCategories} " . ($totalCategories === 1 ? 'category' : 'categories') . ".";
+}
+
+// Priority Insight (same logic as admin)
+$priorityItem = null;
+$priorityInsight = null;
+$priorityType = null;
+$priorityProductId = null;
+
+$nextMonthNum = (int)date('n', strtotime('+1 month'));
+$nextMonthYear = (int)date('Y', strtotime('+1 month'));
+$forecastDateStart = sprintf('%04d-%02d-01', $nextMonthYear, $nextMonthNum);
+$forecastDateEnd   = date('Y-m-t', strtotime($forecastDateStart));
+$forecastPrioQuery = "
+    SELECT product_id, product_name, current_stock, category_name, total_historical_sales
+    FROM (
+        SELECT p.product_id, p.product_name, p.quantity AS current_stock, p.category AS category_name,
+               SUM(t.quantity) AS total_historical_sales
+        FROM transactions t
+        JOIN products p ON t.product_id = p.product_id
+        WHERE t.transaction_type = 'stock_out'
+          AND p.archived = 0
+          AND t.transaction_date >= DATE_SUB('$forecastDateStart', INTERVAL 1 YEAR)
+          AND t.transaction_date <= '$forecastDateEnd'
+          AND MONTH(t.transaction_date) = {$nextMonthNum}
+        GROUP BY t.product_id
+        HAVING SUM(t.quantity) > 0
+    ) AS forecast_prio
+    ORDER BY (current_stock / total_historical_sales) ASC
+    LIMIT 1
+";
+$forecastPrioResult = $conn->query($forecastPrioQuery);
+
+if ($forecastPrioResult && $forecastPrioResult->num_rows > 0) {
+    $row = $forecastPrioResult->fetch_assoc();
+    $stock = (int)$row['current_stock'];
+    $demand = (int)$row['total_historical_sales'];
+    $coverage = ($demand > 0) ? ($stock / $demand) * 100 : 100;
+
+    $priorityItem = $row['product_name'];
+    $priorityProductId = (int)$row['product_id'];
+
+    if ($stock === 0 && $demand > 0) {
+        $priorityType = 'Critical Outage';
+        $priorityInsight = "There is <strong>0 stock</strong> against a demand of {$demand} units. Restock immediately to avoid missed releases.";
+    } elseif ($coverage < 50) {
+        $priorityType = 'High Risk';
+        $priorityInsight = "Stock ({$stock}) only covers " . round($coverage) . "% of expected demand ({$demand}). Recommend ordering more soon.";
+    } elseif ($coverage < 100) {
+        $priorityType = 'Low Cover';
+        $priorityInsight = "Tight inventory alert. Demand ({$demand}) slightly exceeds stock ({$stock}). Plan replenishment soon.";
+    } elseif ($coverage > 300) {
+        $priorityType = 'Slow Moving';
+        $priorityInsight = round($coverage) . "% coverage. Stock ({$stock}) far exceeds demand ({$demand}). Consider pausing orders.";
+    } else {
+        $priorityType = 'Optimal';
+        $priorityInsight = "Inventory ({$stock}) aligns well with demand projection ({$demand}). All good!";
+    }
+}
+
+if (!$priorityItem && !empty($lowStockItems)) {
+    $worstRatio = PHP_FLOAT_MAX;
+    $worstItem = null;
+    foreach ($lowStockItems as $item) {
+        $reorderPoint = max((int)($item['reorder_point'] ?? 10), 1);
+        $ratio = (int)$item['qty'] / $reorderPoint;
+        if ($ratio < $worstRatio) {
+            $worstRatio = $ratio;
+            $worstItem = $item;
+        }
+    }
+    if ($worstItem) {
+        $priorityItem = $worstItem['name'];
+        $priorityProductId = (int)$worstItem['id'];
+        $qty = (int)$worstItem['qty'];
+        $rp = (int)($worstItem['reorder_point'] ?? 10);
+        $pct = round($worstRatio * 100);
+        $priorityType = 'Low Stock Alert';
+        $safeName = htmlspecialchars($worstItem['name'], ENT_QUOTES, 'UTF-8');
+        $priorityInsight = "<strong>{$safeName}</strong> is critically low — only {$qty} units remaining ({$pct}% of reorder point {$rp}). Restock immediately.";
+    }
+}
+
 $conn->close();
 
 // --- RENDER START ---
@@ -149,323 +223,353 @@ renderLayoutStart('Manager Dashboard', $_SESSION['Role'], $userInfo['full_name']
 
 <script src="assets/vendor/chart.umd.min.js"></script>
 
-<style>
-    /* Glassmorphism Card Effect — Matching Insights Page */
-    .premium-metric-card {
-        background: var(--iw-bg-card, linear-gradient(145deg, rgba(29, 56, 123, 0.95) 0%, rgba(18, 39, 91, 0.95) 100%));
-        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6));
-        border-radius: 16px;
-        padding: 24px;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        color: var(--iw-text, white);
-        font-family: 'Onest', sans-serif;
-        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22));
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        position: relative;
-        overflow: hidden;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    [data-theme="light"] .premium-metric-card {
-        background: #FFFFFF !important;
-        border: 1px solid var(--iw-border, #BFCFE0) !important;
-        box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08)) !important;
-        color: var(--iw-text, #0B1526) !important;
-    }
-
-    /* Card Titles & Numbers */
-    .premium-metric-card .card-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--iw-text-muted, #9aa6d1);
-        margin-bottom: 16px;
-    }
-
-    .premium-metric .num {
-        font-size: 32px;
-        font-weight: 700;
-        margin-top: 8px;
-        background: linear-gradient(to right, #fff, #a5b4fc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    /* Clickable Interactions */
-    .premium-metric-card.clickable {
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .premium-metric-card.clickable:hover,
-    .premium-metric-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--iw-border-accent, rgba(81, 213, 90, 0.3));
-        box-shadow: var(--iw-shadow-card-hover, 0 12px 32px rgba(0, 0, 0, 0.35));
-    }
-
-    [data-theme="light"] .premium-metric-card.clickable:hover,
-    [data-theme="light"] .premium-metric-card:hover {
-        border-color: var(--iw-border-accent, #A8C8F0) !important;
-        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15)) !important;
-    }
-
-    /* Tables in Dashboard */
-    .activity-table { width: 100%; border-collapse: collapse; }
-    .activity-table td { padding: 12px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 14px; color: #e3e3e3; }
-    .activity-table tr:last-child td { border-bottom: none; }
-
-    /* Status Badges */
-    .badge { padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .badge-in { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .badge-out { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
-
-    /* Low Stock List */
-    .low-stock-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .low-stock-name { color: #f87171; font-weight: 500; font-size: 14px; }
-    .low-stock-qty { color: #9aa6d1; font-size: 13px; background: rgba(248, 113, 113, 0.1); padding: 2px 8px; border-radius: 4px; }
-
-    /* Canvas Containers */
-    .heatmap-canvas-container { height: 250px; width: 100%; position: relative; }
-</style>
-
-<style>
-    /* ── Page Hero Card — Matching Insights Intel Banner ────────────────────────── */
-    .page-hero-card {
-        background: linear-gradient(135deg, #1D387B 0%, #0F204B 100%) !important;
-        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.6)) !important;
-        border-radius: 18px !important;
-        padding: 24px 28px !important;
-        margin-bottom: 24px !important;
-        box-shadow: var(--iw-shadow-card, 0 10px 30px rgba(0, 0, 0, 0.22)) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        position: relative;
-        overflow: hidden;
-    }
-    .page-hero-card::after {
-        content: '';
-        position: absolute;
-        top: -60px;
-        right: -40px;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(81, 213, 90, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
-        pointer-events: none;
-    }
-    [data-theme="light"] .page-hero-card {
-        background: #FFFFFF !important;
-        border: 1px solid #D6E2F2 !important;
-        border-radius: 18px !important;
-        box-shadow: 0 1px 2px rgba(16,24,43,0.05), 0 16px 32px -16px rgba(20,80,158,0.22) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-    }
-    [data-theme="light"] .page-hero-card::after {
-        display: none !important;
-    }
-    [data-theme="light"] .page-hero-card .text-\[\#9aa6d1\] { color: #45526B !important; }
-    [data-theme="light"] .page-hero-card .text-white { color: #0B1526 !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#13275B\]\/80 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
-    [data-theme="light"] .page-hero-card .bg-\[\#1D387B\]\/60 { background: rgba(220,234,252,0.7) !important; border-color: #D6E2F2 !important; color: #45526B !important; }
-    [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
-</style>
-
-<!-- Hero Page Header Banner -->
-<div class="page-hero-card mb-6">
+<!-- Hero Page Header Banner — matches admin exactly -->
+<div class="page-hero-card dashboard-hero-banner mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <h1 class="text-2xl lg:text-3xl font-bold font-onest text-white tracking-tight flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            <div class="flex flex-wrap items-center gap-3 dashboard-greeting-row">
+                <div class="dashboard-hero-icon w-11 h-11 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10 shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <rect width="7" height="9" x="3" y="3" rx="1.5"></rect>
+                        <rect width="7" height="5" x="14" y="3" rx="1.5"></rect>
+                        <rect width="7" height="9" x="14" y="12" rx="1.5"></rect>
+                        <rect width="7" height="5" x="3" y="16" rx="1.5"></rect>
+                    </svg>
                 </div>
-                Manager Dashboard
-            </h1>
-            <p class="text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
-                Warehouse overview for managers — track inventory levels, recent activity, low-stock alerts, and category distribution at a glance.
+                <h1 class="dashboard-greeting-title text-2xl lg:text-3xl font-extrabold font-onest text-white tracking-tight">
+                    <span id="dashboardGreeting"><?php echo $greeting; ?></span>, <span class="dashboard-username text-[#51D55A]"><?php echo htmlspecialchars($displayName); ?></span>
+                </h1>
+                <span class="dashboard-role-badge inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-onest uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                    <?php echo htmlspecialchars($userRoleLabel); ?>
+                </span>
+            </div>
+            <p class="dashboard-subtext text-sm md:text-base text-[#9aa6d1] mt-2 font-onest">
+                <?php echo htmlspecialchars($statusSummary); ?>
             </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2.5">
-            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/80 border border-[#2A4484] text-xs text-[#E3E3E3]">
-                <span class="w-2 h-2 rounded-full bg-[#51D55A] animate-pulse"></span>
-                Active: <strong class="text-white"><?php echo htmlspecialchars($_SESSION['Username']); ?></strong>
-            </span>
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1D387B]/60 border border-[#2A4484] text-xs text-[#9aa6d1]">
-                <svg class="w-3.5 h-3.5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                Role: <strong class="text-white">Manager</strong>
-            </span>
+
+        <div class="flex items-center gap-3 shrink-0 self-start md:self-center">
+            <a id="addProductBtn" href="products.php?add=1" class="premium-button whitespace-nowrap !py-2.5 !px-5 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-[#51D55A]/20 transition-all hover:scale-[1.02]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
+                Add Product
+            </a>
+        </div>
+    </div>
+
+    <?php if ($priorityItem && $priorityInsight && $priorityProductId): ?>
+    <div class="dashboard-hero-alert-border mt-4 pt-4 border-t border-[#2A4484]/40">
+        <a href="insights.php?product_id=<?php echo (int)$priorityProductId; ?>"
+           class="hero-product-card flex items-start gap-3.5 p-3.5 rounded-xl no-underline transition-all"
+           title="View insights for <?php echo htmlspecialchars($priorityItem); ?>">
+            <div class="hero-product-icon-box w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+            </div>
+            <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="hero-product-name text-[#E3E3E3] font-onest font-semibold text-sm"><?php echo htmlspecialchars($priorityItem); ?></span>
+                    <span class="hero-product-badge inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold">
+                        <?php echo htmlspecialchars($priorityType); ?>
+                    </span>
+                    <svg class="w-3.5 h-3.5 text-[#9aa6d1] hero-product-arrow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </div>
+                <p class="hero-product-desc text-[#9aa6d1] text-xs md:text-sm leading-relaxed font-onest"><?php echo $priorityInsight; ?></p>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
+</div>
+
+<!-- Stat Cards — identical to admin layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="premium-card stat-card-items relative p-6 flex items-center justify-between group hover:border-emerald-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Stock value</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo formatStockValue($totalStockValue); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo number_format($totalUnits); ?> units on hand</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform border border-emerald-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        </div>
+    </div>
+
+    <div class="premium-card stat-card-skus relative p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
+            <div class="premium-metric">
+                <span class="num text-3xl"><?php echo number_format($totalItems); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest">Active catalog SKUs</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform border border-blue-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/></svg>
+        </div>
+    </div>
+
+    <div class="premium-card stat-card-categories relative p-6 flex items-center justify-between group hover:border-amber-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php?filter=low_stock'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($lowStockCount); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $lowStockCount === 1 ? '1 item needs reorder' : number_format($lowStockCount) . ' items need reorder'; ?></div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform border border-amber-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+        </div>
+    </div>
+
+    <div class="premium-card stat-card-low-stock relative p-6 flex items-center justify-between group hover:border-red-500/50 cursor-pointer transition-all" onclick="window.location.href='products.php?filter=out_of_stock'">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Out of Stock</div>
+            <div class="premium-metric">
+                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($outOfStockCount); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs mt-1 font-onest"><?php echo $outOfStockCount === 1 ? '1 item fully depleted' : number_format($outOfStockCount) . ' items fully depleted'; ?></div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform border border-red-500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"/></svg>
         </div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php'">
-    <div class="card-title" style="margin-bottom:0; font-size:14px;">Stock value</div>
-    <div class="num"><?php echo formatStockValue($totalStockValue); ?></div>
-    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo number_format($totalUnits); ?> units on hand</div>
-  </div>
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php'">
-    <div class="card-title" style="margin-bottom:0; font-size:14px;">Total Products</div>
-    <div class="num"><?php echo number_format($totalItems); ?></div>
-    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;">Active catalog SKUs</div>
-  </div>
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php?filter=low_stock'">
-    <div class="card-title" style="margin-bottom:0; font-size:14px;">Low Stock</div>
-    <div class="num" style="<?php echo $lowStockCount > 0 ? 'color:#f59e0b; -webkit-text-fill-color:#f59e0b;' : ''; ?>">
-        <?php echo number_format($lowStockCount); ?>
-    </div>
-    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo $lowStockCount === 1 ? '1 item needs reorder' : number_format($lowStockCount) . ' items need reorder'; ?></div>
-  </div>
-  <div class="premium-metric-card premium-metric clickable" onclick="window.location.href='products.php?filter=out_of_stock'">
-    <div class="card-title" style="margin-bottom:0; font-size:14px;">Out of Stock</div>
-    <div class="num" style="<?php echo $outOfStockCount > 0 ? 'color:#ef4444; -webkit-text-fill-color:#ef4444;' : ''; ?>">
-        <?php echo number_format($outOfStockCount); ?>
-    </div>
-    <div style="font-size:12px; color:#9aa6d1; margin-top:6px; font-weight:500;"><?php echo $outOfStockCount === 1 ? '1 item fully depleted' : number_format($outOfStockCount) . ' items fully depleted'; ?></div>
-  </div>
-</div>
+<!-- Main Grid: Quick Access + Recent Activity + Critical Stock + Top Demand -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6 iw-dashboard-grid-swap">
 
-<div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-top:16px;">
-  
-  <div style="display:flex; flex-direction:column; gap:16px;">
-      
-      <div class="premium-metric-card">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-             <div class="card-title" style="margin-bottom:0;">Recent Transactions</div>
-             <a href="transactions.php" style="color:#51D55A; font-size:13px; text-decoration:none;">View All</a>
-          </div>
-          <div style="margin-top:16px;">
-            <table class="activity-table">
-                <?php if (empty($recentTransactions)): ?>
-                    <tr><td style="text-align:center; color:#9aa6d1; padding:20px;">No transactions recorded yet.</td></tr>
-                <?php else: ?>
-                    <?php foreach($recentTransactions as $tx): ?>
-                        <tr>
-                            <td>
+    <!-- Quick Access -->
+    <div class="premium-card flex flex-col h-[400px] iw-quick-access">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Quick Access
+            </h3>
+        </div>
+        <div class="flex-1 p-5 flex flex-col gap-4">
+            <a href="receive.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex-1">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"></path></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-[#E3E3E3] text-base group-hover:text-emerald-400 transition-colors">Receive Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Add incoming stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+            <a href="release.php" class="group flex items-center gap-4 p-4 rounded-xl bg-[#13275B]/50 border border-[#2A4484] hover:border-red-500/40 hover:bg-red-500/5 transition-all flex-1">
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 border border-red-500/20 group-hover:scale-105 transition-transform flex-shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12h-15"></path></svg>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-onest font-semibold text-[#E3E3E3] text-base group-hover:text-red-400 transition-colors">Release Inventory</div>
+                    <div class="text-[#9aa6d1] text-xs mt-1">Record outgoing stock</div>
+                </div>
+                <svg class="w-5 h-5 text-[#9aa6d1] ml-auto group-hover:text-red-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="premium-card flex flex-col h-[400px] iw-recent-activity">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Recent Activity
+            </h3>
+            <a href="transactions.php" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest">View All &rarr;</a>
+        </div>
+        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
+            <?php if (empty($recentTransactions)): ?>
+                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                    <span>No recent activity</span>
+                </div>
+            <?php else: ?>
+                <table class="w-full">
+                    <tbody class="text-sm">
+                        <?php foreach($recentTransactions as $tx): ?>
+                        <tr class="border-b border-[#2A4484]/30 hover:bg-[#2A4484]/20 transition-colors">
+                            <td class="p-3 w-10">
                                 <?php if($tx['transaction_type'] === 'stock_in'): ?>
-                                    <span class="badge badge-in">IN</span>
+                                    <div class="w-8 h-8 rounded bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                    </div>
                                 <?php else: ?>
-                                    <span class="badge badge-out">OUT</span>
+                                    <div class="w-8 h-8 rounded bg-red-500/10 text-red-400 flex items-center justify-center border border-red-500/20">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                    </div>
                                 <?php endif; ?>
                             </td>
-                            <td><strong><?php echo htmlspecialchars($tx['product_name']); ?></strong></td>
-                            <td>Qty: <strong><?php echo (int)$tx['quantity']; ?></strong></td>
-                            <td style="color:#9aa6d1;"><?php echo htmlspecialchars($tx['username']); ?></td>
-                            <td style="color:#9aa6d1; text-align:right;"><?php echo date('M j, g:ia', strtotime($tx['transaction_date'])); ?></td>
+                            <td class="p-3">
+                                <div class="text-[#E3E3E3] font-medium truncate max-w-[150px]"><?php echo htmlspecialchars($tx['product_name']); ?></div>
+                                <div class="text-[#9aa6d1] text-xs">
+                                    <?php echo $tx['transaction_type'] === 'stock_in' ? 'Restocked' : 'Dispensed'; ?>
+                                    <span class="text-white font-mono font-bold"><?php echo (int)$tx['quantity']; ?></span> units
+                                </div>
+                            </td>
+                            <td class="p-3 text-right">
+                                <div class="text-[#E3E3E3] text-xs"><?php echo htmlspecialchars($tx['username']); ?></div>
+                                <div class="text-[#6b7280] text-[10px]"><?php echo date('M j, g:ia', strtotime($tx['transaction_date'])); ?></div>
+                            </td>
                         </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Critical Stock Levels -->
+    <div class="premium-card flex flex-col h-[350px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
+                Critical Stock Levels
+            </h3>
+            <a href="products.php?filter=low_stock" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest">Manage &rarr;</a>
+        </div>
+        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
+            <?php if (empty($lowStockItems)): ?>
+                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                    <svg class="w-12 h-12 mb-2 text-emerald-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>All items well stocked!</span>
+                </div>
+            <?php else: ?>
+                <div class="space-y-2">
+                    <?php foreach(array_slice($lowStockItems, 0, 7) as $item): ?>
+                    <?php $isOut = (int)$item['qty'] <= 0; ?>
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-[#13275B]/50 border border-[#2A4484] <?php echo $isOut ? 'hover:border-red-500/30' : 'hover:border-amber-500/30'; ?> transition-colors">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 rounded-full <?php echo $isOut ? 'bg-red-500' : 'bg-amber-500'; ?> animate-pulse"></div>
+                            <div>
+                                <div class="text-[#E3E3E3] text-sm font-medium"><?php echo htmlspecialchars($item['name']); ?></div>
+                                <div class="text-[#9aa6d1] text-xs">Reorder Point: <?php echo $item['reorder_point']; ?></div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="<?php echo $isOut ? 'text-red-400' : 'text-amber-400'; ?> font-bold font-mono text-lg"><?php echo (int)$item['qty']; ?></div>
+                            <div class="text-[#9aa6d1] text-[10px]">Remaining</div>
+                        </div>
+                    </div>
                     <?php endforeach; ?>
-                <?php endif; ?>
-            </table>
-          </div>
-      </div>
+                    <?php if ($lowStockCount > 7): ?>
+                    <div class="text-center py-2 text-xs text-[#9aa6d1]">
+                        ...and <?php echo $lowStockCount - 7; ?> more items
+                    </div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
-      <div class="premium-metric-card">
-          <div class="card-title">Daily Transaction Volume (Last 7 Days)</div>
-          <div style="height: 150px;">
-            <canvas id="overviewChart"></canvas>
-          </div>
-      </div>
-  </div>
-
-  <div style="display:flex; flex-direction:column; gap:16px;">
-      
-      <div class="premium-metric-card">
-          <div class="card-title">Actionable Low Stock</div>
-          <div class="low-stock-list">
-              <?php if (empty($lowStockItems)): ?>
-                  <div style="text-align:center; color:#9aa6d1; padding:20px 0;">All items are well-stocked!</div>
-              <?php else: ?>
-                  <?php foreach(array_slice($lowStockItems, 0, 5) as $item): ?>
-                      <?php $isOut = (int)$item['qty'] <= 0; ?>
-                      <div class="low-stock-item" style="border-left: 3px solid <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>; padding-left: 8px;">
-                          <span class="low-stock-name"><?php echo htmlspecialchars($item['name']); ?></span>
-                          <span class="low-stock-qty" style="color: <?php echo $isOut ? '#ef4444' : '#fbbf24'; ?>;"><?php echo (int)$item['qty']; ?> left</span>
-                      </div>
-                  <?php endforeach; ?>
-                  <?php if ($lowStockCount > 5): ?>
-                      <div style="color:#9aa6d1; font-size: 13px; text-align: center; margin-top: 5px; cursor:pointer;" onclick="window.location.href='reports.php'">
-                          ...and <?php echo $lowStockCount - 5; ?> more.
-                      </div>
-                  <?php endif; ?>
-              <?php endif; ?>
-          </div>
-      </div>
-
-      <div class="premium-metric-card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-             <div class="card-title" style="margin-bottom:0;">Product Demand</div>
-             <a href="insights.php" style="color:#51D55A; text-decoration:none; font-size:18px;">&rarr;</a>
-          </div>
-          
-          <?php if (empty($heatmapData['data'])): ?>
-            <div style="text-align:center; color:#9aa6d1; padding:20px;">No demand data available yet.</div>
-          <?php else: ?>
-            <div class="heatmap-canvas-container">
+    <!-- Top Demand Chart -->
+    <div class="premium-card flex flex-col h-[350px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+            <h3 class="font-onest font-semibold text-lg text-white">Top Demand</h3>
+            <a href="insights.php" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest">Full Report &rarr;</a>
+        </div>
+        <div class="p-4 flex-1 relative">
+            <?php if (empty($heatmapData['data'])): ?>
+                <div class="flex items-center justify-center h-full text-[#9aa6d1]">No demand data yet</div>
+            <?php else: ?>
                 <canvas id="demandChart"></canvas>
-            </div>
-          <?php endif; ?>
-      </div>
-  </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
 </div>
+
+<?php renderLayoutContentEnd(); renderLayoutShellEnd(); ?>
 
 <script>
 if (typeof Chart === 'undefined') {
-    console.error("Chart.js is not loaded.");
+    console.error("Chart.js missing.");
 } else {
-
-    // 1. Transaction Volume Chart
-    (function(){
-        const chartData = <?php echo json_encode($chartData); ?>;
-        const ctx = document.getElementById('overviewChart');
-        if(ctx){
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartData.labels,
-                    datasets: [
-                        { label: 'Stock In', data: chartData.stock_in, backgroundColor: 'rgba(52, 211, 153, 0.7)', borderRadius: 4, barPercentage: 0.6 },
-                        { label: 'Stock Out', data: chartData.stock_out, backgroundColor: 'rgba(248, 113, 113, 0.7)', borderRadius: 4, barPercentage: 0.6 }
-                    ]
-                },
-                options: { 
-                    responsive: true, maintainAspectRatio: false,
-                    plugins:{ legend:{ labels:{ color:'#E3E3E3', font: { family: 'Onest' } } } }, 
-                    scales:{ x:{ ticks:{ color:'#E3E3E3' }, grid:{ display: false } }, y:{ beginAtZero: true, ticks:{ color:'#E3E3E3' }, grid:{ color:'rgba(255,255,255,0.05)' } } }
-                }
-            });
-        }
-    })();
-
-    // 2. Product Demand Heatmap
+    // Top Demand Chart
     (function(){
         const heatData = <?php echo json_encode($heatmapData); ?>;
         if(heatData.labels.length === 0) return;
+
         const ctx = document.getElementById('demandChart');
         if(ctx){
             new Chart(ctx, {
-                type: 'bar', indexAxis: 'y',
+                type: 'bar',
+                indexAxis: 'y',
                 data: {
                     labels: heatData.labels,
                     datasets: [{
-                        label: 'Units Sold', data: heatData.data,
-                        backgroundColor: ['rgba(248, 113, 113, 0.85)', 'rgba(167, 139, 250, 0.85)', 'rgba(96, 165, 250, 0.85)', 'rgba(52, 211, 153, 0.85)', 'rgba(251, 191, 36, 0.85)', 'rgba(147, 197, 253, 0.85)', 'rgba(209, 213, 219, 0.85)'],
-                        borderRadius: 6, barThickness: 25
+                        label: 'Units Sold',
+                        data: heatData.data,
+                        backgroundColor: [
+                            'rgba(248, 113, 113, 0.8)',
+                            'rgba(251, 146, 60, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(163, 230, 53, 0.8)',
+                            'rgba(52, 211, 153, 0.8)',
+                            'rgba(96, 165, 250, 0.8)',
+                            'rgba(167, 139, 250, 0.8)',
+                        ],
+                        borderRadius: 4,
+                        barThickness: 20
                     }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: { backgroundColor: 'rgba(29, 56, 123, 0.9)', titleColor: '#fff', bodyColor: '#fff' }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: function(evt, elements) {
+                        if (!elements.length) return;
+                        const idx = elements[0].index;
+                        const productId = heatData.ids[idx];
+                        if (productId) {
+                            window.location.href = 'insights.php?product_id=' + productId;
+                        }
                     },
-                    scales: { x: { display: false, grid: { display: false } }, y: { ticks: { color: '#E3E3E3', font: { size: 12, family: 'Onest', weight: 600 }, crossAlign: 'near', padding: 10 }, grid: { display: false }, border: { display: false } } }
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function() { return 'Click to view insights'; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false, grid: { display: false } },
+                        y: {
+                            ticks: { color: (window.IWTheme ? IWTheme.chartColors().text : '#E3E3E3'), font: { family: 'Onest', size: 11 } },
+                            grid: { display: false },
+                            border: { display: false }
+                        }
+                    }
                 }
             });
         }
     })();
 }
+document.addEventListener('themechange', function() { if (window.IWTheme) IWTheme.refreshAllCharts(); });
+
+// Dynamic browser-local greeting updater
+(function initDynamicGreeting() {
+    function getGreetingForHour(hour) {
+        if (hour >= 5 && hour < 12) {
+            return 'Good morning';
+        } else if (hour >= 12 && hour < 17) {
+            return 'Good afternoon';
+        } else {
+            return 'Good evening';
+        }
+    }
+    function updateGreeting() {
+        const greetingEl = document.getElementById('dashboardGreeting');
+        if (greetingEl) {
+            const currentHour = new Date().getHours();
+            greetingEl.textContent = getGreetingForHour(currentHour);
+        }
+    }
+    updateGreeting();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updateGreeting);
+    }
+    setInterval(updateGreeting, 30000);
+})();
 </script>
 
-<?php renderLayoutEnd(); ?>
+<?php renderLayoutFooter(); ?>

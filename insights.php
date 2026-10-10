@@ -57,7 +57,7 @@ function resolveInsightCategory(string $category, mysqli $conn): string
     if ($knownCategories === null) {
         $map = LocationCategoryService::buildMap($conn);
         $knownCategories = $map['categories'];
-        $res = $conn->query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != ''");
+        $res = $conn->query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' AND archived = 0");
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $knownCategories[] = trim((string)$row['category']);
@@ -169,11 +169,11 @@ switch ($selectedPeriod) {
 
 function getCategoryPerformance($conn) {
     $query = "SELECT p.category AS category_name, COUNT(p.product_id) AS product_count, SUM(p.quantity) AS total_stock,
-        AVG(p.quantity) AS avg_stock, COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) AS low_stock_count,
+        AVG(p.quantity) AS avg_stock, COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) AS low_stock_count,
         (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id
         WHERE p2.category = p.category AND t.transaction_type = 'stock_out') AS monthly_sales
         FROM products p
-        WHERE p.category IS NOT NULL AND p.category != ''
+        WHERE p.category IS NOT NULL AND p.category != '' AND p.archived = 0
         GROUP BY p.category ORDER BY monthly_sales DESC";
     $result = $conn->query($query);
     $categories = [];
@@ -184,7 +184,7 @@ function getCategoryPerformance($conn) {
 function getProductMovementAnalysis($conn) {
     $query = "SELECT p.product_id, p.product_name, p.category AS category_name, p.quantity AS current_stock, p.reorder_point,
         (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') AS monthly_sales
-        FROM products p ORDER BY monthly_sales DESC";
+        FROM products p WHERE p.archived = 0 ORDER BY monthly_sales DESC";
     
     $result = $conn->query($query);
     $products = [];
@@ -227,8 +227,8 @@ function getSupplierPerformance($conn) {
         AVG(p.quantity) as avg_stock_per_product,
         (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id 
         WHERE p2.supplier = p.supplier AND t.transaction_type = 'stock_out') as monthly_sales,
-        COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) as low_stock_count
-        FROM products p WHERE p.supplier IS NOT NULL AND p.supplier != ''
+        COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) as low_stock_count
+        FROM products p WHERE p.supplier IS NOT NULL AND p.supplier != '' AND p.archived = 0
         GROUP BY p.supplier ORDER BY monthly_sales DESC";
     $result = $conn->query($query);
     $suppliers = [];
@@ -242,7 +242,7 @@ function getExpiryRiskAnalysis($conn) {
         (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') AS monthly_sales
         FROM inventory_batches b
         JOIN products p ON b.product_id = p.product_id
-        WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.quantity > 0
+        WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.quantity > 0 AND p.archived = 0
         ORDER BY days_until_expiry ASC";
     $result = $conn->query($query);
     $expiryRisks = [];
@@ -528,7 +528,7 @@ if ($hasMlModel && !empty($seasonalChartData['month_labels']) && !empty($seasona
 // $conn is kept open for layout and cleanly closed at end of request
 
 require_once 'src/layout.php';
-renderLayoutStart('Data Mining & Analytics', $role, $_SESSION['Username']);
+renderLayoutStart('Smart Insights & Analytics', $role, $_SESSION['Username']);
 ?>
 
 
@@ -677,6 +677,62 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12) !important;
 }
 
+.stat-card-sub {
+    font-family: 'Onest', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--insights-text-muted, #9aa6d1);
+    margin-top: 4px;
+    line-height: 1.3;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+[data-theme="light"] .stat-card-sub {
+    color: #64748B !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+
+.card-section-title,
+.forecast-card-main-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--insights-heading, #E3E3E3);
+    line-height: 1.35;
+}
+[data-theme="light"] .card-section-title,
+[data-theme="light"] .forecast-card-main-title {
+    color: #0F172A !important;
+}
+
+.smart-restock-heading-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: #51D55A;
+    line-height: 1.35;
+}
+[data-theme="light"] .smart-restock-heading-text {
+    color: #16a34a !important;
+}
+
+.smart-restock-subtext {
+    font-size: 12.5px;
+    color: var(--insights-text-muted, #9aa6d1);
+    line-height: 1.4;
+}
+[data-theme="light"] .smart-restock-subtext {
+    color: #64748B !important;
+}
+
+.iw-table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 .tab-container {
     display: flex; gap: 18px; border-bottom: 1px solid var(--insights-border); margin-bottom: 24px; padding-bottom: 0;
 }
@@ -794,18 +850,136 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 }
 .loading-overlay {
     position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(6px);
-    display: flex; justify-content: center; align-items: center;
-    border-radius: 16px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    background: rgba(10, 18, 42, 0.82);
+    backdrop-filter: blur(5px);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px;
+    border-radius: 16px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
 }
 .forecast-card.loading .loading-overlay { opacity: 1; pointer-events: all; }
 .spinner {
-    width: 40px; height: 40px; border: 3px solid rgba(148, 163, 184, 0.25);
+    width: 42px; height: 42px; border: 3px solid rgba(148, 163, 184, 0.2);
     border-top: 3px solid var(--insights-accent); border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.8s linear infinite;
+}
+.loading-overlay-text {
+    font-size: 13px; font-weight: 600; color: #51D55A; letter-spacing: 0.3px;
+    font-family: 'Onest', sans-serif;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* ─── Refresh Forecast & Live Stock Sync Button ────────── */
+.refresh-forecast-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 34px;
+    padding: 0 14px;
+    color: #51D55A;
+    background: rgba(81, 213, 90, 0.12);
+    border: 1px solid rgba(81, 213, 90, 0.38);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Onest', sans-serif;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.refresh-forecast-btn:hover {
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%);
+    color: #ffffff !important;
+    border-color: #51D55A;
+    box-shadow: 0 4px 14px rgba(81, 213, 90, 0.38);
+    transform: translateY(-1px);
+}
+.refresh-forecast-btn:active {
+    transform: translateY(1px);
+}
+.refresh-forecast-btn.is-loading {
+    background: rgba(81, 213, 90, 0.18) !important;
+    border-color: rgba(81, 213, 90, 0.6) !important;
+    color: #51D55A !important;
+    pointer-events: none;
+    box-shadow: 0 0 14px rgba(81, 213, 90, 0.25);
+}
+.refresh-forecast-btn.is-success {
+    background: rgba(16, 185, 129, 0.2) !important;
+    border-color: #10b981 !important;
+    color: #34d399 !important;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+.refresh-icon-holder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+.refresh-spinner-svg {
+    animation: forecastSpin 0.75s linear infinite;
+    display: none;
+}
+.refresh-forecast-btn.is-loading .refresh-default-icon {
+    display: none !important;
+}
+.refresh-forecast-btn.is-loading .refresh-spinner-svg {
+    display: inline-block !important;
+}
+.refresh-forecast-btn.is-success .refresh-default-icon,
+.refresh-forecast-btn.is-success .refresh-spinner-svg {
+    display: none !important;
+}
+.refresh-forecast-btn.is-success .refresh-check-icon {
+    display: inline-block !important;
+}
+
+@keyframes forecastSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.forecast-sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: 'Onest', sans-serif;
+    color: var(--insights-text-muted);
+    background: rgba(148, 163, 184, 0.09);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.forecast-sync-pill .sync-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #51D55A;
+    box-shadow: 0 0 6px rgba(81, 213, 90, 0.8);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+.forecast-sync-pill.is-loading .sync-dot {
+    background: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.85);
+    animation: syncDotPulse 0.8s infinite alternate;
+}
+@keyframes syncDotPulse {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.25); opacity: 1; }
+}
+
+#forecastTableBody.is-refreshing {
+    opacity: 0.45;
+    filter: blur(0.5px);
+    transition: all 0.25s ease;
+}
 
 .info-icon {
     display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
@@ -1848,17 +2022,41 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     }
     [data-theme="light"] .table th:first-child,
     [data-theme="light"] .table td:first-child {
-        background: #d6e2ee;          /* light theme card colour */
+        background: #ffffff !important;          /* light theme card colour */
+        box-shadow: 4px 0 8px rgba(0, 0, 0, 0.08);
     }
     /* Keep hover state readable on the sticky cell */
     .table tr:hover td:first-child {
         background: #1b3474;
     }
     [data-theme="light"] .table tr:hover td:first-child {
-        background: #c8d5e3;
+        background: #f1f5f9 !important;
     }
     /* th sticky header also needs a higher z-index so it sits above sticky td */
     .table th:first-child { z-index: 3; }
+
+    #productTableWrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #productTable {
+        min-width: 760px !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    #productTable th,
+    #productTable td {
+        white-space: nowrap !important;
+    }
+    #productTable td:first-child,
+    #productTable th:first-child {
+        white-space: normal !important;
+        min-width: 140px !important;
+        max-width: 200px !important;
+    }
 
     /* ── 2. GREEN SCROLLBARS ──────────────────────────────────────
        Apply the app's green accent (#51D55A) to all scrollable areas
@@ -1931,6 +2129,48 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+    }
+    .metric-card .stat-card-sub {
+        font-size: 9.5px !important;
+        line-height: 1.25 !important;
+        margin-top: 2px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+        text-transform: none !important;
+        letter-spacing: normal !important;
+        font-weight: 500 !important;
+    }
+
+    /* Header uniformity across cards and forecast widget */
+    .card-section-title,
+    .forecast-card-main-title {
+        font-size: 13.5px !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+        margin-bottom: 8px !important;
+    }
+
+    .smart-restock-heading-text {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        line-height: 1.3 !important;
+    }
+
+    .smart-restock-subtext {
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+        margin-top: 3px !important;
+    }
+
+    .section-heading-icon {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    .section-heading-icon svg {
+        width: 16px !important;
+        height: 16px !important;
     }
     .metric-card .num {
         font-size: 24px !important;
@@ -2045,7 +2285,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <div class="insights-hero-icon w-10 h-10 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"></path></svg>
                 </div>
-                Data Mining &amp; Analytics
+                Smart Insights &amp; Analytics
             </h1>
             <p class="insights-hero-desc text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
                 Advanced analytics powered by data mining algorithms — forecast demand, identify movement trends, and optimize warehouse restocking decisions.
@@ -2072,6 +2312,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalProducts); ?></span>
             </div>
+            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;">Active catalog SKUs</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 border border-[#51D55A]/20 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -2084,6 +2325,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($attentionNeededCount); ?></span>
             </div>
+            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $attentionNeededCount === 0 ? 'All items well-stocked' : ($attentionNeededCount === 1 ? '1 item needs reorder' : number_format($attentionNeededCount) . ' items need reorder'); ?></div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -2096,6 +2338,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($fastMovingCount); ?></span>
             </div>
+            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;">High sales velocity</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
@@ -2108,6 +2351,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($expiringSoonCount); ?></span>
             </div>
+            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $expiringSoonCount === 0 ? 'No batches near expiry' : ($expiringSoonCount === 1 ? '1 batch expiring in 30d' : number_format($expiringSoonCount) . ' batches expiring in 30d'); ?></div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -2125,7 +2369,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 
 <div class="tab-content active" id="product-analysis">
     <div class="card">
-        <div style="color: #E3E3E3; font-weight: 600; font-size: 18px; margin-bottom: 16px;">Product Movement Analysis</div>
+        <div class="card-section-title" style="margin-bottom: 16px;">Product Movement Analysis</div>
         <div class="search-filter-container">
             <div class="search-input-group flex items-center gap-2 flex-1 w-full min-w-0">
                 <input type="text" id="productSearch" oninput="currentProductPage = 1; filterProductTable();" onkeydown="if(event.key==='Enter'){event.preventDefault(); currentProductPage = 1; filterProductTable();}" class="search-box flex-1 min-w-0" style="height: 42px; width: 100%;" placeholder="Search products...">
@@ -2163,8 +2407,8 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 <option value="overstocked">Overstocked</option>
             </select>
         </div>
-        <div class="iw-table-scroll overflow-x-auto" style="overflow-x: auto;">
-            <table class="table" id="productTable" style="min-width: 680px;">
+        <div id="productTableWrap" class="iw-table-scroll" style="overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; width: 100% !important; max-width: 100% !important; display: block !important;">
+            <table class="table" id="productTable" style="min-width: 760px; width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
                         <th>Product</th><th>Category</th><th>Current Stock</th><th>Monthly Sales</th>
@@ -2330,10 +2574,13 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 <div class="forecast-card" id="forecastWidget">
-    <div class="loading-overlay"><div class="spinner"></div></div>
+    <div class="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-overlay-text">Recalculating forecast with live warehouse inventory...</div>
+    </div>
     
-    <div style="color: #E3E3E3; font-weight: 600; font-size: 20px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
+    <div class="card-section-title forecast-card-main-title" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
             <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg></span>
             <span>Demand Forecasting &amp; Smart Restock</span>
         </div>
@@ -2345,22 +2592,45 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div class="smart-restock-banner">
         <div class="bg-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg></div>
         
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative; z-index: 2;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative; z-index: 2; flex-wrap: wrap; gap: 14px;">
             <div>
-                <div class="smart-restock-heading-text" style="color: #51D55A; font-weight: 700; font-size: 20px; display: flex; align-items: center; gap: 8px;">
+                <div class="smart-restock-heading-text" style="color: #51D55A; font-weight: 600; display: flex; align-items: center; gap: 7px;">
                     <span class="section-heading-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
                     <span>30-Day Inventory Replenishment &amp; Demand Forecast</span>
                 </div>
-                <div style="color: var(--insights-text-muted); font-size: 13px; margin-top: 6px;">
+                <div class="smart-restock-subtext" style="color: var(--insights-text-muted); font-size: 13px; margin-top: 5px;">
                     Prescriptive restocking recommendations based on historical sales velocity, depletion rate, and stock safety buffers.
                 </div>
             </div>
             
-            <div class="tooltip-container">
-                <div class="info-circle">?</div>
-                <div class="tooltip-text">
-                    <strong>How this works:</strong><br><br>
-                    Synthesizes 30-day transactional velocity, stockout hazard levels, and warehouse inventory to prescribe optimal restock orders.
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                <div class="forecast-sync-pill" id="forecastSyncStatusPill" title="Live status of warehouse stock reconciliation">
+                    <span class="sync-dot"></span>
+                    <span id="forecastSyncStatusText">Live Stock Active</span>
+                </div>
+
+                <button type="button" id="btnRefreshSmartRestock" class="refresh-forecast-btn" onclick="refreshSmartRestockForecast(event)" title="Reconcile and recalculate forecast using live warehouse inventory">
+                    <span class="refresh-icon-holder">
+                        <svg class="refresh-default-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        </svg>
+                        <svg class="refresh-spinner-svg" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.8" opacity="0.25"/>
+                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.8" stroke-dasharray="38" stroke-dashoffset="14" stroke-linecap="round"/>
+                        </svg>
+                        <svg class="refresh-check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                    <span class="refresh-text" id="refreshBtnLabel">Refresh Forecast</span>
+                </button>
+
+                <div class="tooltip-container">
+                    <div class="info-circle">?</div>
+                    <div class="tooltip-text">
+                        <strong>How this works:</strong><br><br>
+                        Synthesizes 30-day transactional velocity, stockout hazard levels, and real-time warehouse inventory to prescribe optimal restock orders.
+                    </div>
                 </div>
             </div>
         </div>
@@ -2846,17 +3116,18 @@ function renderSeasonalModalRow(item, periodDisplayName) {
                     </div>
                 </div>
             </td>
-            <td style="width: 48%;">
+            <td style="width: 42%; min-width: 220px;">
                 <div class="table-intel-sentence">${formatSafeSeasonalHtml(intelSentence)}</div>
                 ${actionCalloutHtml}
             </td>
-            <td style="width: 18%; text-align: right;">
+            <td style="width: 24%; min-width: 135px; text-align: right;">
                 <div class="table-stock-wrap">
                     <div class="table-stock-num">${stockDisplay}</div>
-                    <button type="button" class="btn-table-check check-stock-btn"
+                    <button type="button" class="btn-table-check check-stock-btn action-btn"
                         data-product="${escapeHtml(item.product_name || '')}"
                         data-category="${escapeHtml(item.category_name || '')}"
-                        data-id="${escapeHtml(item.product_id || '')}">
+                        data-id="${escapeHtml(item.product_id || '')}"
+                        onclick="handleCheckStockClick(event, this)">
                         Check stock &rarr;
                     </button>
                 </div>
@@ -3254,20 +3525,265 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 <?php endif; ?>
 
-function checkStock(productName, categoryName, productId) {
+window.checkStock = function(productName, categoryName, productId) {
     var params = new URLSearchParams();
     if (productId) params.set('product_id', productId);
     if (categoryName) params.set('category', categoryName);
     if (productName) params.set('q', productName);
     params.set('ref', 'insights');
     window.location.href = 'transactions.php?' + params.toString();
-}
+};
+
+window.handleCheckStockClick = function(e, btn) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    var button = btn || (e ? e.target.closest('.check-stock-btn, .btn-table-check') : null);
+    if (!button) return;
+    var pName = button.getAttribute('data-product') || button.dataset.product || '';
+    var cName = button.getAttribute('data-category') || button.dataset.category || '';
+    var pId   = button.getAttribute('data-id') || button.dataset.id || '';
+    window.checkStock(pName, cName, pId);
+};
 
 document.addEventListener('click', function (e) {
-    var btn = e.target.closest('.check-stock-btn');
+    var btn = e.target.closest('.check-stock-btn, .btn-table-check');
     if (!btn) return;
-    checkStock(btn.dataset.product || '', btn.dataset.category || '', btn.dataset.id || '');
+    window.handleCheckStockClick(e, btn);
 });
+
+const currentForecastPeriod = <?php echo json_encode($forecastPeriod ?? 'monthly'); ?>;
+
+window.renderForecastTableRows = function(items) {
+    const tbody = document.getElementById('forecastTableBody');
+    if (!tbody) return;
+
+    if (!Array.isArray(items) || items.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 32px 16px; color: var(--insights-text-muted); font-size: 13.5px;">
+                    No restock recommendations or demand alerts for the selected period.
+                </td>
+            </tr>
+        `;
+        if (typeof setForecastPage === 'function') setForecastPage(1);
+        return;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function sanitizeSnippet(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&lt;strong&gt;/gi, '<strong>')
+            .replace(/&lt;\/strong&gt;/gi, '</strong>')
+            .replace(/&lt;em&gt;/gi, '<em>')
+            .replace(/&lt;\/em&gt;/gi, '</em>')
+            .replace(/&lt;b&gt;/gi, '<b>')
+            .replace(/&lt;\/b&gt;/gi, '</b>');
+    }
+
+    let rowsHtml = '';
+    items.forEach(item => {
+        const pName = escapeHtml(item.product_name || 'Unnamed Product');
+        const cName = escapeHtml(item.category_name || 'General');
+        const isHighlight = Boolean(item.highlight);
+        const rowClass = isHighlight ? 'forecast-row--highlighted' : '';
+        const rowId = isHighlight ? ' id="highlighted-product-row"' : '';
+
+        // Status badge calculation
+        const typeStr = item.type || item.status || 'Normal';
+        let badgeColor = '#9aa6d1';
+        let badgeBg = 'rgba(154, 166, 209, 0.15)';
+        if (/Critical|Out of Stock/i.test(typeStr)) {
+            badgeColor = '#ef4444';
+            badgeBg = 'rgba(239, 68, 68, 0.15)';
+        } else if (/Risk|Low/i.test(typeStr)) {
+            badgeColor = '#f59e0b';
+            badgeBg = 'rgba(245, 158, 11, 0.15)';
+        } else if (/Well Stocked|Optimal/i.test(typeStr)) {
+            badgeColor = '#10b981';
+            badgeBg = 'rgba(16, 185, 129, 0.15)';
+        } else if (/Opportunity/i.test(typeStr)) {
+            badgeColor = '#3b82f6';
+            badgeBg = 'rgba(59, 130, 246, 0.15)';
+        } else if (/Moderate|Cover/i.test(typeStr)) {
+            badgeColor = '#eab308';
+            badgeBg = 'rgba(234, 179, 8, 0.15)';
+        } else if (/Slow/i.test(typeStr)) {
+            badgeColor = '#a855f7';
+            badgeBg = 'rgba(168, 85, 247, 0.15)';
+        }
+
+        const stockNum = Number(item.current_stock ?? 0);
+        const stockFormatted = stockNum.toLocaleString();
+
+        let demandLiftHtml = '';
+        if (item.demand_lift) {
+            demandLiftHtml = `
+                <span class="forecast-stock-pill" style="border-color: rgba(81, 213, 90, 0.4); color: #51D55A;">
+                    <strong>${escapeHtml(item.demand_lift)} Demand</strong>
+                </span>
+            `;
+        }
+
+        let descColHtml = '';
+        if (item.descriptive && item.predictive && item.prescriptive) {
+            let actionClass = 'action-optimal';
+            let actionBadgeClass = 'insight-badge--action';
+            if (item.action_needed === 'urgent') {
+                actionClass = 'action-urgent';
+                actionBadgeClass = 'insight-badge--urgent';
+            } else if (item.action_needed === 'pause') {
+                actionClass = 'action-pause';
+                actionBadgeClass = 'insight-badge--pause';
+            } else if (item.action_needed === 'restock' || item.action_needed === 'monitor') {
+                actionClass = 'action-monitor';
+                actionBadgeClass = 'insight-badge--monitor';
+            }
+
+            descColHtml = `
+                <div class="insight-hierarchy">
+                    <div class="insight-row insight-row--situation">
+                        <span class="insight-badge insight-badge--situation">Context</span>
+                        <div class="insight-desc">${sanitizeSnippet(item.descriptive)}</div>
+                    </div>
+                    <div class="insight-row insight-row--forecast">
+                        <span class="insight-badge insight-badge--forecast">Forecast</span>
+                        <div class="insight-desc">${sanitizeSnippet(item.predictive)}</div>
+                    </div>
+                    <div class="insight-row insight-row--action ${actionClass}">
+                        <span class="insight-badge ${actionBadgeClass}">Action</span>
+                        <div class="insight-desc insight-desc--action">${sanitizeSnippet(item.prescriptive)}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            descColHtml = `<div class="insight-text">${sanitizeSnippet(item.insight || '')}</div>`;
+        }
+
+        const pIdAttr = item.product_id ? ` data-id="${item.product_id}"` : '';
+
+        rowsHtml += `
+            <tr class="${rowClass}"${rowId}>
+                <td>
+                    <div class="product-title">${pName}</div>
+                    <div class="product-sub">${cName}</div>
+                    <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
+                        <span class="forecast-status-badge" style="background-color: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}40;">
+                            ${escapeHtml(typeStr)}
+                        </span>
+                        <span class="forecast-stock-pill">
+                            Stock: <strong>${stockFormatted}</strong>
+                        </span>
+                        ${demandLiftHtml}
+                    </div>
+                </td>
+                <td>
+                    ${descColHtml}
+                </td>
+                <td>
+                    <button type="button" class="action-btn check-stock-btn"
+                        data-product="${pName}"
+                        data-category="${cName}"${pIdAttr}>
+                        Check Stock
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = rowsHtml;
+    if (typeof setForecastPage === 'function') {
+        setForecastPage(1);
+    }
+};
+
+window.refreshSmartRestockForecast = function(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const btn = document.getElementById('btnRefreshSmartRestock');
+    const label = document.getElementById('refreshBtnLabel');
+    const pill = document.getElementById('forecastSyncStatusPill');
+    const pillText = document.getElementById('forecastSyncStatusText');
+    const tbody = document.getElementById('forecastTableBody');
+
+    if (btn && btn.classList.contains('is-loading')) {
+        return;
+    }
+
+    // Enter loading state
+    if (btn) {
+        btn.classList.remove('is-success');
+        btn.classList.add('is-loading');
+    }
+    if (label) label.textContent = 'Syncing Live Stock...';
+    if (pill) pill.classList.add('is-loading');
+    if (pillText) pillText.textContent = 'Reconciling warehouse inventory...';
+    if (tbody) tbody.classList.add('is-refreshing');
+
+    const period = (typeof currentForecastPeriod !== 'undefined' && currentForecastPeriod) ? currentForecastPeriod : 'monthly';
+    const url = 'api/refresh_smart_restock.php?period=' + encodeURIComponent(period);
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to refresh forecast');
+        }
+
+        // Render fresh table rows with verified live stock
+        window.renderForecastTableRows(data.items || []);
+
+        // Success state
+        if (btn) {
+            btn.classList.remove('is-loading');
+            btn.classList.add('is-success');
+        }
+        if (label) label.textContent = 'Live Stock Synced!';
+        if (pill) pill.classList.remove('is-loading');
+        if (pillText) pillText.textContent = 'Live inventory synced: Just now';
+
+        setTimeout(() => {
+            if (btn) {
+                btn.classList.remove('is-success');
+            }
+            if (label) label.textContent = 'Refresh Forecast';
+        }, 2500);
+    })
+    .catch(err => {
+        console.error('[SmartRestock] Refresh error:', err);
+        if (btn) {
+            btn.classList.remove('is-loading', 'is-success');
+        }
+        if (label) label.textContent = 'Retry Sync';
+        if (pill) pill.classList.remove('is-loading');
+        if (pillText) pillText.textContent = 'Sync failed. Click to retry';
+    })
+    .finally(() => {
+        if (tbody) tbody.classList.remove('is-refreshing');
+    });
+};
 
 function loadForecastContent(e, url) {
     if(e) e.preventDefault();

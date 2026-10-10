@@ -20,35 +20,14 @@ if (!isset($_SESSION['Username'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
-
-// ── helpers ────────────────────────────────────────────────────────────────
-
-function scannerGetProductImageUrl(int $productId): ?string
-{
-    $baseDir = __DIR__ . '/../uploads/products/';
-    $webBase = 'uploads/products/';
-    $patterns = [
-        (string)$productId,
-        'product_' . $productId,
-        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-    ];
-    $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-    foreach ($patterns as $name) {
-        foreach ($extensions as $ext) {
-            if (is_file($baseDir . $name . '.' . $ext)) {
-                return $webBase . $name . '.' . $ext;
-            }
-        }
-    }
-    return null;
-}
+require_once __DIR__ . '/../src/helpers/product_image_url.php';
 
 // ── query ───────────────────────────────────────────────────────────────────
 
 $result = $conn->query("
     SELECT product_id, product_name, category, quantity, reorder_point, unit, price
     FROM products
+    WHERE archived = 0
     ORDER BY product_name ASC
 ");
 
@@ -56,7 +35,7 @@ $products = [];
 
 while ($row = $result->fetch_assoc()) {
     $id       = (int)$row['product_id'];
-    $imageUrl = scannerGetProductImageUrl($id);
+    $imageUrl = getProductImageUrl($id);
 
     $products[] = [
         'product_id'   => $id,

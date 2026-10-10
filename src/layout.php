@@ -152,29 +152,29 @@ function renderHeader($pageTitle, $userRole, $username) {
 
 
 
-    if ($userRole === 'admin') {
-        echo '<div class="notification-container">';
-        
-        // Bell Icon
-        echo '<div class="notification-bell" id="bellBtn" onclick="toggleNotificationDropdown(event)">';
-        echo '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>';
-        // Badge (Starts hidden)
-        echo '<div class="notification-badge" id="notificationBadge" style="display:none;">0</div>';
-        echo '</div>';
-        
-        // Dropdown
-        echo '<div class="notification-dropdown" id="notificationDropdown" onclick="event.stopPropagation()">';
-        echo '<div class="notification-header">';
-        echo '<div class="notification-title">Notifications</div>';
-        echo '<button class="notification-clear" onclick="fetchNotifications()">Refresh</button>';
-        echo '</div>';
-        echo '<div class="notification-list" id="notificationList">';
-        echo '<div class="notification-empty">Loading...</div>'; 
-        echo '</div>';
-        echo '<div class="notif-dropdown-footer"><button class="notif-view-all-btn" id="viewAllNotifBtn" onclick="openAllNotificationsModal()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>View all notifications</button></div>';
-        echo '</div>';
-        echo '</div>';
-    }
+    // Notification bell — shown for all roles (admin, manager, staff)
+    echo '<div class="notification-container">';
+    
+    // Bell Icon
+    echo '<div class="notification-bell" id="bellBtn" onclick="toggleNotificationDropdown(event)">';
+    echo '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>';
+    // Badge (Starts hidden)
+    echo '<div class="notification-badge" id="notificationBadge" style="display:none;">0</div>';
+    echo '</div>';
+    
+    // Dropdown
+    echo '<div class="notification-dropdown" id="notificationDropdown" onclick="event.stopPropagation()">';
+    echo '<div class="notification-header">';
+    echo '<div class="notification-title">Notifications</div>';
+    echo '<button class="notification-clear" onclick="fetchNotifications()">Refresh</button>';
+    echo '</div>';
+    echo '<div class="notification-list" id="notificationList">';
+    echo '<div class="notification-empty">Loading...</div>'; 
+    echo '</div>';
+    echo '<div class="notif-dropdown-footer"><button class="notif-view-all-btn" id="viewAllNotifBtn" onclick="openAllNotificationsModal()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>View all notifications</button></div>';
+    echo '</div>';
+    echo '</div>';
+
 
     echo '<button type="button" class="theme-toggle" id="themeToggleBtn" onclick="IWTheme.toggleTheme()" ondblclick="IWTheme.resetToPhilippineTime()" title="Theme based on Philippine Time (Click to toggle, Double-click to reset)" aria-label="Toggle light/dark mode">';
     echo '<svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>';
@@ -276,7 +276,7 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     // Local offline Tailwind CSS engine
     echo '<script src="assets/vendor/tailwindcss.js"></script>';
 
-    if (basename($_SERVER['PHP_SELF']) === 'dash_admin.php') {
+    if (in_array(basename($_SERVER['PHP_SELF']), ['dash_admin.php', 'dash_staff.php', 'dash_manager.php'])) {
         $cssVerAdmin = file_exists(__DIR__ . '/../admin_dashboard.css') ? filemtime(__DIR__ . '/../admin_dashboard.css') : time();
         echo '<link href="admin_dashboard.css?v=' . $cssVerAdmin . '" rel="stylesheet">';
     }
@@ -589,6 +589,7 @@ function renderLayoutFooter() {
         sidebar.classList.remove('sidebar-hidden');
         if (overlay && isOverlayMode()) {
             overlay.classList.add('active');
+            document.body.classList.add('sidebar-open');
         }
     }
 
@@ -599,6 +600,7 @@ function renderLayoutFooter() {
         if (overlay) {
             overlay.classList.remove('active');
         }
+        document.body.classList.remove('sidebar-open');
     }
 
     function toggleSidebar() {
@@ -623,6 +625,7 @@ function renderLayoutFooter() {
             // Mobile & tablet: always start closed — sidebar is an overlay drawer
             sidebar.classList.add('sidebar-hidden');
             if (overlay) overlay.classList.remove('active');
+            document.body.classList.remove('sidebar-open');
         } else {
             // Desktop: restore saved preference
             const isHidden = localStorage.getItem('sidebarHidden');
@@ -641,6 +644,7 @@ function renderLayoutFooter() {
             if (overlay) {
                 overlay.classList.remove('active');
             }
+            document.body.classList.remove('sidebar-open');
             const isHidden = localStorage.getItem('sidebarHidden');
             if (isHidden === 'true') {
                 sidebar.classList.add('sidebar-hidden');
@@ -653,6 +657,7 @@ function renderLayoutFooter() {
             if (overlay) {
                 overlay.classList.remove('active');
             }
+            document.body.classList.remove('sidebar-open');
         }
     });
 
@@ -812,6 +817,7 @@ function renderLayoutFooter() {
     }
 
     // 5. AUTO-POLL: Check for notifications every 5 seconds (skip while offline)
+    fetchNotifications(); // Initial fetch immediately on load
     setInterval(function() {
         if (navigator.onLine) {
             fetchNotifications();

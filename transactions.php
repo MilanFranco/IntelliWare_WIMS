@@ -8,12 +8,19 @@ if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
 // Only allow 'admin', 'manager', or 'staff' to access this page.
 $role = $_SESSION['Role'] ?? 'staff';
 if (!in_array($role, ['admin', 'manager', 'staff'])) { 
-    header('Location: signin.php'); 
+    header('Location: dash_staff.php'); 
     exit(); 
 }
 
+
 require_once 'config/db.php';
 require_once 'src/services/StockMovementService.php';
+
+// CSRF token – generate once per session
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
 
 // capture 'action' from URL (e.g., ?action=in or ?action=out) to pre-select dropdown
 $action = $_GET['action'] ?? '';
@@ -39,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['smart_insight_referra
 // Standard search and filter inputs from GET request
 $search_q = trim($_GET['q'] ?? '');
 $filter_cat = trim($_GET['category'] ?? '');
-$filter_product_id = isset($_GET['product_id']) ? (int)$_GET['product_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+$filter_product_id = (int)($_GET['product_id'] ?? ($_GET['id'] ?? ($_GET['view_id'] ?? 0)));
 $smartInsightActive = (($_GET['ref'] ?? '') === 'insights');
 
 // Set current page, ensuring it's at least 1
@@ -61,6 +68,13 @@ if (!function_exists('setFlashMessage')) {
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['smart_insight_referral']) && !isset($_POST['search_submit'])) {
+    // CSRF validation
+    if (!isset($_POST['csrf_token']) || !hash_equals($csrf_token, (string)$_POST['csrf_token'])) {
+        setFlashMessage('error', 'Security token mismatch. Please try again.');
+        header('Location: transactions.php');
+        exit();
+    }
+
     $type = $_POST['type'] ?? 'in';
     $id = (int)($_POST['id'] ?? 0);
     $qty = (int)($_POST['qty'] ?? 0);
@@ -80,12 +94,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['smart_insight_referr
 $catResult = $conn->query("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category");
 while ($row = $catResult->fetch_assoc()) { $categories[] = $row['category']; }
 
-// Fetch ALL products for the Transaction Form Dropdown (Select2)
-$dropQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, quantity as qty, unit as uom FROM products ORDER BY product_name";
+// Fetch ALL active (non-archived) products for the Transaction Form Dropdown (Select2)
+$dropQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, quantity as qty, unit as uom FROM products WHERE archived = 0 ORDER BY product_name";
 $dropRes = $conn->query($dropQuery);
 while ($r = $dropRes->fetch_assoc()) { $dropdownItems[] = $r; }
 
-$sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, reorder_point FROM products WHERE 1=1";
+$sql = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, quantity as qty, unit as uom, reorder_point FROM products WHERE archived = 0";
 $params = [];
 $types = "";
 
@@ -899,6 +913,211 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     }
 
 
+    /* ── Hover-Expand Product Popover ───────────────────────────── */
+    #txn-hover-popover {
+        position: fixed;
+        z-index: 99999;
+        width: 300px;
+        background: linear-gradient(145deg, rgba(17,32,78,0.97) 0%, rgba(10,19,50,0.99) 100%);
+        border: 1.5px solid rgba(81, 213, 90, 0.25);
+        border-radius: 18px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(81,213,90,0.08);
+        padding: 0;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(8px) scale(0.97);
+        transition: opacity 0.22s cubic-bezier(0.4,0,0.2,1),
+                    transform 0.22s cubic-bezier(0.4,0,0.2,1);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        overflow: hidden;
+    }
+    #txn-hover-popover.visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    [data-theme="light"] #txn-hover-popover {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%) !important;
+        border-color: rgba(16, 185, 129, 0.3) !important;
+        box-shadow: 0 20px 60px rgba(15,23,42,0.18), 0 0 0 1px rgba(16,185,129,0.08) !important;
+    }
+
+    .pop-img-wrap {
+        width: 100%;
+        height: 130px;
+        background: rgba(13,22,56,0.8);
+        border-bottom: 1px solid rgba(42,68,132,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+    }
+    [data-theme="light"] .pop-img-wrap {
+        background: #f1f5f9 !important;
+        border-bottom-color: #e2e8f0 !important;
+    }
+    .pop-img-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+    }
+    .pop-img-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: rgba(154,166,209,0.5);
+    }
+    .pop-img-placeholder svg { width: 36px; height: 36px; }
+    .pop-img-placeholder span { font-size: 11px; font-family: 'Onest', sans-serif; }
+
+    .pop-status-bar {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        padding: 5px 12px;
+        font-family: 'Onest', sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .pop-status-bar.s-good { background: rgba(16,185,129,0.18); color: #34d399; }
+    .pop-status-bar.s-low  { background: rgba(245,158,11,0.18); color: #fbbf24; }
+    .pop-status-bar.s-out  { background: rgba(239,68,68,0.18);  color: #f87171; }
+    .pop-status-bar-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .pop-status-bar.s-good .pop-status-bar-dot { background: #34d399; box-shadow: 0 0 6px #34d399; }
+    .pop-status-bar.s-low  .pop-status-bar-dot { background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+    .pop-status-bar.s-out  .pop-status-bar-dot { background: #f87171; box-shadow: 0 0 6px #f87171; }
+
+    .pop-body {
+        padding: 14px 16px 16px;
+    }
+    .pop-name {
+        font-family: 'Onest', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        color: #e3e3e3;
+        line-height: 1.3;
+        margin-bottom: 2px;
+    }
+    [data-theme="light"] .pop-name { color: #0f172a !important; }
+    .pop-sku {
+        font-family: 'Onest', monospace;
+        font-size: 11px;
+        color: #9aa6d1;
+        margin-bottom: 12px;
+    }
+    [data-theme="light"] .pop-sku { color: #64748b !important; }
+
+    .pop-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 10px;
+    }
+    .pop-field-label {
+        font-family: 'Onest', sans-serif;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #6b7aab;
+        margin-bottom: 2px;
+    }
+    [data-theme="light"] .pop-field-label { color: #94a3b8 !important; }
+    .pop-field-val {
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        font-weight: 600;
+        color: #c5d1f7;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    [data-theme="light"] .pop-field-val { color: #334155 !important; }
+    .pop-field-val.accent { color: #51D55A !important; }
+    [data-theme="light"] .pop-field-val.accent { color: #059669 !important; }
+
+    .pop-divider {
+        height: 1px;
+        background: rgba(42,68,132,0.4);
+        margin: 12px 0;
+    }
+    [data-theme="light"] .pop-divider { background: #e2e8f0 !important; }
+
+    .pop-actions {
+        display: flex;
+        gap: 7px;
+        margin-top: 12px;
+    }
+    .pop-btn {
+        flex: 1;
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-family: 'Onest', sans-serif;
+        font-size: 11px;
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        transition: all 0.18s ease;
+        cursor: pointer;
+        border: 1px solid transparent;
+        pointer-events: all;
+    }
+    .pop-btn-receive {
+        background: rgba(81,213,90,0.13);
+        border-color: rgba(81,213,90,0.4);
+        color: #51D55A;
+    }
+    .pop-btn-receive:hover { background: #51D55A; color: #fff; border-color: #51D55A; }
+    .pop-btn-view {
+        background: rgba(42,68,132,0.35);
+        border-color: rgba(42,68,132,0.5);
+        color: #9aa6d1;
+    }
+    .pop-btn-view:hover { background: rgba(42,68,132,0.65); color: #fff; }
+    [data-theme="light"] .pop-btn-receive { background: rgba(5,150,105,0.1) !important; border-color: rgba(5,150,105,0.35) !important; color: #047857 !important; }
+    [data-theme="light"] .pop-btn-receive:hover { background: #059669 !important; color: #fff !important; }
+    [data-theme="light"] .pop-btn-view { background: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #475569 !important; }
+    [data-theme="light"] .pop-btn-view:hover { background: #e2e8f0 !important; color: #0f172a !important; }
+
+    .pop-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 28px 16px;
+        font-family: 'Onest', sans-serif;
+        font-size: 12px;
+        color: #6b7aab;
+    }
+    .pop-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(81,213,90,0.2);
+        border-top-color: #51D55A;
+        border-radius: 50%;
+        animation: pop-spin 0.7s linear infinite;
+    }
+    @keyframes pop-spin { to { transform: rotate(360deg); } }
+
+    /* Highlight hovered row */
+    .txn-table tbody tr.pop-active td {
+        background: rgba(81,213,90,0.07) !important;
+    }
+    [data-theme="light"] .txn-table tbody tr.pop-active td {
+        background: rgba(16,185,129,0.06) !important;
+    }
+
     /* ── Page Hero Card ────────────────────────────────────────── */
     .page-hero-card {
         background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
@@ -1047,6 +1266,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     <?php if ($action): ?>
     <div class="p-6 border-t border-[#2A4484]/30">
         <form method="POST" id="txnSingleForm">
+            <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="type" value="<?php echo htmlspecialchars($action); ?>">
             <div class="txn-form-grid">
                 <div class="txn-field">
@@ -1151,7 +1371,7 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
                         $reorder = (int)($it['reorder_point'] ?? 10);
                         $qtyColor = $qty <= 0 ? 'text-rose-400' : ($qty <= $reorder ? 'text-amber-400' : 'text-white');
                     ?>
-                    <tr>
+                    <tr class="txn-pop-row" data-pid="<?php echo (int)$it['id']; ?>" data-sku="<?php echo htmlspecialchars($it['sku']); ?>" data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>">
                         <td class="col-sku">
                             <a href="products.php?view_id=<?php echo (int)$it['id']; ?>&q=<?php echo urlencode($it['name']); ?>" class="txn-sku-link group inline-block" title="View product details in Inventory">
                                 <span class="txn-sku-badge group-hover:border-[#51D55A]/70 group-hover:text-[#51D55A] transition-all"><?php echo htmlspecialchars($it['sku']); ?></span>
@@ -1386,6 +1606,11 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     <?php endif; ?>
 </div>
 
+<!-- Hover Popover Element -->
+<div id="txn-hover-popover" role="tooltip" aria-hidden="true">
+    <div class="pop-loading"><div class="pop-spinner"></div><span>Loading…</span></div>
+</div>
+
 <?php renderLayoutContentEnd(); ?>
 
 <script src="assets/vendor/jquery.min.js"></script>
@@ -1457,6 +1682,211 @@ document.getElementById('txnSingleForm')?.addEventListener('submit', function(e)
 });
 document.getElementById('productSelect')?.addEventListener('change', function() { this.classList.remove('error-border'); });
 document.getElementById('txn-qty-input')?.addEventListener('input', function() { this.classList.remove('error-border'); });
+
+/* ── Hover-Expand Product Popover ─────────────────────────────────── */
+(function() {
+    const popover  = document.getElementById('txn-hover-popover');
+    const cache    = {};   // product_id → fetched data
+    let   activeRow = null;
+    let   showTimer = null;
+    let   hideTimer = null;
+    let   lastY     = 0;
+    let   lastX     = 0;
+    const SHOW_DELAY = 280;  // ms before popover appears
+    const HIDE_DELAY = 160;  // ms grace period when leaving row
+
+    function positionPopover(x, y, rowRect) {
+        const POP_W = 300;
+        const POP_H = 390; // estimated max height
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const MARGIN = 14;
+
+        // Prefer right side of cursor; flip left if not enough room
+        let left = x + 18;
+        if (left + POP_W + MARGIN > vw) {
+            left = x - POP_W - 18;
+        }
+        left = Math.max(MARGIN, Math.min(left, vw - POP_W - MARGIN));
+
+        // Align vertically with the row centre, clamped to viewport
+        let top = rowRect.top + (rowRect.height / 2) - (POP_H / 2);
+        top = Math.max(MARGIN, Math.min(top, vh - POP_H - MARGIN));
+
+        popover.style.left = left + 'px';
+        popover.style.top  = top  + 'px';
+    }
+
+    function buildPopoverHTML(p) {
+        const qty      = parseInt(p.quantity, 10);
+        const reorder  = parseInt(p.reorder_point, 10);
+        const status   = p.stock_status;
+        const sBadge   = status === 'out_of_stock' ? 's-out' : (status === 'low_stock' ? 's-low' : 's-good');
+        const sLabel   = status === 'out_of_stock' ? 'Out of Stock' : (status === 'low_stock' ? 'Low Stock' : 'In Stock');
+        const sku      = p.sku || '';
+        const price    = p.price ? '₱ ' + parseFloat(p.price).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+        const supplier = p.supplier || '—';
+        const location = p.location || '—';
+        const batch    = p.batch_number || '—';
+        const expiry   = p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('en-PH', {year:'numeric',month:'short',day:'numeric'}) : '—';
+        const unit     = p.unit || 'pcs';
+
+        const imgSection = p.image_url
+            ? `<img src="${encodeURI(p.image_url)}" alt="${escH(p.product_name)}" onerror="this.parentNode.innerHTML=noImgHTML()">`
+            : noImgHTML();
+
+        const pId = parseInt(p.product_id, 10);
+        const pSku = encodeURIComponent(sku);
+        const pName = encodeURIComponent(p.product_name);
+
+        return `
+        <div class="pop-img-wrap">
+            ${imgSection}
+            <div class="pop-status-bar ${sBadge}">
+                <span class="pop-status-bar-dot"></span>
+                <span>${escH(sLabel)}</span>
+                <span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums;">${qty.toLocaleString()} ${escH(unit)}</span>
+            </div>
+        </div>
+        <div class="pop-body">
+            <div class="pop-name">${escH(p.product_name)}</div>
+            <div class="pop-sku">${escH(sku)}</div>
+            <div class="pop-grid">
+                <div>
+                    <div class="pop-field-label">Price</div>
+                    <div class="pop-field-val accent">${escH(price)}</div>
+                </div>
+                <div>
+                    <div class="pop-field-label">Reorder At</div>
+                    <div class="pop-field-val">${reorder.toLocaleString()} ${escH(unit)}</div>
+                </div>
+                <div>
+                    <div class="pop-field-label">Supplier</div>
+                    <div class="pop-field-val" title="${escH(supplier)}">${escH(supplier)}</div>
+                </div>
+                <div>
+                    <div class="pop-field-label">Location</div>
+                    <div class="pop-field-val" title="${escH(location)}">${escH(location)}</div>
+                </div>
+                <div>
+                    <div class="pop-field-label">Batch</div>
+                    <div class="pop-field-val" title="${escH(batch)}">${escH(batch)}</div>
+                </div>
+                <div>
+                    <div class="pop-field-label">Expiry</div>
+                    <div class="pop-field-val">${escH(expiry)}</div>
+                </div>
+            </div>
+            <div class="pop-divider"></div>
+            <div class="pop-actions">
+                <a href="receive.php?product_id=${pId}&sku=${pSku}&q=${pName}" class="pop-btn pop-btn-receive">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                    Receive
+                </a>
+                <a href="products.php?view_id=${pId}&q=${pName}" class="pop-btn pop-btn-view">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    Details
+                </a>
+            </div>
+        </div>`;
+    }
+
+    function escH(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function noImgHTML() {
+        return `<div class="pop-img-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.3"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>No image</span>
+        </div>`;
+    }
+
+    function showPopover(row, x, y) {
+        const pid = row.dataset.pid;
+        if (!pid) return;
+
+        activeRow = row;
+        row.classList.add('pop-active');
+
+        if (cache[pid]) {
+            popover.innerHTML = buildPopoverHTML(cache[pid]);
+        } else {
+            popover.innerHTML = '<div class="pop-loading"><div class="pop-spinner"></div><span>Loading…</span></div>';
+        }
+
+        const rowRect = row.getBoundingClientRect();
+        positionPopover(x, y, rowRect);
+        popover.classList.add('visible');
+        popover.setAttribute('aria-hidden', 'false');
+
+        if (!cache[pid]) {
+            fetch(`api/get_product_by_id.php?id=${pid}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.found) {
+                        cache[pid] = data.product;
+                        // Only update if this row is still active
+                        if (activeRow && activeRow.dataset.pid === pid) {
+                            popover.innerHTML = buildPopoverHTML(data.product);
+                        }
+                    }
+                })
+                .catch(() => {
+                    if (activeRow && activeRow.dataset.pid === pid) {
+                        popover.innerHTML = '<div class="pop-loading" style="color:#f87171;">Failed to load.</div>';
+                    }
+                });
+        }
+    }
+
+    function hidePopover() {
+        popover.classList.remove('visible');
+        popover.setAttribute('aria-hidden', 'true');
+        if (activeRow) {
+            activeRow.classList.remove('pop-active');
+            activeRow = null;
+        }
+    }
+
+    // Attach listeners to all popover rows
+    document.querySelectorAll('.txn-pop-row').forEach(function(row) {
+        row.addEventListener('mouseenter', function(e) {
+            clearTimeout(hideTimer);
+            lastX = e.clientX;
+            lastY = e.clientY;
+            // Debounce: only show after hovering for SHOW_DELAY ms
+            clearTimeout(showTimer);
+            showTimer = setTimeout(function() {
+                showPopover(row, lastX, lastY);
+            }, SHOW_DELAY);
+        });
+
+        row.addEventListener('mousemove', function(e) {
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+
+        row.addEventListener('mouseleave', function() {
+            clearTimeout(showTimer);
+            hideTimer = setTimeout(hidePopover, HIDE_DELAY);
+        });
+    });
+
+    // Allow hovering into the popover itself without it disappearing
+    popover.addEventListener('mouseenter', function() {
+        clearTimeout(hideTimer);
+        popover.style.pointerEvents = 'all';
+    });
+    popover.addEventListener('mouseleave', function() {
+        popover.style.pointerEvents = 'none';
+        hideTimer = setTimeout(hidePopover, HIDE_DELAY);
+    });
+
+    // Hide on scroll
+    window.addEventListener('scroll', function() { clearTimeout(showTimer); hidePopover(); }, true);
+})();
 </script>
 
 <?php renderLayoutEnd(); ?>

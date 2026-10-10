@@ -22,6 +22,11 @@ if (!in_array($role, ['admin', 'manager', 'staff'], true)) {
     exit();
 }
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/services/StockMovementService.php';
 
@@ -59,33 +64,16 @@ if (!function_exists('getStockStatusLabel')) {
     }
 }
 
-if (!function_exists('getProductImageUrl')) {
-    function getProductImageUrl(int $productId): ?string
-    {
-        $baseDir = __DIR__ . '/../uploads/products/';
-        $webBase = 'uploads/products/';
-        $patterns = [
-            (string)$productId,
-            'product_' . $productId,
-            'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-        ];
-        $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-        foreach ($patterns as $name) {
-            foreach ($extensions as $ext) {
-                if (is_file($baseDir . $name . '.' . $ext)) {
-                    return $webBase . $name . '.' . $ext;
-                }
-            }
-        }
-
-        return null;
-    }
-}
+require_once __DIR__ . '/helpers/product_image_url.php';
 
 $redirectPage = $TXN_MODE === 'in' ? 'receive.php' : 'release.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_POST['csrf_token']) || !hash_equals($csrf_token, (string)$_POST['csrf_token'])) {
+        setInventoryFlash('error', 'Security token mismatch. Transaction rejected.');
+        header("Location: $redirectPage");
+        exit();
+    }
     $remarks = trim($_POST['remarks'] ?? '');
     $remarksVal = $remarks !== '' ? $remarks : null;
 
@@ -183,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $autoloadProduct = null;
-$paramProductId = isset($_GET['product_id']) ? (int)$_GET['product_id'] : (isset($_GET['id']) ? (int)$_GET['id'] : 0);
+$paramProductId = (int)($_GET['product_id'] ?? ($_GET['id'] ?? ($_GET['view_id'] ?? 0)));
 $paramSku       = trim($_GET['sku'] ?? '');
 $paramQ         = trim($_GET['q'] ?? '');
 
@@ -963,6 +951,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         <div class="pos-panel-body">
             <form method="POST" id="inv-txn-form" data-txn-mode="<?php echo htmlspecialchars($TXN_MODE); ?>">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <input type="hidden" name="items_json" id="inv-items-json" value="">
 
                 <!-- ── Product Search Bar ────────────────────────────────── -->

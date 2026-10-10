@@ -1753,11 +1753,15 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     font-weight: 500;
     color: #9aa6d1;
     margin-top: 4px;
+    text-transform: none !important;
+    letter-spacing: normal !important;
 }
 
 [data-theme="light"] .stat-card-sub {
     color: #7A90B0 !important;
     font-weight: 500 !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
 }
 
 /* ---- Quick access section header ---- */
@@ -1866,9 +1870,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ---- Dashboard panel header bg-13275B/30 cleanup ---- */
-[data-theme="light"] .border-b.border-\[\#2A4484\]\/50.flex.justify-between.items-center.bg-\[\#13275B\]\/30 {
+[data-theme="light"] .border-b.border-\[\#2A4484\]\/50.flex.justify-between.items-center.bg-\[\#13275B\]\/30,
+[data-theme="light"] .stock-explorer-header {
     background: #F1F6FC !important;
     border-bottom-color: #D6E2F2 !important;
+}
+[data-theme="light"] .stock-explorer-badge {
+    background: rgba(220, 234, 252, 0.7) !important;
+    border-color: #D6E2F2 !important;
+    color: #45526B !important;
+}
+[data-theme="light"] .stock-explorer-header p {
+    color: #45526B !important;
 }
 [data-theme="light"] h3.font-onest.font-semibold.text-lg.text-white {
     color: #0B1526 !important;
@@ -2509,4 +2522,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] .border-\[\#2A4484\]\/30 {
     border-color: #EFF6FF !important;
 }
+
+/* ---- Users Page Enhancements & Light Mode Consistency ---- */
+[data-theme="light"] .users-card-header {
+    background: #F1F6FC !important;
+    border-bottom: 1px solid #D6E2F2 !important;
+}
+[data-theme="light"] .users-card-header h3 {
+    color: #0B1526 !important;
+}
+[data-theme="light"] .users-card-header p {
+    color: #45526B !important;
+}
+[data-theme="light"] .users-inner-panel {
+    background: #F8FAFC !important;
+    border: 1px solid #E2E8F0 !important;
+}
+[data-theme="light"] .users-count-badge {
+    background: #F1F6FC !important;
+    border-color: #D6E2F2 !important;
+    color: #45526B !important;
+}
+[data-theme="light"] .users-count-badge strong {
+    color: #0B1526 !important;
+}
+
+/* ---- Reports Page View Mode Switcher & Audit Table Light Theme ---- */
+[data-theme="light"] .report-view-toggle-wrap {
+    background: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+}
+[data-theme="light"] .report-view-tab {
+    color: #64748B !important;
+}
+[data-theme="light"] .report-view-tab:hover {
+    color: #0F172A !important;
+    background: #DBEAFE !important;
+}
+[data-theme="light"] .report-view-tab.active {
+    color: #15803D !important;
+    background: #FFFFFF !important;
+    border-color: #86EFAC !important;
+    box-shadow: 0 1px 3px rgba(16, 24, 43, 0.08) !important;
+}
+[data-theme="light"] .stock-explorer-col.border-r {
+    border-right-color: #D0DFF2 !important;
+}
+[data-theme="light"] #reportTableView .product-title-text {
+    color: #0F172A !important;
+}
+[data-theme="light"] #reportTableView .product-sku-text {
+    color: #64748B !important;
+}
+[data-theme="light"] #reportTableView .table-cat-badge {
+    background: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+    color: #1E3A8A !important;
+}
+[data-theme="light"] #reportTablePagination {
+    border-top-color: #D6E2F2 !important;
+}
+
+
+
 

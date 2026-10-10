@@ -52,7 +52,7 @@ The Dashboard is the central hub. Its content changes dynamically based on the u
 This is the core module where all physical goods are tracked and managed.
 
 **Content & Talking Points:**
-*   **Product List:** Show the master list of all items in the warehouse. Explain the columns (e.g., SKU/Barcode, Name, Category, Quantity, Status).
+*   **Product List:** Show the master list of all items in the warehouse. Explain the columns (e.g., SKU, Name, Category, Quantity, Status).
 *   **Search & Filter:** Demonstrate how easy it is to find a specific product using the search bar or category filters.
 *   **Stock Status:** Highlight how the system uses color-coded statuses (e.g., In Stock, Low Stock, Out of Stock) so users can visually identify inventory levels at a glance.
 *   **Adding/Editing:** (Optional during demo) Show the form used to add a new product or update existing details.

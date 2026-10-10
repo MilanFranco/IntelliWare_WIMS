@@ -18,12 +18,12 @@ require_once 'config/db.php';
 
 // Fetch categories and UoMs for the Add Product modal
 $dash_categories = [];
-$cat_q = $conn->query("SELECT DISTINCT category FROM products WHERE category != '' ORDER BY category");
+$cat_q = $conn->query("SELECT DISTINCT category FROM products WHERE category != '' AND archived = 0 ORDER BY category");
 while ($row = $cat_q->fetch_assoc()) { $dash_categories[] = $row['category']; }
 sort($dash_categories);
 
 $dash_uoms = [];
-$uom_q = $conn->query("SELECT DISTINCT unit FROM products WHERE unit != '' ORDER BY unit");
+$uom_q = $conn->query("SELECT DISTINCT unit FROM products WHERE unit != '' AND archived = 0 ORDER BY unit");
 while ($row = $uom_q->fetch_assoc()) { $dash_uoms[] = $row['unit']; }
 $defaultUoms = ['pieces', 'packs', 'boxes', 'bottles', 'cans', 'bags', 'jars', 'tubes', 'bars', 'sets', 'units', 'kg', 'g', 'L', 'ml'];
 $dash_uoms = array_values(array_unique(array_merge($dash_uoms, $defaultUoms)));
@@ -37,7 +37,7 @@ $dash_csrf_token = $_SESSION['csrf_token'];
 
 // 1. Fetch Products
 $items = [];
-$productQuery = "SELECT product_id as id, product_name as name, category, quantity as qty, reorder_point FROM products";
+$productQuery = "SELECT product_id as id, product_name as name, category, quantity as qty, reorder_point FROM products WHERE archived = 0";
 $productResult = $conn->query($productQuery);
 
 if ($productResult && $productResult->num_rows > 0) {
@@ -97,9 +97,9 @@ if (!function_exists('formatStockValue')) {
 
 // 4. Recent Transactions — use index on transaction_date
 $recentTransactions = [];
-$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, p.product_name, COALESCE(u.username, 'System') as username
+$transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, COALESCE(p.product_name, 'Archived Product') as product_name, COALESCE(u.username, 'System') as username
                FROM transactions t
-               STRAIGHT_JOIN products p ON t.product_id = p.product_id
+               LEFT JOIN products p ON t.product_id = p.product_id
                LEFT JOIN users u ON t.user_id = u.user_id
                ORDER BY t.transaction_date DESC LIMIT 5";
 $transResult = $conn->query($transQuery);
@@ -143,7 +143,7 @@ $heatNinetyDaysAgo = date('Y-m-d', strtotime('-90 days'));
 $heatQuery = "SELECT p.product_id, p.product_name, SUM(t.quantity) as demand_qty
               FROM transactions t USE INDEX (idx_tx_covering_out)
               JOIN products p ON t.product_id = p.product_id
-              WHERE t.transaction_type = 'stock_out' AND t.transaction_date >= '$heatNinetyDaysAgo'
+              WHERE t.transaction_type = 'stock_out' AND p.archived = 0 AND t.transaction_date >= '$heatNinetyDaysAgo'
               GROUP BY t.product_id ORDER BY demand_qty DESC LIMIT 7";
 $heatResult = $conn->query($heatQuery);
 while($row = $heatResult->fetch_assoc()) {
@@ -188,6 +188,7 @@ $forecastPrioQuery = "
         FROM transactions t USE INDEX (idx_tx_covering_out)
         JOIN products p ON t.product_id = p.product_id
         WHERE t.transaction_type = 'stock_out'
+          AND p.archived = 0
           AND t.transaction_date >= DATE_SUB('$forecastDateStart', INTERVAL 1 YEAR)
           AND t.transaction_date <= '$forecastDateEnd'
           AND MONTH(t.transaction_date) = {$nextMonthNum}
@@ -260,7 +261,7 @@ renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SE
 <div class="page-hero-card dashboard-hero-banner mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3 dashboard-greeting-row">
                 <div class="dashboard-hero-icon w-11 h-11 rounded-xl bg-[#51D55A]/15 border border-[#51D55A]/30 flex items-center justify-center text-[#51D55A] shadow-lg shadow-[#51D55A]/10 shrink-0">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <rect width="7" height="9" x="3" y="3" rx="1.5"></rect>

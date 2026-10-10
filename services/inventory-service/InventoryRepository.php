@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/../../config/app.php';
 require_once __DIR__ . '/../../src/services/NotificationService.php';
 require_once __DIR__ . '/../../src/services/StockMovementService.php';
 
@@ -354,7 +355,9 @@ class InventoryRepository
     private function notifyInsightsAsync(string $eventType, int $productId): void
     {
         // Use non-blocking cURL or local file marker to notify Insights Microservice without stalling
-        $insightsUrl = 'http://localhost/intelliware/services/insights-service/index.php?action=event';
+        $insightsUrl = function_exists('getInsightsServiceUrl')
+            ? getInsightsServiceUrl() . '?action=event'
+            : 'http://localhost/IntelliWare/services/insights-service/index.php?action=event';
         $ch = curl_init($insightsUrl);
         if ($ch) {
             $payload = json_encode(['event' => $eventType, 'product_id' => $productId, 'timestamp' => time()]);

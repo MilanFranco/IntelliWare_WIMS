@@ -3,6 +3,8 @@
  * Central inventory movement service.
  * All stock increases/decreases must go through this class to preserve audit trail.
  */
+require_once __DIR__ . '/../../config/app.php';
+
 class StockMovementService
 {
     private static $auditColumnsChecked = false;
@@ -12,9 +14,34 @@ class StockMovementService
 
     public static function ensureBatchColumn(mysqli $conn): void
     {
+        if (self::$batchColumnChecked) {
+            return;
+        }
+
+        try {
+            $check = $conn->query("SHOW TABLES LIKE 'inventory_batches'");
+            if (!$check || $check->num_rows === 0) {
+                $conn->query("CREATE TABLE IF NOT EXISTS `inventory_batches` (
+                    `batch_id` INT AUTO_INCREMENT PRIMARY KEY,
+                    `product_id` INT NOT NULL,
+                    `transaction_id` INT DEFAULT NULL,
+                    `batch_number` VARCHAR(50) DEFAULT NULL,
+                    `quantity` INT NOT NULL DEFAULT 0,
+                    `initial_quantity` INT NOT NULL DEFAULT 0,
+                    `date_received` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `manufacturing_date` DATE DEFAULT NULL,
+                    `expiry_date` DATE DEFAULT NULL,
+                    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+        } catch (Throwable $e) {
+            error_log('[StockMovementService] ensureBatchColumn check: ' . $e->getMessage());
+        }
+
         self::$batchColumnChecked = true;
         self::$hasBatchColumn = true;
     }
+
 
     public static function hasAuditColumns(mysqli $conn): bool
     {
@@ -328,7 +355,9 @@ class StockMovementService
 
             // Asynchronous event ping to Insights Microservice (non-blocking)
             try {
-                $insightsUrl = 'http://localhost/intelliware/services/insights-service/index.php?action=event';
+                $insightsUrl = function_exists('getInsightsServiceUrl')
+                    ? getInsightsServiceUrl() . '?action=event'
+                    : 'http://localhost/IntelliWare/services/insights-service/index.php?action=event';
                 $ch = curl_init($insightsUrl);
                 if ($ch) {
                     $payload = json_encode(['event' => $type, 'product_id' => $productId, 'timestamp' => time()]);
@@ -402,7 +431,9 @@ class StockMovementService
 
             // Asynchronous event ping to Insights Microservice (non-blocking)
             try {
-                $insightsUrl = 'http://localhost/intelliware/services/insights-service/index.php?action=event';
+                $insightsUrl = function_exists('getInsightsServiceUrl')
+                    ? getInsightsServiceUrl() . '?action=event'
+                    : 'http://localhost/IntelliWare/services/insights-service/index.php?action=event';
                 $ch = curl_init($insightsUrl);
                 if ($ch) {
                     $payload = json_encode(['event' => 'batch_' . $type, 'count' => count($items), 'timestamp' => time()]);

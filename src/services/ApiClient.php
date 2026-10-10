@@ -12,11 +12,23 @@
 
 require_once __DIR__ . '/../../services/inventory-service/InventoryRepository.php';
 require_once __DIR__ . '/../../services/insights-service/InsightsEngine.php';
+require_once __DIR__ . '/../../config/app.php';
 
 class ApiClient
 {
-    private static string $inventoryBaseUrl = 'http://localhost/intelliware/services/inventory-service/index.php';
-    private static string $insightsBaseUrl  = 'http://localhost/intelliware/services/insights-service/index.php';
+    public static function getInventoryBaseUrl(): string
+    {
+        return function_exists('getInventoryServiceUrl')
+            ? getInventoryServiceUrl()
+            : 'http://localhost/IntelliWare/services/inventory-service/index.php';
+    }
+
+    public static function getInsightsBaseUrl(): string
+    {
+        return function_exists('getInsightsServiceUrl')
+            ? getInsightsServiceUrl()
+            : 'http://localhost/IntelliWare/services/insights-service/index.php';
+    }
 
     /**
      * Fetch products from Inventory Microservice.
@@ -24,7 +36,7 @@ class ApiClient
     public static function getInventoryProducts(array $filters = []): array
     {
         $queryString = http_build_query(array_merge(['endpoint' => 'products'], $filters));
-        $url = self::$inventoryBaseUrl . '?' . $queryString;
+        $url = self::getInventoryBaseUrl() . '?' . $queryString;
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success'])) {
@@ -47,7 +59,7 @@ class ApiClient
      */
     public static function getInventoryProduct(int $productId): ?array
     {
-        $url = self::$inventoryBaseUrl . '?endpoint=products&id=' . $productId;
+        $url = self::getInventoryBaseUrl() . '?endpoint=products&id=' . $productId;
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success']) && isset($response['data'])) {
@@ -68,7 +80,7 @@ class ApiClient
      */
     public static function receiveInventory(int $productId, int $quantity, string $username, ?string $remarks = null, ?array $metadata = null): array
     {
-        $url = self::$inventoryBaseUrl . '?endpoint=receive';
+        $url = self::getInventoryBaseUrl() . '?endpoint=receive';
         $payload = [
             'product_id' => $productId,
             'quantity'   => $quantity,
@@ -95,7 +107,7 @@ class ApiClient
      */
     public static function releaseInventory(int $productId, int $quantity, string $username, ?string $remarks = null): array
     {
-        $url = self::$inventoryBaseUrl . '?endpoint=release';
+        $url = self::getInventoryBaseUrl() . '?endpoint=release';
         $payload = [
             'product_id' => $productId,
             'quantity'   => $quantity,
@@ -132,7 +144,7 @@ class ApiClient
         }
 
         // 2. Fallback to HTTP microservice if deployed remotely
-        $url = self::$insightsBaseUrl . '?endpoint=summary';
+        $url = self::getInsightsBaseUrl() . '?endpoint=summary';
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success'])) {
@@ -164,22 +176,25 @@ class ApiClient
     /**
      * Fetch pre-calculated forecast from Insights Microservice.
      */
-    public static function getInsightsForecast(string $period = 'monthly', ?int $month = null): array
+    public static function getInsightsForecast(string $period = 'monthly', ?int $month = null, bool $forceRefresh = false): array
     {
         // 1. Instant in-process execution (<1ms) if local repository is available
         if (class_exists('InsightsEngine')) {
             try {
                 $engine = new InsightsEngine();
-                return $engine->getForecast($period, $month);
+                return $engine->getForecast($period, $month, true, $forceRefresh);
             } catch (Throwable $e) {
                 error_log('[ApiClient] In-process Insights forecast error: ' . $e->getMessage());
             }
         }
 
         // 2. Fallback to HTTP microservice if deployed remotely
-        $url = self::$insightsBaseUrl . '?endpoint=forecast&period=' . urlencode($period);
+        $url = self::getInsightsBaseUrl() . '?endpoint=forecast&period=' . urlencode($period);
         if ($month !== null && $month >= 1 && $month <= 12) {
             $url .= '&month=' . $month;
+        }
+        if ($forceRefresh) {
+            $url .= '&refresh=1';
         }
         $response = self::httpGet($url, 1500);
 
@@ -189,7 +204,7 @@ class ApiClient
 
         try {
             $engine = new InsightsEngine();
-            return $engine->getForecast($period, $month);
+            return $engine->getForecast($period, $month, true, $forceRefresh);
         } catch (Throwable $e) {
             error_log('[ApiClient] Insights forecast fallback error: ' . $e->getMessage());
             return [
@@ -207,7 +222,7 @@ class ApiClient
     public static function getPhilippineSeasonalForecast(int $month = 0): array
     {
         $month = ($month >= 1 && $month <= 12) ? $month : (int)date('n');
-        $url = self::$insightsBaseUrl . '?endpoint=philippine_seasonal&month=' . $month;
+        $url = self::getInsightsBaseUrl() . '?endpoint=philippine_seasonal&month=' . $month;
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success'])) {
@@ -233,7 +248,7 @@ class ApiClient
      */
     public static function triggerInsightsRegeneration(): array
     {
-        $url = self::$insightsBaseUrl . '?endpoint=regenerate';
+        $url = self::getInsightsBaseUrl() . '?endpoint=regenerate';
         $response = self::httpPost($url, [], 3000);
 
         if ($response && !empty($response['success'])) {

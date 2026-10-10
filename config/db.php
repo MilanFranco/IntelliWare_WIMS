@@ -1,6 +1,9 @@
 <?php
 
+require_once __DIR__ . '/app.php';
+
 $dbHost = 'localhost';
+
 $dbUser = 'root';
 $dbPass = '';
 $dbName = 'warehouse_system';

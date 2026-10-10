@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // api/get_all_notifications.php
 // Returns full notification history from the notifications table (with read/unread state).
 
@@ -64,7 +64,7 @@ if ($result) {
         $name    = htmlspecialchars($row['product_name'] ?? 'Unknown Product');
         $qty     = (int)($row['quantity'] ?? 0);
         $unit    = htmlspecialchars($row['unit'] ?? 'units');
-        $rp      = (int)($row['reorder_point'] ?? 0);
+        $rp      = (int)($row['reorder_point'] ?? 10);
 
         // Human-readable time
         $ts = strtotime($row['created_at']);
@@ -94,6 +94,8 @@ if ($result) {
     }
 }
 
+$conn->close();
+
 echo json_encode([
     'success'      => true,
     'total'        => $total,
@@ -104,3 +106,4 @@ echo json_encode([
     'items'        => $items,
 ]);
 exit;
+

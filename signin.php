@@ -1,3 +1,14 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (isset($_SESSION['Username'])) {
+    $role = $_SESSION['Role'] ?? 'staff';
+    $redirect = ($role === 'admin') ? 'dash_admin.php' : (($role === 'manager') ? 'dash_manager.php' : 'dash_staff.php');
+    header("Location: $redirect");
+    exit();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -56,8 +56,8 @@ class EmailService
 
                         $isEnrolled = false;
                         if ($enabledFlag === null || $enabledFlag === '') {
-                            // Default: all users with role 'admin' are enrolled
-                            $isEnrolled = ($role === 'admin');
+                            // Default: all users with role 'admin' or 'manager' are enrolled
+                            $isEnrolled = ($role === 'admin' || $role === 'manager');
                         } else {
                             $isEnrolled = ((int)$enabledFlag === 1);
                         }

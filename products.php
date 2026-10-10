@@ -3,7 +3,7 @@ session_start();
 
 if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
 $role = $_SESSION['Role'] ?? 'staff';
-if (!in_array($role, ['admin', 'manager', 'staff'])) { header('Location: signin.php'); exit(); }
+if (!in_array($role, ['admin', 'manager', 'staff'])) { header('Location: dash_staff.php'); exit(); }
 
 require_once 'config/db.php';
 require_once 'src/services/StockMovementService.php';
@@ -145,7 +145,7 @@ if ($view_id > 0) {
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $csrf_token) {
+    if (!isset($_POST['csrf_token']) || !hash_equals($csrf_token, (string)$_POST['csrf_token'])) {
         setFlashMessage('error', 'Security token mismatch. Operation blocked.');
         $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
         header("Location: products.php?page=$page&q=" . urlencode($q) . "&category=" . urlencode($category_param) . "$filter_qs");

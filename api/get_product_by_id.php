@@ -52,26 +52,9 @@ function tmGetStockStatusLabel(string $status): string
     }
 }
 
-function tmGetProductImageUrl(int $productId): ?string
-{
-    $baseDir = __DIR__ . '/../uploads/products/';
-    $webBase = 'uploads/products/';
-    $patterns = [
-        (string)$productId,
-        'product_' . $productId,
-        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-    ];
-    $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+// ── shared image-URL helper ──────────────────────────────────────────────────
+require_once __DIR__ . '/../src/helpers/product_image_url.php';
 
-    foreach ($patterns as $name) {
-        foreach ($extensions as $ext) {
-            if (is_file($baseDir . $name . '.' . $ext)) {
-                return $webBase . $name . '.' . $ext;
-            }
-        }
-    }
-    return null;
-}
 
 // ── input validation ────────────────────────────────────────────────────────
 
@@ -119,7 +102,7 @@ if ($product) {
     $product['reorder_point']      = $reorderPoint;
     $product['stock_status']       = $status;
     $product['stock_status_label'] = tmGetStockStatusLabel($status);
-    $product['image_url']          = tmGetProductImageUrl((int)$product['product_id']);
+    $product['image_url']          = getProductImageUrl((int)$product['product_id']);
 
     echo json_encode(['success' => true, 'found' => true, 'product' => $product]);
 } else {

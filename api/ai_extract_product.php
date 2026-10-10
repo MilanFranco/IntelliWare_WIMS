@@ -69,6 +69,7 @@ $enabled = ($visionSettings['ai_vision_enabled'] ?? '1') === '1';
 
 // ── Action: Test Connection ───────────────────────────────────────────────────
 if ($action === 'test_connection') {
+    $conn->close();
     if (empty($apiKey)) {
         echo json_encode(['success' => false, 'error' => 'API Key is empty. Please enter your Google Gemini API key.']);
         exit();
@@ -129,10 +130,13 @@ if ($catRes) {
         $categories[] = $r['name'];
     }
 }
+$conn->close();
+
 if (empty($categories)) {
     $categories = ['Dairy Products', 'Beverages', 'Canned Goods', 'Dry Goods', 'Frozen Foods', 'Personal Care', 'Health & Wellness', 'Household Goods'];
 }
 $catListStr = implode(', ', array_map(fn($c) => '"' . addslashes($c) . '"', $categories));
+
 
 // Build AI prompt
 $prompt = "You are an expert retail packaging analyzer for an inventory management system.

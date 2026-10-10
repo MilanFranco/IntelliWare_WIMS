@@ -5,12 +5,26 @@
  */
 
 header('Content-Type: application/json; charset=UTF-8');
-header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-Internal-Key');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
+    exit();
+}
+
+// Security: Verify authenticated session, internal service key, or local loopback origin
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+$isLocalServer = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', 'localhost'], true);
+$hasSession = isset($_SESSION['Username']);
+$internalKey = $_SERVER['HTTP_X_INTERNAL_KEY'] ?? '';
+$isInternalService = ($internalKey === 'intelliware_internal_service');
+
+if (!$isLocalServer && !$hasSession && !$isInternalService) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'error' => 'Unauthorized access to inventory service.']);
     exit();
 }
 

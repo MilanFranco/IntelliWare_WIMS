@@ -6,12 +6,11 @@
 
 -- 1. Add transaction_source column to transactions table
 --    Tracks HOW a transaction was initiated:
---      'barcode'  – legacy barcode-scanner path (historical rows)
---      'ai_scan'  – Teachable Machine camera recognition
+--      'ai_scan'  – Teachable Machine / AI camera recognition
 --      'manual'   – staff typed/selected product manually
 ALTER TABLE `transactions`
   ADD COLUMN IF NOT EXISTS `transaction_source`
-    ENUM('barcode','ai_scan','manual') DEFAULT 'barcode'
+    ENUM('ai_scan','manual') DEFAULT 'manual'
     AFTER `remarks`;
 
 -- 2. Create tm_scan_log: one row per AI recognition attempt

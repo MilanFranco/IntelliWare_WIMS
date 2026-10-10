@@ -83,7 +83,7 @@ switch ($tableType) {
             AVG(p.quantity) as avg_stock_per_product,
             (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id 
              WHERE p2.supplier = p.supplier AND t.transaction_type = 'stock_out') as monthly_sales,
-            COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) as low_stock_count
+            COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) as low_stock_count
             FROM products p 
             WHERE p.supplier IS NOT NULL AND p.supplier != ''
             GROUP BY p.supplier 
@@ -102,7 +102,7 @@ switch ($tableType) {
         ";
         $dataQuery = "
             SELECT p.category AS category_name, COUNT(p.product_id) AS product_count, SUM(p.quantity) AS total_stock,
-            AVG(p.quantity) AS avg_stock, COUNT(CASE WHEN p.quantity < p.reorder_point THEN 1 END) AS low_stock_count,
+            AVG(p.quantity) AS avg_stock, COUNT(CASE WHEN p.quantity <= p.reorder_point THEN 1 END) AS low_stock_count,
             (SELECT COUNT(*) FROM transactions t JOIN products p2 ON t.product_id = p2.product_id
              WHERE p2.category = p.category AND t.transaction_type = 'stock_out') AS monthly_sales
             FROM products p
@@ -118,9 +118,9 @@ switch ($tableType) {
     case 'recent_activity':
         $countQuery = "SELECT COUNT(*) FROM transactions";
         $dataQuery = "
-            SELECT t.transaction_type, t.quantity, t.transaction_date, p.product_name, COALESCE(u.username, 'System') as username
+            SELECT t.transaction_type, t.quantity, t.transaction_date, COALESCE(p.product_name, 'Archived Product') as product_name, COALESCE(u.username, 'System') as username
             FROM transactions t
-            STRAIGHT_JOIN products p ON t.product_id = p.product_id
+            LEFT JOIN products p ON t.product_id = p.product_id
             LEFT JOIN users u ON t.user_id = u.user_id
             ORDER BY t.transaction_date DESC
         ";

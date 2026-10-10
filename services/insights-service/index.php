@@ -39,7 +39,8 @@ try {
     if ($endpoint === 'forecast' && $method === 'GET') {
         $period = trim((string)($_GET['period'] ?? 'monthly'));
         $month = isset($_GET['month']) ? (int)$_GET['month'] : (isset($_GET['selected_month']) ? (int)$_GET['selected_month'] : null);
-        $data = $engine->getForecast($period, $month);
+        $refresh = !empty($_GET['refresh']) || !empty($_GET['force']);
+        $data = $engine->getForecast($period, $month, true, $refresh);
         echo json_encode(array_merge(['success' => true], $data));
         exit();
     }

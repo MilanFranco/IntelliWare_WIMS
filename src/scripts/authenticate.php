@@ -40,9 +40,13 @@ if (!password_verify($password, $user['password'])) {
 
 // Role is automatically detected from database, no need to validate
 
+// Regenerate session ID to prevent session fixation attacks
+session_regenerate_id(true);
+
 // Set session variables
 $_SESSION['user_id'] = $user['user_id'];
 $_SESSION['AccountID'] = $user['user_id']; // Keep consistency with registration script
+
 $_SESSION['Username'] = $user['username'];
 $_SESSION['Role'] = $user['role'];
 $_SESSION['full_name'] = $user['full_name'];

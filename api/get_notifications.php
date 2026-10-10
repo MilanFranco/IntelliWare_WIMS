@@ -68,10 +68,12 @@ if ($result) {
     }
 }
 
+$conn->close();
+
 // Return JSON response
 echo json_encode([
     'success' => true,
     'count'   => count($notifications),
     'items'   => $notifications
 ]);
-exit;
+exit;

@@ -18,27 +18,7 @@ if (!isset($_SESSION['Username'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
-
-function spGetProductImageUrl(int $productId): ?string
-{
-    $baseDir = __DIR__ . '/../uploads/products/';
-    $webBase = 'uploads/products/';
-    $patterns = [
-        (string)$productId,
-        'product_' . $productId,
-        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-    ];
-    $extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-
-    foreach ($patterns as $name) {
-        foreach ($extensions as $ext) {
-            if (is_file($baseDir . $name . '.' . $ext)) {
-                return $webBase . $name . '.' . $ext;
-            }
-        }
-    }
-    return null;
-}
+require_once __DIR__ . '/../src/helpers/product_image_url.php';
 
 $q     = trim($_GET['q'] ?? '');
 $limit = max(1, min(20, (int)($_GET['limit'] ?? 8)));
@@ -56,7 +36,7 @@ $stmt  = $conn->prepare("
            (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS expiry_date,
            (SELECT b.batch_number FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0 ORDER BY b.expiry_date IS NULL ASC, b.expiry_date ASC LIMIT 1) AS batch_number
     FROM products p
-    WHERE p.product_name LIKE ? OR p.category LIKE ? OR p.supplier LIKE ?
+    WHERE p.archived = 0 AND (p.product_name LIKE ? OR p.category LIKE ? OR p.supplier LIKE ?)
     ORDER BY
         CASE WHEN p.product_name LIKE ? THEN 0 ELSE 1 END,
         p.product_name ASC
@@ -99,7 +79,7 @@ while ($row = $result->fetch_assoc()) {
         'batch_number'       => $row['batch_number'] ?? '',
         'stock_status'       => $status,
         'stock_status_label' => $statusLabel,
-        'image_url'          => spGetProductImageUrl($id),
+        'image_url'          => getProductImageUrl($id),
     ];
 }
 

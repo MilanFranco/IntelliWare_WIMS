@@ -308,11 +308,29 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     background: #0d1b3e !important; /* Fully opaque to prevent GPU blend lag on scroll */
     border: 1px solid var(--insights-border, rgba(42, 68, 132, 0.7));
     border-radius: 20px; width: 100%; max-width: 1100px; max-height: 90vh;
+    min-height: 0 !important;
     display: flex; flex-direction: column;
     box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65); overflow: hidden;
     transform: translateZ(0); /* Hardware accelerated */
     isolation: isolate;
     animation: phModalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+.ph-seasonal-modal-dialog,
+.ph-seasonal-modal-dialog button,
+.ph-seasonal-modal-dialog input,
+.ph-seasonal-modal-dialog select,
+.ph-seasonal-modal-dialog textarea,
+.ph-seasonal-modal-dialog span,
+.ph-seasonal-modal-dialog p,
+.ph-seasonal-modal-dialog div,
+.ph-seasonal-modal-dialog h1,
+.ph-seasonal-modal-dialog h2,
+.ph-seasonal-modal-dialog h3,
+.ph-seasonal-modal-dialog h4,
+.ph-seasonal-modal-dialog th,
+.ph-seasonal-modal-dialog td {
+    font-family: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 [data-theme="light"] .ph-seasonal-modal-dialog {
     background: #ffffff !important;
@@ -337,7 +355,8 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     padding: 24px;
     overflow-y: auto;
     overflow-x: hidden;
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0 !important;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     transform: translateZ(0); /* Clean compositor layer without will-change/contain:paint jank */
@@ -549,22 +568,1191 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 [data-theme="light"] .table-action-callout.callout-urgent   { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
 [data-theme="light"] .table-action-callout.callout-warning  { background: #fffbeb; border-color: #fde68a; color: #d97706; }
 [data-theme="light"] .table-action-callout.callout-opportunity { background: #eff6ff; border-color: #bfdbfe; color: #2563eb; }
-.table-stock-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.table-stock-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 115px; }
 .table-stock-num { font-size: 13px; font-weight: 700; color: var(--insights-heading, #FFFFFF); }
 .table-stock-label { font-size: 11px; font-weight: 400; color: var(--insights-text-muted, #9aa6d1); }
-.btn-table-check {
-    background: transparent;
-    border: 1px solid var(--insights-border, rgba(42,68,132,0.6));
-    color: var(--insights-text-muted, #9aa6d1); font-family: 'Onest',sans-serif;
-    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
-    cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
+.btn-table-check,
+.btn-table-check.check-stock-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 6px 13px !important;
+    min-width: 110px !important;
+    width: auto !important;
+    max-width: none !important;
+    background: rgba(81, 213, 90, 0.12) !important;
+    border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
+    border-radius: 8px !important;
+    color: #51D55A !important;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    line-height: 1.3 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
 }
-.btn-table-check:hover { color: #51D55A; border-color: #51D55A; background: rgba(81,213,90,0.08); }
+.btn-table-check:hover,
+.btn-table-check.check-stock-btn:hover {
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+    color: #ffffff !important;
+    border-color: #51D55A !important;
+    box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+[data-theme="light"] .btn-table-check,
+[data-theme="light"] .btn-table-check.check-stock-btn {
+    background: #F0FDF4 !important;
+    color: #15803D !important;
+    border: 1.5px solid #86EFAC !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
+}
+[data-theme="light"] .btn-table-check:hover,
+[data-theme="light"] .btn-table-check.check-stock-btn:hover {
+    background: #16A34A !important;
+    color: #FFFFFF !important;
+    border-color: #16A34A !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+    transform: translateY(-1px) !important;
+}
 .ph-pagination-container {
     display: flex; justify-content: space-between; align-items: center;
     margin-top: 16px; padding-top: 16px;
     border-top: 1px solid var(--insights-border-soft, rgba(42,68,132,0.32));
     flex-wrap: wrap; gap: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Gemini AI Consumer Pulse & Daily Wants — Design System Consistency
+   ══════════════════════════════════════════════════════════════ */
+
+/* Tab navigation bar */
+.ph-modal-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--insights-border, rgba(42, 68, 132, 0.6));
+    background: #0f1d44;
+    flex-shrink: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+[data-theme="light"] .ph-modal-tab-bar {
+    background: #F8FAFC !important;
+    border-bottom-color: #CBD5E1 !important;
+}
+
+.ph-modal-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--insights-text-muted, #9aa6d1);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    user-select: none;
+}
+.ph-modal-tab:hover {
+    color: var(--insights-heading, #FFFFFF);
+    background: rgba(255, 255, 255, 0.05);
+}
+.ph-modal-tab.active {
+    color: #51D55A;
+    background: rgba(81, 213, 90, 0.12);
+    border-color: rgba(81, 213, 90, 0.4);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .ph-modal-tab {
+    color: #64748B !important;
+}
+[data-theme="light"] .ph-modal-tab:hover {
+    color: #0F172A !important;
+    background: rgba(0, 0, 0, 0.04) !important;
+}
+[data-theme="light"] .ph-modal-tab.active {
+    color: #15803D !important;
+    background: #FFFFFF !important;
+    border-color: #86EFAC !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* AI Badge */
+.ph-ai-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #51D55A 0%, #10B981 100%);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(81, 213, 90, 0.3);
+}
+
+.ph-gemini-panel {
+    padding: 2px 0 24px 0;
+}
+
+/* Preset Chips */
+.ph-preset-chips-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 10px 2px;
+    margin-bottom: 16px;
+    -webkit-overflow-scrolling: touch;
+}
+.ph-preset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 13px;
+    border-radius: 8px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: rgba(19, 39, 91, 0.7);
+    border: 1px solid rgba(42, 68, 132, 0.45);
+    color: var(--insights-text-muted, #9aa6d1);
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+.ph-preset-btn:hover {
+    background: rgba(81, 213, 90, 0.12);
+    border-color: rgba(81, 213, 90, 0.4);
+    color: #FFFFFF;
+    transform: translateY(-1px);
+}
+.ph-preset-btn.active {
+    background: rgba(81, 213, 90, 0.18);
+    border-color: #51D55A;
+    color: #51D55A;
+    box-shadow: 0 0 0 1px #51D55A inset;
+    font-weight: 700;
+}
+[data-theme="light"] .ph-preset-btn {
+    background: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    color: #475569 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+[data-theme="light"] .ph-preset-btn:hover {
+    background: #F0FDF4 !important;
+    border-color: #86EFAC !important;
+    color: #15803D !important;
+}
+[data-theme="light"] .ph-preset-btn.active {
+    background: #DCFCE7 !important;
+    border-color: #16A34A !important;
+    color: #15803D !important;
+    box-shadow: 0 0 0 1px #16A34A inset !important;
+}
+
+/* Query bar & controls */
+.ph-query-bar {
+    display: grid;
+    grid-template-columns: 155px 175px 1fr auto;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center;
+}
+@media (max-width: 900px) {
+    .ph-query-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+    .ph-query-bar > div:nth-child(3),
+    .ph-query-bar > button {
+        grid-column: span 2;
+    }
+}
+@media (max-width: 600px) {
+    .ph-query-bar {
+        grid-template-columns: 1fr;
+    }
+    .ph-query-bar > div:nth-child(3),
+    .ph-query-bar > button {
+        grid-column: span 1;
+    }
+}
+
+.ph-gemini-input {
+    background: var(--insights-input, rgba(19, 39, 91, 0.8));
+    color: var(--insights-text, #E3E3E3);
+    border: 1px solid var(--insights-input-border, rgba(42, 68, 132, 0.5));
+    border-radius: 10px;
+    padding: 0 14px;
+    height: 40px;
+    font-size: 13px;
+    font-family: 'Onest', sans-serif !important;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+.ph-gemini-input:focus {
+    border-color: #51D55A;
+    box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.16);
+}
+.ph-gemini-input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+}
+[data-theme="light"] .ph-gemini-input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: none;
+}
+[data-theme="light"] .ph-gemini-input {
+    background: #F1F5F9 !important;
+    border-color: #BFCFE0 !important;
+    color: #1E293B !important;
+}
+[data-theme="light"] .ph-gemini-input:focus {
+    border-color: #16A34A !important;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.16) !important;
+}
+
+/* Primary generate button */
+.ph-btn-generate {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 10px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: #FFFFFF;
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(81, 213, 90, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    user-select: none;
+}
+.ph-btn-generate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(81, 213, 90, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.ph-btn-generate:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(81, 213, 90, 0.3);
+}
+[data-theme="light"] .ph-btn-generate {
+    background: linear-gradient(135deg, #16A34A 0%, #15803D 100%) !important;
+    border: 1px solid #15803D !important;
+    box-shadow: 0 2px 8px -2px rgba(22, 163, 74, 0.35) !important;
+}
+[data-theme="light"] .ph-btn-generate:hover {
+    background: linear-gradient(135deg, #15803D 0%, #0F6228 100%) !important;
+    box-shadow: 0 4px 14px -4px rgba(22, 163, 74, 0.5) !important;
+}
+
+/* Briefing Card */
+.ph-briefing-card {
+    background: #11224d;
+    border: 1px solid var(--insights-border, rgba(42, 68, 132, 0.6));
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--insights-shadow, 0 10px 30px rgba(0, 0, 0, 0.22));
+}
+[data-theme="light"] .ph-briefing-card {
+    background: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08) !important;
+}
+
+.ph-briefing-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.ph-briefing-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    background: rgba(81, 213, 90, 0.12);
+    color: #51D55A;
+    border: 1px solid rgba(81, 213, 90, 0.35);
+}
+[data-theme="light"] .ph-briefing-pill {
+    background: rgba(81, 213, 90, 0.15) !important;
+    color: #15803D !important;
+    border-color: rgba(22, 163, 74, 0.4) !important;
+}
+.ph-spending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: rgba(19, 39, 91, 0.8);
+    border: 1px solid rgba(42, 68, 132, 0.4);
+    color: var(--insights-text, #E3E3E3);
+}
+[data-theme="light"] .ph-spending-badge {
+    background: #F1F5F9 !important;
+    border-color: #CBD5E1 !important;
+    color: #1E293B !important;
+}
+
+.ph-trending-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--insights-border-soft, rgba(42, 68, 132, 0.32));
+}
+[data-theme="light"] .ph-trending-chips {
+    border-top-color: #E2E8F0 !important;
+}
+.ph-trend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px;
+    background: rgba(19, 39, 91, 0.6);
+    border: 1px solid rgba(42, 68, 132, 0.35);
+    color: var(--insights-text-muted, #9aa6d1);
+}
+[data-theme="light"] .ph-trend-chip {
+    background: #F8FAFC !important;
+    border-color: #E2E8F0 !important;
+    color: #475569 !important;
+}
+.ph-trend-chip strong {
+    color: #51D55A;
+    font-weight: 700;
+}
+[data-theme="light"] .ph-trend-chip strong {
+    color: #16A34A !important;
+}
+
+/* Consumer Wants Grid & Equal-Height Cards */
+.ph-wants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+@media (max-width: 640px) {
+    .ph-wants-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.ph-want-card {
+    background: #11224d;
+    border: 1px solid var(--insights-border, rgba(42, 68, 132, 0.6));
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    box-sizing: border-box;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.ph-want-card:hover {
+    border-color: #51D55A;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .ph-want-card {
+    background: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .ph-want-card:hover {
+    border-color: #16A34A !important;
+    box-shadow: 0 6px 18px rgba(22, 163, 74, 0.12) !important;
+}
+
+.ph-want-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+
+/* Card Header: Surge badge row & full-width title */
+.ph-want-top-badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 8px;
+}
+.ph-want-surge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11px;
+    font-weight: 700;
+    color: #51D55A;
+    background: rgba(81, 213, 90, 0.12);
+    border: 1px solid rgba(81, 213, 90, 0.35);
+    padding: 3px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+    line-height: 1.25;
+}
+[data-theme="light"] .ph-want-surge {
+    background: #DCFCE7 !important;
+    border-color: #86EFAC !important;
+    color: #15803D !important;
+}
+
+.ph-want-title {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--insights-heading, #FFFFFF);
+    line-height: 1.35;
+    margin: 0 0 8px 0;
+    word-break: break-word;
+}
+[data-theme="light"] .ph-want-title {
+    color: #0F172A !important;
+}
+
+/* Category and Audience chips on one wrapping row */
+.ph-want-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.ph-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.25;
+}
+.ph-meta-chip.category-chip {
+    background: rgba(19, 39, 91, 0.7);
+    color: var(--insights-text-muted, #9aa6d1);
+    border: 1px solid rgba(42, 68, 132, 0.45);
+}
+[data-theme="light"] .ph-meta-chip.category-chip {
+    background: #F1F5F9 !important;
+    color: #475569 !important;
+    border-color: #CBD5E1 !important;
+}
+.ph-meta-chip.buyer-chip {
+    background: rgba(81, 213, 90, 0.1);
+    color: #51D55A;
+    border: 1px solid rgba(81, 213, 90, 0.28);
+}
+[data-theme="light"] .ph-meta-chip.buyer-chip {
+    background: #DCFCE7 !important;
+    color: #15803D !important;
+    border-color: #86EFAC !important;
+}
+
+/* "Why Filipinos want this today" box */
+.ph-want-reason {
+    background: rgba(19, 39, 91, 0.5);
+    border-left: 3px solid #51D55A;
+    padding: 10px 12px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 4px;
+}
+[data-theme="light"] .ph-want-reason {
+    background: #F8FAFC !important;
+    border-left-color: #16A34A !important;
+}
+.ph-reason-tag {
+    display: block;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #51D55A;
+    margin-bottom: 4px;
+}
+[data-theme="light"] .ph-reason-tag {
+    color: #15803D !important;
+}
+.ph-reason-text {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--insights-text, #E3E3E3);
+    margin: 0;
+}
+[data-theme="light"] .ph-reason-text {
+    color: #334155 !important;
+}
+
+/* Card Bottom Group (Pushed to bottom via margin-top: auto) */
+.ph-want-card-bottom {
+    margin-top: auto;
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Merchandising tip: fixed-width icon column */
+.ph-want-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--insights-text-muted, #9aa6d1);
+}
+[data-theme="light"] .ph-want-tip {
+    color: #475569 !important;
+}
+.ph-tip-icon {
+    flex-shrink: 0;
+    width: 16px;
+    font-size: 13px;
+    line-height: 1.25;
+}
+.ph-tip-text {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Color-coded stock status note */
+.ph-stock-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px;
+    line-height: 1.4;
+    padding: 7px 10px;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+.ph-stock-dot {
+    width: 6.5px;
+    height: 6.5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+.ph-stock-note-text {
+    flex: 1;
+    min-width: 0;
+}
+
+/* In Stock (Green) */
+.ph-stock-note.stock-in {
+    background: rgba(81, 213, 90, 0.09);
+    border: 1px solid rgba(81, 213, 90, 0.28);
+    color: #51D55A;
+}
+.ph-stock-dot.green {
+    background: #51D55A;
+    box-shadow: 0 0 5px rgba(81, 213, 90, 0.5);
+}
+[data-theme="light"] .ph-stock-note.stock-in {
+    background: #F0FDF4 !important;
+    border-color: #86EFAC !important;
+    color: #15803D !important;
+}
+[data-theme="light"] .ph-stock-dot.green {
+    background: #15803D !important;
+    box-shadow: 0 0 4px rgba(21, 128, 61, 0.4) !important;
+}
+
+/* Low Stock (Amber) */
+.ph-stock-note.stock-low {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+}
+.ph-stock-dot.amber {
+    background: #fbbf24;
+    box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+[data-theme="light"] .ph-stock-note.stock-low {
+    background: #FFFBEB !important;
+    border-color: #FDE68A !important;
+    color: #B45309 !important;
+}
+[data-theme="light"] .ph-stock-dot.amber {
+    background: #B45309 !important;
+}
+
+/* Out of Stock (Red) */
+.ph-stock-note.stock-out {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #f87171;
+}
+.ph-stock-dot.red {
+    background: #f87171;
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+}
+[data-theme="light"] .ph-stock-note.stock-out {
+    background: #FEF2F2 !important;
+    border-color: #FECACA !important;
+    color: #DC2626 !important;
+}
+[data-theme="light"] .ph-stock-dot.red {
+    background: #DC2626 !important;
+}
+
+/* Market Opportunity (Blue) */
+.ph-stock-note.stock-opp {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+.ph-stock-dot.blue {
+    background: #60a5fa;
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
+}
+[data-theme="light"] .ph-stock-note.stock-opp {
+    background: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+    color: #2563EB !important;
+}
+[data-theme="light"] .ph-stock-dot.blue {
+    background: #2563EB !important;
+}
+
+.ph-want-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--insights-border-soft, rgba(42, 68, 132, 0.32));
+    margin-top: 6px;
+}
+[data-theme="light"] .ph-want-footer {
+    border-top-color: #E2E8F0 !important;
+}
+
+.ph-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.ph-status-tag.in-stock {
+    background: rgba(81, 213, 90, 0.12);
+    color: #51D55A;
+    border: 1px solid rgba(81, 213, 90, 0.35);
+}
+[data-theme="light"] .ph-status-tag.in-stock {
+    background: #DCFCE7 !important;
+    color: #15803D !important;
+    border-color: #86EFAC !important;
+}
+.ph-status-tag.low {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+[data-theme="light"] .ph-status-tag.low {
+    background: #FEF3C7 !important;
+    color: #B45309 !important;
+    border-color: #FCD34D !important;
+}
+.ph-status-tag.critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+[data-theme="light"] .ph-status-tag.critical {
+    background: #FEE2E2 !important;
+    color: #DC2626 !important;
+    border-color: #FCA5A5 !important;
+}
+.ph-status-tag.opportunity {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+[data-theme="light"] .ph-status-tag.opportunity {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border-color: #BFDBFE !important;
+}
+
+/* Action buttons in cards */
+.btn-table-check,
+.btn-table-check.check-stock-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 0 13px !important;
+    height: 32px !important;
+    min-width: 105px !important;
+    width: auto !important;
+    background: rgba(81, 213, 90, 0.12) !important;
+    border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
+    border-radius: 8px !important;
+    color: #51D55A !important;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+.btn-table-check:hover,
+.btn-table-check.check-stock-btn:hover {
+    background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+    color: #FFFFFF !important;
+    border-color: #51D55A !important;
+    box-shadow: 0 4px 14px rgba(81, 213, 90, 0.4) !important;
+    transform: translateY(-1px) !important;
+}
+[data-theme="light"] .btn-table-check,
+[data-theme="light"] .btn-table-check.check-stock-btn {
+    background: #F0FDF4 !important;
+    color: #15803D !important;
+    border: 1.5px solid #86EFAC !important;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.12) !important;
+}
+[data-theme="light"] .btn-table-check:hover,
+[data-theme="light"] .btn-table-check.check-stock-btn:hover {
+    background: #16A34A !important;
+    color: #FFFFFF !important;
+    border-color: #16A34A !important;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25) !important;
+    transform: translateY(-1px) !important;
+}
+
+.btn-table-onboard {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 0 13px !important;
+    height: 32px !important;
+    min-width: 105px !important;
+    width: auto !important;
+    background: rgba(59, 130, 246, 0.12) !important;
+    border: 1.5px solid rgba(59, 130, 246, 0.45) !important;
+    border-radius: 8px !important;
+    color: #60a5fa !important;
+    font-family: 'Onest', sans-serif !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+}
+.btn-table-onboard:hover {
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    color: #FFFFFF !important;
+    border-color: #2563EB !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+    transform: translateY(-1px) !important;
+}
+[data-theme="light"] .btn-table-onboard {
+    background: #EFF6FF !important;
+    color: #2563EB !important;
+    border: 1.5px solid #BFDBFE !important;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12) !important;
+}
+[data-theme="light"] .btn-table-onboard:hover {
+    background: #2563EB !important;
+    color: #FFFFFF !important;
+    border-color: #2563EB !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+    transform: translateY(-1px) !important;
+}
+
+.ph-loading-shimmer {
+    padding: 40px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+}
+@keyframes phSpinPulse {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.15); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+.ph-ai-spinner {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid rgba(81, 213, 90, 0.2);
+    border-top-color: #51D55A;
+    animation: phSpinPulse 1.2s infinite ease-in-out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PH Seasonal Modal — Mobile Bottom Sheet & Responsive UI (< 768px)
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+    /* Modal overlay becomes full-screen backdrop with bottom-sheet alignment */
+    .ph-seasonal-modal-overlay {
+        padding: 0 !important;
+        align-items: flex-end !important;
+        justify-content: center !important;
+    }
+
+    /* Modal dialog slides up from bottom as a sleek, native bottom sheet */
+    .ph-seasonal-modal-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 94vh !important;
+        max-height: 94vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.55) !important;
+        animation: phModalSlideUpMobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+    }
+
+    @keyframes phModalSlideUpMobile {
+        from { transform: translateY(100%); opacity: 0.5; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* Mobile pull handle indicator */
+    .ph-modal-drag-handle {
+        display: block !important;
+        width: 38px !important;
+        height: 4px !important;
+        border-radius: 999px !important;
+        background: rgba(148, 163, 184, 0.4) !important;
+        margin: 8px auto 2px auto !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Compact header on mobile */
+    .ph-seasonal-modal-header {
+        padding: 10px 14px 12px 14px !important;
+        gap: 10px !important;
+        flex-shrink: 0 !important;
+    }
+    .ph-seasonal-modal-header > div:first-child {
+        gap: 10px !important;
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+    .ph-seasonal-modal-header > div:first-child > div:first-child {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        min-height: 32px !important;
+        border-radius: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    .ph-seasonal-modal-header > div:first-child > div:first-child svg {
+        width: 17px !important;
+        height: 17px !important;
+    }
+    #phSeasonalModalTitle {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+    }
+    .ph-seasonal-modal-header > div:first-child > div:last-child > div {
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+        margin-top: 2px !important;
+    }
+    .ph-seasonal-modal-close {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        min-height: 32px !important;
+        font-size: 18px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Scrollable body with smooth momentum scroll and comfortable padding */
+    .ph-seasonal-modal-body {
+        padding: 14px 14px 28px 14px !important;
+        min-height: 0 !important;
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Dropdown controls stacked cleanly */
+    .seasonal-dropdown-row {
+        flex-direction: column !important;
+        gap: 10px !important;
+        margin-bottom: 14px !important;
+    }
+    .seasonal-dropdown-group {
+        width: 100% !important;
+        gap: 4px !important;
+    }
+    .seasonal-dropdown-label {
+        font-size: 10.5px !important;
+        letter-spacing: 0.4px !important;
+    }
+    .seasonal-dropdown-control {
+        height: 38px !important;
+        font-size: 12.5px !important;
+        padding: 0 32px 0 12px !important;
+        border-radius: 9px !important;
+    }
+    .seasonal-dropdown-arrow {
+        right: 12px !important;
+    }
+
+    /* Intel Banner compact layout */
+    .ph-intel-banner {
+        padding: 14px 14px !important;
+        border-radius: 12px !important;
+        margin-bottom: 14px !important;
+    }
+    .ph-header-meta {
+        gap: 8px !important;
+        margin-bottom: 6px !important;
+    }
+    .ph-season-pill {
+        font-size: 10px !important;
+        padding: 2px 8px !important;
+    }
+    .ph-weather-subtitle {
+        font-size: 11px !important;
+    }
+    .ph-main-heading {
+        font-size: 15px !important;
+        line-height: 1.25 !important;
+        margin-bottom: 4px !important;
+    }
+    .ph-main-subtext {
+        font-size: 11.5px !important;
+        line-height: 1.35 !important;
+    }
+    .ph-section-label {
+        font-size: 10px !important;
+        margin: 14px 0 8px 0 !important;
+    }
+    .consumption-triggers-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    .trigger-card {
+        padding: 9px 12px !important;
+        font-size: 12px !important;
+        border-radius: 8px !important;
+        line-height: 1.35 !important;
+    }
+    .demand-lift-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    .metric-lift-card {
+        padding: 9px 10px !important;
+        border-radius: 8px !important;
+    }
+    .metric-lift-label {
+        font-size: 11px !important;
+    }
+    .lift-multiplier {
+        font-size: 15px !important;
+    }
+    .lift-percentage {
+        font-size: 10.5px !important;
+    }
+
+    /* Products table container */
+    .ph-products-container {
+        padding: 12px !important;
+        border-radius: 12px !important;
+        margin-top: 14px !important;
+    }
+    .ph-table-header-row {
+        margin-bottom: 10px !important;
+    }
+    .ph-table-header-row div:first-child > div:first-child {
+        font-size: 14px !important;
+    }
+    .ph-table-header-row div:first-child > div:last-child {
+        font-size: 11px !important;
+    }
+    .ph-line-table {
+        min-width: 580px !important;
+    }
+    .ph-line-table th {
+        padding: 8px 10px !important;
+        font-size: 10px !important;
+    }
+    .ph-line-table th:last-child,
+    .ph-line-table td:last-child {
+        min-width: 135px !important;
+        width: 135px !important;
+        text-align: right !important;
+    }
+    .ph-line-table td {
+        padding: 10px 10px !important;
+    }
+    .seasonal-product-thumb {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 8px !important;
+    }
+    .table-product-name {
+        font-size: 12.5px !important;
+    }
+    .table-intel-sentence {
+        font-size: 11.5px !important;
+        line-height: 1.35 !important;
+    }
+
+    /* Floating action button (#phSeasonalFab) */
+    #phSeasonalFab {
+        bottom: 16px !important;
+        right: 14px !important;
+        padding: 5px 8px 5px 12px !important;
+        gap: 8px !important;
+    }
+    .ph-fab-title {
+        font-size: 11.5px !important;
+    }
+    .ph-fab-badge {
+        font-size: 9.5px !important;
+    }
+    .ph-fab-icon-disc {
+        width: 28px !important;
+        height: 28px !important;
+    }
+    .ph-fab-icon-disc svg {
+        width: 15px !important;
+        height: 15px !important;
+    }
+
+    /* Gemini Pulse mobile UI consistency */
+    .ph-modal-tab-bar {
+        padding: 8px 14px !important;
+        gap: 6px !important;
+    }
+    .ph-modal-tab {
+        padding: 6px 12px !important;
+        font-size: 12px !important;
+        border-radius: 6px !important;
+    }
+    .ph-preset-chips-wrap {
+        padding-bottom: 6px !important;
+        margin-bottom: 12px !important;
+    }
+    .ph-preset-btn {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+        border-radius: 6px !important;
+    }
+    .ph-query-bar {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        margin-bottom: 14px !important;
+    }
+    .ph-gemini-input {
+        height: 38px !important;
+        font-size: 12px !important;
+        padding: 0 12px !important;
+        border-radius: 8px !important;
+    }
+    .ph-btn-generate {
+        height: 38px !important;
+        font-size: 12.5px !important;
+        width: 100% !important;
+        border-radius: 8px !important;
+    }
+    .ph-briefing-card {
+        padding: 14px 14px !important;
+        border-radius: 12px !important;
+        margin-bottom: 14px !important;
+    }
+    .ph-wants-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .ph-want-card {
+        padding: 14px 14px !important;
+        border-radius: 10px !important;
+    }
+    .btn-table-check,
+    .btn-table-check.check-stock-btn,
+    .btn-table-onboard {
+        height: 30px !important;
+        padding: 0 10px !important;
+        font-size: 11px !important;
+        min-width: 95px !important;
+    }
 }
 </style>
 
@@ -616,7 +1804,8 @@ if (!function_exists('formatSafeSeasonalHtml')) {
 <div id="philippineSeasonalModal" class="ph-seasonal-modal-overlay"
      onclick="handleSeasonalModalBackdrop(event)"
      role="dialog" aria-modal="true" aria-labelledby="phSeasonalModalTitle">
-    <div class="ph-seasonal-modal-dialog" onclick="event.stopPropagation()">
+    <div class="ph-seasonal-modal-dialog">
+        <div class="ph-modal-drag-handle"></div>
         <div class="ph-seasonal-modal-header">
             <div style="display:flex;align-items:center;gap:12px;">
                 <div style="width:38px;height:38px;border-radius:10px;background:rgba(81,213,90,0.12);border:1.5px solid rgba(81,213,90,0.45);display:flex;align-items:center;justify-content:center;color:#51D55A;flex-shrink:0;">
@@ -638,8 +1827,29 @@ if (!function_exists('formatSafeSeasonalHtml')) {
             <button type="button" class="ph-seasonal-modal-close"
                     onclick="closePhilippineSeasonalModal()" title="Close (Esc)">&times;</button>
         </div>
+        <!-- Modal Tabs: Seasonal Calendar vs Gemini AI Daily Consumer Wants -->
+        <div class="ph-modal-tab-bar" role="tablist">
+            <button type="button" class="ph-modal-tab active" id="tabSeasonalCalendarBtn" role="tab" aria-selected="true" onclick="switchPhModalView('calendar')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Macro Seasonal Forecast</span>
+            </button>
+            <button type="button" class="ph-modal-tab" id="tabGeminiPulseBtn" role="tab" aria-selected="false" onclick="switchPhModalView('gemini')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/>
+                </svg>
+                <span>Gemini AI Daily Consumer Wants</span>
+                <span class="ph-ai-badge">LIVE AI</span>
+            </button>
+        </div>
         <div class="ph-seasonal-modal-body">
-            <!-- Dropdowns -->
+            <!-- Macro Seasonal Calendar View -->
+            <div id="phCalendarView">
+                <!-- Dropdowns -->
             <div class="seasonal-dropdown-row">
                 <div class="seasonal-dropdown-group">
                     <label for="seasonalHorizonSelect" class="seasonal-dropdown-label">
@@ -737,9 +1947,9 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                     <table class="ph-line-table">
                         <thead>
                             <tr>
-                                <th style="width:34%;">In-Demand Product / Category</th>
-                                <th style="width:48%;">Market Intelligence &amp; Recommendation</th>
-                                <th style="width:18%;text-align:right;">Stock &amp; Action</th>
+                                <th style="width:34%;min-width:160px;">In-Demand Product / Category</th>
+                                <th style="width:42%;min-width:220px;">Market Intelligence &amp; Recommendation</th>
+                                <th style="width:24%;min-width:135px;text-align:right;">Stock &amp; Action</th>
                             </tr>
                         </thead>
                         <tbody id="modalSeasonalTableBody">
@@ -833,17 +2043,18 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                                         </div>
                                     </div>
                                 </td>
-                                <td style="width:48%;">
+                                <td style="width:42%;min-width:220px;">
                                     <div class="table-intel-sentence"><?php echo formatSafeSeasonalHtml($intelSentence); ?></div>
                                     <?php echo $actionCalloutHtml; ?>
                                 </td>
-                                <td style="width:18%;text-align:right;">
+                                <td style="width:24%;min-width:135px;text-align:right;">
                                     <div class="table-stock-wrap">
                                         <div class="table-stock-num"><?php echo $stockDisplay; ?></div>
-                                        <button type="button" class="btn-table-check check-stock-btn"
+                                        <button type="button" class="btn-table-check check-stock-btn action-btn"
                                             data-product="<?php echo htmlspecialchars($item['product_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                                             data-category="<?php echo htmlspecialchars($item['category_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                                            <?php if (!empty($item['product_id'])): ?>data-id="<?php echo (int)$item['product_id']; ?>"<?php endif; ?>>
+                                            <?php if (!empty($item['product_id'])): ?>data-id="<?php echo (int)$item['product_id']; ?>"<?php endif; ?>
+                                            onclick="handleCheckStockClick(event, this)">
                                             Check stock &rarr;
                                         </button>
                                     </div>
@@ -854,7 +2065,485 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                     </table>
                 </div>
                 <div id="modalSeasonalPagination" class="ph-pagination-container"></div>
-            </div>
+            </div><!-- /.ph-products-container -->
+            </div><!-- /#phCalendarView -->
+
+            <!-- Gemini AI Daily Consumer Wants Panel -->
+            <div id="phGeminiPulseView" style="display:none;" class="ph-gemini-panel">
+                <!-- Preset Quick Buttons -->
+                <div class="ph-preset-chips-wrap" role="toolbar" aria-label="Quick Philippine consumer scenarios">
+                    <button type="button" class="ph-preset-btn active" data-preset="payday" onclick="selectPulsePreset('payday', this)">
+                        <span>💰</span> Payday Quincena (15th/30th)
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="tgif" onclick="selectPulsePreset('tgif', this)">
+                        <span>🍻</span> TGIF Friday Inuman
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="weekend_groceries" onclick="selectPulsePreset('weekend_groceries', this)">
+                        <span>🛒</span> Saturday Grocery Run
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="sunday_salusalo" onclick="selectPulsePreset('sunday_salusalo', this)">
+                        <span>🍲</span> Sunday Family Salu-salo
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="rainy_comfort" onclick="selectPulsePreset('rainy_comfort', this)">
+                        <span>🌧️</span> Tag-ulan Rainy Day Comfort
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="summer_heat" onclick="selectPulsePreset('summer_heat', this)">
+                        <span>☀️</span> Tag-init Summer Heatwave
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="undas" onclick="selectPulsePreset('undas', this)">
+                        <span>🕯️</span> Undas / All Saints' Day
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="simbang_gabi" onclick="selectPulsePreset('simbang_gabi', this)">
+                        <span>🎄</span> Paskong Pinoy &amp; Simbang Gabi
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="holy_week" onclick="selectPulsePreset('holy_week', this)">
+                        <span>✝️</span> Semana Santa Holy Week
+                    </button>
+                    <button type="button" class="ph-preset-btn" data-preset="back_to_school" onclick="selectPulsePreset('back_to_school', this)">
+                        <span>🎒</span> Balik-Eskwela Season
+                    </button>
+                </div>
+
+                <!-- Custom Query / Filters Bar -->
+                <div class="ph-query-bar">
+                    <div>
+                        <input type="date" id="phPulseDateInput" class="ph-gemini-input"
+                               value="<?php echo date('Y-m-d'); ?>"
+                               onchange="handleDateOrRegionChange()"
+                               title="Target Calendar Date" aria-label="Target Calendar Date" />
+                    </div>
+                    <div>
+                        <select id="phPulseRegionSelect" class="ph-gemini-input"
+                                onchange="handleDateOrRegionChange()"
+                                title="Philippine Region" aria-label="Philippine Region">
+                            <option value="Philippines (Nationwide)">Nationwide (All PH)</option>
+                            <option value="NCR / Metro Manila">NCR / Metro Manila</option>
+                            <option value="Luzon Provinces">Luzon Provinces</option>
+                            <option value="Visayas (Cebu, Iloilo)">Visayas (Cebu / Iloilo)</option>
+                            <option value="Mindanao (Davao, CDO)">Mindanao (Davao / CDO)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="text" id="phPulseCustomPrompt" class="ph-gemini-input"
+                               placeholder="e.g. Typhoon monsoon storm cravings, or Friday payday dinner..."
+                               onkeydown="if(event.key==='Enter'){event.preventDefault();generateGeminiPulse();}" />
+                    </div>
+                    <div>
+                        <button type="button" id="phPulseGenerateBtn" class="ph-btn-generate" onclick="generateGeminiPulse()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/>
+                            </svg>
+                            <span>Analyze Wants</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Loading State -->
+                <div id="geminiPulseLoading" style="display:none;" class="ph-loading-shimmer">
+                    <div class="ph-ai-spinner"></div>
+                    <div style="font-size:14px;font-weight:700;color:var(--insights-heading,#FFFFFF);">
+                        Consulting Google Gemini AI Consumer Pulse...
+                    </div>
+                    <div style="font-size:12px;color:var(--insights-text-muted,#9aa6d1);">
+                        Analyzing daily purchasing intent, Pinoy cravings, payday cycles, and warehouse catalog alignment.
+                    </div>
+                </div>
+
+                <!-- Results Output Container -->
+                <div id="geminiPulseResults">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div><!-- /#phGeminiPulseView -->
         </div><!-- /.ph-seasonal-modal-body -->
     </div><!-- /.ph-seasonal-modal-dialog -->
 </div><!-- /.ph-seasonal-modal-overlay -->
+
+<script>
+// --- Philippine Seasonal Tab Switching ---
+window.switchPhModalView = function(view) {
+    const calendarView = document.getElementById('phCalendarView');
+    const geminiView = document.getElementById('phGeminiPulseView');
+    const tabCalBtn = document.getElementById('tabSeasonalCalendarBtn');
+    const tabGeminiBtn = document.getElementById('tabGeminiPulseBtn');
+    const titleEl = document.getElementById('phSeasonalModalTitle');
+
+    if (view === 'gemini') {
+        if (calendarView) calendarView.style.display = 'none';
+        if (geminiView) geminiView.style.display = 'block';
+        if (tabCalBtn) {
+            tabCalBtn.classList.remove('active');
+            tabCalBtn.setAttribute('aria-selected', 'false');
+        }
+        if (tabGeminiBtn) {
+            tabGeminiBtn.classList.add('active');
+            tabGeminiBtn.setAttribute('aria-selected', 'true');
+        }
+        if (titleEl) {
+            titleEl.textContent = 'Philippine Market & Daily Consumer Wants (Gemini AI)';
+        }
+        // Auto-generate on first open if empty
+        const resultsEl = document.getElementById('geminiPulseResults');
+        if (resultsEl && (!resultsEl.children || resultsEl.children.length === 0)) {
+            generateGeminiPulse();
+        }
+    } else {
+        if (calendarView) calendarView.style.display = 'block';
+        if (geminiView) geminiView.style.display = 'none';
+        if (tabCalBtn) {
+            tabCalBtn.classList.add('active');
+            tabCalBtn.setAttribute('aria-selected', 'true');
+        }
+        if (tabGeminiBtn) {
+            tabGeminiBtn.classList.remove('active');
+            tabGeminiBtn.setAttribute('aria-selected', 'false');
+        }
+        if (titleEl) {
+            titleEl.textContent = 'Philippine Market and Seasonal Demand Recommendations';
+        }
+    }
+};
+
+let currentPulsePreset = 'auto';
+
+window.handleDateOrRegionChange = function() {
+    currentPulsePreset = 'auto';
+    generateGeminiPulse();
+};
+
+window.selectPulsePreset = function(presetKey, btnEl) {
+    currentPulsePreset = presetKey;
+    document.querySelectorAll('.ph-preset-btn').forEach(function(b) {
+        b.classList.remove('active');
+    });
+    if (btnEl) btnEl.classList.add('active');
+    const promptInput = document.getElementById('phPulseCustomPrompt');
+    if (promptInput) promptInput.value = '';
+    generateGeminiPulse();
+};
+
+function updateActivePresetButton(activeDayType) {
+    if (!activeDayType) return;
+    const presetBtns = document.querySelectorAll('.ph-preset-btn');
+    let matchedBtn = null;
+    presetBtns.forEach(function(btn) {
+        btn.classList.remove('active');
+        const p = btn.getAttribute('data-preset');
+        if (p === activeDayType || 
+            (activeDayType === 'friday_night' && p === 'tgif') ||
+            (activeDayType === 'saturday_haul' && p === 'weekend_groceries') ||
+            (activeDayType === 'sunday_family' && p === 'sunday_salusalo') ||
+            (activeDayType === 'rainy_typhoon' && p === 'rainy_comfort') ||
+            (activeDayType === 'summer_heat' && p === 'summer_heat') ||
+            (activeDayType === 'holiday_undas' && p === 'undas') ||
+            (activeDayType === 'regular_weekday' && p === 'back_to_school')) {
+            matchedBtn = btn;
+        }
+    });
+    if (matchedBtn) {
+        matchedBtn.classList.add('active');
+    }
+}
+
+function escapePulseHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+window.generateGeminiPulse = function() {
+    const loadingEl = document.getElementById('geminiPulseLoading');
+    const resultsEl = document.getElementById('geminiPulseResults');
+    const genBtn = document.getElementById('phPulseGenerateBtn');
+    const dateInput = document.getElementById('phPulseDateInput');
+    const regionSelect = document.getElementById('phPulseRegionSelect');
+    const promptInput = document.getElementById('phPulseCustomPrompt');
+
+    const dateVal = dateInput ? dateInput.value : '';
+    const regionVal = regionSelect ? regionSelect.value : 'Philippines (Nationwide)';
+    const customPrompt = promptInput ? promptInput.value.trim() : '';
+
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (resultsEl) resultsEl.style.display = 'none';
+    if (genBtn) {
+        genBtn.disabled = true;
+        genBtn.style.opacity = '0.6';
+    }
+
+    const payload = {
+        date: dateVal,
+        event: currentPulsePreset,
+        region: regionVal,
+        prompt: customPrompt
+    };
+
+    fetch('api/gemini_ph_market_pulse.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(function(res) {
+        return res.json();
+    })
+    .then(function(data) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (resultsEl) resultsEl.style.display = 'block';
+        if (genBtn) {
+            genBtn.disabled = false;
+            genBtn.style.opacity = '1';
+        }
+
+        if (!data || !data.success) {
+            resultsEl.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171;">Failed to generate insights: ' + (data && data.message ? escapePulseHtml(data.message) : 'Unknown error') + '</div>';
+            return;
+        }
+
+        renderGeminiPulseResults(data);
+    })
+    .catch(function(err) {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (resultsEl) resultsEl.style.display = 'block';
+        if (genBtn) {
+            genBtn.disabled = false;
+            genBtn.style.opacity = '1';
+        }
+        resultsEl.innerHTML = '<div style="text-align:center;padding:30px;color:#f87171;">Network or server error while contacting Gemini AI service. Please try again.</div>';
+    });
+};
+
+function renderGeminiPulseResults(data) {
+    const resultsEl = document.getElementById('geminiPulseResults');
+    if (!resultsEl) return;
+
+    // Dynamically update active preset button from backend classification
+    if (data && data.day_type) {
+        updateActivePresetButton(data.day_type);
+    }
+
+    const briefing = data.briefing || {};
+    const wants = data.top_consumer_wants || data.recommended_wants || [];
+    const isLive = Boolean(data.is_ai_live);
+    const model = data.model || 'Gemini 3.5 Flash';
+    const eventName = data.day_type_label || data.target_event || data.primary_driver || 'Daily Market Demand';
+    const region = data.region || 'Philippines';
+    const dateStr = data.target_date || data.query_date || '';
+    const headline = data.primary_driver || (briefing && briefing.headline) || eventName;
+    const sentimentSummary = data.consumer_sentiment_summary || (briefing && briefing.cultural_driver) || '';
+    const spendingMood = data.spending_power_level || (briefing && briefing.spending_mood) || '';
+
+    // Cravings & Trending Categories chips
+    let cravingsHtml = '';
+    if (data.trending_categories && Array.isArray(data.trending_categories)) {
+        data.trending_categories.forEach(function(item) {
+            const catName = typeof item === 'string' ? item : (item.name || '');
+            const lift = (typeof item === 'object' && item.lift_pct) ? ' (' + item.lift_pct + ')' : '';
+            if (catName) {
+                cravingsHtml += '<span class="ph-trend-chip">🔥 <strong>' + escapePulseHtml(catName) + '</strong>' + escapePulseHtml(lift) + '</span>';
+            }
+        });
+    } else if (briefing.trending_cravings && Array.isArray(briefing.trending_cravings)) {
+        briefing.trending_cravings.forEach(function(item) {
+            cravingsHtml += '<span class="ph-trend-chip">🔥 <strong>' + escapePulseHtml(item) + '</strong></span>';
+        });
+    }
+
+    // Briefing card HTML
+    const briefingCardHtml = `
+        <div class="ph-briefing-card">
+            <div class="ph-briefing-meta">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span class="ph-briefing-pill">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        ${escapePulseHtml(eventName)}
+                    </span>
+                    <span class="ph-spending-badge">📅 ${escapePulseHtml(dateStr)}</span>
+                    <span class="ph-spending-badge">📍 ${escapePulseHtml(region)}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="ph-ai-badge" style="background:${isLive ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(148,163,184,0.3)'};">
+                        ${isLive ? '✨ Live ' + escapePulseHtml(model) : '🛡️ Live Warehouse DB Sync'}
+                    </span>
+                    ${spendingMood ? '<span class="ph-spending-badge" style="color:#51D55A;border-color:rgba(81,213,90,0.4);">💳 ' + escapePulseHtml(spendingMood) + '</span>' : ''}
+                </div>
+            </div>
+            <h4 style="font-size:17px;font-weight:700;color:var(--insights-heading,#FFFFFF);margin:0 0 8px 0;line-height:1.35;">
+                ${escapePulseHtml(headline)}
+            </h4>
+            <p style="font-size:13px;line-height:1.55;color:var(--insights-text-muted,#9aa6d1);margin:0;">
+                ${escapePulseHtml(sentimentSummary)}
+            </p>
+            ${cravingsHtml ? '<div class="ph-trending-chips"><span style="font-size:11px;font-weight:700;color:var(--insights-text-muted,#9aa6d1);text-transform:uppercase;letter-spacing:0.5px;">Surging Product Categories:</span> ' + cravingsHtml + '</div>' : ''}
+        </div>
+    `;
+
+    // Recommended products grid
+    let cardsHtml = '';
+    wants.forEach(function(want) {
+        const inCatalog = Boolean(want.matched_in_stock || want.product_id);
+        const stockUnits = parseInt(want.current_stock || 0, 10);
+        const reorderPoint = parseInt(want.reorder_point || 0, 10);
+        const pName = want.product_name;
+        const pCat = want.category || 'Retail Goods';
+        const pId = want.product_id || '';
+        const surge = want.demand_surge || want.surge_factor || '+50% Surge';
+        const stockStatus = want.stock_status || (inCatalog ? (stockUnits <= 0 ? 'out_of_stock' : (reorderPoint > 0 && stockUnits <= reorderPoint ? 'low_stock' : 'in_stock')) : 'opportunity');
+
+        // Meta chips
+        const categoryChip = `
+            <span class="ph-meta-chip category-chip">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+                <span>${escapePulseHtml(pCat)}</span>
+            </span>`;
+
+        const buyerChip = want.target_buyer ? `
+            <span class="ph-meta-chip buyer-chip">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>${escapePulseHtml(want.target_buyer)}</span>
+            </span>` : '';
+
+        // Merchandising Tip (Icon column + text, without redundant "Tip:" word)
+        const tipText = want.retail_merchandising_tip || want.merchandising_tip || '';
+        const tipHtml = tipText ? `
+            <div class="ph-want-tip">
+                <span class="ph-tip-icon" aria-hidden="true">💡</span>
+                <div class="ph-tip-text">${escapePulseHtml(tipText)}</div>
+            </div>` : '';
+
+        // Fully Dynamic Stock status with DB reorder point threshold (NO hardcoded numbers!)
+        let stockStatusKey = 'stock-opp';
+        let dotKey = 'blue';
+        let statusBadgeHtml = '';
+
+        if (stockStatus === 'out_of_stock' || (inCatalog && stockUnits <= 0)) {
+            stockStatusKey = 'stock-out';
+            dotKey = 'red';
+            statusBadgeHtml = `<span class="ph-status-tag critical"><span class="ph-stock-dot red"></span> Out of Stock (0 units)</span>`;
+        } else if (stockStatus === 'low_stock' || (inCatalog && reorderPoint > 0 && stockUnits <= reorderPoint)) {
+            stockStatusKey = 'stock-low';
+            dotKey = 'amber';
+            statusBadgeHtml = `<span class="ph-status-tag low"><span class="ph-stock-dot amber"></span> Low Stock (${stockUnits} units &bull; Min: ${reorderPoint})</span>`;
+        } else if (stockStatus === 'in_stock' || inCatalog) {
+            stockStatusKey = 'stock-in';
+            dotKey = 'green';
+            statusBadgeHtml = `<span class="ph-status-tag in-stock"><span class="ph-stock-dot green"></span> In Stock (${stockUnits} units)</span>`;
+        } else {
+            stockStatusKey = 'stock-opp';
+            dotKey = 'blue';
+            statusBadgeHtml = `<span class="ph-status-tag opportunity"><span class="ph-stock-dot blue"></span> Market Opp</span>`;
+        }
+
+        const stockNoteHtml = want.stock_advice ? `
+            <div class="ph-stock-note ${stockStatusKey}">
+                <span class="ph-stock-dot ${dotKey}"></span>
+                <div class="ph-stock-note-text">${escapePulseHtml(want.stock_advice)}</div>
+            </div>` : '';
+
+        // Action button
+        let actionBtnHtml = '';
+        if (inCatalog) {
+            actionBtnHtml = `
+                <button type="button" class="btn-table-check check-stock-btn"
+                        data-product="${escapePulseHtml(pName)}"
+                        data-category="${escapePulseHtml(pCat)}"
+                        data-id="${escapePulseHtml(pId)}"
+                        onclick="handleCheckStockClick(event, this)">
+                    Check stock &rarr;
+                </button>
+            `;
+        } else {
+            actionBtnHtml = `
+                <a href="inventory.php?new_item=${encodeURIComponent(want.product_name)}" class="btn-table-onboard" title="Add product to warehouse inventory">
+                    + Onboard Item
+                </a>
+            `;
+        }
+
+        cardsHtml += `
+            <div class="ph-want-card">
+                <div class="ph-want-card-body">
+                    <div class="ph-want-top-badge-row">
+                        <span class="ph-want-surge">${escapePulseHtml(surge)}</span>
+                    </div>
+                    <div class="ph-want-title">${escapePulseHtml(want.product_name)}</div>
+                    <div class="ph-want-meta-row">
+                        ${categoryChip}
+                        ${buyerChip}
+                    </div>
+                    <div class="ph-want-reason">
+                        <span class="ph-reason-tag">Why Filipinos Want This Today</span>
+                        <p class="ph-reason-text">${escapePulseHtml(want.why_people_want_this || '')}</p>
+                    </div>
+                </div>
+
+                <div class="ph-want-card-bottom">
+                    ${tipHtml}
+                    ${stockNoteHtml}
+                    <div class="ph-want-footer">
+                        <div>${statusBadgeHtml}</div>
+                        <div>${actionBtnHtml}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    resultsEl.innerHTML = briefingCardHtml + `
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:14px;font-weight:700;color:var(--insights-heading,#FFFFFF);display:flex;align-items:center;gap:8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#51D55A;flex-shrink:0;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <circle cx="12" cy="12" r="6"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                </svg>
+                <span>What Filipinos Are Buying &amp; Craving Right Now</span>
+                <span style="font-size:11px;font-weight:600;color:var(--insights-text-muted,#9aa6d1);">(${wants.length} Consumer Wants Analyzed)</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--insights-text-muted,#9aa6d1);">
+                Cross-referenced with warehouse inventory
+            </div>
+        </div>
+        <div class="ph-wants-grid">
+            ${cardsHtml}
+        </div>
+    `;
+}
+
+if (typeof window.checkStock !== 'function') {
+    window.checkStock = function(productName, categoryName, productId) {
+        var params = new URLSearchParams();
+        if (productId) params.set('product_id', productId);
+        if (categoryName) params.set('category', categoryName);
+        if (productName) params.set('q', productName);
+        params.set('ref', 'insights');
+        window.location.href = 'transactions.php?' + params.toString();
+    };
+}
+
+if (typeof window.handleCheckStockClick !== 'function') {
+    window.handleCheckStockClick = function(e, btn) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        var button = btn || (e ? e.target.closest('.check-stock-btn, .btn-table-check') : null);
+        if (!button) return;
+        var pName = button.getAttribute('data-product') || button.dataset.product || '';
+        var cName = button.getAttribute('data-category') || button.dataset.category || '';
+        var pId   = button.getAttribute('data-id') || button.dataset.id || '';
+        window.checkStock(pName, cName, pId);
+    };
+}
+</script>

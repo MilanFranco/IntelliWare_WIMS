@@ -14,7 +14,7 @@ $dateTo = $_GET['date_to'] ?? '';
 $categoryFilter = $_GET['category'] ?? '';
 $statusFilter = $_GET['status'] ?? ''; // New Filter
 
-$mainWhereConditions = [];
+$mainWhereConditions = ['archived = 0'];
 $mainParams = [];
 $mainTypes = '';
 
@@ -86,7 +86,7 @@ if ($stmt = $conn->prepare($productQuery)) {
 }
 
 // Fetch unique categories
-$categoriesQuery = "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category";
+$categoriesQuery = "SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' AND archived = 0 ORDER BY category";
 $allCategories = [];
 $resultCat = $conn->query($categoriesQuery);
 if ($resultCat) {
@@ -355,7 +355,127 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         color: #0F172A !important;
     }
 
+    /* Stock Explorer Scrollable Grid & Columns */
+    .stock-explorer-scroll-wrap {
+        width: 100%;
+        max-width: 100%;
+    }
+    .stock-explorer-grid {
+        display: grid;
+        grid-template-columns: 3fr 5fr 4fr;
+        gap: 1.5rem;
+        height: 560px;
+        min-height: 560px;
+    }
+    .stock-explorer-col {
+        min-height: 0;
+        height: 100%;
+    }
+    .stock-explorer-scroll-wrap.iw-table-scroll {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
 
+    /* View Mode Switcher */
+    .report-view-toggle-wrap {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px;
+        border-radius: 12px;
+        background: rgba(13, 22, 56, 0.7);
+        border: 1px solid rgba(42, 68, 132, 0.5);
+    }
+    .report-view-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Onest', sans-serif;
+        color: #9aa6d1;
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .report-view-tab:hover {
+        color: #E3E3E3;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .report-view-tab.active {
+        color: #51D55A;
+        background: rgba(81, 213, 90, 0.15);
+        border-color: rgba(81, 213, 90, 0.4);
+        box-shadow: 0 2px 8px rgba(81, 213, 90, 0.15);
+    }
+
+    /* Light Mode View Switcher */
+    [data-theme="light"] .report-view-toggle-wrap {
+        background: #EFF6FF !important;
+        border-color: #BFDBFE !important;
+    }
+    [data-theme="light"] .report-view-tab {
+        color: #64748B !important;
+    }
+    [data-theme="light"] .report-view-tab:hover {
+        color: #0F172A !important;
+        background: #DBEAFE !important;
+    }
+    [data-theme="light"] .report-view-tab.active {
+        color: #15803D !important;
+        background: #FFFFFF !important;
+        border-color: #86EFAC !important;
+        box-shadow: 0 1px 3px rgba(16, 24, 43, 0.08) !important;
+    }
+
+    /* Light Mode Column Borders */
+    [data-theme="light"] .stock-explorer-col.border-r {
+        border-right-color: #D0DFF2 !important;
+    }
+
+    /* Light Mode Detailed Audit Table Elements */
+    [data-theme="light"] #reportTableView .product-title-text {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] #reportTableView .product-sku-text {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #reportTableView .table-cat-badge {
+        background: #EFF6FF !important;
+        border-color: #BFDBFE !important;
+        color: #1E3A8A !important;
+    }
+    [data-theme="light"] #reportTablePagination {
+        border-top-color: #D6E2F2 !important;
+    }
+
+    /* Mobile / Tablet Horizontal Scroll for Explorer (< 1024px) */
+    @media (max-width: 1023px) {
+        .stock-explorer-grid {
+            display: grid !important;
+            grid-template-columns: 240px 340px 280px !important;
+            min-width: 860px !important;
+            height: 540px !important;
+            min-height: 540px !important;
+            gap: 16px !important;
+            padding: 16px !important;
+        }
+        .stock-explorer-grid .col-categories > div:last-child,
+        .stock-explorer-grid #itemList,
+        .stock-explorer-grid #statusList {
+            height: 470px !important;
+        }
+    }
+
+    /* Mobile swipe hint */
+    .mobile-scroll-hint {
+        user-select: none;
+    }
+    [data-theme="light"] .mobile-scroll-hint {
+        color: #475569 !important;
+    }
 
     .print-only { display: none !important; }
 
@@ -522,19 +642,19 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                 </select>
             </div>
 
-            <div class="flex items-center gap-2 shrink-0">
-                <button class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" type="submit" title="Search Reports" aria-label="Search">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <div class="reports-filter-actions flex items-center gap-2 w-full lg:w-auto shrink-0 mt-1 lg:mt-0">
+                <button class="reports-btn-icon btn-secondary h-[42px] lg:h-[46px] w-[42px] lg:w-[46px] min-w-[42px] lg:min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" type="submit" title="Search Reports" aria-label="Search">
+                    <svg class="w-4.5 h-4.5 lg:w-5 lg:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
-                <a href="reports.php" class="btn-secondary h-[46px] w-[46px] min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <a href="reports.php" class="reports-btn-icon btn-secondary h-[42px] lg:h-[46px] w-[42px] lg:w-[46px] min-w-[42px] lg:min-w-[46px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Reset Filters" aria-label="Reset Filters">
+                    <svg class="w-4.5 h-4.5 lg:w-5 lg:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </a>
-                <button type="button" onclick="downloadPDF()" class="premium-button h-[46px] px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" title="Generate &amp; Download PDF Report">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <button type="button" onclick="downloadPDF()" class="reports-btn-export premium-button h-[42px] lg:h-[46px] px-3 sm:px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl flex-1 lg:flex-initial" title="Generate &amp; Download PDF Report">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span>PDF</span>
                 </button>
-                <button type="button" onclick="downloadExcel()" class="premium-button h-[46px] px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap" title="Generate &amp; Download Excel Report">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <button type="button" onclick="downloadExcel()" class="reports-btn-export premium-button h-[42px] lg:h-[46px] px-3 sm:px-4 text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap rounded-xl flex-1 lg:flex-initial" title="Generate &amp; Download Excel Report">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span>Excel</span>
                 </button>
             </div>
@@ -549,6 +669,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             <div class="premium-metric">
                 <span class="num text-3xl"><?php echo number_format($totalItemsFiltered); ?></span>
             </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Active catalog SKUs</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -561,6 +682,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalUnits); ?></span>
             </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Current warehouse inventory</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-[#51D55A]/10 flex items-center justify-center text-[#51D55A] group-hover:scale-110 transition-transform">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
@@ -573,6 +695,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($lowStockCount); ?></span>
             </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Items requiring restock</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -585,6 +708,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             <div class="premium-metric">
                 <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($outOfStockCount); ?></span>
             </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Fully depleted items</div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
@@ -725,81 +849,174 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
 
     <!-- Stock Explorer Card -->
     <div class="premium-card mb-6">
-        <div class="p-5 border-b border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-4 bg-[#13275B]/30">
-            <div>
-                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                    Stock Explorer
+        <div class="p-5 border-b border-[#2A4484]/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#13275B]/30 stock-explorer-header text-left">
+            <div class="text-left w-full sm:w-auto">
+                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 text-left justify-start">
+                    <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>Stock Explorer</span>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1">Showing <?php echo number_format($totalItemsFiltered); ?> items based on current filters.</p>
+                <p class="text-xs text-[#9aa6d1] mt-1 text-left">Showing <?php echo number_format($totalItemsFiltered); ?> items based on current filters.</p>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#13275B]/60 border border-[#2A4484]/40 text-xs text-[#9aa6d1]">
-                    <span class="w-2 h-2 rounded-full bg-[#51D55A]"></span>
-                    <span>Interactive Explorer</span>
-                </span>
+            <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto w-full sm:w-auto justify-start sm:justify-end">
+                <div class="report-view-toggle-wrap">
+                    <button type="button" id="tabExplorerBtn" onclick="switchReportView('explorer')" class="report-view-tab active" title="Interactive 3-Column Explorer">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                        <span>Interactive Explorer</span>
+                    </button>
+                    <button type="button" id="tabTableBtn" onclick="switchReportView('table')" class="report-view-tab" title="Detailed Audit Table View">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span>Detailed Audit Table</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        <div class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[600px]">
+        <!-- Explorer View Container -->
+        <div id="reportExplorerView">
+            <div class="mobile-scroll-hint lg:hidden px-6 pt-3 pb-0 text-xs text-[#9aa6d1] flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-[#51D55A] animate-pulse shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                <span>Swipe horizontally to navigate Categories, Products &amp; Stock Health &rarr;</span>
+            </div>
             
-            <div class="lg:col-span-3 flex flex-col lg:h-full lg:border-r border-[#2A4484]/30 lg:pr-4">
-                <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider mb-3 px-1">Categories</div>
-                
-                <div class="overflow-y-auto premium-scrollbar pr-2 space-y-2 h-[350px] lg:h-[520px] min-h-0">
-                    <?php foreach ($categoryGroups as $categoryName => $group):
-                        $productCount = count($group['items']);
-                        $totalQty = $group['total_qty'];
-                        $catKeyAttr = htmlspecialchars(json_encode($categoryName), ENT_QUOTES);
-                    ?>
-                    <button class="browser-btn w-full p-3 rounded-xl border border-transparent bg-white/5 hover:bg-white/10 group flex-shrink-0" onclick="toggleCategory(<?php echo $catKeyAttr; ?>, this)">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="btn-title font-semibold text-[#E3E3E3] text-sm group-hover:text-white text-left truncate w-[85%]"><?php echo htmlspecialchars($categoryName); ?></span>
-                            <svg class="w-4 h-4 text-[#9aa6d1] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            <div class="stock-explorer-scroll-wrap iw-table-scroll">
+                <div class="stock-explorer-grid p-6">
+                    
+                    <!-- Column 1: Categories -->
+                    <div class="stock-explorer-col col-categories flex flex-col h-full border-r border-[#2A4484]/30 pr-4">
+                        <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider mb-3 px-1">Categories</div>
+                        
+                        <div class="overflow-y-auto premium-scrollbar pr-2 space-y-2 h-[520px] min-h-0">
+                            <?php foreach ($categoryGroups as $categoryName => $group):
+                                $productCount = count($group['items']);
+                                $totalQty = $group['total_qty'];
+                                $catKeyAttr = htmlspecialchars(json_encode($categoryName), ENT_QUOTES);
+                            ?>
+                            <button class="browser-btn w-full p-3 rounded-xl border border-transparent bg-white/5 hover:bg-white/10 group flex-shrink-0" onclick="toggleCategory(<?php echo $catKeyAttr; ?>, this)">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="btn-title font-semibold text-[#E3E3E3] text-sm group-hover:text-white text-left truncate w-[85%]"><?php echo htmlspecialchars($categoryName); ?></span>
+                                    <svg class="w-4 h-4 text-[#9aa6d1] opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                </div>
+                                <div class="flex justify-between text-[10px] text-[#9aa6d1]">
+                                    <span><?php echo $productCount; ?> Items</span>
+                                    <span><?php echo number_format($totalQty); ?> Units</span>
+                                </div>
+                            </button>
+                            <?php endforeach; ?>
                         </div>
-                        <div class="flex justify-between text-[10px] text-[#9aa6d1]">
-                            <span><?php echo $productCount; ?> Items</span>
-                            <span><?php echo number_format($totalQty); ?> Units</span>
+                    </div>
+
+                    <!-- Column 2: Products -->
+                    <div class="stock-explorer-col col-products flex flex-col h-full border-r border-[#2A4484]/30 px-4">
+                        <div class="flex justify-between items-center mb-3 px-1">
+                            <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider">Products</div>
+                            <div id="itemPanelMeta" class="text-[10px] text-[#51D55A]">Select a category</div>
                         </div>
-                    </button>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-            <div class="lg:col-span-5 flex flex-col lg:h-full lg:border-r border-[#2A4484]/30 lg:px-4 mt-6 lg:mt-0">
-                <div class="flex justify-between items-center mb-3 px-1">
-                    <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider">Products</div>
-                    <div id="itemPanelMeta" class="text-[10px] text-[#51D55A]">Select a category</div>
-                </div>
-                
-                <div class="overflow-y-auto premium-scrollbar pr-2 bg-[#0d1638]/50 rounded-xl border border-[#2A4484]/30 p-2 h-[350px] lg:h-[520px] min-h-0" id="itemList">
-                    <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1] opacity-60 min-h-[150px]">
-                        <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                        <span class="text-xs">Select a category on the left</span>
+                        
+                        <div class="overflow-y-auto premium-scrollbar pr-2 bg-[#0d1638]/50 rounded-xl border border-[#2A4484]/30 p-2 h-[520px] min-h-0" id="itemList">
+                            <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1] opacity-60 min-h-[150px]">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                <span class="text-xs">Select a category on the left</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="lg:col-span-4 flex flex-col lg:h-full lg:pl-2 mt-6 lg:mt-0">
-                <div class="flex justify-between items-center mb-3 px-1">
-                    <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider">Stock Health</div>
-                    <div id="statusPanelMeta" class="text-[10px] text-[#9aa6d1]">Overview</div>
-                </div>
-                
-                <div class="overflow-y-auto premium-scrollbar pr-2 bg-[#0d1638]/50 rounded-xl border border-[#2A4484]/30 p-2 h-[350px] lg:h-[520px] min-h-0" id="statusList">
-                    <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1] opacity-60 min-h-[150px]">
-                        <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span class="text-xs">Status details will appear here</span>
+                    <!-- Column 3: Stock Health -->
+                    <div class="stock-explorer-col col-health flex flex-col h-full pl-2">
+                        <div class="flex justify-between items-center mb-3 px-1">
+                            <div class="text-xs font-semibold text-[#9aa6d1] uppercase tracking-wider">Stock Health</div>
+                            <div id="statusPanelMeta" class="text-[10px] text-[#9aa6d1]">Overview</div>
+                        </div>
+                        
+                        <div class="overflow-y-auto premium-scrollbar pr-2 bg-[#0d1638]/50 rounded-xl border border-[#2A4484]/30 p-2 h-[520px] min-h-0" id="statusList">
+                            <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1] opacity-60 min-h-[150px]">
+                                <svg class="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span class="text-xs">Status details will appear here</span>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
             </div>
+        </div>
 
+        <!-- Detailed Audit Table Container -->
+        <div id="reportTableView" class="hidden">
+            <div class="mobile-scroll-hint lg:hidden px-6 pt-3 pb-0 text-xs text-[#9aa6d1] flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-[#51D55A] animate-pulse shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                <span>Swipe horizontally to inspect full audit ledger &rarr;</span>
+            </div>
+            <div class="p-4 sm:p-6">
+                <div class="iw-table-scroll" style="overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; width: 100% !important; max-width: 100% !important; display: block !important;">
+                    <table class="premium-table w-full text-left" style="min-width: 780px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th>Product Details</th>
+                                <th>SKU</th>
+                                <th>Category</th>
+                                <th style="text-align: right;">Quantity</th>
+                                <th style="text-align: right;">Reorder Point</th>
+                                <th style="text-align: center;">Stock Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody">
+                            <?php 
+                            $tblIdx = 1;
+                            foreach ($items as $it): 
+                                $itQty = (int)($it['qty'] ?? 0);
+                                $itReorder = (int)($it['reorder_point'] ?? 10);
+                                $badgeCls = 'good';
+                                $badgeTxt = 'IN STOCK';
+                                if ($itQty <= 0) {
+                                    $badgeCls = 'out';
+                                    $badgeTxt = 'OUT OF STOCK';
+                                } elseif ($itQty <= $itReorder) {
+                                    $badgeCls = 'low';
+                                    $badgeTxt = 'LOW STOCK';
+                                }
+                            ?>
+                            <tr>
+                                <td class="font-mono text-xs opacity-60"><?php echo $tblIdx++; ?></td>
+                                <td>
+                                    <div class="product-title-text font-semibold text-white"><?php echo htmlspecialchars($it['name']); ?></div>
+                                </td>
+                                <td>
+                                    <span class="product-sku-text font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($it['sku']); ?></span>
+                                </td>
+                                <td>
+                                    <span class="table-cat-badge text-xs px-2.5 py-1 rounded-md bg-[#13275B]/60 border border-[#2A4484]/40 text-[#9aa6d1]">
+                                        <?php echo htmlspecialchars($it['category'] ?: 'Uncategorized'); ?>
+                                    </span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <span class="font-mono font-bold text-sm <?php echo $badgeCls === 'out' ? 'text-red-400' : ($badgeCls === 'low' ? 'text-amber-400' : 'text-[#51D55A]'); ?>">
+                                        <?php echo number_format($itQty); ?>
+                                    </span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <span class="product-sku-text font-mono text-xs text-[#9aa6d1]"><?php echo number_format($itReorder); ?></span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <span class="status-badge <?php echo $badgeCls; ?>">
+                                        <?php echo $badgeTxt; ?>
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="pagination-container p-3 sm:p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4 flex-wrap no-print" id="reportTablePagination"></div>
         </div>
     </div>
 
     <div class="premium-card">
         <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
-            <h3 class="font-onest font-semibold text-lg text-white">Inventory Distribution</h3>
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                <span>Inventory Distribution</span>
+            </h3>
         </div>
         <div class="p-5 h-[300px] relative">
             <canvas id="reportCatChart"></canvas>
@@ -864,6 +1081,124 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
       });
     }
   })();
+
+  // Detailed Audit Table Pagination Logic (15 entries per page)
+  let auditPage = 1;
+  const auditPerPage = 15;
+
+  function renderAuditPagination(page) {
+    const tableBody = document.getElementById('reportTableBody');
+    const pagContainer = document.getElementById('reportTablePagination');
+    if (!tableBody || !pagContainer) return;
+
+    const allRows = Array.from(tableBody.querySelectorAll('tr'));
+    if (allRows.length === 0) {
+      pagContainer.innerHTML = '';
+      pagContainer.style.display = 'none';
+      return;
+    }
+
+    const totalPages = Math.ceil(allRows.length / auditPerPage) || 1;
+    if (page > totalPages) page = totalPages;
+    if (page < 1) page = 1;
+    auditPage = page;
+
+    const start = (page - 1) * auditPerPage;
+    const end = Math.min(start + auditPerPage, allRows.length);
+
+    allRows.forEach((row, index) => {
+      row.style.display = (index >= start && index < end) ? '' : 'none';
+    });
+
+    pagContainer.style.display = 'flex';
+
+    let pageItems = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pageItems.push(i);
+    } else if (auditPage <= 3) {
+      pageItems = [1, 2, 3, 4, 5, '...', totalPages];
+    } else if (auditPage >= totalPages - 2) {
+      pageItems = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    } else {
+      pageItems = [1, '...', auditPage - 1, auditPage, auditPage + 1, '...', totalPages];
+    }
+
+    let pageNumbersHtml = '';
+    pageItems.forEach(item => {
+      if (item === '...') {
+        pageNumbersHtml += `<span class="pagination-ellipsis">&hellip;</span>`;
+      } else if (item === auditPage) {
+        pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num active" disabled>${item}</button>`;
+      } else {
+        let isNeighbor = false;
+        if (totalPages > 7) {
+          if (auditPage <= 3) {
+            isNeighbor = (item === 4 || item === 5);
+          } else if (auditPage >= totalPages - 2) {
+            isNeighbor = (item === totalPages - 4 || item === totalPages - 3);
+          } else {
+            isNeighbor = (item === auditPage - 1 || item === auditPage + 1);
+          }
+        }
+        const neighborClass = isNeighbor ? ' pagination-neighbor' : '';
+        pageNumbersHtml += `<button type="button" class="pagination-btn pagination-num${neighborClass}" onclick="changeAuditPage(${item})">${item}</button>`;
+      }
+    });
+
+    pagContainer.innerHTML = `
+      <div class="pagination-info-pill">Showing ${allRows.length === 0 ? 0 : start + 1} to ${end} of ${allRows.length} entries</div>
+      <div class="pagination-btn-group flex items-center gap-1 sm:gap-1.5">
+        <button type="button" class="pagination-btn pagination-nav" ${auditPage === 1 ? 'disabled' : ''} onclick="changeAuditPage(${auditPage - 1})" aria-label="Previous page" title="Previous page">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <span class="pagination-nav-text">Previous</span>
+        </button>
+        ${pageNumbersHtml}
+        <button type="button" class="pagination-btn pagination-nav" ${auditPage === totalPages ? 'disabled' : ''} onclick="changeAuditPage(${auditPage + 1})" aria-label="Next page" title="Next page">
+          <span class="pagination-nav-text">Next</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    `;
+  }
+
+  function changeAuditPage(newPage) {
+    renderAuditPagination(newPage);
+    const tableWrap = document.querySelector('#reportTableView .iw-table-scroll');
+    if (tableWrap) {
+      tableWrap.scrollTop = 0;
+    }
+  }
+
+  // View Mode Switching (Interactive Explorer vs Detailed Audit Table)
+  function switchReportView(mode) {
+    const explorerView = document.getElementById('reportExplorerView');
+    const tableView = document.getElementById('reportTableView');
+    const tabExplorerBtn = document.getElementById('tabExplorerBtn');
+    const tabTableBtn = document.getElementById('tabTableBtn');
+
+    if (!explorerView || !tableView) return;
+
+    if (mode === 'table') {
+      explorerView.classList.add('hidden');
+      tableView.classList.remove('hidden');
+      if (tabExplorerBtn) tabExplorerBtn.classList.remove('active');
+      if (tabTableBtn) tabTableBtn.classList.add('active');
+      renderAuditPagination(auditPage);
+    } else {
+      tableView.classList.add('hidden');
+      explorerView.classList.remove('hidden');
+      if (tabExplorerBtn) tabExplorerBtn.classList.add('active');
+      if (tabTableBtn) tabTableBtn.classList.remove('active');
+    }
+  }
+
+  // Initialize Detailed Audit Table pagination on load
+  document.addEventListener('DOMContentLoaded', function() {
+    renderAuditPagination(1);
+  });
+  if (document.readyState !== 'loading') {
+    renderAuditPagination(1);
+  }
 
   // Interaction Logic
   let activeCategory = null;

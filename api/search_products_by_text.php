@@ -32,6 +32,7 @@ if (!isset($_SESSION['Username'])) {
 }
 
 require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../src/helpers/product_image_url.php';
 
 // ── Parse request ─────────────────────────────────────────────────────────────
 $rawBody = file_get_contents('php://input');
@@ -108,23 +109,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 // ── Score each candidate ──────────────────────────────────────────────────────
-function productImageUrl(int $productId): ?string {
-    $baseDir = __DIR__ . '/../uploads/products/';
-    $webBase = 'uploads/products/';
-    $patterns = [
-        (string)$productId,
-        'product_' . $productId,
-        'P-' . str_pad((string)$productId, 4, '0', STR_PAD_LEFT),
-    ];
-    foreach ($patterns as $name) {
-        foreach (['jpg','jpeg','png','webp','gif'] as $ext) {
-            if (is_file($baseDir . $name . '.' . $ext)) {
-                return $webBase . $name . '.' . $ext;
-            }
-        }
-    }
-    return null;
-}
 
 /**
  * Normalised word-overlap score between two strings.
