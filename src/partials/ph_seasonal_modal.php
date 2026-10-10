@@ -1829,6 +1829,122 @@ if (!function_exists('formatSafeSeasonalHtml')) {
         min-width: 95px !important;
     }
 }
+
+/* ── Fullscreen Modal (matching Add Product modal UX) ────────── */
+@media (max-width: 767px), (max-height: 600px) and (max-width: 1024px) {
+    .ph-seasonal-modal-overlay {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+    }
+    .ph-seasonal-modal-dialog {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        animation: none !important;
+    }
+    .ph-seasonal-modal-header {
+        padding: 14px 16px !important;
+        border-radius: 0 !important;
+        flex-shrink: 0 !important;
+    }
+    .ph-seasonal-modal-header h3 {
+        font-size: 15px !important;
+        line-height: 1.25 !important;
+    }
+    .ph-seasonal-modal-header div[style*="font-size:12px"] {
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+    }
+    .ph-seasonal-modal-body {
+        padding: 16px 14px 40px !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .seasonal-dropdown-row {
+        flex-direction: column !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+    }
+    .ph-intel-banner {
+        padding: 14px 14px 16px !important;
+        margin-bottom: 16px !important;
+        border-radius: 12px !important;
+    }
+    .ph-main-heading {
+        font-size: 16px !important;
+    }
+    .ph-main-subtext {
+        font-size: 12px !important;
+    }
+    .ph-products-container {
+        margin-top: 16px !important;
+    }
+}
+
+/* Desktop Fullscreen Toggle Support */
+.ph-seasonal-modal-overlay.is-fullscreen {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+}
+.ph-seasonal-modal-dialog.is-fullscreen {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+.ph-seasonal-modal-maximize {
+    background: rgba(148,163,184,0.12);
+    border: 1px solid rgba(148,163,184,0.25);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--insights-text-muted, #9aa6d1);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+.ph-seasonal-modal-maximize:hover {
+    background: rgba(81, 213, 90, 0.18);
+    border-color: #51D55A;
+    color: #51D55A;
+    transform: scale(1.05);
+}
+[data-theme="light"] .ph-seasonal-modal-maximize {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
+    color: #64748B;
+}
+[data-theme="light"] .ph-seasonal-modal-maximize:hover {
+    background: rgba(22, 163, 74, 0.12);
+    border-color: #16a34a;
+    color: #16a34a;
+}
+@media (max-width: 767px) {
+    .ph-seasonal-modal-maximize {
+        display: none !important; /* Already full-screen on mobile */
+    }
+}
 </style>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1895,8 +2011,25 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                     </div>
                 </div>
             </div>
-            <button type="button" class="ph-seasonal-modal-close"
-                    onclick="closePhilippineSeasonalModal()" title="Close (Esc)">&times;</button>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <button type="button" class="ph-seasonal-modal-maximize" id="phSeasonalModalMaxBtn"
+                        onclick="toggleSeasonalModalFullscreen()" title="Toggle full screen">
+                    <svg class="ph-max-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                    <svg class="ph-restore-icon" style="display:none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="4 14 10 14 10 20"></polyline>
+                        <polyline points="20 10 14 10 14 4"></polyline>
+                        <line x1="14" y1="10" x2="21" y2="3"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+                <button type="button" class="ph-seasonal-modal-close"
+                        onclick="closePhilippineSeasonalModal()" title="Close (Esc)">&times;</button>
+            </div>
         </div>
         <!-- Modal Tabs: Seasonal Calendar vs Gemini AI Daily Consumer Wants -->
         <div class="ph-modal-tab-bar" role="tablist">
@@ -2679,4 +2812,24 @@ if (typeof window.handleCheckStockClick !== 'function') {
         window.checkStock(pName, cName, pId);
     };
 }
+
+window.toggleSeasonalModalFullscreen = function() {
+    const overlay = document.getElementById('philippineSeasonalModal');
+    const dialog = overlay ? overlay.querySelector('.ph-seasonal-modal-dialog') : null;
+    const btn = document.getElementById('phSeasonalModalMaxBtn');
+    if (!overlay || !dialog) return;
+
+    const isFs = dialog.classList.toggle('is-fullscreen');
+    overlay.classList.toggle('is-fullscreen', isFs);
+
+    if (btn) {
+        const maxIcon = btn.querySelector('.ph-max-icon');
+        const restoreIcon = btn.querySelector('.ph-restore-icon');
+        if (maxIcon && restoreIcon) {
+            maxIcon.style.display = isFs ? 'none' : 'block';
+            restoreIcon.style.display = isFs ? 'block' : 'none';
+        }
+        btn.setAttribute('title', isFs ? 'Restore size' : 'Full screen');
+    }
+};
 </script>
