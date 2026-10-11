@@ -367,9 +367,9 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '.notif-view-all-btn:hover { background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%); color: #ffffff; border-color: #51D55A; box-shadow: 0 4px 14px rgba(81, 213, 90, 0.35); transform: translateY(-1px); }';
     echo '.notif-view-all-btn svg { width: 15px; height: 15px; }';
     /* All-Notifications Modal */
-    echo '.iw-notif-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 100002; padding: 16px; }';
-    echo '.iw-notif-modal-overlay.active { display: flex; }';
-    echo '.iw-notif-modal-box { width: min(100%, 820px); background: #0E1A3D; border: 1px solid rgba(42,68,132,0.6); border-radius: 18px; box-shadow: 0 25px 60px rgba(0,0,0,0.55); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; }';
+    echo '.iw-notif-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(6px); display: none; align-items: center !important; justify-content: center !important; z-index: 100002; padding: 16px; }';
+    echo '.iw-notif-modal-overlay.active { display: flex !important; align-items: center !important; justify-content: center !important; }';
+    echo '.iw-notif-modal-box { width: min(100%, 820px); background: #0E1A3D; border: 1px solid rgba(42,68,132,0.6); border-radius: 18px !important; box-shadow: 0 25px 60px rgba(0,0,0,0.55); overflow: hidden; display: flex; flex-direction: column; max-height: 85vh; margin: auto !important; }';
     echo '.iw-notif-modal-overlay.active .iw-notif-modal-box { animation: iwNotifModalIn 0.25s cubic-bezier(0.16,1,0.3,1); }';
     echo '@keyframes iwNotifModalIn { from { transform: scale(0.96) translateY(10px); opacity:0; } to { transform: scale(1) translateY(0); opacity:1; } }';
     echo '[data-theme="light"] .iw-notif-modal-box { background: #FFFFFF !important; border-color: #CBD5E1 !important; box-shadow: 0 25px 60px rgba(15,23,42,0.18) !important; }';
@@ -388,6 +388,17 @@ function renderLayoutStart($pageTitle, $userRole, $username, $lowStockCount = 0)
     echo '[data-theme="light"] .iw-nm-act-btn:hover { background: #E0F2FE !important; color: #0369A1 !important; border-color: #7DD3FC !important; }';
     echo '[data-theme="light"] .iw-nm-footer { background: #F8FAFC !important; border-top-color: #E2E8F0 !important; }';
     echo '[data-theme="light"] .iw-nm-empty { color: #64748B !important; }';
+    echo '[data-theme="light"] .notification-dropdown { background: #FFFFFF !important; border-color: #CBD5E1 !important; box-shadow: 0 12px 32px rgba(15,23,42,0.15) !important; }';
+    echo '[data-theme="light"] .notification-header { background: #F8FAFC !important; border-bottom-color: #E2E8F0 !important; }';
+    echo '[data-theme="light"] .notification-title { color: #0F172A !important; }';
+    echo '[data-theme="light"] .notification-clear { color: #64748B !important; }';
+    echo '[data-theme="light"] .notification-item { border-bottom-color: #F1F5F9 !important; }';
+    echo '[data-theme="light"] .notification-item:hover { background: #F8FAFC !important; }';
+    echo '[data-theme="light"] .notification-message { color: #0F172A !important; }';
+    echo '[data-theme="light"] .notification-time { color: #64748B !important; }';
+    echo '[data-theme="light"] .notif-dropdown-footer { background: #F8FAFC !important; border-top-color: #E2E8F0 !important; }';
+    echo '[data-theme="light"] .notif-view-all-btn { background: #F0FDF4 !important; border-color: #86EFAC !important; color: #15803D !important; }';
+    echo '[data-theme="light"] .notif-view-all-btn:hover { background: #16A34A !important; color: #FFFFFF !important; border-color: #16A34A !important; }';
     echo '.notification-list { max-height: 300px; overflow-y: auto; }';
     echo '.notification-item { padding: 12px 16px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); display: flex; align-items: flex-start; gap: 12px; transition: background-color 0.2s ease; }';
     echo '.notification-item:hover { background: rgba(81, 213, 90, 0.05); }';

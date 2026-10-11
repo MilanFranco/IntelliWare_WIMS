@@ -154,18 +154,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
             justify-content: center;
             width: 100%;
-            padding-bottom: 80px;
+            padding: 40px 20px 80px;
+            box-sizing: border-box;
         }
 
         /* --- HEADER (MATCH SIGNIN.PHP) --- */
         .header { 
-            margin-top: 24px; 
-            margin-bottom: 12px; 
+            margin-top: auto; 
+            margin-bottom: 60px; 
             text-align: center;
+            width: 100%;
         }
         
         .header .signin-logo { 
-            width: clamp(180px, 70vw, 480px); 
+            width: clamp(200px, 70vw, 460px); 
             height: auto; 
             display: block; 
             margin-left: auto; 
@@ -173,11 +175,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             animation: fadeIn 2s ease-in-out;
         }
 
+        .auth-wrapper .container,
         .container {
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            justify-content: center;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-bottom: auto;
             width: 100%;
         }
 
@@ -520,13 +527,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @media (max-width: 480px) {
             .auth-wrapper {
-                padding-bottom: 100px;
+                padding-top: 24px;
+                padding-bottom: 90px;
                 justify-content: flex-start;
-                padding-top: 20px;
             }
             .header {
-                margin-top: 16px;
-                margin-bottom: 8px;
+                margin-top: 12px;
+                margin-bottom: 14px;
+            }
+            .auth-wrapper .container,
+            .container {
+                margin-bottom: 0;
             }
             .reset-box {
                 padding: 18px 16px;
@@ -545,6 +556,349 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 font-size: 11px;
             }
         }
+
+        /* --- AUTH MODALS (ABOUT & CONTACT) - EXPANSIVE & CLEAN --- */
+        .auth-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(6, 10, 24, 0.82);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100010;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .auth-modal-overlay.active {
+            display: flex;
+            animation: authModalFade 0.22s ease-out;
+        }
+
+        @keyframes authModalFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .auth-modal-card {
+            background: #11224d;
+            border: 1px solid #2f4b91;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 35px rgba(61, 116, 255, 0.12);
+            border-radius: 14px;
+            width: 94vw;
+            max-width: 980px;
+            height: auto;
+            max-height: 90vh;
+            min-height: 520px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #E3E3E3;
+            font-family: "Onest", sans-serif;
+            animation: authModalZoom 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes authModalZoom {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .auth-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 28px;
+            border-bottom: 1px solid #24396b;
+            background: #0e1c40;
+            flex-shrink: 0;
+        }
+
+        .auth-modal-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin: 0;
+            font-family: "Onest", sans-serif;
+        }
+
+        .auth-modal-close {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 26px;
+            line-height: 1;
+            padding: 2px 6px;
+            transition: color 0.2s ease;
+        }
+
+        .auth-modal-close:hover {
+            color: #FFFFFF;
+        }
+
+        .auth-modal-body {
+            padding: 32px 36px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.65;
+            color: #cbd5e1;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .auth-desc-text {
+            margin-bottom: 28px;
+            color: #e2e8f0;
+            font-size: 18px;
+            line-height: 1.75;
+            text-align: center;
+            max-width: 860px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .auth-section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: #51D55A;
+            margin-bottom: 18px;
+            margin-top: 4px;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* 3-Column Developer Grid (About Modal) - Centered */
+        .auth-dev-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 260px));
+            justify-content: center;
+            gap: 24px;
+            width: 100%;
+            max-width: 860px;
+            margin: 0 auto;
+        }
+
+        .auth-dev-photo-card {
+            background: #162b60;
+            border: 1px solid #264385;
+            border-radius: 12px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .auth-dev-photo-card:hover {
+            border-color: #3d74ff;
+            transform: translateY(-2px);
+        }
+
+        .auth-dev-photo-placeholder,
+        .auth-dev-photo-wrapper {
+            width: 145px;
+            height: 145px;
+            border-radius: 12px;
+            background: #0d1a3c;
+            border: 2px solid #2f4b91;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7990c7;
+            font-size: 12.5px;
+            font-weight: 500;
+            margin-bottom: 15px;
+            text-align: center;
+            box-sizing: border-box;
+            user-select: none;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .auth-dev-photo-placeholder {
+            border-style: dashed;
+            padding: 10px;
+        }
+
+        .auth-dev-photo-card:hover .auth-dev-photo-wrapper {
+            border-color: #3d74ff;
+            box-shadow: 0 8px 20px rgba(61, 116, 255, 0.25);
+        }
+
+        .auth-dev-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .auth-dev-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #FFFFFF;
+            margin-bottom: 4px;
+        }
+
+        .auth-dev-role {
+            font-size: 12.5px;
+            color: #8da2d4;
+        }
+
+        /* 3-Column Contact Grid (Contact Modal) - Centered */
+        .auth-contact-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 270px));
+            justify-content: center;
+            gap: 24px;
+            width: 100%;
+            max-width: 880px;
+            margin: 0 auto;
+        }
+
+        .auth-contact-card {
+            background: #162b60;
+            border: 1px solid #264385;
+            border-radius: 12px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+            text-align: center;
+        }
+
+        .auth-contact-card:hover {
+            border-color: #3d74ff;
+            transform: translateY(-2px);
+        }
+
+        .auth-contact-card .auth-dev-name {
+            font-size: 15px;
+            text-align: center;
+        }
+
+        .auth-contact-card .auth-email-text {
+            font-size: 12.5px;
+            color: #93c5fd;
+            word-break: break-all;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .auth-contact-card .auth-contact-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .auth-action-btn {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 6px 14px;
+            border-radius: 6px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: "Onest", sans-serif;
+            border: 1px solid transparent;
+            text-align: center;
+        }
+
+        .auth-action-btn.mail {
+            background: #3d74ff;
+            color: #FFFFFF;
+            flex: 1;
+        }
+        .auth-action-btn.mail:hover {
+            background: #2563eb;
+            text-decoration: none;
+            color: #FFFFFF;
+        }
+
+        .auth-action-btn.copy {
+            background: rgba(255, 255, 255, 0.08);
+            color: #E3E3E3;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            flex: 1;
+        }
+        .auth-action-btn.copy:hover {
+            background: rgba(255, 255, 255, 0.16);
+            color: #FFFFFF;
+        }
+        .auth-action-btn.copied {
+            background: rgba(81, 213, 90, 0.2) !important;
+            border-color: #51D55A !important;
+            color: #51D55A !important;
+        }
+
+        .auth-modal-footer {
+            padding: 14px 28px;
+            border-top: 1px solid #24396b;
+            background: #0e1c40;
+            font-size: 12px;
+            color: #8da2d4;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            .auth-modal-card {
+                width: 95vw;
+                height: auto;
+                max-height: 92vh;
+                min-height: auto;
+            }
+            .auth-modal-header {
+                padding: 14px 18px;
+            }
+            .auth-modal-body {
+                padding: 22px 16px;
+                justify-content: flex-start;
+            }
+            .auth-desc-text {
+                font-size: 15.5px;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .auth-section-title {
+                text-align: center;
+            }
+            .auth-dev-grid,
+            .auth-contact-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                max-width: 100%;
+            }
+            .auth-dev-photo-placeholder,
+            .auth-dev-photo-wrapper {
+                width: 130px;
+                height: 130px;
+            }
+        }
     </style>
 </head>
 <body class="auth-page">
@@ -554,7 +908,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <a href="signin.php">
                 <img src="img/main%20logo.png" alt="IntelliWare" class="fade-in signin-logo" />
             </a>
-            <br>
         </div>
 
         <div class="container">
@@ -756,8 +1109,113 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="footer">
                 <hr><br>
                 © 2025 IntelliWare. All rights reserved.
-                <a href="#">About IntelliWare</a>
-                <a href="#">Contact our Support</a>
+                <a href="javascript:void(0)" onclick="openAboutModal(event)">About IntelliWare</a>
+                <a href="javascript:void(0)" onclick="openContactModal(event)">Contact our Support</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT INTELLIWARE MODAL -->
+    <div id="aboutModal" class="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
+        <div class="auth-modal-card">
+            <div class="auth-modal-header">
+                <h3 id="aboutModalTitle">About IntelliWare</h3>
+                <button type="button" class="auth-modal-close" onclick="closeAboutModal()" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="auth-modal-body">
+                <p class="auth-desc-text">
+                    IntelliWare is a Warehouse and Inventory Management System designed to optimize retail and warehouse stock operations through real-time stock monitoring, automated replenishment alerts, fast- and slow-moving item classification, and decision-support analytics.
+                </p>
+
+                <div class="auth-section-title">Developers</div>
+                <div class="auth-dev-grid">
+                    <!-- Milan Franco L. Santos -->
+                    <div class="auth-dev-photo-card">
+                        <div class="auth-dev-photo-wrapper">
+                            <img src="img/dev_santos.png" alt="Milan Franco L. Santos" class="auth-dev-photo" />
+                        </div>
+                        <div class="auth-dev-name">Milan Franco L. Santos</div>
+                        <div class="auth-dev-role">Developer • BS Information Technology</div>
+                    </div>
+
+                    <!-- Stephen Kyle B. Batara -->
+                    <div class="auth-dev-photo-card">
+                        <div class="auth-dev-photo-wrapper">
+                            <img src="img/dev_batara.png" alt="Stephen Kyle B. Batara" class="auth-dev-photo" />
+                        </div>
+                        <div class="auth-dev-name">Stephen Kyle B. Batara</div>
+                        <div class="auth-dev-role">Developer • BS Information Technology</div>
+                    </div>
+
+                    <!-- Alyssa Mae G. Suarez -->
+                    <div class="auth-dev-photo-card">
+                        <div class="auth-dev-photo-wrapper">
+                            <img src="img/dev_suarez.png" alt="Alyssa Mae G. Suarez" class="auth-dev-photo" />
+                        </div>
+                        <div class="auth-dev-name">Alyssa Mae G. Suarez</div>
+                        <div class="auth-dev-role">Developer • BS Information Technology</div>
+                    </div>
+                </div>
+            </div>
+            <div class="auth-modal-footer">
+                <span>College of Computer Studies &bull; Pamantasan ng Lungsod ng Pasig</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT OUR SUPPORT MODAL -->
+    <div id="contactModal" class="auth-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+        <div class="auth-modal-card">
+            <div class="auth-modal-header">
+                <h3 id="contactModalTitle">Contact Support</h3>
+                <button type="button" class="auth-modal-close" onclick="closeContactModal()" aria-label="Close modal">&times;</button>
+            </div>
+            <div class="auth-modal-body">
+                <p class="auth-desc-text">
+                    For inquiries, feedback, or support, please reach out to any of the developers via their official student email addresses:
+                </p>
+
+                <div class="auth-section-title">Developer Contact Details</div>
+                <div class="auth-contact-grid">
+                    <!-- Milan Franco L. Santos -->
+                    <div class="auth-contact-card">
+                        <div>
+                            <div class="auth-dev-name">Milan Franco L. Santos</div>
+                            <div class="auth-email-text">santos_milanfranco@plpasig.edu.ph</div>
+                        </div>
+                        <div class="auth-contact-actions">
+                            <a href="mailto:santos_milanfranco@plpasig.edu.ph" class="auth-action-btn mail">Email</a>
+                            <button type="button" class="auth-action-btn copy" onclick="copyEmail('santos_milanfranco@plpasig.edu.ph', this)">Copy</button>
+                        </div>
+                    </div>
+
+                    <!-- Stephen Kyle B. Batara -->
+                    <div class="auth-contact-card">
+                        <div>
+                            <div class="auth-dev-name">Stephen Kyle B. Batara</div>
+                            <div class="auth-email-text">batara_stephenkyle@plpasig.edu.ph</div>
+                        </div>
+                        <div class="auth-contact-actions">
+                            <a href="mailto:batara_stephenkyle@plpasig.edu.ph" class="auth-action-btn mail">Email</a>
+                            <button type="button" class="auth-action-btn copy" onclick="copyEmail('batara_stephenkyle@plpasig.edu.ph', this)">Copy</button>
+                        </div>
+                    </div>
+
+                    <!-- Alyssa Mae G. Suarez -->
+                    <div class="auth-contact-card">
+                        <div>
+                            <div class="auth-dev-name">Alyssa Mae G. Suarez</div>
+                            <div class="auth-email-text">suarez_alyssamae@plpasig.edu.ph</div>
+                        </div>
+                        <div class="auth-contact-actions">
+                            <a href="mailto:suarez_alyssamae@plpasig.edu.ph" class="auth-action-btn mail">Email</a>
+                            <button type="button" class="auth-action-btn copy" onclick="copyEmail('suarez_alyssamae@plpasig.edu.ph', this)">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="auth-modal-footer">
+                <span>Official Domain: @plpasig.edu.ph &bull; Pamantasan ng Lungsod ng Pasig</span>
             </div>
         </div>
     </div>
@@ -1024,6 +1482,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (urlParams.get('error')) {
             showToast(urlParams.get('error'), 'error');
         }
+
+        /* --- AUTH MODAL HANDLERS --- */
+        function openAboutModal(e) {
+            if (e) e.preventDefault();
+            const modal = document.getElementById('aboutModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeAboutModal() {
+            const modal = document.getElementById('aboutModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function openContactModal(e) {
+            if (e) e.preventDefault();
+            const modal = document.getElementById('contactModal');
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeContactModal() {
+            const modal = document.getElementById('contactModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function copyEmail(email, btn) {
+            const copySuccess = () => {
+                const origText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = origText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(email).then(copySuccess).catch(() => {
+                    fallbackCopy(email, copySuccess);
+                });
+            } else {
+                fallbackCopy(email, copySuccess);
+            }
+        }
+
+        function fallbackCopy(text, cb) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                if (cb) cb();
+            } catch (err) {}
+            document.body.removeChild(ta);
+        }
+
+        // Close modal on overlay background click
+        window.addEventListener('click', function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('auth-modal-overlay')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // Close modal on Escape key
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.auth-modal-overlay').forEach(m => m.classList.remove('active'));
+            }
+        });
     </script>
 </body>
 </html>

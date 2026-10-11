@@ -1959,9 +1959,8 @@
         overflow: visible !important;
     }
 
-    /* Dropdowns: high z-index, absolute positioned from their relative parent */
-    .user-dropdown,
-    .notification-dropdown {
+    /* User dropdown: high z-index, absolute positioned from their relative parent */
+    .user-dropdown {
         position: absolute !important;
         z-index: 100002 !important;
     }
@@ -1981,7 +1980,7 @@
         margin-bottom: 14px !important;
     }
 
-    /* Core Stat / Metric Cards on Mobile — Corner-Icon Vertical Layout */
+    /* Core Stat / Metric Cards on Mobile — Horizontal Middle-Aligned Layout (Matching Inventory) */
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > .premium-card,
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > a.premium-card,
     .inv-summary-card,
@@ -1992,12 +1991,12 @@
     .stat-card-low-stock,
     .metric-card {
         display: flex !important;
-        flex-direction: column !important;
-        justify-content: flex-start !important;
-        align-items: flex-start !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
         position: relative !important;
-        padding: 12px 12px 10px 12px !important;
-        min-height: 96px !important;
+        padding: 14px 14px !important;
+        min-height: 88px !important;
         height: 100% !important;
         border-radius: 14px !important;
         box-sizing: border-box !important;
@@ -2005,7 +2004,7 @@
         overflow: hidden !important;
     }
 
-    /* Icon badge pinned to top-right corner so it never crowds or clips text */
+    /* Icon badge vertically centered on right (Matching Inventory) */
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > .premium-card > .w-12.h-12,
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > a.premium-card > .w-12.h-12,
     .inv-summary-card > .w-12.h-12,
@@ -2014,19 +2013,20 @@
     .stat-card-categories > .w-12.h-12,
     .stat-card-low-stock > .w-12.h-12,
     .metric-card > .w-12.h-12 {
-        position: absolute !important;
-        top: 10px !important;
-        right: 10px !important;
-        width: 32px !important;
-        height: 32px !important;
-        min-width: 32px !important;
-        min-height: 32px !important;
-        border-radius: 9px !important;
+        position: static !important;
+        top: auto !important;
+        right: auto !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        border-radius: 10px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         flex-shrink: 0 !important;
-        margin: 0 !important;
+        align-self: center !important;
+        margin: 0 0 0 8px !important;
     }
 
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > .premium-card > .w-12.h-12 svg,
@@ -2037,12 +2037,12 @@
     .stat-card-categories > .w-12.h-12 svg,
     .stat-card-low-stock > .w-12.h-12 svg,
     .metric-card > .w-12.h-12 svg {
-        width: 16px !important;
-        height: 16px !important;
+        width: 18px !important;
+        height: 18px !important;
         flex-shrink: 0 !important;
     }
 
-    /* Text container spans full card width */
+    /* Text container spans remaining card width and vertically centered */
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > .premium-card > div:first-child,
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > a.premium-card > div:first-child,
     .inv-summary-card > div:first-child,
@@ -2052,9 +2052,11 @@
     .stat-card-low-stock > div:first-child,
     .metric-card > div:first-child {
         width: 100% !important;
+        flex: 1 1 auto !important;
         min-width: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        justify-content: center !important;
         align-items: flex-start !important;
         text-align: left !important;
         box-sizing: border-box !important;
@@ -2075,7 +2077,7 @@
         letter-spacing: 0.04em !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
-        padding-right: 36px !important; /* clears 32px corner icon */
+        padding-right: 0 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
@@ -2107,15 +2109,16 @@
     .stat-card-categories .num,
     .stat-card-low-stock .num,
     .metric-card .num {
-        font-size: 20px !important;
-        line-height: 1.15 !important;
+        font-size: 22px !important;
+        line-height: 1.2 !important;
         font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
         display: block !important;
         width: 100% !important;
         text-align: left !important;
     }
 
-    /* Stat card subtitle (e.g. "82,991 units on hand", "Active catalog SKUs") — NOT all caps */
+    /* Stat card subtitle (e.g. "82,991 units on hand", "Active catalog SKUs") */
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > .premium-card .stat-card-sub,
     .grid.grid-cols-1.md\:grid-cols-2.lg\:grid-cols-4 > a.premium-card .stat-card-sub,
     .inv-summary-card .stat-card-sub,
@@ -2125,7 +2128,7 @@
     .stat-card-low-stock .stat-card-sub,
     .metric-card .stat-card-sub,
     .stat-card-sub {
-        font-size: 9.5px !important;
+        font-size: 10px !important;
         line-height: 1.25 !important;
         margin-top: 2px !important;
         white-space: nowrap !important;
@@ -2198,17 +2201,27 @@
         width: 100% !important;
     }
 
-    /* All-Notifications Modal */
+    /* All-Notifications Modal — Always centered in the middle on all pages and devices */
     .iw-notif-modal-overlay {
-        padding: 8px !important;
-        align-items: flex-end !important;
+        position: fixed !important;
+        inset: 0 !important;
+        padding: 16px 12px !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .iw-notif-modal-overlay.active {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     .iw-notif-modal-box {
-        width: 100% !important;
+        width: min(100%, 820px) !important;
         max-width: 100% !important;
-        max-height: 92vh !important;
-        border-radius: 18px 18px 0 0 !important;
+        max-height: 85vh !important;
+        border-radius: 18px !important;
+        margin: auto !important;
     }
 
     .iw-nm-filter-bar {
@@ -2813,6 +2826,190 @@
 
     #reportTableView table.premium-table {
         min-width: 760px !important;
+        width: 100% !important;
+    }
+
+    /* ─── Notification Dropdown: Dark & Light Mode Theme + Mobile Fit ─── */
+    .notification-dropdown {
+        position: fixed !important;
+        top: 58px !important;
+        left: 10px !important;
+        right: 10px !important;
+        width: calc(100vw - 20px) !important;
+        max-width: calc(100vw - 20px) !important;
+        min-width: 0 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+        z-index: 100005 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        background: #0E1A3D !important;
+        border: 1px solid rgba(42, 68, 132, 0.6) !important;
+    }
+
+    [data-theme="light"] .notification-dropdown {
+        background: #FFFFFF !important;
+        border-color: #CBD5E1 !important;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.15) !important;
+    }
+
+    .notification-dropdown .notification-header {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        background: #11224d !important;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.4) !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-header {
+        background: #F8FAFC !important;
+        border-bottom-color: #E2E8F0 !important;
+    }
+
+    .notification-dropdown .notification-title {
+        color: #ffffff !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-title {
+        color: #0F172A !important;
+    }
+
+    .notification-dropdown .notification-clear {
+        color: #9aa6d1 !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-clear {
+        color: #64748B !important;
+    }
+
+    .notification-dropdown .notification-list {
+        max-height: 55vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .notification-dropdown .notification-item {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 10px 12px !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        background: transparent !important;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.25) !important;
+    }
+
+    .notification-dropdown .notification-item:hover {
+        background: rgba(81, 213, 90, 0.06) !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-item {
+        border-bottom-color: #F1F5F9 !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-item:hover {
+        background: #F8FAFC !important;
+    }
+
+    .notification-dropdown .notification-content {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .notification-dropdown .notification-message {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+        color: #FFFFFF !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-message {
+        color: #0F172A !important;
+    }
+
+    .notification-dropdown .notification-time {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+        font-size: 10.5px !important;
+        color: #9aa6d1 !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notification-time {
+        color: #64748B !important;
+    }
+
+    .notification-dropdown .notif-dropdown-footer {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        background: #0E1A3D !important;
+        border-top: 1px solid rgba(42, 68, 132, 0.4) !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notif-dropdown-footer {
+        background: #F8FAFC !important;
+        border-top-color: #E2E8F0 !important;
+    }
+
+    .notification-dropdown .notif-view-all-btn {
+        background: rgba(81, 213, 90, 0.12) !important;
+        border: 1px solid rgba(81, 213, 90, 0.35) !important;
+        color: #51D55A !important;
+    }
+
+    .notification-dropdown .notif-view-all-btn:hover {
+        background: linear-gradient(135deg, #51D55A 0%, #43B74B 100%) !important;
+        color: #ffffff !important;
+        border-color: #51D55A !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notif-view-all-btn {
+        background: #F0FDF4 !important;
+        border-color: #86EFAC !important;
+        color: #15803D !important;
+    }
+
+    [data-theme="light"] .notification-dropdown .notif-view-all-btn:hover {
+        background: #16A34A !important;
+        color: #FFFFFF !important;
+        border-color: #16A34A !important;
+    }
+
+    /* ─── Section Headers: Strictly Left-Aligned (Inventory Status, Stock Movement Ledger, Full Transaction History) ─── */
+    .txn-page-card form,
+    .txn-page-card > div:first-child,
+    #fullTransactionHistory > div:first-child,
+    .premium-card > form.flex-col,
+    .premium-card > div.flex-col {
+        align-items: flex-start !important;
+        text-align: left !important;
+    }
+
+    .txn-page-card form > div:first-child,
+    .txn-page-card > div:first-child > div:first-child,
+    #fullTransactionHistory > div:first-child > div:first-child {
+        width: 100% !important;
+        text-align: left !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    .txn-page-card h3,
+    #fullTransactionHistory h3 {
+        text-align: left !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
+    .txn-page-card p,
+    #fullTransactionHistory p {
+        text-align: left !important;
         width: 100% !important;
     }
 }
