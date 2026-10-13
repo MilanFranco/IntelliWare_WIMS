@@ -116,6 +116,9 @@ if ($settingsRes) {
     }
 }
 $apiKey = trim($aiSettings['ai_vision_api_key'] ?? '');
+if (empty($apiKey)) {
+    $apiKey = trim(getenv('GEMINI_API_KEY') ?: (getenv('AI_VISION_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ($_ENV['AI_VISION_API_KEY'] ?? ''))));
+}
 
 // ── 2. Fetch Active Warehouse Product Catalog ───────────────────────────────
 $catalogProducts = [];

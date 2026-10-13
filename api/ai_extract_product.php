@@ -69,7 +69,7 @@ if (empty($apiKey)) {
     $apiKey = trim($visionSettings['ai_vision_api_key'] ?? '');
 }
 if (empty($apiKey)) {
-    $apiKey = trim(getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ''));
+    $apiKey = trim(getenv('GEMINI_API_KEY') ?: (getenv('AI_VISION_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ($_ENV['AI_VISION_API_KEY'] ?? ''))));
 }
 $enabled = ($visionSettings['ai_vision_enabled'] ?? '1') === '1';
 
@@ -199,17 +199,13 @@ $payload = [
 ];
 
 // List of Gemini models to try in order of speed and capability
-$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-3.8-flash';
+$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite';
 
+// Prioritize high-quota, fast multimodal models first: gemini-3.5-flash-lite, then gemini-3.8-flash
 $modelsToTry = array_unique(array_filter([
-    $selectedModel,
-    'gemini-3.8-flash',
     'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro'
+    $selectedModel,
+    'gemini-3.8-flash'
 ]));
 
 $extracted = null;
