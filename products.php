@@ -63,7 +63,7 @@ function ensurePriceColumn($conn) {
     }
     $result = $conn->query("SHOW COLUMNS FROM products LIKE 'price'");
     if ($result && $result->num_rows === 0) {
-        $conn->query("ALTER TABLE `products` ADD COLUMN `price` DECIMAL(10,2) DEFAULT 0.00 AFTER `expiry_date`");
+        $conn->query("ALTER TABLE `products` ADD COLUMN `price` DECIMAL(10,2) DEFAULT 0.00");
     }
     $checked = true;
 }

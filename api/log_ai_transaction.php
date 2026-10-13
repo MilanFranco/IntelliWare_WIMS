@@ -130,7 +130,7 @@ $logStmt = $conn->prepare(
 if ($logStmt) {
     // Type string: i=int, i=int, s=str, s=str, d=double, s=str(nullable), d=double(nullable), s=str
     $logStmt->bind_param(
-        'iissdds',
+        'iissdsds',
         $userId,
         $productId,
         $categorySlug,

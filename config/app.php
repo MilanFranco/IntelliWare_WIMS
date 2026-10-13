@@ -11,6 +11,37 @@ if (!defined('INTELLIWARE_APP_CONFIG_LOADED')) {
     define('INTELLIWARE_APP_CONFIG_LOADED', true);
 }
 
+if (!function_exists('loadIntelliwareEnv')) {
+    function loadIntelliwareEnv(): void
+    {
+        static $loaded = false;
+        if ($loaded) return;
+        $loaded = true;
+
+        $envPath = __DIR__ . '/../.env';
+        if (!file_exists($envPath)) return;
+
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if (!$lines) return;
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) continue;
+            if (strpos($line, '=') === false) continue;
+            [$k, $v] = explode('=', $line, 2);
+            $k = trim($k);
+            $v = trim($v);
+            $v = trim($v, "\"'");
+            if (getenv($k) === false) {
+                putenv("{$k}={$v}");
+                $_ENV[$k] = $v;
+                $_SERVER[$k] = $v;
+            }
+        }
+    }
+}
+loadIntelliwareEnv();
+
 if (!function_exists('getAppBaseUrl')) {
     function getAppBaseUrl(): string
     {

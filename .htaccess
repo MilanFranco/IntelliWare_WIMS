@@ -1,0 +1,35 @@
+# ==============================================================================
+# IntelliWare WIMS - Apache Web Server Security & Deployment Configuration
+# ==============================================================================
+
+# Disable directory listing
+Options -Indexes
+
+# Prevent browser sniffing & clickjacking
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Block access to hidden files and directories (like .git, .env)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block direct web access to sensitive database dumps, logs, and server code
+<FilesMatch "\.(sql|log|env|joblib|py|pyc|bak|old)$">
+    Require all denied
+</FilesMatch>
+
+# Rewrite rules for protecting specific directory structures
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Block web access to database directory
+    RewriteRule ^database/ - [F,L]
+    
+    # Block web access to logs directory
+    RewriteRule ^logs/ - [F,L]
+</IfModule>
