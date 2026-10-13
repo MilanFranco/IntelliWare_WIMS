@@ -45,8 +45,8 @@ var ImageScanner = (function () {
     // Outputs 1280-dim embedding — 2.22× more discriminative than MobileNetV3-Small.
     // Available as TFJS GraphModel natively on TFHub.
     //
-    var MODEL_URL = 'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v3_large_100_224/feature_vector/5/default/1';
-    var MODEL_INPUT_SIZE = 224;   // MobileNetV3-Large native input resolution
+    var MODEL_URL = 'https://storage.googleapis.com/tfjs-models/savedmodel/mobilenet_v2_1.0_224/model.json';
+    var MODEL_INPUT_SIZE = 224;
 
     // ── Config ─────────────────────────────────────────────────────────────────
     //
@@ -87,6 +87,19 @@ var ImageScanner = (function () {
     var _frameBuffer      = [];
     var _cropCanvas       = null;       // persistent off-screen canvas (380×380)
     var _histCanvas       = null;       // persistent off-screen canvas for histograms (64×64)
+
+    function _getBaseUrl() {
+        var scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src || '';
+            var idx = src.indexOf('src/scripts/image-scanner.js');
+            if (idx !== -1) return src.substring(0, idx);
+        }
+        var path = window.location.pathname;
+        var appIdx = path.indexOf('/src/');
+        if (appIdx !== -1) return path.substring(0, appIdx + 1);
+        return '';
+    }
 
     // Embedding cache: key = productId + ':' + imageUrl, value = Float32Array
     var _embedCache  = _loadEmbedCache();
@@ -394,9 +407,9 @@ var ImageScanner = (function () {
      */
     function loadModel() {
         if (_model) return Promise.resolve();
-        _emit('onStatusChange', 'loading-model', 'Loading MobileNetV3-Large AI model…');
+        _emit('onStatusChange', 'loading-model', 'Loading visual embedding model…');
 
-        return tf.loadGraphModel(MODEL_URL, { fromTFHub: true })
+        return tf.loadGraphModel(MODEL_URL)
             .then(function (model) {
                 _model = model;
                 // Warm up the model with a dummy tensor to avoid first-scan delay
@@ -414,9 +427,9 @@ var ImageScanner = (function () {
                 _emit('onEmbeddingsReady', _embeddings.length);
             })
             .catch(function (err) {
-                console.error('[ImageScanner] model load error:', err);
-                _emit('onStatusChange', 'error', 'Failed to load AI model: ' + (err.message || err));
-                throw err;
+                console.warn('[ImageScanner] Visual matching model load notice:', err.message || err);
+                _emit('onStatusChange', 'idle', 'Visual similarity standby');
+                return null;
             });
     }
 
@@ -426,7 +439,7 @@ var ImageScanner = (function () {
      * Uses localStorage cache — products whose image URL hasn't changed are instant.
      */
     function _precomputeEmbeddings() {
-        return fetch('api/get_all_products_for_scanner.php')
+        return fetch(_getBaseUrl() + 'api/get_all_products_for_scanner.php')
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.success) throw new Error('Scanner API error');

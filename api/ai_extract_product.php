@@ -64,14 +64,28 @@ if ($settingsRes) {
     }
 }
 
-$apiKey  = trim($body['api_key'] ?? $visionSettings['ai_vision_api_key'] ?? '');
+$apiKey = trim($body['api_key'] ?? '');
+if (empty($apiKey)) {
+    $apiKey = trim($visionSettings['ai_vision_api_key'] ?? '');
+}
+if (empty($apiKey)) {
+    $apiKey = trim(getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? ''));
+}
 $enabled = ($visionSettings['ai_vision_enabled'] ?? '1') === '1';
 
 // ── Action: Test Connection ───────────────────────────────────────────────────
 if ($action === 'test_connection') {
     $conn->close();
     if (empty($apiKey)) {
-        echo json_encode(['success' => false, 'error' => 'API Key is empty. Please enter your Google Gemini API key.']);
+        echo json_encode(['success' => false, 'error' => 'API Key is empty. Please enter your Google Gemini API key from Google AI Studio.']);
+        exit();
+    }
+
+    if (!str_starts_with($apiKey, 'AIza')) {
+        echo json_encode([
+            'success' => false,
+            'error' => 'Invalid Google Gemini API key format (received key starting with "' . htmlspecialchars(substr($apiKey, 0, 4)) . '..."). Official Gemini API keys start with "AIzaSy...". Please create a free API key at https://aistudio.google.com/'
+        ]);
         exit();
     }
 
@@ -185,11 +199,13 @@ $payload = [
 ];
 
 // List of Gemini models to try in order of speed and capability
-$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite';
+$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-2.5-flash';
 $modelMap = [
-    'gemini-1.5-flash' => 'gemini-3.5-flash-lite',
-    'gemini-2.0-flash' => 'gemini-3.5-flash-lite',
-    'gemini-2.5-flash' => 'gemini-3.5-flash-lite',
+    'gemini-3.5-flash-lite' => 'gemini-2.5-flash',
+    'gemini-3.5-flash'      => 'gemini-2.0-flash',
+    'gemini-3.8-flash'      => 'gemini-1.5-flash',
+    'gemini-3.1-flash-lite' => 'gemini-2.5-flash',
+    'gemini-flash-latest'   => 'gemini-2.5-flash',
 ];
 if (isset($modelMap[$selectedModel])) {
     $selectedModel = $modelMap[$selectedModel];
@@ -197,11 +213,12 @@ if (isset($modelMap[$selectedModel])) {
 
 $modelsToTry = array_unique(array_filter([
     $selectedModel,
-    'gemini-3.5-flash-lite',
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.8-flash',
-    'gemini-flash-latest'
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-8b',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-pro'
 ]));
 
 $extracted = null;

@@ -685,11 +685,24 @@ var ProductCameraScanner = (function () {
     }
 
     // ── Local Worker Setup & OCR Execution ────────────────────────────────────
+    function _getBaseUrl() {
+        var scripts = document.getElementsByTagName('script');
+        for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src || '';
+            var idx = src.indexOf('src/scripts/product-camera-scanner.js');
+            if (idx !== -1) return src.substring(0, idx);
+        }
+        var path = window.location.pathname;
+        var appIdx = path.indexOf('/src/');
+        if (appIdx !== -1) return path.substring(0, appIdx + 1);
+        return '';
+    }
+
     function ensureTesseract() {
         if (window.Tesseract) return Promise.resolve(window.Tesseract);
         return new Promise(function (resolve, reject) {
             var script = document.createElement('script');
-            script.src = 'src/scripts/tesseract.min.js';
+            script.src = _getBaseUrl() + 'src/scripts/tesseract.min.js';
             script.onload = function () {
                 if (window.Tesseract) resolve(window.Tesseract);
                 else reject(new Error('Tesseract script loaded but object missing'));
@@ -719,10 +732,11 @@ var ProductCameraScanner = (function () {
 
         _ocrWorkerPromise = ensureTesseract().then(function (tess) {
             if (typeof onProgress === 'function') onProgress(10, 'Initializing AI OCR…');
+            var base = _getBaseUrl();
             return tess.createWorker('eng', 1, {
-                workerPath: 'src/scripts/worker.min.js',
-                corePath: 'src/scripts/tesseract-core-simd-lstm.wasm.js',
-                langPath: 'src/assets/tessdata',
+                workerPath: base + 'src/scripts/worker.min.js',
+                corePath: base + 'src/scripts/tesseract-core-simd-lstm.wasm.js',
+                langPath: base + 'src/assets/tessdata',
                 gzip: false,
                 logger: function (m) {
                     if (typeof onProgress === 'function') {
@@ -792,57 +806,47 @@ var ProductCameraScanner = (function () {
             if (typeof onProgress === 'function') onProgress(15, 'Reading packaging text…');
 
             return getOcrWorker(onProgress).then(function (worker) {
-                // Build scan jobs:
-                //   Mode 0 PSM3, Mode 0 PSM6, Mode 1 PSM3, Mode 2 PSM3
-                // PSM 3 = fully automatic | PSM 6 = uniform block of text
-                var jobs = [];
-
                 var validImages = processedImages.filter(function (b) { return !!b; });
+                if (validImages.length === 0) return '';
 
-                validImages.forEach(function (b64, idx) {
-                    // PSM 3 for every mode
-                    jobs.push(
-                        worker.setParameters({ tessedit_pageseg_mode: '3' })
-                            .then(function () { return worker.recognize(b64); })
-                            .then(function (res) { return { text: (res && res.data && res.data.text) || '', mode: idx, psm: 3 }; })
-                            .catch(function ()   { return { text: '', mode: idx, psm: 3 }; })
-                    );
-                });
+                // Pass 1: Mode 0 (flat luminance/grayscale) with PSM 3 (auto segmentation)
+                if (typeof onProgress === 'function') onProgress(25, 'Scanning label text…');
+                return worker.setParameters({ tessedit_pageseg_mode: '3' })
+                    .then(function () { return worker.recognize(validImages[0]); })
+                    .then(function (res1) {
+                        var text1 = (res1 && res1.data && res1.data.text) || '';
+                        var usable1 = _countUsableLines(text1);
 
-                // PSM 6 on Mode 0 (flat label — most common case)
-                if (validImages[0]) {
-                    jobs.push(
-                        worker.setParameters({ tessedit_pageseg_mode: '6' })
-                            .then(function () { return worker.recognize(validImages[0]); })
-                            .then(function (res) { return { text: (res && res.data && res.data.text) || '', mode: 0, psm: 6 }; })
-                            .catch(function ()   { return { text: '', mode: 0, psm: 6 }; })
-                    );
-                }
+                        // Smart Early Exit: If Mode 0 yielded 2+ clear, readable lines, exit immediately (< 1.5s)
+                        if (usable1 >= 2) {
+                            console.info('[OCR] Pass 1 success: ' + usable1 + ' usable lines. Early exit.');
+                            return text1;
+                        }
 
-                // Run all jobs; sequentially to avoid worker conflicts
-                return jobs.reduce(function (chain, job) {
-                    return chain.then(function (results) {
-                        return job.then(function (r) { results.push(r); return results; });
+                        // Pass 2: If Pass 1 was noisy/sparse and Mode 1 (Otsu binarized) is available, try it
+                        if (validImages[1]) {
+                            if (typeof onProgress === 'function') onProgress(55, 'Retrying with high-contrast filter…');
+                            return worker.recognize(validImages[1]).then(function (res2) {
+                                var text2 = (res2 && res2.data && res2.data.text) || '';
+                                var usable2 = _countUsableLines(text2);
+                                if (usable2 > usable1) {
+                                    console.info('[OCR] Pass 2 (Otsu) selected: ' + usable2 + ' usable lines.');
+                                    return text2;
+                                }
+                                return text1 || text2;
+                            });
+                        }
+
+                        return text1;
                     });
-                }, Promise.resolve([]));
             });
-        }).then(function (attempts) {
-            if (typeof onProgress === 'function') onProgress(85, 'Selecting best result…');
-
-            // Pick the attempt with the most usable lines
-            var best = attempts.reduce(function (winner, attempt) {
-                var score = _countUsableLines(attempt.text);
-                return score > winner.score ? { result: attempt, score: score } : winner;
-            }, { result: attempts[0] || { text: '', mode: 0, psm: 3 }, score: 0 });
-
-            console.info('[OCR] Best attempt: mode=' + best.result.mode +
-                         ' psm=' + best.result.psm +
-                         ' usableLines=' + best.score);
-            return best.result.text;
+        }).then(function (textResult) {
+            if (typeof onProgress === 'function') onProgress(100, 'Done');
+            return textResult;
         });
 
         var timeout = new Promise(function (_, reject) {
-            setTimeout(function () { reject(new Error('OCR scan timed out.')); }, 30000);
+            setTimeout(function () { reject(new Error('OCR scan timed out.')); }, 15000);
         });
 
         return Promise.race([ocrPromise, timeout]).then(function (textResult) {
@@ -864,7 +868,7 @@ var ProductCameraScanner = (function () {
      */
     function lookupByOcrText(ocrText) {
         if (!ocrText || !ocrText.trim()) return Promise.resolve([]);
-        return fetch('api/search_products_by_text.php', {
+        return fetch(_getBaseUrl() + 'api/search_products_by_text.php', {
             method : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body   : JSON.stringify({ text: ocrText.trim() })
@@ -965,7 +969,7 @@ var ProductCameraScanner = (function () {
                 return reject(new Error('Invalid image source for AI Vision'));
             }
 
-            fetch('api/ai_extract_product.php', {
+            fetch(_getBaseUrl() + 'api/ai_extract_product.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'extract', image: b64 })

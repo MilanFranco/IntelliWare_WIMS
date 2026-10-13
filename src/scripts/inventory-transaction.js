@@ -1087,7 +1087,22 @@ var InventoryTransaction = (function () {
         }
     }
 
-    function startCameraScanner() {
+    var _invFacingMode = 'environment';
+
+    function flipCameraScanner() {
+        _invFacingMode = (_invFacingMode === 'environment') ? 'user' : 'environment';
+        if (_cameraStream) {
+            _cameraStream.getTracks().forEach(function (t) { t.stop(); });
+            _cameraStream = null;
+        }
+        startCameraScanner(_invFacingMode);
+    }
+
+    function startCameraScanner(requestedFacingMode) {
+        if (requestedFacingMode) {
+            _invFacingMode = requestedFacingMode;
+        }
+        var mode = _invFacingMode || 'environment';
         var wrap    = document.getElementById('inv-camera-scanner-wrap');
         var video   = document.getElementById('inv-camera-video');
         var btnText = document.getElementById('inv-camera-btn-text');
@@ -1097,7 +1112,7 @@ var InventoryTransaction = (function () {
         wrap.style.display = 'block';
         if (btnText) btnText.textContent = 'Close Camera';
         if (camBtn) camBtn.classList.add('pos-camera-active');
-        setCameraStatus('Starting camera…', 'scanning');
+        setCameraStatus('Starting camera (' + (mode === 'user' ? 'front' : 'rear') + ')…', 'scanning');
 
         ensureCatalogLoaded();
 
@@ -1107,7 +1122,7 @@ var InventoryTransaction = (function () {
         }
 
         navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            video: { facingMode: { ideal: mode }, width: { ideal: 1280 }, height: { ideal: 720 } }
         }).catch(function () {
             return navigator.mediaDevices.getUserMedia({ video: true });
         }).then(function (stream) {
@@ -1287,6 +1302,8 @@ var InventoryTransaction = (function () {
         if (camBtn) camBtn.addEventListener('click', toggleCameraScanner);
         var camClose = document.getElementById('inv-camera-close-btn');
         if (camClose) camClose.addEventListener('click', stopCameraScanner);
+        var camFlip = document.getElementById('inv-camera-flip-btn');
+        if (camFlip) camFlip.addEventListener('click', flipCameraScanner);
         var camSnap = document.getElementById('inv-camera-snap-manual');
         if (camSnap) {
             camSnap.addEventListener('click', function () {

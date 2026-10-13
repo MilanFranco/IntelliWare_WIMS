@@ -2090,11 +2090,21 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
                         <!-- Camera Viewfinder with Capture Button at the Bottom -->
                         <div id="ai-camera-area" class="tm-camera-wrap" style="display:none; margin-top:12px; border-radius:12px; overflow:hidden; border:1px solid #2A4484; position:relative; background:#040714;">
-                            <div style="position:relative; width:100%; height:220px; overflow:hidden;">
-                                <video id="ai-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
-                                <canvas id="ai-snapshot-canvas" style="width:100%; height:100%; object-fit:cover; display:none;"></canvas>
-                                <div class="tm-camera-overlay" id="ai-scan-overlay">
-                                    <div class="tm-viewfinder-ring" id="ai-scan-ring"></div>
+                            <!-- Flip Camera Button (top right) -->
+                            <button type="button" id="ai-flip-cam-btn" onclick="aiFlipCamera()" title="Switch Camera" style="position:absolute; top:10px; right:10px; z-index:10; background:rgba(15,23,42,0.85); border:1px solid rgba(81,213,90,0.4); border-radius:8px; padding:6px 12px; color:#e2e8f0; font-size:12px; font-weight:600; display:flex; align-items:center; gap:6px; cursor:pointer; backdrop-filter:blur(6px); transition:all 0.2s;" onmouseover="this.style.background='rgba(26,46,90,0.95)'" onmouseout="this.style.background='rgba(15,23,42,0.85)'">
+                                <svg class="w-4 h-4 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                                </svg>
+                                <span>Flip Camera</span>
+                            </button>
+
+                            <div style="position:relative; width:100%; min-height:280px; max-height:380px; height:45vh; overflow:hidden; background:#02040a;">
+                                <video id="ai-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:contain; display:block;"></video>
+                                <canvas id="ai-snapshot-canvas" style="width:100%; height:100%; object-fit:contain; display:none;"></canvas>
+                                <div class="tm-camera-overlay" id="ai-scan-overlay" style="position:absolute; inset:0; pointer-events:none; display:flex; align-items:center; justify-content:center;">
+                                    <div style="width:78%; height:78%; max-width:320px; max-height:260px; border:2px dashed rgba(81,213,90,0.7); border-radius:16px; box-shadow:0 0 0 9999px rgba(0,0,0,0.3); position:relative;">
+                                        <span style="position:absolute; bottom:8px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:700; color:#51D55A; text-shadow:0 1px 3px rgba(0,0,0,0.9); white-space:nowrap; letter-spacing:0.03em; font-family:'Onest',sans-serif; background:rgba(0,0,0,0.6); padding:2px 10px; border-radius:6px;">Align packaging inside frame</span>
+                                    </div>
                                 </div>
                                 <!-- Captured success overlay -->
                                 <div id="ai-confirmed-overlay" style="display:none; position:absolute; inset:0; background:rgba(6,95,70,0.85); align-items:center; justify-content:center; flex-direction:column; gap:6px; z-index:5;">
@@ -3409,7 +3419,20 @@ function _cancelAddProductCamera() {
     setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
 }
 
-function aiStartScan() {
+var _currentFacingMode = 'environment';
+
+function aiFlipCamera() {
+    _currentFacingMode = (_currentFacingMode === 'environment') ? 'user' : 'environment';
+    _stopAddProductCamera();
+    aiStartScan(_currentFacingMode);
+}
+
+function aiStartScan(requestedFacingMode) {
+    if (requestedFacingMode) {
+        _currentFacingMode = requestedFacingMode;
+    }
+    var currentMode = _currentFacingMode || 'environment';
+
     var captureBtn   = document.getElementById('ai-capture-btn');
     var uploadBtn    = document.getElementById('ai-upload-btn');
     var snapBtn      = document.getElementById('ai-capture-snap-btn');
@@ -3444,10 +3467,10 @@ function aiStartScan() {
     if (canvas)      canvas.style.display      = 'none';
     if (video)       video.style.display       = 'block';
     if (scanOverlay) scanOverlay.style.display = 'flex';
-    setAiStatus('Opening camera…', 'scanning');
+    setAiStatus('Opening camera (' + (currentMode === 'user' ? 'front' : 'rear') + ')…', 'scanning');
 
     navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: { facingMode: { ideal: currentMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
     }).catch(function() {
         // Fallback for laptops and desktop webcams that do not support 'environment'
         return navigator.mediaDevices.getUserMedia({ video: true });
@@ -3462,7 +3485,7 @@ function aiStartScan() {
         }
         if (snapBtn)   snapBtn.style.display   = 'inline-flex';
         if (bottomBar) bottomBar.style.display = 'flex';
-        setAiStatus('Camera ready — point at packaging or label, or click Capture', 'scanning');
+        setAiStatus('Camera ready — hold packaging steady in frame and click Capture', 'scanning');
     }).catch(function(err) {
         // If laptop/phone denied permission or threw error, offer mobile file/camera capture
         var mobileCam = document.getElementById('ai-mobile-cam-input');
@@ -4330,18 +4353,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         ImageScanner.init({
             onStatusChange: function (state, msg) {
-                // Forward status to the product page AI status bar if visible
-                var dot   = document.getElementById('ai-status-dot');
-                var label = document.getElementById('ai-status-text');
-                if (label && document.getElementById('ai-capture-block') &&
-                    document.getElementById('ai-capture-block').closest('.modal-visible, .panel-open, [style*="display: block"], [style*="display:block"]')) {
-                    if (label && state !== 'idle') label.textContent = msg;
-                }
                 if (state === 'ready') {
-                    _imgScannerReady  = true;
+                    _imgScannerReady   = true;
                     _imgScannerLoading = false;
                 }
-                if (state === 'error') {
+                if (state === 'error' || state === 'standby') {
                     _imgScannerLoading = false;
                 }
             },

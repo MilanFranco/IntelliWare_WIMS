@@ -1581,8 +1581,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
                     <!-- Camera Scanner Viewfinder (collapsible) -->
                     <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative; margin-top:8px;">
-                        <div style="position:relative; width:100%; height:210px; background:#040714; overflow:hidden;">
-                            <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                        <div style="position:relative; width:100%; min-height:260px; max-height:360px; height:42vh; background:#040714; overflow:hidden;">
+                            <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:contain; display:block;"></video>
                             <canvas id="inv-camera-canvas" style="display:none;"></canvas>
                             
                             <!-- Scanning Reticle Overlay -->
@@ -1591,6 +1591,13 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                                     <div class="pos-scanner-reticle-label">Point at product</div>
                                 </div>
                             </div>
+
+                            <!-- Flip camera button on top-right -->
+                            <button type="button" id="inv-camera-flip-btn" title="Switch Camera" style="position:absolute; top:8px; right:42px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(81,213,90,0.5); color:#51D55A; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                                </svg>
+                            </button>
 
                             <!-- Close button on top-right -->
                             <button type="button" id="inv-camera-close-btn" title="Close scanner" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.25); color:#cbd5e1; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">&times;</button>
