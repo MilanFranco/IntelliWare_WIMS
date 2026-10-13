@@ -213,6 +213,17 @@ var ProductCameraScanner = (function () {
             return true;
         }
 
+        // Reject 2 short pseudo-words (<=3 letters each, <=6 letters total) like "Eer Rei", "Abc Def" unless recognized
+        if (words.length === 2 && totalLetters <= 6) {
+            var hasKnownToken = words.some(function(w) {
+                var cleanW = w.toLowerCase().replace(/[^a-z]/g, '');
+                return /^(tea|ice|cat|dog|oil|can|bag|gel|bar|sun|pie|cup|dry|kit|kat|red|hot|wet|box|jar|tub|pen|soy|mix|wax)$/.test(cleanW);
+            });
+            if (!hasKnownToken) {
+                return true;
+            }
+        }
+
         // Check for impossible letter clusters (consonant runs >= 5)
         if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(trimmed)) {
             return true;
