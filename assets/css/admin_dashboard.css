@@ -402,18 +402,53 @@
   color: #0B1526 !important;
 }
 
-/* Quick access container: remove inner gap, let rows fill the card */
-[data-theme="light"] .iw-quick-access .flex-1.p-5.flex.flex-col.gap-4 {
-  gap: 0 !important;
-  padding: 0 !important;
+
+
+/* Quick Access — Ironclad 100% width and edge-to-edge alignment guarantee */
+.iw-quick-access-body,
+.iw-quick-access .flex-1.p-5,
+.iw-quick-access .iw-quick-access-body {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  box-sizing: border-box !important;
 }
 
-/* Panel header: tighten the border line */
-[data-theme="light"] .iw-quick-access .p-5.border-b {
-  background: transparent !important;
+.pos-quick-card,
+.iw-quick-access a.group,
+.iw-quick-access a {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
+
+.pos-quick-card > div:nth-child(2),
+.iw-quick-access a.group > div:nth-child(2),
+.iw-quick-access a > div:nth-child(2),
+.iw-quick-access a .min-w-0 {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+.pos-quick-chevron,
+.iw-quick-access a .pos-quick-chevron,
+.iw-quick-access a svg.ml-auto,
+.iw-quick-access a > svg:last-child {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
 }
 
 /* "Low stock" quantity text — keep spec red */
 [data-theme="light"] .low-stock-qty {
   color: #B3231C !important;
-}
+}

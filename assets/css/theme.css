@@ -1764,79 +1764,287 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     letter-spacing: normal !important;
 }
 
-/* ---- Quick access section header ---- */
-[data-theme="light"] .iw-quick-access .text-white {
-    color: #0B1526 !important;
-}
-[data-theme="light"] .iw-quick-access .text-\[\#51D55A\] {
-    color: #0F6E2C !important;
+/* ============================================================
+   Quick Access Action Cards (Consistent with POS Receive / Release)
+   ============================================================ */
+
+.iw-quick-access {
+    background: var(--iw-bg-card, #13275B) !important;
+    border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.5)) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--iw-shadow-card) !important;
 }
 
-/* ---- Quick access container: white card ---- */
 [data-theme="light"] .iw-quick-access {
     background: #FFFFFF !important;
     border: 1px solid #D6E2F2 !important;
     box-shadow: 0 1px 2px rgba(16,24,43,0.04), 0 10px 24px -14px rgba(16,24,43,0.18) !important;
 }
 
-/* ---- Quick access panel header ---- */
-[data-theme="light"] .iw-quick-access .border-b.border-\[\#2A4484\]\/50 {
-    border-bottom-color: #D6E2F2 !important;
-    background: transparent !important;
-}
-[data-theme="light"] .iw-quick-access .bg-\[\#13275B\]\/30 {
-    background: transparent !important;
+.iw-quick-access-header {
+    padding: 14px 18px !important;
+    border-bottom: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4)) !important;
+    background: var(--iw-bg-panel-header, rgba(19, 39, 91, 0.3)) !important;
 }
 
-/* ---- Quick access rows ---- */
-[data-theme="light"] .iw-quick-access a.group {
-    background: transparent !important;
-    border-color: transparent !important;
-    border-bottom: 1px solid #D6E2F2 !important;
-    border-radius: 0 !important;
-    padding-top: 14px !important;
-    padding-bottom: 14px !important;
-}
-[data-theme="light"] .iw-quick-access a.group:last-child {
-    border-bottom: none !important;
-}
-[data-theme="light"] .iw-quick-access a.group:hover {
-    background: #F7FAFE !important;
-    border-color: transparent !important;
-    border-bottom: 1px solid #D6E2F2 !important;
+[data-theme="light"] .iw-quick-access-header {
+    border-bottom-color: #E2E8F0 !important;
+    background: #F8FAFC !important;
 }
 
-/* Row titles */
-[data-theme="light"] .iw-quick-access .font-onest.font-semibold.text-\[\#E3E3E3\] {
-    color: #0B1526 !important;
+[data-theme="light"] .iw-quick-access-header h3 {
+    color: #0F172A !important;
 }
 
-/* Row subtitles */
-[data-theme="light"] .iw-quick-access .text-\[\#9aa6d1\] {
-    color: #45526B !important;
+[data-theme="light"] .iw-quick-access-header p {
+    color: #64748B !important;
 }
 
-/* Trailing chevrons */
-[data-theme="light"] .iw-quick-access svg.text-\[\#9aa6d1\].ml-auto {
+.iw-quick-access-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    gap: 14px !important;
+    padding: 16px !important;
+    width: 100% !important;
+    flex: 1 1 auto !important;
+    box-sizing: border-box !important;
+}
+
+/* Individual Quick Action Cards (Elevated, Interactive, Full Width & Height) */
+.pos-quick-card,
+.iw-quick-access a.group,
+.iw-quick-access a {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 16px !important;
+    padding: 18px 20px !important;
+    border-radius: 14px !important;
+    text-decoration: none !important;
+    background: var(--iw-bg-surface, #0B1438) !important;
+    border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.5)) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    flex: 1 1 0% !important;
+    box-sizing: border-box !important;
+}
+
+.pos-quick-card > div:nth-child(2),
+.iw-quick-access a.group > div:nth-child(2),
+.iw-quick-access a > div:nth-child(2),
+.iw-quick-access a .min-w-0 {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+[data-theme="light"] .pos-quick-card,
+[data-theme="light"] .iw-quick-access a.group,
+[data-theme="light"] .iw-quick-access a {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+}
+
+.pos-quick-card:hover {
+    transform: translateY(-2px) !important;
+}
+
+.pos-quick-card:active {
+    transform: translateY(0) scale(0.99) !important;
+}
+
+/* Receive Mode Card (Green) */
+.pos-quick-card-receive:hover {
+    border-color: rgba(81, 213, 90, 0.55) !important;
+    background: rgba(81, 213, 90, 0.08) !important;
+    box-shadow: 0 6px 20px rgba(81, 213, 90, 0.2) !important;
+}
+
+[data-theme="light"] .pos-quick-card-receive:hover {
+    border-color: #10B981 !important;
+    background: #F0FDF4 !important;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.14) !important;
+}
+
+/* Release Mode Card (Red/Coral) */
+.pos-quick-card-release:hover {
+    border-color: rgba(239, 68, 68, 0.55) !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.2) !important;
+}
+
+[data-theme="light"] .pos-quick-card-release:hover {
+    border-color: #EF4444 !important;
+    background: #FEF2F2 !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.14) !important;
+}
+
+/* Icon Container (Min 44px tap target size) */
+.pos-quick-icon {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    min-height: 46px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: transform 0.22s ease !important;
+}
+
+.pos-quick-card:hover .pos-quick-icon {
+    transform: scale(1.06) !important;
+}
+
+.pos-quick-icon-receive {
+    background: rgba(81, 213, 90, 0.12) !important;
+    border: 1px solid rgba(81, 213, 90, 0.3) !important;
+    color: #51D55A !important;
+}
+
+[data-theme="light"] .pos-quick-icon-receive {
+    background: #ECFDF5 !important;
+    border-color: #A7F3D0 !important;
+    color: #059669 !important;
+}
+
+.pos-quick-icon-release {
+    background: rgba(239, 68, 68, 0.12) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    color: #f87171 !important;
+}
+
+[data-theme="light"] .pos-quick-icon-release {
+    background: #FEF2F2 !important;
+    border-color: #FECACA !important;
+    color: #DC2626 !important;
+}
+
+/* Titles & Descriptions */
+.pos-quick-title {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    color: var(--iw-text, #E3E3E3) !important;
+}
+
+[data-theme="light"] .pos-quick-title {
+    color: #0F172A !important;
+}
+
+.pos-quick-card-receive:hover .pos-quick-title {
+    color: #51D55A !important;
+}
+
+[data-theme="light"] .pos-quick-card-receive:hover .pos-quick-title {
+    color: #059669 !important;
+}
+
+.pos-quick-card-release:hover .pos-quick-title {
+    color: #f87171 !important;
+}
+
+[data-theme="light"] .pos-quick-card-release:hover .pos-quick-title {
+    color: #DC2626 !important;
+}
+
+.pos-quick-desc {
+    font-size: 13px !important;
+    color: var(--iw-text-muted, #9aa6d1) !important;
+    line-height: 1.3 !important;
+    margin-top: 3px !important;
+}
+
+[data-theme="light"] .pos-quick-desc {
+    color: #64748B !important;
+}
+
+/* Stock Movement Badges (Matching POS Chips) */
+.pos-quick-badge {
+    font-family: 'Onest', sans-serif !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    padding: 2px 7px !important;
+    border-radius: 6px !important;
+    line-height: 1.2 !important;
+}
+
+.pos-quick-badge-in {
+    background: rgba(81, 213, 90, 0.15) !important;
+    color: #51D55A !important;
+    border: 1px solid rgba(81, 213, 90, 0.3) !important;
+}
+
+[data-theme="light"] .pos-quick-badge-in {
+    background: #ECFDF5 !important;
+    color: #059669 !important;
+    border-color: #A7F3D0 !important;
+}
+
+.pos-quick-badge-out {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+[data-theme="light"] .pos-quick-badge-out {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    border-color: #FECACA !important;
+}
+
+/* Trailing Chevron */
+.pos-quick-chevron,
+.iw-quick-access a .pos-quick-chevron,
+.iw-quick-access a svg.ml-auto,
+.iw-quick-access a > svg:last-child {
+    margin-left: auto !important;
+    flex-shrink: 0 !important;
+    color: #9aa6d1 !important;
+    transition: transform 0.22s ease, color 0.22s ease !important;
+}
+
+[data-theme="light"] .pos-quick-chevron,
+[data-theme="light"] .iw-quick-access a .pos-quick-chevron,
+[data-theme="light"] .iw-quick-access a svg.ml-auto,
+[data-theme="light"] .iw-quick-access a > svg:last-child {
     color: #94A3B8 !important;
 }
 
-/* Receive inventory icon chip — raised green */
-[data-theme="light"] .iw-quick-access a[href*="receive"] .w-12.h-12,
-[data-theme="light"] .iw-quick-access a[href*="receive"] .w-12.h-12.rounded-xl {
-    background: rgba(27, 143, 62, 0.12) !important;
-    border-color: rgba(27, 143, 62, 0.3) !important;
-    color: #1B8F3E !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 5px -2px rgba(16,24,43,0.25) !important;
+.pos-quick-card-receive:hover .pos-quick-chevron {
+    color: #51D55A !important;
+    transform: translateX(3px) !important;
 }
 
-/* Release inventory icon chip — raised red */
-[data-theme="light"] .iw-quick-access a[href*="release"] .w-12.h-12,
-[data-theme="light"] .iw-quick-access a[href*="release"] .w-12.h-12.rounded-xl {
-    background: rgba(179, 35, 28, 0.1) !important;
-    border-color: rgba(179, 35, 28, 0.3) !important;
-    color: #B3231C !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 5px -2px rgba(16,24,43,0.25) !important;
+[data-theme="light"] .pos-quick-card-receive:hover .pos-quick-chevron {
+    color: #059669 !important;
+}
+
+.pos-quick-card-release:hover .pos-quick-chevron {
+    color: #f87171 !important;
+    transform: translateX(3px) !important;
+}
+
+[data-theme="light"] .pos-quick-card-release:hover .pos-quick-chevron {
+    color: #DC2626 !important;
 }
 
 /* ---- Recent activity and other dashboard panels ---- */

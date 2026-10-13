@@ -13,6 +13,7 @@ var InventoryTransaction = (function () {
     // ── State ────────────────────────────────────────────────────────────────
     var cart = [];
     var txnMode = 'in';
+    var defaultConfirmLabel = 'Confirm Receive';
     var catalogIndex = {};          // { productId -> rawProduct }
     var selectedProductId = null;
 
@@ -39,6 +40,17 @@ var InventoryTransaction = (function () {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function getConfirmBaseLabel() {
+        var btn = document.getElementById('inv-confirm-btn');
+        if (btn && btn.getAttribute('data-base-label')) {
+            return btn.getAttribute('data-base-label').trim();
+        }
+        if (defaultConfirmLabel) {
+            return defaultConfirmLabel;
+        }
+        return txnMode === 'out' ? 'Confirm Release' : 'Confirm Receive';
+    }
 
     function escapeHtml(str) {
         var div = document.createElement('div');
@@ -395,13 +407,27 @@ var InventoryTransaction = (function () {
             }
         }
 
-        // Recalculate and update total quantity in summary
+        // Recalculate and update total quantity & grand total in summary & sticky hero button
         var totalQty = 0;
+        var grandTotal = 0;
         for (var i = 0; i < cart.length; i++) {
             totalQty += cart[i].qty;
+            grandTotal += (parseFloat(cart[i].price || 0) * cart[i].qty);
         }
         var summaryQt = document.getElementById('inv-summary-qty');
         if (summaryQt) summaryQt.textContent = String(totalQty);
+
+        var summaryTot = document.getElementById('inv-summary-total');
+        if (summaryTot) {
+            summaryTot.textContent = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        var confirmBtn = document.getElementById('inv-confirm-btn');
+        if (confirmBtn && cart.length > 0) {
+            var itemText = cart.length === 1 ? '1 item' : cart.length + ' items';
+            var totalStr = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            confirmBtn.innerHTML = escapeHtml(defaultConfirmLabel) + ' · ' + itemText + ' · ' + totalStr;
+        }
 
         // If product is currently displayed in the right panel, update remaining stock info
         if (selectedProductId === productId) {
@@ -448,26 +474,40 @@ var InventoryTransaction = (function () {
         var confirmBtn= document.getElementById('inv-confirm-btn');
         var summaryPr = document.getElementById('inv-summary-products');
         var summaryQt = document.getElementById('inv-summary-qty');
+        var summaryTot= document.getElementById('inv-summary-total');
+        var cartBadge = document.getElementById('inv-cart-badge');
+        var clearBtn  = document.getElementById('inv-clear-btn');
 
         if (!bodyEl) return;
         bodyEl.innerHTML = '';
 
         if (cart.length === 0) {
-            if (emptyEl)   emptyEl.style.display    = '';
-            if (tableEl)   tableEl.style.display    = 'none';
-            if (confirmBtn) confirmBtn.disabled     = true;
-            if (summaryPr)  summaryPr.textContent   = '0';
-            if (summaryQt)  summaryQt.textContent   = '0';
+            if (emptyEl)    emptyEl.style.display    = '';
+            if (tableEl)    tableEl.style.display    = 'none';
+            if (clearBtn)   clearBtn.style.display   = 'none';
+            if (cartBadge)  cartBadge.textContent    = '0';
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = getConfirmBaseLabel();
+            }
+            if (summaryPr)  summaryPr.textContent    = '0';
+            if (summaryQt)  summaryQt.textContent    = '0';
+            if (summaryTot) summaryTot.textContent   = '₱0.00';
             return;
         }
 
-        if (emptyEl)   emptyEl.style.display   = 'none';
-        if (tableEl)   tableEl.style.display   = '';
-        if (confirmBtn) confirmBtn.disabled    = false;
+        if (emptyEl)    emptyEl.style.display    = 'none';
+        if (tableEl)    tableEl.style.display    = '';
+        if (clearBtn)   clearBtn.style.display   = 'inline-flex';
+        if (cartBadge)  cartBadge.textContent    = String(cart.length);
+        if (confirmBtn) confirmBtn.disabled     = false;
 
         var totalQty = 0;
+        var grandTotal = 0;
         cart.forEach(function (item) {
             totalQty += item.qty;
+            var lineTotal = (parseFloat(item.price || 0) * item.qty);
+            grandTotal += lineTotal;
 
             var tr = document.createElement('tr');
             tr.setAttribute('data-product-id', String(item.productId));
@@ -500,12 +540,12 @@ var InventoryTransaction = (function () {
 
             // Product name cell
             var nameTd = document.createElement('td');
-            nameTd.innerHTML = '<div class="font-semibold">' + escapeHtml(item.name) + '</div>'
-                + (item.unit ? '<div class="text-[10px] text-[#9aa6d1]">' + escapeHtml(item.unit) + '</div>' : '');
+            nameTd.innerHTML = '<div class="pos-cart-name">' + escapeHtml(item.name) + '</div>'
+                + (item.unit ? '<div class="pos-cart-unit">Unit: ' + escapeHtml(item.unit) + '</div>' : '');
 
             // Current stock
             var stockTd = document.createElement('td');
-            stockTd.textContent = item.currentStock;
+            stockTd.innerHTML = '<span class="pos-cart-stock-chip">Stock: ' + escapeHtml(String(item.currentStock)) + '</span>';
 
             // Qty controls: [−] [ input ] [+]
             var qtyTd       = document.createElement('td');
@@ -588,12 +628,14 @@ var InventoryTransaction = (function () {
 
             var totalTd = document.createElement('td');
             totalTd.className = 'pos-cart-total-cell';
-            totalTd.textContent = '₱' + (parseFloat(item.price || 0) * item.qty).toFixed(2);
+            totalTd.textContent = '₱' + lineTotal.toFixed(2);
 
             var actionTd  = document.createElement('td');
             var removeBtn = document.createElement('button');
-            removeBtn.type = 'button'; removeBtn.className = 'pos-remove-btn'; removeBtn.title = 'Remove';
-            removeBtn.innerHTML = '<svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
+            removeBtn.type = 'button';
+            removeBtn.className = 'pos-remove-btn';
+            removeBtn.title = 'Remove product';
+            removeBtn.innerHTML = '<svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>';
             removeBtn.setAttribute('data-action', 'remove');
             removeBtn.setAttribute('data-id', String(item.productId));
             actionTd.appendChild(removeBtn);
@@ -610,6 +652,15 @@ var InventoryTransaction = (function () {
 
         if (summaryPr) summaryPr.textContent = String(cart.length);
         if (summaryQt) summaryQt.textContent = String(totalQty);
+        if (summaryTot) {
+            summaryTot.textContent = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        if (confirmBtn) {
+            var itemText = cart.length === 1 ? '1 item' : cart.length + ' items';
+            var totalFormatted = '₱' + grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            confirmBtn.innerHTML = escapeHtml(getConfirmBaseLabel()) + ' · ' + itemText + ' · ' + totalFormatted;
+        }
+
         highlightSelectedCartRow();
         updateInfoActionButtons();
     }
@@ -855,8 +906,47 @@ var InventoryTransaction = (function () {
         if (!form) return;
 
         txnMode = form.getAttribute('data-txn-mode') || 'in';
+
+        var confirmBtn = document.getElementById('inv-confirm-btn');
+        if (confirmBtn) {
+            defaultConfirmLabel = confirmBtn.getAttribute('data-base-label') || confirmBtn.textContent.trim() || (txnMode === 'out' ? 'Confirm Release' : 'Confirm Receive');
+        } else {
+            defaultConfirmLabel = txnMode === 'out' ? 'Confirm Release' : 'Confirm Receive';
+        }
+
         renderCart();
         clearProductInfo();
+
+        // Remarks collapsible drawer
+        var remarksToggle = document.getElementById('inv-remarks-toggle');
+        var remarksDrawer = document.getElementById('inv-remarks-drawer');
+        var remarksInput  = document.getElementById('inv-remarks-input');
+        var remarksIcon   = document.getElementById('inv-remarks-toggle-icon');
+        var remarksText   = document.getElementById('inv-remarks-toggle-text');
+
+        if (remarksToggle && remarksDrawer) {
+            remarksToggle.addEventListener('click', function () {
+                var isHidden = remarksDrawer.style.display === 'none';
+                if (isHidden) {
+                    remarksDrawer.style.display = 'block';
+                    if (remarksIcon) remarksIcon.textContent = '−';
+                    if (remarksText) remarksText.textContent = 'Hide remarks';
+                    if (remarksInput) remarksInput.focus();
+                } else {
+                    remarksDrawer.style.display = 'none';
+                    if (remarksIcon) remarksIcon.textContent = '＋';
+                    if (remarksText) remarksText.textContent = (remarksInput && remarksInput.value.trim()) ? 'Edit remarks' : 'Add remarks';
+                }
+            });
+
+            if (remarksInput) {
+                remarksInput.addEventListener('input', function () {
+                    if (remarksText && remarksDrawer.style.display === 'none') {
+                        remarksText.textContent = this.value.trim() ? 'Edit remarks' : 'Add remarks';
+                    }
+                });
+            }
+        }
 
         // Immediately display preloaded or requested product
         if (window.AUTOLOAD_PRODUCT && window.AUTOLOAD_PRODUCT.product_id) {
@@ -895,20 +985,28 @@ var InventoryTransaction = (function () {
 
 
         // Info panel remove
-        document.getElementById('inv-info-remove')?.addEventListener('click', function () {
-            if (selectedProductId != null) removeFromCart(selectedProductId);
-        });
+        var infoRemove = document.getElementById('inv-info-remove');
+        if (infoRemove) {
+            infoRemove.addEventListener('click', function () {
+                if (selectedProductId != null) removeFromCart(selectedProductId);
+            });
+        }
 
         // Cart body
         var cartBody = document.getElementById('inv-cart-body');
-        cartBody?.addEventListener('click', handleCartAction);
-        cartBody?.addEventListener('click', handleCartRowSelect);
+        if (cartBody) {
+            cartBody.addEventListener('click', handleCartAction);
+            cartBody.addEventListener('click', handleCartRowSelect);
+        }
 
         // Clear transaction
-        document.getElementById('inv-clear-btn')?.addEventListener('click', function () {
-            if (cart.length === 0) return;
-            clearCart();
-        });
+        var clearBtn = document.getElementById('inv-clear-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                if (cart.length === 0) return;
+                clearCart();
+            });
+        }
 
         // Form submit
         form.addEventListener('submit', function (e) {
@@ -917,15 +1015,24 @@ var InventoryTransaction = (function () {
         });
 
         // Receive field sync
-        document.getElementById('inv-receive-batch')?.addEventListener('input', syncReceiveFieldsToCart);
-        document.getElementById('inv-receive-batch')?.addEventListener('change', syncReceiveFieldsToCart);
+        var receiveBatch = document.getElementById('inv-receive-batch');
+        if (receiveBatch) {
+            receiveBatch.addEventListener('input', syncReceiveFieldsToCart);
+            receiveBatch.addEventListener('change', syncReceiveFieldsToCart);
+        }
 
-        var mfgListener = function () { calculatePredictedExpiry(); syncReceiveFieldsToCart(); };
-        document.getElementById('inv-receive-mfg')?.addEventListener('input', mfgListener);
-        document.getElementById('inv-receive-mfg')?.addEventListener('change', mfgListener);
+        var receiveMfg = document.getElementById('inv-receive-mfg');
+        if (receiveMfg) {
+            var mfgListener = function () { calculatePredictedExpiry(); syncReceiveFieldsToCart(); };
+            receiveMfg.addEventListener('input', mfgListener);
+            receiveMfg.addEventListener('change', mfgListener);
+        }
 
-        document.getElementById('inv-receive-expiry')?.addEventListener('input', syncReceiveFieldsToCart);
-        document.getElementById('inv-receive-expiry')?.addEventListener('change', syncReceiveFieldsToCart);
+        var receiveExpiry = document.getElementById('inv-receive-expiry');
+        if (receiveExpiry) {
+            receiveExpiry.addEventListener('input', syncReceiveFieldsToCart);
+            receiveExpiry.addEventListener('change', syncReceiveFieldsToCart);
+        }
 
         // Camera scanner
         initCameraScanner();
@@ -984,10 +1091,12 @@ var InventoryTransaction = (function () {
         var wrap    = document.getElementById('inv-camera-scanner-wrap');
         var video   = document.getElementById('inv-camera-video');
         var btnText = document.getElementById('inv-camera-btn-text');
+        var camBtn  = document.getElementById('inv-camera-btn');
         if (!wrap || !video) return;
 
         wrap.style.display = 'block';
         if (btnText) btnText.textContent = 'Close Camera';
+        if (camBtn) camBtn.classList.add('pos-camera-active');
         setCameraStatus('Starting camera…', 'scanning');
 
         ensureCatalogLoaded();
@@ -1031,10 +1140,12 @@ var InventoryTransaction = (function () {
         var wrap    = document.getElementById('inv-camera-scanner-wrap');
         var btnText = document.getElementById('inv-camera-btn-text');
         var video   = document.getElementById('inv-camera-video');
+        var camBtn  = document.getElementById('inv-camera-btn');
 
         if (wrap) wrap.style.display = 'none';
         if (video) video.srcObject = null;
         if (btnText) btnText.textContent = 'Camera Scanner';
+        if (camBtn) camBtn.classList.remove('pos-camera-active');
     }
 
     function processLiveFrame(isManual) {
@@ -1172,11 +1283,16 @@ var InventoryTransaction = (function () {
     }
 
     function initCameraScanner() {
-        document.getElementById('inv-camera-btn')?.addEventListener('click', toggleCameraScanner);
-        document.getElementById('inv-camera-close-btn')?.addEventListener('click', stopCameraScanner);
-        document.getElementById('inv-camera-snap-manual')?.addEventListener('click', function () {
-            processLiveFrame(true);
-        });
+        var camBtn = document.getElementById('inv-camera-btn');
+        if (camBtn) camBtn.addEventListener('click', toggleCameraScanner);
+        var camClose = document.getElementById('inv-camera-close-btn');
+        if (camClose) camClose.addEventListener('click', stopCameraScanner);
+        var camSnap = document.getElementById('inv-camera-snap-manual');
+        if (camSnap) {
+            camSnap.addEventListener('click', function () {
+                processLiveFrame(true);
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', init);

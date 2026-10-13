@@ -310,6 +310,9 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         scrollbar-width: thin;
         scrollbar-color: rgba(81, 213, 90, 0.35) transparent;
     }
+    .pos-accent-release .pos-panel-body {
+        scrollbar-color: rgba(239, 68, 68, 0.35) transparent;
+    }
     .pos-panel-body::-webkit-scrollbar {
         width: 6px;
     }
@@ -320,8 +323,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         background: rgba(81, 213, 90, 0.35);
         border-radius: 6px;
     }
+    .pos-accent-release .pos-panel-body::-webkit-scrollbar-thumb {
+        background: rgba(239, 68, 68, 0.35);
+    }
     .pos-panel-body::-webkit-scrollbar-thumb:hover {
         background: rgba(81, 213, 90, 0.65);
+    }
+    .pos-accent-release .pos-panel-body::-webkit-scrollbar-thumb:hover {
+        background: rgba(239, 68, 68, 0.65);
     }
     [data-theme="light"] .pos-panel-body {
         scrollbar-color: #CBD5E1 transparent !important;
@@ -350,7 +359,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         height: 100%;
     }
 
-    /* ── Search Bar ──────────────────────────────────────────────────────── */
+    /* ── Search Bar & Embedded Camera Scanner ───────────────────────────── */
     .pos-search-wrap {
         position: relative;
         flex-shrink: 0;
@@ -358,7 +367,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-search-input {
         width: 100%;
         height: 46px;
-        padding: 0 44px 0 42px;
+        padding: 0 74px 0 42px;
         background: var(--iw-bg-surface);
         border: 1px solid var(--iw-border-input);
         border-radius: 12px;
@@ -370,8 +379,12 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         box-sizing: border-box;
     }
     .pos-search-input:focus {
-        border-color: var(--iw-accent);
-        box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.12);
+        border-color: #51D55A;
+        box-shadow: 0 0 0 3px rgba(81, 213, 90, 0.15);
+    }
+    .pos-accent-release .pos-search-input:focus {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
     }
     .pos-search-input::placeholder { color: #6a749a; }
     .pos-search-icon {
@@ -386,22 +399,116 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
     .pos-search-clear {
         position: absolute;
-        right: 12px;
+        right: 44px;
         top: 50%;
         transform: translateY(-50%);
         background: none;
         border: none;
         color: #6a749a;
         cursor: pointer;
-        padding: 2px;
+        padding: 4px;
         display: none;
         align-items: center;
         justify-content: center;
-        border-radius: 4px;
+        border-radius: 6px;
         transition: color 0.15s;
+        z-index: 5;
     }
     .pos-search-clear:hover { color: var(--iw-text); }
     .pos-search-clear.visible { display: flex; }
+
+    /* Secondary integrated scanner icon inside search bar */
+    .pos-search-camera-btn {
+        position: absolute;
+        right: 7px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(42, 68, 132, 0.25);
+        border: 1px solid rgba(42, 68, 132, 0.45);
+        color: #9aa6d1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0;
+        z-index: 5;
+    }
+    .pos-search-camera-btn:hover {
+        color: #51D55A;
+        border-color: #51D55A;
+        background: rgba(81, 213, 90, 0.12);
+    }
+    .pos-accent-release .pos-search-camera-btn:hover {
+        color: #f87171;
+        border-color: #f87171;
+        background: rgba(239, 68, 68, 0.12);
+    }
+    .pos-search-camera-btn.pos-camera-active {
+        color: #51D55A;
+        border-color: #51D55A;
+        background: rgba(81, 213, 90, 0.25);
+        box-shadow: 0 0 10px rgba(81, 213, 90, 0.35);
+    }
+    .pos-accent-release .pos-search-camera-btn.pos-camera-active {
+        color: #f87171;
+        border-color: #f87171;
+        background: rgba(239, 68, 68, 0.25);
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+    }
+    [data-theme="light"] .pos-search-camera-btn {
+        background: #F1F5F9;
+        border-color: #CBD5E1;
+        color: #64748B;
+    }
+    [data-theme="light"] .pos-search-camera-btn:hover {
+        background: #ECFDF5;
+        border-color: #10B981;
+        color: #059669;
+    }
+    [data-theme="light"].pos-accent-release .pos-search-camera-btn:hover,
+    [data-theme="light"] .pos-accent-release .pos-search-camera-btn:hover {
+        background: #FEF2F2;
+        border-color: #EF4444;
+        color: #DC2626;
+    }
+
+    /* Camera reticle overlay */
+    .pos-scanner-reticle-box {
+        width: 170px;
+        height: 130px;
+        border: 2px dashed #51D55A;
+        border-radius: 12px;
+        box-shadow: 0 0 0 9999px rgba(4, 7, 20, 0.5);
+        position: relative;
+    }
+    .pos-scanner-reticle-label {
+        position: absolute;
+        top: -22px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #51D55A;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .pos-accent-release .pos-scanner-reticle-box {
+        border-color: #ef4444;
+    }
+    .pos-accent-release .pos-scanner-reticle-label {
+        color: #f87171;
+    }
+    .pos-accent-release #inv-camera-snap-manual {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+        border-color: #ef4444 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35) !important;
+    }
 
     /* ── Search Dropdown ─────────────────────────────────────────────────── */
     .pos-search-dropdown {
@@ -432,6 +539,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
     .pos-search-item:last-child { border-bottom: none; }
     .pos-search-item:hover { background: rgba(81, 213, 90, 0.08); }
+    .pos-accent-release .pos-search-item:hover { background: rgba(239, 68, 68, 0.08); }
     .pos-search-item-thumb {
         width: 38px;
         height: 38px;
@@ -482,8 +590,89 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         text-align: center;
     }
 
+    /* ── Sections & Visual Grouping ──────────────────────────────────────── */
+    .pos-zone {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .pos-zone-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2px;
+    }
+    .pos-zone-label {
+        font-family: 'Onest', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--iw-text-muted, #9aa6d1);
+    }
+    [data-theme="light"] .pos-zone-label {
+        color: #64748B;
+    }
 
-    /* ── Cart ────────────────────────────────────────────────────────────── */
+    .pos-cart-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 999px;
+        background: rgba(81, 213, 90, 0.15);
+        color: #51D55A;
+        border: 1px solid rgba(81, 213, 90, 0.3);
+    }
+    .pos-accent-release .pos-cart-badge {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+    [data-theme="light"] .pos-cart-badge {
+        background: #ECFDF5;
+        color: #059669;
+        border-color: #A7F3D0;
+    }
+    [data-theme="light"].pos-accent-release .pos-cart-badge,
+    [data-theme="light"] .pos-accent-release .pos-cart-badge {
+        background: #FEF2F2;
+        color: #DC2626;
+        border-color: #FECACA;
+    }
+
+    /* Demoted Clear Cart ghost button */
+    .pos-ghost-clear-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #9aa6d1;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 3px 8px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+    }
+    .pos-ghost-clear-btn:hover {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+    }
+    [data-theme="light"] .pos-ghost-clear-btn {
+        color: #64748B;
+    }
+    [data-theme="light"] .pos-ghost-clear-btn:hover {
+        color: #dc2626;
+        background: #fee2e2;
+    }
+
+    /* ── Cart List & Product Cards (Desktop + Mobile) ────────────────────── */
     .pos-cart-wrap {
         flex: 1;
         min-height: 120px;
@@ -492,11 +681,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         -webkit-overflow-scrolling: touch;
         transform: translateZ(0);
         will-change: scroll-position;
-        border: 1px solid var(--iw-border);
-        border-radius: 12px;
-        background: var(--iw-bg-surface);
+        border: none;
+        background: transparent;
+        padding: 0;
         scrollbar-width: thin;
         scrollbar-color: rgba(81, 213, 90, 0.35) transparent;
+    }
+    .pos-accent-release .pos-cart-wrap {
+        scrollbar-color: rgba(239, 68, 68, 0.35) transparent;
     }
     .pos-cart-wrap::-webkit-scrollbar {
         width: 6px;
@@ -508,8 +700,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         background: rgba(81, 213, 90, 0.35);
         border-radius: 6px;
     }
+    .pos-accent-release .pos-cart-wrap::-webkit-scrollbar-thumb {
+        background: rgba(239, 68, 68, 0.35);
+    }
     .pos-cart-wrap::-webkit-scrollbar-thumb:hover {
         background: rgba(81, 213, 90, 0.65);
+    }
+    .pos-accent-release .pos-cart-wrap::-webkit-scrollbar-thumb:hover {
+        background: rgba(239, 68, 68, 0.65);
     }
     [data-theme="light"] .pos-cart-wrap {
         scrollbar-color: #CBD5E1 transparent !important;
@@ -527,94 +725,323 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         align-items: center;
         justify-content: center;
         height: 100%;
-        min-height: 120px;
-        color: #9aa6d1;
+        min-height: 140px;
+        color: var(--iw-text-muted, #9aa6d1);
         font-size: 13px;
         text-align: center;
         padding: 24px;
+        border: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.45));
+        border-radius: 14px;
+        background: var(--iw-bg-surface, #0B1438);
+    }
+    [data-theme="light"] .pos-cart-empty {
+        background: #F8FAFC;
+        border-color: #E2E8F0;
+        color: #64748B;
     }
 
     .pos-cart-table {
+        display: block;
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0 10px;
         font-family: 'Onest', sans-serif;
-        font-size: 13px;
     }
-    .pos-cart-table th {
-        position: sticky;
-        top: 0;
-        z-index: 2;
-        background: var(--iw-bg-table-head);
-        color: var(--iw-text);
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        padding: 8px 10px;
-        text-align: left;
-        border-bottom: 1px solid var(--iw-border);
+    .pos-cart-table thead {
+        display: none;
     }
+    .pos-cart-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+    .pos-cart-table tr {
+        display: grid;
+        grid-template-columns: 48px 1fr 36px;
+        grid-template-areas:
+            "thumb  title  remove"
+            "thumb  meta   remove"
+            "qty    qty    total";
+        column-gap: 12px;
+        row-gap: 4px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: var(--iw-bg-card, #13275B);
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.5));
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        box-sizing: border-box;
+        position: relative;
+        width: 100%;
+        cursor: pointer;
+        transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .pos-cart-table tr:hover {
+        border-color: rgba(81, 213, 90, 0.35);
+    }
+    .pos-accent-release .pos-cart-table tr:hover {
+        border-color: rgba(239, 68, 68, 0.35);
+    }
+    [data-theme="light"] .pos-cart-table tr {
+        background: #FFFFFF;
+        border-color: #E2E8F0;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+    }
+    [data-theme="light"] .pos-cart-table tr:hover {
+        border-color: #CBD5E1;
+    }
+
+    .pos-cart-table tr.pos-cart-row-selected {
+        border-color: rgba(81, 213, 90, 0.55);
+        box-shadow: 0 0 0 1px rgba(81, 213, 90, 0.25);
+    }
+    .pos-accent-release .pos-cart-table tr.pos-cart-row-selected {
+        border-color: rgba(239, 68, 68, 0.55);
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.25);
+    }
+
+    .pos-cart-table tr.pos-cart-row-flash {
+        animation: posRowFlashReceive 0.6s ease;
+    }
+    .pos-accent-release .pos-cart-table tr.pos-cart-row-flash {
+        animation: posRowFlashRelease 0.6s ease;
+    }
+    @keyframes posRowFlashReceive {
+        0%   { background: rgba(81, 213, 90, 0.22); }
+        100% { background: var(--iw-bg-card, #13275B); }
+    }
+    @keyframes posRowFlashRelease {
+        0%   { background: rgba(239, 68, 68, 0.22); }
+        100% { background: var(--iw-bg-card, #13275B); }
+    }
+
+    /* Remove any stray mint/tinted blocks from table cells */
     .pos-cart-table td {
-        padding: 8px 10px;
-        color: var(--iw-text);
-        border-bottom: 1px solid var(--iw-border);
-        vertical-align: middle;
+        display: block;
+        padding: 0;
+        border: none;
+        background: transparent !important;
     }
-    .pos-cart-table tr:last-child td { border-bottom: none; }
-    .pos-cart-table tr.pos-cart-row-flash td { animation: posRowFlash 0.6s ease; }
-    @keyframes posRowFlash {
-        0% { background: rgba(81, 213, 90, 0.25); }
-        100% { background: transparent; }
+
+    /* 1. Thumbnail */
+    .pos-cart-thumb-cell {
+        grid-area: thumb;
+        width: 48px;
+        height: 48px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .pos-cart-thumb,
+    .pos-cart-thumb-ph {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.45));
+        background: var(--iw-bg-surface, #0B1438);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .pos-cart-thumb:hover {
+        transform: scale(1.06);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        z-index: 10;
+        position: relative;
+    }
+    [data-theme="light"] .pos-cart-thumb,
+    [data-theme="light"] .pos-cart-thumb-ph {
+        background: #F8FAFC;
+        border-color: #E2E8F0;
+    }
+
+    /* 2. Product Title & Typography */
+    .pos-cart-table tr > td:nth-child(2) {
+        grid-area: title;
+        min-width: 0;
+        padding-right: 4px;
+        align-self: start;
+    }
+    .pos-cart-name {
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.35;
+        color: var(--iw-text, #E3E3E3);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    [data-theme="light"] .pos-cart-name {
+        color: #0F172A;
+    }
+
+    .pos-cart-unit {
+        font-size: 13px;
+        color: var(--iw-text-muted, #9aa6d1);
+        margin-top: 2px;
+        line-height: 1.3;
+    }
+    [data-theme="light"] .pos-cart-unit {
+        color: #64748B;
+    }
+
+    /* 3. Stock Chip */
+    .pos-cart-table tr > td:nth-child(3) {
+        grid-area: meta;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+    }
+    .pos-cart-stock-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        background: rgba(42, 68, 132, 0.3);
+        color: #9aa6d1;
+        border: 1px solid rgba(42, 68, 132, 0.45);
+        line-height: 1.2;
+    }
+    [data-theme="light"] .pos-cart-stock-chip {
+        background: #F1F5F9;
+        color: #475569;
+        border-color: #E2E8F0;
+    }
+
+    /* 7. Remove Button — Top-Right Corner of Card, Ghost Icon */
+    .pos-cart-table tr > td:nth-child(7) {
+        grid-area: remove;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-end;
+        align-self: start;
+    }
+    .pos-remove-btn {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        color: #9aa6d1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.15s ease;
+    }
+    .pos-remove-btn:hover,
+    .pos-remove-btn:active {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.12);
+    }
+    [data-theme="light"] .pos-remove-btn {
+        color: #94A3B8;
+    }
+    [data-theme="light"] .pos-remove-btn:hover,
+    [data-theme="light"] .pos-remove-btn:active {
+        color: #dc2626;
+        background: #FEE2E2;
+    }
+
+    /* 5. Unit price (hidden in card layout) */
+    .pos-cart-table tr > td:nth-child(5) {
+        display: none;
+    }
+
+    /* 4. Quantity Stepper — Min 44px Tap Targets */
+    .pos-cart-table tr > td:nth-child(4) {
+        grid-area: qty;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35));
+        width: auto;
+        position: static;
+    }
+    [data-theme="light"] .pos-cart-table tr > td:nth-child(4) {
+        border-top-color: #E2E8F0;
     }
 
     .pos-qty-controls {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        justify-content: center;
+        gap: 2px;
+        width: auto;
+        max-width: fit-content;
+        background: var(--iw-bg-surface, #0B1438);
+        padding: 2px;
+        border-radius: 12px;
+        border: 1px solid var(--iw-border-input, #2A4484);
+        box-sizing: border-box;
+    }
+    [data-theme="light"] .pos-qty-controls {
+        background: #F8FAFC;
+        border-color: #CBD5E1;
     }
     .pos-qty-btn {
-        width: 26px;
-        height: 26px;
-        border-radius: 7px;
-        border: 1px solid var(--iw-border-input, #2A4484);
-        background: var(--iw-bg-surface, #0B1438);
-        color: var(--iw-text, #E3E3E3);
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        line-height: 1;
-        display: inline-flex;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        font-size: 20px;
+        font-weight: 700;
+        border-radius: 10px;
+        display: flex;
         align-items: center;
         justify-content: center;
-        transition: border-color 0.15s, color 0.15s, background 0.15s;
-        padding: 0;
-        user-select: none;
-        flex-shrink: 0;
-    }
-    .pos-qty-btn:hover {
-        border-color: #51D55A;
-        color: #51D55A;
-        background: rgba(81, 213, 90, 0.1);
-    }
-    .pos-accent-release .pos-qty-btn:hover {
-        border-color: #ef4444;
-        color: #ef4444;
-        background: rgba(239, 68, 68, 0.1);
-    }
-    .pos-qty-input {
-        width: 54px;
-        height: 26px;
-        padding: 0 4px;
-        border-radius: 7px;
-        border: 1px solid var(--iw-border-input, #2A4484);
-        background: var(--iw-bg-surface, #0B1438);
+        border: none;
+        background: transparent;
+        cursor: pointer;
         color: var(--iw-text, #E3E3E3);
-        font-family: 'Onest', sans-serif;
-        font-size: 13px;
-        font-weight: 600;
+        flex-shrink: 0;
+        touch-action: manipulation;
+        user-select: none;
+        transition: all 0.15s ease;
+    }
+    .pos-qty-btn:active {
+        background: rgba(81, 213, 90, 0.15);
+    }
+    .pos-accent-release .pos-qty-btn:active {
+        background: rgba(239, 68, 68, 0.15);
+    }
+    [data-theme="light"] .pos-qty-btn {
+        color: #0F172A;
+    }
+    [data-theme="light"] .pos-qty-btn:active {
+        background: #E2E8F0;
+    }
+
+    .pos-qty-input {
+        width: 48px;
+        min-width: 48px;
+        max-width: 48px;
+        height: 44px;
+        min-height: 44px;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        background: transparent;
+        padding: 0;
         text-align: center;
-        outline: none;
+        color: var(--iw-text, #E3E3E3);
+        flex: 0 0 48px;
         box-sizing: border-box;
-        transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
         -moz-appearance: textfield;
     }
     .pos-qty-input::-webkit-outer-spin-button,
@@ -622,84 +1049,213 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         -webkit-appearance: none;
         margin: 0;
     }
-    .pos-qty-input:hover {
-        border-color: var(--iw-border, #3a5bb0);
-    }
-    .pos-qty-input:focus {
-        border-color: #51D55A;
-        box-shadow: 0 0 0 2px rgba(81, 213, 90, 0.2);
-        background: var(--iw-bg-card, #13275B);
-    }
-    .pos-accent-release .pos-qty-input:focus {
-        border-color: #ef4444;
-        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    [data-theme="light"] .pos-qty-input {
+        color: #0F172A;
     }
 
-    .pos-remove-btn {
-        width: 24px; height: 24px;
-        border-radius: 6px;
-        border: 1px solid rgba(239, 68, 68, 0.35);
-        background: rgba(239, 68, 68, 0.08);
-        color: #f87171;
-        cursor: pointer;
-        font-size: 12px;
-        display: inline-flex;
-        align-items: center;
+    /* 6. Total Price — 18px / 700, Right-aligned, Primary Color */
+    .pos-cart-table tr > td:nth-child(6) {
+        grid-area: total;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
         justify-content: center;
-        transition: background 0.15s;
-        padding: 0;
+        position: static;
+        width: auto;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35));
+        text-align: right;
     }
-    .pos-remove-btn:hover { background: rgba(239, 68, 68, 0.18); }
+    [data-theme="light"] .pos-cart-table tr > td:nth-child(6) {
+        border-top-color: #E2E8F0;
+    }
 
-    /* ── Summary & Footer ────────────────────────────────────────────────── */
-    .pos-summary {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        padding: 10px;
-        border-radius: 12px;
-        border: 1px solid var(--iw-border);
-        background: var(--iw-bg-surface);
+    .pos-cart-total-cell {
+        font-size: 18px;
+        font-weight: 700;
+        color: #51D55A;
+        font-family: 'Onest', sans-serif;
+        line-height: 1.2;
+        white-space: nowrap;
+        text-align: right;
     }
-    .pos-summary-item label {
-        display: block;
-        font-size: 10px;
-        color: #9aa6d1;
+    .pos-accent-release .pos-cart-total-cell {
+        color: #f87171;
+    }
+    .pos-cart-total-cell::before {
+        content: "LINE TOTAL";
+        font-size: 9.5px;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        margin-bottom: 4px;
+        color: #9aa6d1;
+        display: block;
+        text-align: right;
+        margin-bottom: 2px;
     }
-    .pos-summary-item span { font-size: 18px; font-weight: 700; color: #E3E3E3; }
-    .pos-accent-receive .pos-summary-type { color: #51D55A; }
-    .pos-accent-release .pos-summary-type { color: #f87171; }
+    [data-theme="light"] .pos-cart-total-cell::before {
+        color: #64748B;
+    }
 
-    .pos-footer-actions { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+    /* ── Summary Card & Grand Total ──────────────────────────────────────── */
+    .pos-summary-card {
+        padding: 14px;
+        border-radius: 14px;
+        background: var(--iw-bg-surface, #0B1438);
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.45));
+    }
+    [data-theme="light"] .pos-summary-card {
+        background: #F8FAFC;
+        border-color: #E2E8F0;
+    }
 
-    .pos-clear-btn {
-        background: transparent;
-        border: 1px solid var(--iw-border-input);
-        color: var(--iw-text-muted);
-        border-radius: 12px;
-        padding: 10px 16px;
+    .pos-summary-metric-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--iw-text-muted, #9aa6d1);
+        display: block;
+        margin-bottom: 2px;
+    }
+    [data-theme="light"] .pos-summary-metric-label {
+        color: #64748B;
+    }
+
+    .pos-summary-metric-val {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--iw-text, #E3E3E3);
         font-family: 'Onest', sans-serif;
-        font-size: 13px;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
+        line-height: 1.2;
     }
-    .pos-clear-btn:hover { border-color: #f87171; color: #f87171; }
+    [data-theme="light"] .pos-summary-metric-val {
+        color: #0F172A;
+    }
 
-    .pos-confirm-btn { height: 52px; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+    .pos-summary-divider {
+        height: 1px;
+        background: var(--iw-border, rgba(42, 68, 132, 0.35));
+        margin: 10px 0;
+    }
+    [data-theme="light"] .pos-summary-divider {
+        background: #E2E8F0;
+    }
+
+    .pos-grand-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--iw-text-muted, #9aa6d1);
+    }
+    [data-theme="light"] .pos-grand-label {
+        color: #475569;
+    }
+
+    .pos-grand-val {
+        font-size: 24px;
+        font-weight: 800;
+        color: #51D55A;
+        font-family: 'Onest', sans-serif;
+        line-height: 1.1;
+    }
+    .pos-accent-release .pos-grand-val {
+        color: #f87171;
+    }
+
+    /* ── Collapsible Remarks ──────────────────────────────────────────────── */
+    .pos-remarks-container {
+        margin-top: 8px;
+    }
+    .pos-remarks-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #9aa6d1;
+        background: transparent;
+        border: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.45));
+        border-radius: 8px;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .pos-remarks-toggle-btn:hover {
+        color: var(--iw-text, #E3E3E3);
+        border-color: var(--iw-accent, #51D55A);
+        background: rgba(81, 213, 90, 0.05);
+    }
+    .pos-accent-release .pos-remarks-toggle-btn:hover {
+        border-color: #f87171;
+        background: rgba(239, 68, 68, 0.05);
+    }
+    [data-theme="light"] .pos-remarks-toggle-btn {
+        color: #64748B;
+        border-color: #CBD5E1;
+    }
+    [data-theme="light"] .pos-remarks-toggle-btn:hover {
+        color: #0F172A;
+        border-color: #10B981;
+        background: #ECFDF5;
+    }
+    [data-theme="light"].pos-accent-release .pos-remarks-toggle-btn:hover,
+    [data-theme="light"] .pos-accent-release .pos-remarks-toggle-btn:hover {
+        border-color: #EF4444;
+        background: #FEF2F2;
+    }
+    .pos-remarks-drawer {
+        margin-top: 8px;
+    }
+
+    /* ── Hero Confirm CTA in Sticky Bottom Bar ────────────────────────────── */
+    .pos-sticky-bottom-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 25;
+        background: var(--iw-bg-card, #13275B);
+        border-top: 1px solid var(--iw-border, rgba(42, 68, 132, 0.45));
+        padding: 12px 0 0 0;
+        margin-top: auto;
+        flex-shrink: 0;
+        box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.25);
+    }
+    [data-theme="light"] .pos-sticky-bottom-bar {
+        background: #FFFFFF;
+        border-top-color: #E2E8F0;
+        box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.05);
+    }
+
+    .pos-confirm-btn {
+        width: 100%;
+        height: 52px;
+        min-height: 52px;
+        font-size: 15px;
+        font-weight: 700;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        letter-spacing: 0.01em;
+        transition: all 0.2s ease;
+    }
     .pos-accent-release .pos-confirm-btn {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
     }
-    .pos-accent-release .pos-confirm-btn:hover { box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4); }
+    .pos-accent-release .pos-confirm-btn:hover {
+        box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+    }
+    .pos-confirm-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        box-shadow: none !important;
+    }
 
     /* ── Product Info Panel ──────────────────────────────────────────────── */
-    .pos-cart-table tr.pos-cart-row-selected td { background: rgba(81, 213, 90, 0.08); }
-    .pos-cart-table tbody tr { cursor: pointer; transition: background 0.15s; }
-    .pos-cart-table tbody tr:hover td { background: rgba(42, 68, 132, 0.2); }
-
     .pos-info-empty {
         flex: 1;
         display: flex;
@@ -782,7 +1338,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     .pos-info-image-expand-btn:hover { color: #E3E3E3; }
     .pos-info-image-wrap {
         width: 100%;
-        height: 260px;          /* fixed height — same for every product */
+        height: 260px;
         min-height: unset;
         border-radius: 12px;
         overflow: hidden;
@@ -801,11 +1357,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         border-color: rgba(81, 213, 90, 0.40);
         box-shadow: 0 0 0 1px rgba(81, 213, 90, 0.10), 0 6px 24px rgba(0, 0, 0, 0.25);
     }
+    .pos-accent-release .pos-info-image-wrap.has-image {
+        border-color: rgba(239, 68, 68, 0.40);
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.10), 0 6px 24px rgba(0, 0, 0, 0.25);
+    }
     .pos-info-image-wrap img {
         width: 100%;
-        height: 100%;          /* fills the fixed-height container */
+        height: 100%;
         min-height: unset;
-        object-fit: contain;   /* letterbox — no cropping of product labels */
+        object-fit: contain;
         display: none;
         cursor: zoom-in;
         transition: transform 0.25s;
@@ -854,41 +1414,6 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     }
     .pos-img-lightbox-close:hover { background: rgba(255,255,255,0.18); }
 
-
-    /* ── Thumbnail in cart rows ───────────────────────────────────────────── */
-    .pos-cart-thumb-cell { width: 56px; padding: 5px 4px 5px 10px !important; }
-    .pos-cart-thumb {
-        width: 44px;
-        height: 44px;
-        border-radius: 8px;
-        object-fit: cover;
-        border: 1px solid var(--iw-border);
-        display: block;
-        background: var(--iw-bg-surface);
-        flex-shrink: 0;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .pos-cart-thumb:hover {
-        transform: scale(1.08);
-        box-shadow: 0 4px 14px rgba(0,0,0,0.35);
-        z-index: 10;
-        position: relative;
-    }
-    .pos-cart-thumb-ph {
-        width: 44px;
-        height: 44px;
-        border-radius: 8px;
-        border: 1px dashed rgba(155,161,200,0.25);
-        background: var(--iw-bg-surface);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(155,161,200,0.35);
-        font-size: 20px;
-        flex-shrink: 0;
-    }
-
-
     /* ── Toast ───────────────────────────────────────────────────────────── */
     #toast-container {
         visibility: hidden;
@@ -917,14 +1442,11 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
     [data-theme="light"] #toast-container.error { background: #fef2f2 !important; border-color: #ef4444 !important; color: #991b1b !important; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.15) !important; }
     [data-theme="light"] #toast-container.success { background: #f0fdf4 !important; border-color: #22c55e !important; color: #166534 !important; box-shadow: 0 10px 25px rgba(34, 197, 94, 0.15) !important; }
 
-    /* Light mode typography contrast for POS panel headers & detail fields */
+    /* Light mode typography contrast */
     [data-theme="light"] .pos-panel-header h3 { color: var(--iw-text-header, #0B1526) !important; }
     [data-theme="light"] .pos-panel-header p { color: var(--iw-text-muted, #45526B) !important; }
     [data-theme="light"] .pos-info-field dt { color: var(--iw-text-muted, #45526B) !important; }
     [data-theme="light"] .pos-info-field dd { color: var(--iw-text, #0B1526) !important; }
-    [data-theme="light"] .pos-summary-item span { color: #0F172A !important; }
-    [data-theme="light"] .pos-summary-item label { color: #475569 !important; }
-    [data-theme="light"] .pos-summary { background: #F8FAFC !important; border-color: #CBD5E1 !important; }
 
     /* ── Mobile Responsive POS Optimization (max-width: 767px) ────────────── */
     @media (max-width: 767px) {
@@ -939,14 +1461,14 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         .pos-panel {
             border-radius: 16px !important;
-            overflow: hidden !important;
+            overflow: visible !important;
         }
 
         .pos-panel-header {
             display: flex !important;
             flex-direction: column !important;
             align-items: stretch !important;
-            gap: 12px !important;
+            gap: 6px !important;
             padding: 14px 16px !important;
         }
 
@@ -962,59 +1484,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         .pos-panel-header p {
             font-size: 11.5px !important;
             line-height: 1.4 !important;
-            margin-top: 3px !important;
-        }
-
-        .pos-panel-header #inv-camera-btn {
-            width: 100% !important;
-            height: 42px !important;
-            min-height: 42px !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 9px !important;
-            border-radius: 12px !important;
-            font-size: 13.5px !important;
-            font-weight: 700 !important;
-            background: linear-gradient(135deg, rgba(81, 213, 90, 0.16) 0%, rgba(81, 213, 90, 0.06) 100%) !important;
-            border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
-            color: #51D55A !important;
-            box-shadow: 0 4px 14px rgba(81, 213, 90, 0.15) !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-        }
-
-        .pos-panel-header #inv-camera-btn svg {
-            width: 18px !important;
-            height: 18px !important;
-            stroke-width: 2 !important;
-        }
-
-        .pos-panel-header #inv-camera-btn:active {
-            transform: scale(0.98) !important;
-            background: rgba(81, 213, 90, 0.25) !important;
-        }
-
-        .pos-accent-release .pos-panel-header #inv-camera-btn {
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(239, 68, 68, 0.06) 100%) !important;
-            border-color: rgba(239, 68, 68, 0.45) !important;
-            color: #f87171 !important;
-            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15) !important;
-        }
-
-        [data-theme="light"] .pos-panel-header #inv-camera-btn {
-            background: #ECFDF5 !important;
-            border-color: #10B981 !important;
-            color: #059669 !important;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12) !important;
-        }
-
-        [data-theme="light"].pos-accent-release .pos-panel-header #inv-camera-btn,
-        [data-theme="light"] .pos-accent-release .pos-panel-header #inv-camera-btn {
-            background: #FEF2F2 !important;
-            border-color: #EF4444 !important;
-            color: #DC2626 !important;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12) !important;
+            margin-top: 2px !important;
         }
 
         .pos-panel-body {
@@ -1024,361 +1494,26 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
             overflow-x: hidden !important;
         }
 
-        .pos-search-input {
-            height: 44px !important;
-            font-size: 14px !important;
-            border-radius: 12px !important;
-        }
-
-        /* ── Cart Table Responsive Card Transformation ─────────── */
-        .pos-cart-wrap {
-            border: none !important;
-            background: transparent !important;
-            padding: 0 !important;
-            overflow: visible !important;
-            max-height: none !important;
-            min-height: auto !important;
-        }
-
-        .pos-cart-table {
-            display: block !important;
-            width: 100% !important;
-            border-collapse: separate !important;
-            border-spacing: 0 10px !important;
-        }
-
-        .pos-cart-table thead {
-            display: none !important;
-        }
-
-        .pos-cart-table tbody {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 10px !important;
-            width: 100% !important;
-        }
-
-        .pos-cart-table tr {
-            display: grid !important;
-            grid-template-columns: 48px 1fr auto !important;
-            grid-template-areas:
-                "thumb  title  remove"
-                "thumb  stock  remove"
-                "qty    qty    total" !important;
-            column-gap: 12px !important;
-            row-gap: 4px !important;
-            align-items: center !important;
-            padding: 12px !important;
-            border-radius: 14px !important;
-            background: var(--iw-bg-card, #13275B) !important;
-            border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.5)) !important;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
-            box-sizing: border-box !important;
-            position: relative !important;
-            width: 100% !important;
-        }
-
-        [data-theme="light"] .pos-cart-table tr {
-            background: #FFFFFF !important;
-            border-color: #E2E8F0 !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
-        }
-
-        .pos-cart-table td {
-            display: block !important;
-            padding: 0 !important;
-            border: none !important;
-        }
-
-        /* 1. Thumbnail */
-        .pos-cart-thumb-cell {
-            grid-area: thumb !important;
-            width: 48px !important;
-            height: 48px !important;
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-
-        .pos-cart-thumb,
-        .pos-cart-thumb-ph {
-            width: 48px !important;
-            height: 48px !important;
-            border-radius: 10px !important;
-        }
-
-        /* 2. Product Title */
-        .pos-cart-table tr > td:nth-child(2) {
-            grid-area: title !important;
-            min-width: 0 !important;
-            padding-right: 4px !important;
-        }
-
-        .pos-cart-table tr > td:nth-child(2) .font-semibold {
-            font-size: 13.5px !important;
-            font-weight: 700 !important;
-            line-height: 1.3 !important;
-            color: var(--iw-text, #E3E3E3) !important;
-            display: -webkit-box !important;
-            -webkit-line-clamp: 2 !important;
-            -webkit-box-orient: vertical !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-        }
-
-        [data-theme="light"] .pos-cart-table tr > td:nth-child(2) .font-semibold {
-            color: #0F172A !important;
-        }
-
-        .pos-cart-table tr > td:nth-child(2) .text-\[10px\] {
-            font-size: 10.5px !important;
-            color: var(--iw-text-muted, #9aa6d1) !important;
-            margin-top: 1px !important;
-        }
-
-        /* 3. Stock */
-        .pos-cart-table tr > td:nth-child(3) {
-            grid-area: stock !important;
-            font-size: 11px !important;
-            color: var(--iw-text-muted, #9aa6d1) !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 4px !important;
-        }
-
-        [data-theme="light"] .pos-cart-table tr > td:nth-child(3) {
-            color: #64748B !important;
-        }
-
-        .pos-cart-table tr > td:nth-child(3)::before {
-            content: "Stock: ";
-            font-weight: 600;
-            color: var(--iw-text-subtle, #6a749a);
-        }
-
-        /* 7. Remove */
-        .pos-cart-table tr > td:nth-child(7) {
-            grid-area: remove !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-end !important;
-        }
-
-        .pos-remove-btn {
-            width: 32px !important;
-            height: 32px !important;
-            min-width: 32px !important;
-            min-height: 32px !important;
-            border-radius: 8px !important;
-        }
-
-        /* 5. Unit price */
-        .pos-cart-table tr > td:nth-child(5) {
-            display: none !important;
-        }
-
-        /* 4. Quantity Stepper */
-        .pos-cart-table tr > td:nth-child(4) {
-            grid-area: qty !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: flex-start !important;
-            margin-top: 10px !important;
-            padding-top: 10px !important;
-            border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35)) !important;
-            width: auto !important;
-            position: static !important;
-        }
-
-        [data-theme="light"] .pos-cart-table tr > td:nth-child(4) {
-            border-top-color: #E2E8F0 !important;
-        }
-
-        .pos-qty-controls {
-            display: inline-flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            gap: 2px !important;
-            width: auto !important;
-            max-width: fit-content !important;
+        /* Mobile Sticky Hero Bottom Bar */
+        .pos-sticky-bottom-bar {
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 90 !important;
             background: var(--iw-bg-surface, #0B1438) !important;
-            padding: 3px !important;
-            border-radius: 10px !important;
-            border: 1px solid var(--iw-border-input, #2A4484) !important;
-            box-sizing: border-box !important;
+            border-top: 1px solid var(--iw-border, rgba(42, 68, 132, 0.45)) !important;
+            padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+            margin: 14px -14px -16px -14px !important;
+            box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
         }
 
-        [data-theme="light"] .pos-qty-controls {
-            background: #F8FAFC !important;
-            border-color: #CBD5E1 !important;
+        [data-theme="light"] .pos-sticky-bottom-bar {
+            background: rgba(255, 255, 255, 0.96) !important;
+            border-top-color: #CBD5E1 !important;
+            box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.08) !important;
         }
 
-        .pos-qty-btn {
-            width: 28px !important;
-            height: 28px !important;
-            min-width: 28px !important;
-            min-height: 28px !important;
-            font-size: 15px !important;
-            font-weight: 700 !important;
-            border-radius: 6px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border: none !important;
-            background: transparent !important;
-            cursor: pointer !important;
-            flex-shrink: 0 !important;
-        }
-
-        [data-theme="light"] .pos-qty-btn {
-            color: #0F172A !important;
-        }
-
-        [data-theme="light"] .pos-qty-btn:hover {
-            background: #E2E8F0 !important;
-        }
-
-        .iw-main-content input[type="number"].pos-qty-input,
-        .pos-cart-table input[type="number"].pos-qty-input,
-        .pos-qty-input {
-            width: 40px !important;
-            min-width: 40px !important;
-            max-width: 40px !important;
-            height: 28px !important;
-            min-height: 28px !important;
-            font-size: 14px !important;
-            font-weight: 700 !important;
-            border: none !important;
-            background: transparent !important;
-            padding: 0 !important;
-            text-align: center !important;
-            flex: 0 0 40px !important;
-            box-sizing: border-box !important;
-        }
-
-        [data-theme="light"] .pos-qty-input {
-            color: #0F172A !important;
-        }
-
-        /* 6. Total Price */
-        .pos-cart-table tr > td:nth-child(6) {
-            grid-area: total !important;
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: flex-end !important;
-            justify-content: center !important;
-            position: static !important;
-            width: auto !important;
-            margin-top: 10px !important;
-            padding-top: 10px !important;
-            border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35)) !important;
-            text-align: right !important;
-        }
-
-        [data-theme="light"] .pos-cart-table tr > td:nth-child(6) {
-            border-top-color: #E2E8F0 !important;
-        }
-
-        .pos-cart-total-cell {
-            font-size: 15px !important;
-            font-weight: 800 !important;
-            color: #51D55A !important;
-            font-family: 'Onest', sans-serif !important;
-            line-height: 1.2 !important;
-            white-space: nowrap !important;
-        }
-
-        .pos-accent-release .pos-cart-total-cell {
-            color: #f87171 !important;
-        }
-
-        .pos-cart-total-cell::before {
-            content: "LINE TOTAL";
-            font-size: 9px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.05em !important;
-            color: #9aa6d1 !important;
-            display: block !important;
-            text-align: right !important;
-            margin-bottom: 1px !important;
-        }
-
-        [data-theme="light"] .pos-cart-total-cell::before {
-            color: #64748B !important;
-        }
-
-        /* ── Summary ───────────────────────────────────────────── */
-        .pos-summary {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
-            gap: 10px !important;
-            padding: 12px 14px !important;
-            border-radius: 14px !important;
-            background: var(--iw-bg-surface, #0B1438) !important;
-            border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.45)) !important;
-        }
-
-        [data-theme="light"] .pos-summary {
-            background: #F8FAFC !important;
-            border-color: #E2E8F0 !important;
-        }
-
-        .pos-summary-item label {
-            font-size: 10px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 0.06em !important;
-            color: #9aa6d1 !important;
-            margin-bottom: 2px !important;
-        }
-
-        [data-theme="light"] .pos-summary-item label {
-            color: #64748B !important;
-        }
-
-        .pos-summary-item span {
-            font-size: 22px !important;
-            font-weight: 800 !important;
-            color: #E3E3E3 !important;
-            line-height: 1.2 !important;
-        }
-
-        [data-theme="light"] .pos-summary-item span {
-            color: #0F172A !important;
-        }
-
-        /* ── Actions ───────────────────────────────────────────── */
-        .pos-footer-actions {
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 10px !important;
-        }
-
-        .pos-clear-btn {
-            height: 48px !important;
-            min-height: 48px !important;
-            font-size: 13.5px !important;
-            font-weight: 600 !important;
-            border-radius: 12px !important;
-        }
-
-        [data-theme="light"] .pos-clear-btn {
-            background: #F1F5F9 !important;
-            border-color: #CBD5E1 !important;
-            color: #475569 !important;
-        }
-
-        .pos-confirm-btn {
-            height: 48px !important;
-            min-height: 48px !important;
-            font-size: 15px !important;
-            font-weight: 700 !important;
-            border-radius: 12px !important;
-        }
-
-        /* ── Info Panel ────────────────────────────────────────── */
         .pos-info-empty {
             min-height: 100px !important;
             padding: 20px 16px !important;
@@ -1399,20 +1534,13 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
     <!-- LEFT: Search, Camera & Transaction -->
     <div class="pos-panel">
-        <div class="pos-panel-header flex justify-between items-center gap-3">
+        <div class="pos-panel-header">
             <div>
                 <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
                     <?php echo $txnIcon; ?> <?php echo htmlspecialchars($txnLabel); ?>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1">Search or scan with phone camera to add products to the transaction.</p>
+                <p class="text-xs text-[#9aa6d1] mt-1">Search or scan with camera to add products to the transaction.</p>
             </div>
-            <button type="button" id="inv-camera-btn" class="tm-start-btn" style="height:36px; padding:0 14px; display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:600; border-radius:10px; margin:0; flex-shrink:0;">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
-                </svg>
-                <span id="inv-camera-btn-text">Camera Scanner</span>
-            </button>
         </div>
 
         <div class="pos-panel-body">
@@ -1420,97 +1548,155 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token); ?>">
                 <input type="hidden" name="items_json" id="inv-items-json" value="">
 
-                <!-- ── Product Search Bar ────────────────────────────────── -->
-                <div class="pos-search-wrap" id="inv-search-wrap">
-                    <svg class="pos-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
-                    </svg>
-                    <input type="text"
-                           id="inv-product-search"
-                           class="pos-search-input"
-                           placeholder="Search product by name or category…"
-                           autocomplete="off"
-                           spellcheck="false">
-                    <button type="button" class="pos-search-clear" id="inv-search-clear" title="Clear search">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                    <div class="pos-search-dropdown" id="inv-search-dropdown"></div>
-                </div>
+                <!-- ── ZONE 1: ADD PRODUCTS (search + scanner) ───────────── -->
+                <section class="pos-zone pos-zone-add" aria-label="Add Products">
+                    <div class="pos-zone-header">
+                        <span class="pos-zone-label">Add Products</span>
+                    </div>
 
-                <!-- ── Camera Scanner Viewfinder (collapsible) ────────── -->
-                <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative;">
-                    <div style="position:relative; width:100%; height:210px; background:#040714; overflow:hidden;">
-                        <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
-                        <canvas id="inv-camera-canvas" style="display:none;"></canvas>
-                        
-                        <!-- Scanning Reticle Overlay -->
-                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
-                            <div style="width:170px; height:130px; border:2px dashed #51D55A; border-radius:12px; box-shadow:0 0 0 9999px rgba(4,7,20,0.5); position:relative;">
-                                <div style="position:absolute; top:-22px; left:0; right:0; text-align:center; color:#51D55A; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Point at product</div>
+                    <!-- Search bar with integrated camera icon button -->
+                    <div class="pos-search-wrap" id="inv-search-wrap">
+                        <svg class="pos-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/>
+                        </svg>
+                        <input type="text"
+                               id="inv-product-search"
+                               class="pos-search-input"
+                               placeholder="Search product by name or category…"
+                               autocomplete="off"
+                               spellcheck="false">
+                        <button type="button" class="pos-search-clear" id="inv-search-clear" title="Clear search">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="pos-search-camera-btn" id="inv-camera-btn" title="Toggle camera scanner" aria-label="Open camera scanner">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                            </svg>
+                        </button>
+                        <div class="pos-search-dropdown" id="inv-search-dropdown"></div>
+                    </div>
+
+                    <!-- Camera Scanner Viewfinder (collapsible) -->
+                    <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative; margin-top:8px;">
+                        <div style="position:relative; width:100%; height:210px; background:#040714; overflow:hidden;">
+                            <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:cover; display:block;"></video>
+                            <canvas id="inv-camera-canvas" style="display:none;"></canvas>
+                            
+                            <!-- Scanning Reticle Overlay -->
+                            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+                                <div class="pos-scanner-reticle-box">
+                                    <div class="pos-scanner-reticle-label">Point at product</div>
+                                </div>
+                            </div>
+
+                            <!-- Close button on top-right -->
+                            <button type="button" id="inv-camera-close-btn" title="Close scanner" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.25); color:#cbd5e1; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">&times;</button>
+                        </div>
+
+                        <!-- Status Bar -->
+                        <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(13,22,56,0.95); font-size:12px; border-top:1px solid rgba(42,68,132,0.5);">
+                            <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+                                <div id="inv-camera-dot" style="width:8px; height:8px; border-radius:50%; background:#fbbf24; flex-shrink:0;"></div>
+                                <span id="inv-camera-status-text" style="color:#9aa6d1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Scanning… point camera at product packaging</span>
+                            </div>
+                            <button type="button" id="inv-camera-snap-manual" class="tm-start-btn" style="padding:4px 12px; font-size:11px; height:28px; border-radius:6px; margin:0; flex-shrink:0;">Snap &amp; Add</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ── ZONE 2: ITEMS TO RECEIVE / RELEASE (Cart list) ────── -->
+                <section class="pos-zone pos-zone-cart" aria-label="Items List">
+                    <div class="pos-zone-header">
+                        <div class="flex items-center gap-2">
+                            <span class="pos-zone-label"><?php echo $TXN_MODE === 'in' ? 'Items to Receive' : 'Items to Release'; ?></span>
+                            <span class="pos-cart-badge" id="inv-cart-badge">0</span>
+                        </div>
+                        <button type="button" class="pos-ghost-clear-btn" id="inv-clear-btn" style="display:none;" title="Clear all items in cart">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                            </svg>
+                            Clear Cart
+                        </button>
+                    </div>
+
+                    <div class="pos-cart-wrap" id="inv-cart-wrap">
+                        <div class="pos-cart-empty" id="inv-cart-empty">
+                            <svg class="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
+                            </svg>
+                            Search or scan a product to add it to this transaction
+                        </div>
+                        <table class="pos-cart-table" id="inv-cart-table" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th class="pos-cart-thumb-cell"></th>
+                                    <th>Product</th>
+                                    <th>Stock</th>
+                                    <th style="text-align:center;">Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Total Price</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="inv-cart-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- ── ZONE 3: SUMMARY + REMARKS ──────────────────────────── -->
+                <section class="pos-zone pos-zone-summary" aria-label="Summary and Remarks">
+                    <div class="pos-zone-header">
+                        <span class="pos-zone-label">Transaction Summary</span>
+                    </div>
+
+                    <div class="pos-summary-card">
+                        <!-- Secondary stats -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="pos-summary-metric-label">Total Products</span>
+                                <span class="pos-summary-metric-val" id="inv-summary-products">0</span>
+                            </div>
+                            <div>
+                                <span class="pos-summary-metric-label">Total Quantity</span>
+                                <span class="pos-summary-metric-val" id="inv-summary-qty">0</span>
                             </div>
                         </div>
 
-                        <!-- Close button on top-right -->
-                        <button type="button" id="inv-camera-close-btn" title="Close scanner" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.25); color:#cbd5e1; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">&times;</button>
-                    </div>
+                        <!-- Divider -->
+                        <div class="pos-summary-divider"></div>
 
-                    <!-- Status Bar -->
-                    <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(13,22,56,0.95); font-size:12px; border-top:1px solid rgba(42,68,132,0.5);">
-                        <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
-                            <div id="inv-camera-dot" style="width:8px; height:8px; border-radius:50%; background:#fbbf24; flex-shrink:0;"></div>
-                            <span id="inv-camera-status-text" style="color:#9aa6d1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Scanning… point camera at product packaging</span>
+                        <!-- Grand Total (₱) — largest hero number in block -->
+                        <div class="flex items-baseline justify-between">
+                            <span class="pos-grand-label">Grand Total</span>
+                            <span class="pos-grand-val" id="inv-summary-total">₱0.00</span>
                         </div>
-                        <button type="button" id="inv-camera-snap-manual" class="tm-start-btn" style="padding:4px 12px; font-size:11px; height:28px; border-radius:6px; margin:0; flex-shrink:0;">Snap &amp; Add</button>
                     </div>
-                </div>
 
-                <!-- ── Cart / Transaction List ───────────────────────────── -->
-                <div class="pos-cart-wrap" id="inv-cart-wrap">
-                    <div class="pos-cart-empty" id="inv-cart-empty">
-                        <svg class="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>
-                        </svg>
-                        Search or scan a product to add it to this transaction
-                    </div>
-                    <table class="pos-cart-table" id="inv-cart-table" style="display:none;">
-                        <thead>
-                            <tr>
-                                <th class="pos-cart-thumb-cell"></th>
-                                <th>Product</th>
-                                <th>Stock</th>
-                                <th style="text-align:center;">Qty</th>
-                                <th>Unit Price</th>
-                                <th>Total Price</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="inv-cart-body"></tbody>
-                    </table>
-                </div>
-
-                <!-- ── Summary ───────────────────────────────────────────── -->
-                <div class="pos-summary">
-                    <div class="pos-summary-item">
-                        <label>Total Products</label>
-                        <span id="inv-summary-products">0</span>
-                    </div>
-                    <div class="pos-summary-item">
-                        <label>Total Quantity</label>
-                        <span id="inv-summary-qty">0</span>
-                    </div>
-                </div>
-
-                <!-- ── Footer Actions ────────────────────────────────────── -->
-                <div class="pos-footer-actions">
-                    <input type="text" id="inv-remarks-input" name="remarks" class="premium-input w-full" placeholder="Remarks (optional)" style="height:42px; font-size:13px;">
-                    <div class="flex gap-2">
-                        <button type="button" class="pos-clear-btn flex-1 whitespace-nowrap" id="inv-clear-btn">Clear Cart</button>
-                        <button type="submit" class="premium-button pos-confirm-btn flex-[2] whitespace-nowrap" id="inv-confirm-btn" disabled>
-                            <?php echo htmlspecialchars($confirmLabel); ?>
+                    <!-- Collapsible remarks -->
+                    <div class="pos-remarks-container">
+                        <button type="button" class="pos-remarks-toggle-btn" id="inv-remarks-toggle">
+                            <span id="inv-remarks-toggle-icon">＋</span>
+                            <span id="inv-remarks-toggle-text">Add remarks</span>
                         </button>
+                        <div class="pos-remarks-drawer" id="inv-remarks-drawer" style="display:none;">
+                            <input type="text"
+                                   id="inv-remarks-input"
+                                   name="remarks"
+                                   class="premium-input w-full"
+                                   placeholder="Add transaction remarks or notes (optional)…"
+                                   style="height:40px; font-size:13px; border-radius:10px;">
+                        </div>
                     </div>
+                </section>
+
+                <!-- ── STICKY HERO BOTTOM BAR ─────────────────────────────── -->
+                <div class="pos-sticky-bottom-bar">
+                    <button type="submit" class="premium-button pos-confirm-btn" id="inv-confirm-btn" data-base-label="<?php echo htmlspecialchars($confirmLabel); ?>" disabled>
+                        <?php echo htmlspecialchars($confirmLabel); ?>
+                    </button>
                 </div>
             </form>
         </div>
