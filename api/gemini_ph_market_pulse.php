@@ -242,14 +242,12 @@ Provide exactly 6 top in-demand consumer products.";
         ]
     ];
 
-    $models = [
-        $aiSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite',
-        'gemini-3.5-flash-lite',
-        'gemini-2.5-flash',
+    $models = array_unique(array_filter([
+        $aiSettings['ai_vision_model'] ?? 'gemini-1.5-flash',
+        'gemini-2.0-flash',
         'gemini-1.5-flash',
-        'gemini-pro'
-    ];
-    $models = array_unique(array_filter($models));
+        'gemini-1.5-pro'
+    ]));
 
     foreach ($models as $m) {
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$m}:generateContent?key=" . urlencode($apiKey);

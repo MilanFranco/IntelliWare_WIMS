@@ -185,13 +185,25 @@ $payload = [
 ];
 
 // List of Gemini models to try in order of speed and capability
-$modelsToTry = [
-    $visionSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-flash-latest',
-    'gemini-3.6-flash'
+$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-1.5-flash';
+$modelMap = [
+    'gemini-3.5-flash-lite' => 'gemini-1.5-flash',
+    'gemini-3.5-flash'      => 'gemini-1.5-flash',
+    'gemini-3.6-flash'      => 'gemini-1.5-flash',
+    'gemini-flash-latest'   => 'gemini-1.5-flash',
 ];
-$modelsToTry = array_unique(array_filter($modelsToTry));
+if (isset($modelMap[$selectedModel])) {
+    $selectedModel = $modelMap[$selectedModel];
+}
+
+$modelsToTry = array_unique(array_filter([
+    $selectedModel,
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro'
+]));
 
 $extracted = null;
 $lastError = 'Unknown error';

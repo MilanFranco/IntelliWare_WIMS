@@ -1186,10 +1186,10 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <div>
                                 <label class="block text-xs font-bold uppercase tracking-wider text-[#9aa6d1] mb-2">Multimodal Model</label>
                                 <select name="ai_vision_model" class="premium-input w-full">
-                                    <?php $curModel = $notifSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite'; ?>
-                                    <option value="gemini-3.5-flash-lite" <?php echo $curModel === 'gemini-3.5-flash-lite' ? 'selected' : ''; ?>>Gemini 3.5 Flash-Lite (Fastest, High Efficiency · Recommended)</option>
-                                    <option value="gemini-3.5-flash" <?php echo $curModel === 'gemini-3.5-flash' ? 'selected' : ''; ?>>Gemini 3.5 Flash (Balanced Precision)</option>
-                                    <option value="gemini-flash-latest" <?php echo $curModel === 'gemini-flash-latest' ? 'selected' : ''; ?>>Gemini Flash Latest</option>
+                                    <?php $curModel = $notifSettings['ai_vision_model'] ?? 'gemini-1.5-flash'; ?>
+                                    <option value="gemini-1.5-flash" <?php echo ($curModel === 'gemini-1.5-flash' || $curModel === 'gemini-3.5-flash-lite') ? 'selected' : ''; ?>>Gemini 1.5 Flash (Fast, Accurate · Recommended)</option>
+                                    <option value="gemini-2.0-flash" <?php echo $curModel === 'gemini-2.0-flash' ? 'selected' : ''; ?>>Gemini 2.0 Flash (Next-Gen Multimodal)</option>
+                                    <option value="gemini-1.5-pro" <?php echo $curModel === 'gemini-1.5-pro' ? 'selected' : ''; ?>>Gemini 1.5 Pro (Highest Reasoning)</option>
                                 </select>
                             </div>
                         </div>
