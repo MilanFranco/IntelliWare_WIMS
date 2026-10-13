@@ -30,7 +30,7 @@ if (isset($_SESSION['Username'])) {
             background-attachment: fixed;
             animation: gradientShift 15s ease infinite;
             color: #E3E3E3;
-            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
@@ -60,32 +60,54 @@ if (isset($_SESSION['Username'])) {
 
         /* --- WRAPPER --- */
         .auth-wrapper {
-            min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
             width: 100%;
-            padding: 40px 20px 80px;
+            padding: 24px 16px 0;
             box-sizing: border-box;
+        }
+
+        .auth-center {
+            margin-top: auto;
+            margin-bottom: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
         }
 
         /* --- HEADER --- */
         .header { 
-            margin-top: auto; 
-            margin-bottom: 60px; 
+            margin-top: 0; 
+            margin-bottom: 24px; /* Tagline to card: 24px */
             text-align: center;
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         
         .header .signin-logo { 
-            width: clamp(200px, 70vw, 460px); 
+            width: clamp(200px, 68vw, 300px); 
             height: auto; 
             display: block; 
-            margin-left: auto; 
-            margin-right: auto; 
-            animation: fadeIn 2s ease-in-out;
+            margin: 0 auto 8px auto; /* Logo to tagline: 8px */
+            animation: fadeIn 1.5s ease-in-out;
         }
+
+        .auth-tagline {
+            font-family: "Onest", sans-serif;
+            font-size: 13px;
+            font-weight: 400;
+            color: #c4cdd5;
+            letter-spacing: 0.2px;
+            margin: 0;
+            text-align: center;
+        }
+
         .auth-wrapper .container,
         .container {
             flex: 0 0 auto;
@@ -93,9 +115,8 @@ if (isset($_SESSION['Username'])) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding-top: 0;
-            padding-bottom: 0;
-            margin-bottom: auto;
+            padding: 0;
+            margin: 0;
             width: 100%;
         }
 
@@ -103,50 +124,49 @@ if (isset($_SESSION['Username'])) {
             background-color: #1D387B;
             border: 1px solid #3d74ff;
             border-radius: 10px;
-            
-            /* EXACT WIDTH MATCH TO REGISTER PAGE */
-            width: 320px; 
-            max-width: 90vw;
-            
-            padding: 25px;
+            width: 340px; 
+            max-width: 92vw;
+            padding: 24px; /* Card padding: 24px all sides */
             box-shadow: 0 0 20px 2px #304374;
-            margin-bottom: 15px;
-            text-align: center;
+            margin-bottom: 0;
+            text-align: left;
             height: auto;
+            box-sizing: border-box;
         }
 
         .signinbox h3 {
             font-family: "Overpass", sans-serif;
             font-size: 20px;
+            font-weight: 700;
             color: #E3E3E3;
-            margin-bottom: 5px;
+            margin-bottom: 8px; /* Title to subtitle: 8px */
             text-align: left;
         }
 
         .signinbox .subtext {
             font-family: "Onest", sans-serif;
-            font-size: 12px;
+            font-size: 13px;
             color: #67e78c;
-            margin-bottom: 10px;
+            margin-bottom: 16px; /* Subtitle to divider: 16px */
             text-align: left;
+            text-wrap: balance;
+            line-height: 1.4;
         }
 
         .signinbox hr {
             border: none;
-            border-top: 0.2px solid #2f4b91; 
+            border-top: 1px solid #2f4b91; 
             width: 100%;
+            margin: 0 0 16px 0; /* Divider to first label: 16px */
         }
 
         .link-box {
             background-color: #1D387B;
             border: 2px solid #3d74ff;
             border-radius: 10px;
-            width: 320px; 
-            max-width: 90vw;
-            
-            
+            width: 340px; 
+            max-width: 92vw;
             padding: 8px 12px; 
-            
             box-shadow: 0 0 20px 2px #304374;
             text-align: center;
             font-size: 12px;
@@ -158,9 +178,8 @@ if (isset($_SESSION['Username'])) {
             font-family: "Onest", sans-serif;
             font-weight: 500;
             color: #E3E3E3;
-            margin-bottom: 5px;
-            margin-top: 15px;
-            font-size: 12px;
+            margin: 0 0 8px 0; /* Label to input: 8px */
+            font-size: 13px;
             width: auto;
         }
 
@@ -168,8 +187,13 @@ if (isset($_SESSION['Username'])) {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-top: 5px;
+            margin: 0 0 20px 0; /* Input to next label: 20px */
             flex-direction: column;
+            width: 100%;
+        }
+
+        .tf.tf-password {
+            margin: 0;
         }
 
         .tf input {
@@ -177,17 +201,20 @@ if (isset($_SESSION['Username'])) {
             color: white;
             background-color: #13275B;
             width: 100%;
-            padding: 10px;
-            border-radius: 5px;
+            height: 48px; /* 48px input height */
+            padding: 0 14px; /* 0 14px padding */
+            border-radius: 8px;
             border: 1px solid #304374;
             font-family: "Onest", sans-serif;
             box-sizing: border-box;
             font-size: 14px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .tf input:focus {
             outline: none;
-            box-shadow: 0 0 0 1px #51D55A;
+            box-shadow: 0 0 0 2px rgba(81, 213, 90, 0.4);
+            border-color: #51D55A;
         }
         
         .tf input.error-border {
@@ -201,17 +228,26 @@ if (isset($_SESSION['Username'])) {
             width: 100%;
         }
 
+        .password-container input {
+            padding-right: 44px; /* Prevent text clashing with toggle */
+        }
+
         .password-toggle {
             position: absolute;
-            right: 10px;
+            right: 14px; /* 14px from right edge */
             top: 50%;
-            transform: translateY(-50%);
+            transform: translateY(-50%); /* vertically centered */
             cursor: pointer;
             color: #E3E3E3;
             font-size: 16px;
             opacity: 0.7;
             transition: opacity 0.3s ease;
             display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            user-select: none;
         }
 
         .password-toggle:hover { opacity: 1; }
@@ -221,23 +257,26 @@ if (isset($_SESSION['Username'])) {
         .fieldrow {
             display: flex;
             justify-content: space-between; 
-            align-items: center; 
+            align-items: baseline; 
             width: 100%; 
-            margin: 0 auto;
+            margin: 0 0 8px 0; /* Password label row margin-bottom: 8px */
+        }
+
+        .fieldrow .tfieldname {
+            margin: 0;
         }
 
         .forgotpass {
             text-align: right;
-            font-size: 10px;
+            font-size: 12px;
             font-family: "Onest", sans-serif;
             font-weight: 500;
             color: #E3E3E3;
-            margin-bottom: 5px;
-            margin-top: 15px;
+            margin: 0;
         }
 
         .forgotpass a {
-            font-weight: 300;
+            font-weight: 400;
             color: #51D55A;
             text-decoration: none;
             font-size: 12px;
@@ -246,28 +285,34 @@ if (isset($_SESSION['Username'])) {
 
         /* Login Button */
         .btnlogin {
-            border: 0.2px solid transparent;
+            border: 1px solid transparent;
             font-family: "Onest", sans-serif;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             color: white;
-            border-radius: 5px;
+            border-radius: 8px;
             background-color: #51D55A;
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            transition: background-color 0.3s ease, transform 0.2s ease;
+            height: 52px; /* 52px tall */
+            padding: 0;
+            margin-top: 24px; /* Last input to login button: 24px */
+            margin-bottom: 0;
+            box-shadow: 0 4px 12px rgba(81, 213, 90, 0.25);
+            transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .btnlogin:hover {
             background-color: #3d9743;
-            border: 0.2px solid #51D55A;
-            transform: scale(1.02);
+            border: 1px solid #51D55A;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(81, 213, 90, 0.35);
         }
         .btnlogin:active {
             background-color: #3ea147;
-            transform: scale(0.98);
+            transform: translateY(0);
         }
 
         .new-user-line {
@@ -283,34 +328,55 @@ if (isset($_SESSION['Username'])) {
         .new-user-line .reglink a:hover { text-decoration: underline; }
 
         /* --- FOOTER --- */
+        .auth-wrapper .footer,
         .footer {
-            position: fixed;
-            bottom: 40px;
+            position: static !important;
+            bottom: auto !important;
+            margin-top: auto;
             text-align: center;
             font-family: "Overpass", sans-serif;
-            font-weight: 200;
+            font-weight: 300;
             font-size: 12px;
             color: rgb(168, 168, 168);
-            padding: 10px 0;
+            padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
             width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .footer hr {
-            border: none;
-            border-top: 0.2px solid #314f9b; 
-            margin: 10px auto;
-            
-            /* WIDTH MATCH (320px) */
-            width: 320px; 
-            max-width: 90vw;
+        .footer-copyright {
+            color: rgb(168, 168, 168);
+            font-size: 12px;
+            line-height: 1.4;
         }
 
-        .footer a { color: rgb(168, 168, 168); margin: 0 5px; text-decoration: none; }
-        .footer a:hover { text-decoration: underline; }
+        .footer-links {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: rgb(168, 168, 168);
+            margin: 0;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 12px;
+            transition: color 0.2s ease;
+        }
+        .footer-links a:hover {
+            color: #51D55A;
+            text-decoration: underline;
+        }
 
         /* --- UTILITIES --- */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .fade-in { animation: fadeIn 2s ease-in-out; }
+        .fade-in { animation: fadeIn 1.5s ease-in-out; }
         
         .toast {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -327,35 +393,6 @@ if (isset($_SESSION['Username'])) {
 
         /* ---- Mobile responsive ---- */
         @media (max-width: 480px) {
-            .auth-wrapper {
-                padding-top: 24px;
-                padding-bottom: 90px;
-                justify-content: flex-start;
-            }
-
-            .header {
-                margin-top: 12px;
-                margin-bottom: 14px;
-            }
-
-            .auth-wrapper .container,
-            .container {
-                margin-bottom: 0;
-            }
-
-            .signinbox {
-                padding: 18px 16px;
-            }
-
-            .footer {
-                bottom: 20px;
-                font-size: 11px;
-            }
-
-            .footer hr {
-                width: 90vw;
-            }
-
             .toast {
                 left: 12px;
                 right: 12px;
@@ -712,58 +749,64 @@ if (isset($_SESSION['Username'])) {
 <body>
 
     <div class="auth-wrapper">
-        <div class="header">
-            <img src="img/main%20logo.png" alt="IntelliWare" class="fade-in signin-logo" />
+        <div class="auth-center">
+            <div class="header">
+                <svg class="fade-in signin-logo" viewBox="86 0 274 37" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="IntelliWare">
+                    <path d="M86.7223 36V0.999998H93.9223V36H86.7223ZM98.1148 36V0.999998H104.715L117.94 20.175C118.107 20.4417 118.348 20.8417 118.665 21.375C118.982 21.9083 119.223 22.375 119.39 22.775C119.34 22.425 119.298 21.975 119.265 21.425C119.248 20.8583 119.24 20.4333 119.24 20.15V0.999998H126.39V36H120.065L106.565 16.675C106.382 16.4083 106.132 16 105.815 15.45C105.515 14.9 105.273 14.425 105.09 14.025C105.157 14.4583 105.19 14.925 105.19 15.425C105.207 15.9083 105.215 16.325 105.215 16.675V36H98.1148ZM138.301 36V7.9H128.301V0.999998H155.526V7.9H145.501V36H138.301ZM157.423 36V0.999998H182.023V7.825H164.623V14.525H174.548V21.35H164.623V29.125H183.048V36H157.423ZM185.418 36V0.999998H192.618V29.05H209.443V36H185.418ZM210.336 36V0.999998H217.536V29.05H234.361V36H210.336ZM235.254 36V0.999998H242.454V36H235.254Z" fill="#E3E3E3"/>
+                    <path d="M251.494 36L251.244 0.999998H255.494V24.7C255.494 25.0167 255.494 25.4083 255.494 25.875C255.494 26.3417 255.494 26.7667 255.494 27.15C255.644 26.7667 255.802 26.375 255.969 25.975C256.152 25.5583 256.327 25.15 256.494 24.75L266.944 0.999998H270.394L272.544 25C272.577 25.2667 272.61 25.6417 272.644 26.125C272.677 26.5917 272.694 26.9667 272.694 27.25C272.794 26.95 272.91 26.5917 273.044 26.175C273.194 25.7583 273.327 25.4 273.444 25.1L282.144 0.999998H286.744L273.744 36H269.844L267.469 12.05C267.452 11.8167 267.427 11.5917 267.394 11.375C267.377 11.1417 267.36 10.9 267.344 10.65C267.327 10.3833 267.31 10.1 267.294 9.8C267.227 10.0167 267.119 10.3167 266.969 10.7C266.819 11.0667 266.66 11.4167 266.494 11.75L255.344 36H251.494ZM279.534 36L297.634 0.999998H301.384L307.284 36H302.984L301.584 27.4H288.484L284.084 36H279.534ZM290.434 23.55H300.984L298.884 10.6C298.834 10.3333 298.776 10 298.709 9.6C298.643 9.2 298.584 8.80833 298.534 8.425C298.484 8.04167 298.451 7.75 298.434 7.55C298.351 7.75 298.226 8.04167 298.059 8.425C297.893 8.79166 297.718 9.175 297.534 9.575C297.351 9.95833 297.184 10.2833 297.034 10.55L290.434 23.55ZM309.73 36L315.88 0.999998H327.98C329.913 0.999998 331.521 1.275 332.805 1.825C334.105 2.375 335.138 3.10833 335.905 4.025C336.688 4.925 337.246 5.91667 337.58 7C337.913 8.06666 338.08 9.11667 338.08 10.15C338.08 11.3 337.896 12.45 337.53 13.6C337.18 14.7333 336.613 15.7917 335.83 16.775C335.063 17.7583 334.071 18.6 332.855 19.3C331.638 19.9833 330.163 20.45 328.43 20.7L333.48 36H328.93L324.03 20.9H316.73L314.08 36H309.73ZM317.43 16.95H326.13C328.146 16.95 329.713 16.6 330.83 15.9C331.946 15.2 332.721 14.3417 333.155 13.325C333.605 12.2917 333.83 11.2833 333.83 10.3C333.83 9.43333 333.638 8.59167 333.255 7.775C332.871 6.95833 332.23 6.28333 331.33 5.75C330.446 5.21666 329.238 4.95 327.705 4.95H319.53L317.43 16.95ZM338.017 36L344.167 0.999998H364.317L363.667 4.95H347.817L345.917 15.9H356.217L355.467 19.85H345.217L343.067 32.05H359.967L359.267 36H338.017Z" fill="#51D55A"/>
+                </svg>
+                <p class="auth-tagline">Intelligent Inventory Management System</p>
+            </div>
+
+            <div class="container">
+                <form action="src/scripts/authenticate.php" method="POST" id="loginForm">
+                    <div class="signinbox">
+                        <h3>Log In to IntelliWare</h3>
+                        <p class="subtext">Enter your credentials to continue.</p> 
+
+                        <hr>
+
+                        <div class="tfieldname">Username or email address</div>
+                        <div class="tf">
+                            <input type="text" id="usernamelogin" name="username" autocomplete="username" required>
+                        </div>
+
+                        <div class="fieldrow">
+                            <div class="tfieldname">Password</div>
+                            <div class="forgotpass"><a href="forgot_password.php" id="forgotPasswordLink">Forgot password?</a></div>
+                        </div>
+
+                        <div class="tf tf-password">
+                            <div class="password-container">
+                                <input type="password" name="password" id="passwordlogin" autocomplete="current-password" required>
+                                <span class="password-toggle" id="togglePassword" role="button" aria-label="Toggle password visibility">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                                        <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                                        <line x1="2" x2="22" y1="2" y2="22"></line>
+                                    </svg>
+                                </span>
+                            </div>
+                        </div>
+
+                        <button class="btnlogin" type="submit">Login</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <div class="container">
-            <form action="src/scripts/authenticate.php" method="POST" >
-                <div class="signinbox">
-                    <h3>Log In to IntelliWare</h3>
-                    <p class="subtext">Enter your username or email and password to log in.</p> 
-
-                    <hr>
-
-                    <div class="tfieldname">Username or email address</div>
-                    <div class="tf">
-                        <input type="text" id="usernamelogin" name="username">
-                    </div>
-
-                    <div class="fieldrow">
-                        <div class="tfieldname">Password</div>
-                        <div class="forgotpass"><a href="forgot_password.php" id="forgotPasswordLink">Forgot password?</a></div>
-                    </div>
-
-                    <div class="tf">
-                        <div class="password-container">
-                            <input type="password" name="password" id="passwordlogin">
-                            <span class="password-toggle" id="togglePassword">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
-                                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
-                                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
-                                    <line x1="2" x2="22" y1="2" y2="22"></line>
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-                    <br>
-                    <button class="btnlogin" type="submit" style="margin-bottom: 20px;">Login</button>
-                    <br>
-                </div>
-            </form>
-            
-            <div class="footer">
-                <hr><br>
-                © 2025 IntelliWare. All rights reserved.
+        <footer class="footer">
+            <div class="footer-copyright">© 2025 IntelliWare. All rights reserved.</div>
+            <div class="footer-links">
                 <a href="javascript:void(0)" onclick="openAboutModal(event)">About IntelliWare</a>
                 <a href="javascript:void(0)" onclick="openContactModal(event)">Contact our Support</a>
             </div>
-        </div>
+        </footer>
     </div>
 
     <!-- ABOUT INTELLIWARE MODAL -->
