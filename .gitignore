@@ -1,7 +1,11 @@
 # Environment variables (contains credentials & API keys)
 .env
 .env.local
+*.env.local
 .env.*.local
+
+# Large database dump files (use warehouse_system.sql only)
+database/dump.sql
 
 # Python virtual environment & bytecode
 .venv/
@@ -9,21 +13,34 @@ venv/
 env/
 __pycache__/
 *.py[cod]
+*.pyo
 *$py.class
+src/ml/__pycache__/
 
 # IDE & Editor files
 .vscode/
 .idea/
+.cursor/
 *.sublime-project
 *.sublime-workspace
 
 # Operating system files
 Thumbs.db
 Desktop.ini
+desktop.ini
 .DS_Store
 
-# Temporary & session files
+# Temporary, logs, and session files
 /logs/*.log
 !/logs/.gitkeep
+logs/*.txt
 tmp/
 *.tmp
+
+# Uploads (product images & TM models — upload manually via SFTP)
+# NOTE: Keep tm_models tracked so the AI scanner works after git clone
+uploads/products/*
+!uploads/products/.gitkeep
+
+# Node / npm (if ever used)
+node_modules/
