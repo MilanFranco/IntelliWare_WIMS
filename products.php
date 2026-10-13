@@ -720,14 +720,32 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .view-mode-table #inventory-desktop-table { display: block !important; }
     .view-mode-table #inventory-card-grid { display: none !important; }
 
+    /* Modal Form Responsive Grid / Stack */
+    .inv-product-modal-body {
+        padding: 30px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
     @media (max-width: 767px) {
-        #inventory-desktop-table { display: none !important; }
-        #inventory-card-grid { display: grid !important; }
+        .inv-product-modal-body {
+            padding: 16px 14px 22px !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 14px !important;
+        }
+        .inv-product-modal-body > * {
+            grid-column: auto !important;
+            width: 100% !important;
+        }
+        .modal-body-scroll {
+            max-height: calc(92vh - 140px) !important;
+        }
     }
 
-    /* ── View Switcher Buttons (Hidden on mobile) ─────────────────────── */
+    /* ── View Switcher Buttons (Active on mobile & desktop) ──────────── */
     .inv-view-toggle {
-        display: none !important;
+        display: inline-flex !important;
         align-items: center;
         background: #EEF5FD;
         border: 1.5px solid #D6E8F7;
@@ -735,11 +753,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         padding: 2px;
         gap: 2px;
         height: 42px;
-    }
-    @media (min-width: 768px) {
-        .inv-view-toggle {
-            display: inline-flex !important;
-        }
+        flex-shrink: 0;
     }
     .inv-view-toggle-btn {
         display: inline-flex;
@@ -1845,8 +1859,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
     <!-- ── Table View (Optional Toggle) ─────────────────────────── -->
     <div class="inv-desktop-table" id="inventory-desktop-table" style="display: none;">
-        <div class="overflow-x-auto">
-            <table class="premium-table w-full text-left min-w-[1100px]">
+        <div class="overflow-x-auto iw-table-scroll" id="productTableWrap">
+            <table id="productTable" class="premium-table w-full text-left min-w-[950px]">
                 <thead>
                     <tr>
                         <th width="8%">SKU</th> <th width="18%">Name</th> <th width="10%">Category</th>
@@ -1880,17 +1894,17 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
                         data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>"
                         data-image="<?php echo htmlspecialchars($tblThumb ?: ''); ?>">
-                        <td><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
-                        <td><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['category']); ?></td>
-                        <td><?php echo htmlspecialchars($it['supplier']); ?></td>
-                        <td><?php echo htmlspecialchars($it['location']); ?></td>
-                        <td><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
-                        <td><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
-                        <td><?php echo htmlspecialchars($it['uom']); ?></td>
-                        <td><?php echo htmlspecialchars($it['reorder_point']); ?></td>
-                        <td><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
-                        <td>
+                        <td data-label="SKU"><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
+                        <td data-label="Name"><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
+                        <td data-label="Category"><?php echo htmlspecialchars($it['category']); ?></td>
+                        <td data-label="Supplier"><?php echo htmlspecialchars($it['supplier']); ?></td>
+                        <td data-label="Location"><?php echo htmlspecialchars($it['location']); ?></td>
+                        <td data-label="Qty"><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
+                        <td data-label="Price"><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
+                        <td data-label="Unit"><?php echo htmlspecialchars($it['uom']); ?></td>
+                        <td data-label="Reorder"><?php echo htmlspecialchars($it['reorder_point']); ?></td>
+                        <td data-label="Shelf Life"><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
+                        <td data-label="Status">
                             <?php if ((int)$it['qty'] <= 0): ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
                             <?php elseif ((int)$it['qty'] <= (int)$it['reorder_point']): ?>
@@ -1899,7 +1913,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-right">
+                        <td data-label="Actions" class="text-right">
                             <div style="display:flex; gap:8px; justify-content:flex-end;">
                                 <button type="button" class="inventory-action-btn edit-btn" onclick="openEditModal(this.closest('tr').dataset)" title="Edit">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -2020,7 +2034,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
             <input type="hidden" name="sync_driver" id="add-sync-driver" value="category">
-            <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div class="modal-body-scroll inv-product-modal-body">
                 <div style="grid-column: span 2;">
                     <!-- Hidden fields for AI result -->
                     <input type="hidden" name="ai_class_label" id="add-ai-class-label" value="">
@@ -2334,7 +2348,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <input type="hidden" name="sync_driver" id="edit-sync-driver" value="category">
             <input type="hidden" name="edit_image_action" id="edit-image-action" value="keep">
             <input type="hidden" name="edit_image_b64" id="edit-image-b64" value="">
-            <div class="modal-body-scroll" style="padding: 30px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div class="modal-body-scroll inv-product-modal-body">
                 <!-- Product Image Section -->
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Image</label>
