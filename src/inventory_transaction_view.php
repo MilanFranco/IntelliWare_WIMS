@@ -967,20 +967,61 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         .pos-panel-header #inv-camera-btn {
             width: 100% !important;
-            height: 40px !important;
-            min-height: 40px !important;
-            display: flex !important;
+            height: 42px !important;
+            min-height: 42px !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            gap: 8px !important;
-            border-radius: 10px !important;
+            gap: 9px !important;
+            border-radius: 12px !important;
             font-size: 13.5px !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
+            background: linear-gradient(135deg, rgba(81, 213, 90, 0.16) 0%, rgba(81, 213, 90, 0.06) 100%) !important;
+            border: 1.5px solid rgba(81, 213, 90, 0.45) !important;
+            color: #51D55A !important;
+            box-shadow: 0 4px 14px rgba(81, 213, 90, 0.15) !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+        }
+
+        .pos-panel-header #inv-camera-btn svg {
+            width: 18px !important;
+            height: 18px !important;
+            stroke-width: 2 !important;
+        }
+
+        .pos-panel-header #inv-camera-btn:active {
+            transform: scale(0.98) !important;
+            background: rgba(81, 213, 90, 0.25) !important;
+        }
+
+        .pos-accent-release .pos-panel-header #inv-camera-btn {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(239, 68, 68, 0.06) 100%) !important;
+            border-color: rgba(239, 68, 68, 0.45) !important;
+            color: #f87171 !important;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15) !important;
+        }
+
+        [data-theme="light"] .pos-panel-header #inv-camera-btn {
+            background: #ECFDF5 !important;
+            border-color: #10B981 !important;
+            color: #059669 !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12) !important;
+        }
+
+        [data-theme="light"].pos-accent-release .pos-panel-header #inv-camera-btn,
+        [data-theme="light"] .pos-accent-release .pos-panel-header #inv-camera-btn {
+            background: #FEF2F2 !important;
+            border-color: #EF4444 !important;
+            color: #DC2626 !important;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12) !important;
         }
 
         .pos-panel-body {
             padding: 12px 14px 16px !important;
             gap: 12px !important;
+            overflow-y: visible !important;
+            overflow-x: hidden !important;
         }
 
         .pos-search-input {
@@ -1019,11 +1060,11 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         .pos-cart-table tr {
             display: grid !important;
-            grid-template-columns: 50px 1fr 34px !important;
+            grid-template-columns: 48px 1fr auto !important;
             grid-template-areas:
                 "thumb  title  remove"
                 "thumb  stock  remove"
-                "footer footer footer" !important;
+                "qty    qty    total" !important;
             column-gap: 12px !important;
             row-gap: 4px !important;
             align-items: center !important;
@@ -1052,8 +1093,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         /* 1. Thumbnail */
         .pos-cart-thumb-cell {
             grid-area: thumb !important;
-            width: 50px !important;
-            height: 50px !important;
+            width: 48px !important;
+            height: 48px !important;
             padding: 0 !important;
             display: flex !important;
             align-items: center !important;
@@ -1062,8 +1103,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         .pos-cart-thumb,
         .pos-cart-thumb-ph {
-            width: 50px !important;
-            height: 50px !important;
+            width: 48px !important;
+            height: 48px !important;
             border-radius: 10px !important;
         }
 
@@ -1139,14 +1180,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         /* 4. Quantity Stepper */
         .pos-cart-table tr > td:nth-child(4) {
-            grid-area: footer !important;
+            grid-area: qty !important;
             display: flex !important;
             align-items: center !important;
-            justify-content: space-between !important;
-            margin-top: 8px !important;
-            padding-top: 8px !important;
+            justify-content: flex-start !important;
+            margin-top: 10px !important;
+            padding-top: 10px !important;
             border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35)) !important;
-            width: 100% !important;
+            width: auto !important;
+            position: static !important;
         }
 
         [data-theme="light"] .pos-cart-table tr > td:nth-child(4) {
@@ -1156,11 +1198,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         .pos-qty-controls {
             display: inline-flex !important;
             align-items: center !important;
-            gap: 6px !important;
+            justify-content: center !important;
+            gap: 2px !important;
+            width: auto !important;
+            max-width: fit-content !important;
             background: var(--iw-bg-surface, #0B1438) !important;
-            padding: 2px !important;
-            border-radius: 9px !important;
+            padding: 3px !important;
+            border-radius: 10px !important;
             border: 1px solid var(--iw-border-input, #2A4484) !important;
+            box-sizing: border-box !important;
         }
 
         [data-theme="light"] .pos-qty-controls {
@@ -1169,16 +1215,20 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         }
 
         .pos-qty-btn {
-            width: 30px !important;
-            height: 30px !important;
-            font-size: 16px !important;
+            width: 28px !important;
+            height: 28px !important;
+            min-width: 28px !important;
+            min-height: 28px !important;
+            font-size: 15px !important;
             font-weight: 700 !important;
-            border-radius: 7px !important;
+            border-radius: 6px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             border: none !important;
             background: transparent !important;
+            cursor: pointer !important;
+            flex-shrink: 0 !important;
         }
 
         [data-theme="light"] .pos-qty-btn {
@@ -1189,15 +1239,22 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
             background: #E2E8F0 !important;
         }
 
+        .iw-main-content input[type="number"].pos-qty-input,
+        .pos-cart-table input[type="number"].pos-qty-input,
         .pos-qty-input {
-            width: 48px !important;
-            height: 30px !important;
+            width: 40px !important;
+            min-width: 40px !important;
+            max-width: 40px !important;
+            height: 28px !important;
+            min-height: 28px !important;
             font-size: 14px !important;
             font-weight: 700 !important;
             border: none !important;
             background: transparent !important;
             padding: 0 !important;
             text-align: center !important;
+            flex: 0 0 40px !important;
+            box-sizing: border-box !important;
         }
 
         [data-theme="light"] .pos-qty-input {
@@ -1206,13 +1263,21 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
 
         /* 6. Total Price */
         .pos-cart-table tr > td:nth-child(6) {
+            grid-area: total !important;
             display: flex !important;
             flex-direction: column !important;
             align-items: flex-end !important;
             justify-content: center !important;
-            position: absolute !important;
-            bottom: 12px !important;
-            right: 12px !important;
+            position: static !important;
+            width: auto !important;
+            margin-top: 10px !important;
+            padding-top: 10px !important;
+            border-top: 1px dashed var(--iw-border, rgba(42, 68, 132, 0.35)) !important;
+            text-align: right !important;
+        }
+
+        [data-theme="light"] .pos-cart-table tr > td:nth-child(6) {
+            border-top-color: #E2E8F0 !important;
         }
 
         .pos-cart-total-cell {
@@ -1221,6 +1286,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
             color: #51D55A !important;
             font-family: 'Onest', sans-serif !important;
             line-height: 1.2 !important;
+            white-space: nowrap !important;
         }
 
         .pos-accent-release .pos-cart-total-cell {
@@ -1228,14 +1294,15 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         }
 
         .pos-cart-total-cell::before {
-            content: "Line Total";
+            content: "LINE TOTAL";
             font-size: 9px !important;
-            font-weight: 600 !important;
+            font-weight: 700 !important;
             text-transform: uppercase !important;
             letter-spacing: 0.05em !important;
             color: #9aa6d1 !important;
             display: block !important;
             text-align: right !important;
+            margin-bottom: 1px !important;
         }
 
         [data-theme="light"] .pos-cart-total-cell::before {
@@ -1439,8 +1506,8 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                 <div class="pos-footer-actions">
                     <input type="text" id="inv-remarks-input" name="remarks" class="premium-input w-full" placeholder="Remarks (optional)" style="height:42px; font-size:13px;">
                     <div class="flex gap-2">
-                        <button type="button" class="pos-clear-btn flex-1" id="inv-clear-btn">Clear Transaction</button>
-                        <button type="submit" class="premium-button pos-confirm-btn flex-[2]" id="inv-confirm-btn" disabled>
+                        <button type="button" class="pos-clear-btn flex-1 whitespace-nowrap" id="inv-clear-btn">Clear Cart</button>
+                        <button type="submit" class="premium-button pos-confirm-btn flex-[2] whitespace-nowrap" id="inv-confirm-btn" disabled>
                             <?php echo htmlspecialchars($confirmLabel); ?>
                         </button>
                     </div>
