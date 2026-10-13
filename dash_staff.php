@@ -322,7 +322,7 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
                         <span class="pos-quick-title font-onest font-semibold text-base transition-colors whitespace-nowrap shrink-0">Release Inventory</span>
                         <span class="pos-quick-badge pos-quick-badge-out whitespace-nowrap shrink-0">STOCK OUT</span>
                     </div>
-                    <div class="pos-quick-desc text-xs mt-1">Record outgoing stock and shipments</div>
+                    <div class="pos-quick-desc text-xs mt-1">Record outgoing warehouse stock</div>
                 </div>
                 <div class="pos-quick-chevron ml-auto flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-1" style="margin-left: auto !important; flex-shrink: 0 !important; align-self: center !important;">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
