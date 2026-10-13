@@ -100,61 +100,7 @@ if (!function_exists('formatSafeSeasonalHtml')) {
     }
 }
 
-$weeklyDefaults = [
-    'Jan' => [
-        1 => ['name' => 'Dona Maria Rice 5kg', 'cat' => 'Dry Goods', 'reason' => 'Households refill staples after New Year feasts.'],
-        2 => ['name' => 'Century Tuna Flakes', 'cat' => 'Canned Goods', 'reason' => 'Families tighten budgets after holiday overspending.'],
-        3 => ['name' => 'Nescafé Classic', 'cat' => 'Beverages', 'reason' => 'Cooler January mornings keep hot coffee demand strong.'],
-        4 => ['name' => 'Gardenia Bread Loaf', 'cat' => 'Bakery Products', 'reason' => 'Payday weekend pushes breakfast restocking.'],
-    ],
-    'Feb' => [
-        1 => ['name' => 'Purefoods Chicken Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Shift to convenient freezer meals after holiday cooking fatigue.'],
-        2 => ['name' => 'Oatside Oat Milk', 'cat' => 'Dairy Products', 'reason' => 'Health-conscious buying trends often spike in Feb/Valentine season.'],
-        3 => ['name' => 'Dove Soap Bar', 'cat' => 'Personal Care', 'reason' => 'Mid-month hygiene restocking cycle.'],
-        4 => ['name' => 'Gardenia Cakes 6pcs', 'cat' => 'Bakery Products', 'reason' => 'School activities return; high demand for "baon" snacks.'],
-    ],
-    'Mar' => [ 1 => ['name' => 'Coca-Cola 330ml', 'cat' => 'Beverages', 'reason' => 'Temperatures rising.'], 2 => ['name' => 'Frozen Fish', 'cat' => 'Frozen Foods', 'reason' => 'Lent season.'], 3 => ['name' => 'Royal Pasta', 'cat' => 'Dry Goods', 'reason' => 'Exam weeks.'], 4 => ['name' => 'Pepsi', 'cat' => 'Beverages', 'reason' => 'Peak heat.'] ],
-    'Apr' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'Holy Week.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Summer break.'], 3 => ['name' => 'Soap', 'cat' => 'Personal Care', 'reason' => 'Summer heat.'], 4 => ['name' => 'Rice', 'cat' => 'Dry Goods', 'reason' => 'Payday.'] ],
-    'May' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Fiestas.'], 2 => ['name' => 'Pens', 'cat' => 'Stationery and Office Supplies', 'reason' => 'School prep.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned Goods', 'reason' => 'Tuition saving.'], 4 => ['name' => 'Coke', 'cat' => 'Beverages', 'reason' => 'End of summer.'] ],
-    'Jun' => [ 1 => ['name' => 'Notebooks', 'cat' => 'Stationery and Office Supplies', 'reason' => 'Back to school.'], 2 => ['name' => 'Cakes', 'cat' => 'Bakery Products', 'reason' => 'Baon.'], 3 => ['name' => 'Detergent', 'cat' => 'Household Items', 'reason' => 'Rainy season.'], 4 => ['name' => 'Coffee', 'cat' => 'Beverages', 'reason' => 'Rainy mornings.'] ],
-    'Jul' => [ 1 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'Typhoons.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Flu season.'], 3 => ['name' => 'Cleaner', 'cat' => 'Household Items', 'reason' => 'Mud/Rain.'], 4 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Comfort food.'] ],
-    'Aug' => [ 1 => ['name' => 'Bread', 'cat' => 'Bakery Products', 'reason' => 'Rain/Power outages.'], 2 => ['name' => 'Toothpaste', 'cat' => 'Personal Care', 'reason' => 'Hygiene.'], 3 => ['name' => 'Corned Beef', 'cat' => 'Canned Goods', 'reason' => 'Storms.'], 4 => ['name' => 'Coffee', 'cat' => 'Beverages', 'reason' => 'Cold weather.'] ],
-    'Sep' => [ 1 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Ber months.'], 2 => ['name' => 'Milk', 'cat' => 'Dairy Products', 'reason' => 'Cool evenings.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Holiday hoarding.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Dessert trials.'] ],
-    'Oct' => [ 1 => ['name' => 'Cleaner', 'cat' => 'Household Items', 'reason' => 'Guest prep.'], 2 => ['name' => 'Bread', 'cat' => 'Bakery Products', 'reason' => 'Undas prep.'], 3 => ['name' => 'Coke', 'cat' => 'Beverages', 'reason' => 'Gatherings.'], 4 => ['name' => 'Fish Fillet', 'cat' => 'Frozen Foods', 'reason' => 'Health options.'] ],
-    'Nov' => [ 1 => ['name' => 'Cakes', 'cat' => 'Bakery Products', 'reason' => 'Undas.'], 2 => ['name' => 'Rice', 'cat' => 'Dry Goods', 'reason' => 'Stockpiling.'], 3 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Company parties.'], 4 => ['name' => 'Evap', 'cat' => 'Dairy Products', 'reason' => 'Fruit salads.'] ],
-    'Dec' => [ 1 => ['name' => 'Pasta', 'cat' => 'Dry Goods', 'reason' => 'Christmas Spaghetti.'], 2 => ['name' => 'Nuggets', 'cat' => 'Frozen Foods', 'reason' => 'Kids parties.'], 3 => ['name' => 'Butter', 'cat' => 'Condiments and Sauces', 'reason' => 'Noche Buena.'], 4 => ['name' => 'Tuna', 'cat' => 'Canned Goods', 'reason' => 'New Year closure.'] ],
-];
-
-$monthlyDefaults = [
-    1 => ['name' => 'Oats and Cereals', 'cat' => 'Dry Goods', 'reason' => 'Consumers move to low cost health foods after holiday expenses.'],
-    2 => ['name' => 'Chocolates and Wine', 'cat' => 'Snacks and Biscuits', 'reason' => 'Valentine sales push impulse buying.'],
-    3 => ['name' => 'Beer and Cold Drinks', 'cat' => 'Alcohol and Spirits', 'reason' => 'Heat rises early in the Philippines. Beverage demand spikes.'],
-    4 => ['name' => 'Soft Drinks and Water', 'cat' => 'Beverages', 'reason' => 'Peak heat brings strong hydration demand.'],
-    5 => ['name' => 'Frozen Meat and Fish', 'cat' => 'Frozen Foods', 'reason' => 'Fiesta gatherings drive bulk viand purchases.'],
-    6 => ['name' => 'Biscuits and Crackers', 'cat' => 'Snacks and Biscuits', 'reason' => 'Back to school snacks surge in turnover.'],
-    7 => ['name' => 'Instant Noodles', 'cat' => 'Noodles and Instant Food', 'reason' => 'Rainy weather pushes quick cook meals.'],
-    8 => ['name' => 'Canned Goods and Rice', 'cat' => 'Staple Foods', 'reason' => 'Typhoon alerts raise preparedness buying.'],
-    9 => ['name' => 'Spaghetti and Sauce', 'cat' => 'Condiments and Sauces', 'reason' => 'Households begin early Ber month planning.'],
-    10 => ['name' => 'Candies and Snacks', 'cat' => 'Snacks and Biscuits', 'reason' => 'Halloween drives small pack sales.'],
-    11 => ['name' => 'All Purpose Cream', 'cat' => 'Dairy Products', 'reason' => 'Holiday dessert planning increases demand.'],
-    12 => ['name' => 'Soy Sauce, Oil and Ham', 'cat' => 'Condiments and Sauces', 'reason' => 'Christmas cooking peaks across all regions.'],
-];
-
-$quarterlyDefaults = [
-    1 => ['name' => 'Century Tuna Flakes', 'cat' => 'Canned Goods', 'reason' => 'Households tighten budgets after holidays.'],
-    2 => ['name' => 'Coca-Cola 330ml', 'cat' => 'Beverages', 'reason' => 'Peak summer temperatures drive turnover.'],
-    3 => ['name' => 'Nescafé Classic', 'cat' => 'Beverages', 'reason' => 'Rainy season onset increases coffee consumption.'],
-    4 => ['name' => 'Royal Pasta 500g', 'cat' => 'Dry Goods', 'reason' => 'Critical demand spike for Noche Buena.'],
-];
-
-$semiAnnualDefaults = [
-    1 => ['name' => 'Canned Goods and Rice', 'cat' => 'Dry Goods', 'reason' => 'First half spending leans toward budgeting.'],
-    2 => ['name' => 'Holiday Goods and Pasta', 'cat' => 'Dry Goods', 'reason' => 'Second half moves toward holiday buildup.'],
-];
-
-$annualDefaults = [
-    1 => ['name' => 'Rice, Canned Goods', 'cat' => 'Dry Goods', 'reason' => 'These remain year round essentials.'],
-];
+// All forecast defaults are dynamically queried and calculated in real-time from active inventory DB & ML models.
 
 $selectedPeriod = $_GET['period'] ?? 'monthly';
 $daysLookback = 30;
@@ -363,46 +309,49 @@ if (!empty($forecastResult['items'])) {
 }
 
 if (empty($forecastData)) {
-    $defaultItem = null;
-    
-    switch ($forecastPeriod) {
-        case 'weekly': 
-            $m = $currentMonthStr ?? 'Jan';
-            $w = $currentKey ?? 1;
-            $defaultItem = $weeklyDefaults[$m][$w] ?? $weeklyDefaults['Jan'][1]; 
-            break;
-        case 'monthly': 
-            $defaultItem = $monthlyDefaults[$currentKey] ?? $monthlyDefaults[1]; 
-            break;
-        case 'quarterly': 
-            $defaultItem = $quarterlyDefaults[$currentKey] ?? $quarterlyDefaults[1]; 
-            break;
-        case 'semi-annual': 
-            $defaultItem = $semiAnnualDefaults[$currentKey] ?? $semiAnnualDefaults[1]; 
-            break;
-        case 'annual': 
-            $defaultItem = $annualDefaults[$currentKey] ?? $annualDefaults[1]; 
-            break;
-        default: 
-            $defaultItem = $monthlyDefaults[$currentKey] ?? $monthlyDefaults[1];
+    // 1. Force compute fresh forecast via InsightsEngine
+    try {
+        $engine = new InsightsEngine($conn);
+        $computed = $engine->getForecast($forecastPeriod, $selectedMonth, true, true);
+        if (!empty($computed['items'])) {
+            $forecastData = $computed['items'];
+        }
+    } catch (Throwable $e) {
+        error_log('[Insights] Dynamic forecast calculation error: ' . $e->getMessage());
     }
 
-    if ($defaultItem) {
-        $descriptive = "Seasonal market trend observed for this category in the Philippines.";
-        $predictive = "Anticipating a demand surge in the upcoming period due to <em>" . strtolower($defaultItem['reason']) . "</em>.";
-        $prescriptive = "Review safety stock levels and verify supplier lead times to avoid stockouts during the projected surge.";
-        $forecastData[] = [
-            'product_name' => $defaultItem['name'],
-            'category_name' => $defaultItem['cat'],
-            'descriptive' => $descriptive,
-            'predictive' => $predictive,
-            'prescriptive' => $prescriptive,
-            'insight' => '<div style="margin-bottom: 4px;"><strong>Current Situation:</strong> ' . $descriptive . '</div>' .
-                         '<div style="margin-bottom: 4px;"><strong>Forecast:</strong> ' . $predictive . '</div>' .
-                         '<div><strong>Recommended Action:</strong> ' . $prescriptive . '</div>',
-            'type' => 'System Advisory',
-            'action_needed' => 'advisory'
-        ];
+    // 2. Direct database query fallback: always query real warehouse products and live inventory
+    if (empty($forecastData) && isset($conn)) {
+        $directSql = "
+            SELECT p.product_id, p.product_name, p.quantity AS current_stock, p.reorder_point, p.category AS category_name,
+                   COALESCE(t.recent_sales, 0) AS total_historical_sales
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as recent_sales
+                FROM transactions
+                WHERE transaction_type = 'stock_out' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL {$daysLookback} DAY)
+                GROUP BY product_id
+            ) t ON p.product_id = t.product_id
+            WHERE p.archived = 0
+            ORDER BY (p.quantity <= p.reorder_point) DESC, p.quantity ASC, total_historical_sales DESC
+            LIMIT 12
+        ";
+        $directRes = $conn->query($directSql);
+        if ($directRes) {
+            while ($r = $directRes->fetch_assoc()) {
+                $stock = (int)$r['current_stock'];
+                $reorder = (int)$r['reorder_point'];
+                $sales = (float)$r['total_historical_sales'];
+                $insight = InsightsEngine::buildSmartInsight($stock, $sales, $daysLookback, $reorder);
+                $r['type']          = $insight['type'];
+                $r['action_needed'] = $insight['action_needed'];
+                $r['descriptive']   = $insight['descriptive'];
+                $r['predictive']    = $insight['predictive'];
+                $r['prescriptive']  = $insight['prescriptive'];
+                $r['insight']       = $insight['insight'];
+                $forecastData[]     = $r;
+            }
+        }
     }
 }
 
@@ -2599,6 +2548,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         </div>
     </div>
 
+    <!-- Gemini AI Real-Time Philippine Market Pulse & Consumer Demand Intelligence -->
+    <?php require __DIR__ . '/src/partials/gemini_market_pulse_card.php'; ?>
+
     <div class="smart-restock-banner">
         <div class="bg-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg></div>
         
@@ -2859,10 +2811,16 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="card-label">High Priority Restock</div>
             <div class="card-copy">
                 <?php
-                $highPriority = array_filter($productMovement, function($p) {
-                    return $p['movement_class'] === 'fast_moving' && $p['stock_status'] === 'low_stock' && $p['days_of_supply'] < 7;
-                });
-                echo count($highPriority) . ' products need immediate attention';
+                $urgentOos = count(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'out_of_stock'; }));
+                $urgentLow = count(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'low_stock'; }));
+                $totalUrgent = $urgentOos + $urgentLow;
+                if ($totalUrgent === 0) {
+                    echo 'All catalog items are currently well-stocked above minimum thresholds.';
+                } else {
+                    echo "<strong>{$totalUrgent} products</strong> require replenishment (" .
+                         ($urgentOos > 0 ? "<span style='color:#ef4444;'>{$urgentOos} out of stock</span>, " : "") .
+                         "{$urgentLow} at/below reorder point).";
+                }
                 ?>
             </div>
         </div>
@@ -2887,14 +2845,27 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     </svg>
                 </span>
             </div>
-            <div class="card-copy">Prepare for seasonal demand shifts across Philippine retail categories. Click to explore 12-month recommendations.</div>
+            <div class="card-copy">
+                <?php
+                $mCount = count($allSeasonalMonthsData[$selectedMonth]['items'] ?? []);
+                $mName = $activeMonthProfile['name'] ?? date('F');
+                $mTag = $activeMonthProfile['tagline'] ?? 'Seasonal Demand Shift';
+                echo "<strong>{$mName} Peak:</strong> {$mCount} warehouse items matched for <em>{$mTag}</em>. Click to explore Philippine seasonal recommendations.";
+                ?>
+            </div>
         </div>
         <div class="recommendation-card info">
             <div class="card-label">Optimize Inventory</div>
             <div class="card-copy">
                 <?php
-                $overstocked = array_filter($productMovement, function($p) { return $p['stock_status'] === 'overstocked'; });
-                echo count($overstocked) . ' overstocked items identified';
+                $overstocked = array_values(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'overstocked'; }));
+                $overstockedCount = count($overstocked);
+                if ($overstockedCount === 0) {
+                    echo 'Inventory turnover is healthy. No severely overstocked products detected.';
+                } else {
+                    $topOverName = htmlspecialchars($overstocked[0]['product_name'] ?? '');
+                    echo "<strong>{$overstockedCount} overstocked items</strong> identified (>90 days supply). Reallocate working capital from surplus stock (e.g. {$topOverName}).";
+                }
                 ?>
             </div>
         </div>
@@ -2902,8 +2873,14 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <div class="card-label">Promotional Opportunities</div>
             <div class="card-copy">
                 <?php
-                $slowMoving = array_filter($productMovement, function($p) { return $p['movement_class'] === 'slow_moving' && $p['current_stock'] > 20; });
-                echo count($slowMoving) . ' slow-moving products for promotions';
+                $slowMoving = array_values(array_filter($productMovement, function($p) { return ($p['movement_class'] ?? '') === 'slow_moving' && ($p['current_stock'] ?? 0) > 20; }));
+                $slowCount = count($slowMoving);
+                if ($slowCount === 0) {
+                    echo 'All stock lines are maintaining steady or active sales velocity.';
+                } else {
+                    $sampleSlow = htmlspecialchars($slowMoving[0]['product_name'] ?? '');
+                    echo "<strong>{$slowCount} slow-moving products</strong> with surplus units (e.g. {$sampleSlow}). Bundle with fast movers or run weekend discounts.";
+                }
                 ?>
             </div>
         </div>

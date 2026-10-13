@@ -169,9 +169,61 @@ function matchWithCatalog(string $prodName, array $catalog): ?array {
     return $bestMatch;
 }
 
-// Build a concise catalog summary text for Gemini context
-$catalogSummaryLines = [];
+// Build a curated, high-relevance catalog summary (up to 60 SKUs) for Gemini context
+// Prioritizes: 1. Low/Out-of-stock items, 2. Fast-moving items, 3. Category staples
+$curatedItems = [];
+$curatedIds = [];
+
+// 1. All low stock / out of stock items (highest restock urgency)
 foreach ($catalogProducts as $cp) {
+    if ($cp['stock'] <= $cp['reorder']) {
+        $curatedItems[] = $cp;
+        $curatedIds[$cp['id']] = true;
+        if (count($curatedItems) >= 25) break;
+    }
+}
+
+// 2. High turnover velocity products from transactions
+$turnoverRes = $conn->query("
+    SELECT p.product_id, p.product_name, p.category, p.quantity as stock, p.reorder_point as reorder
+    FROM products p
+    JOIN (
+        SELECT product_id, SUM(quantity) as sales_volume
+        FROM transactions
+        WHERE transaction_type = 'stock_out'
+        GROUP BY product_id
+        ORDER BY sales_volume DESC
+        LIMIT 25
+    ) t ON p.product_id = t.product_id
+    WHERE p.archived = 0
+");
+if ($turnoverRes) {
+    while ($r = $turnoverRes->fetch_assoc()) {
+        $pid = (int)$r['product_id'];
+        if (!isset($curatedIds[$pid])) {
+            $curatedItems[] = [
+                'id'       => $pid,
+                'name'     => $r['product_name'],
+                'category' => $r['category'],
+                'stock'    => (int)$r['stock'],
+                'reorder'  => (int)$r['reorder']
+            ];
+            $curatedIds[$pid] = true;
+        }
+    }
+}
+
+// 3. Category diversity fill (up to 60 total items)
+foreach ($catalogProducts as $cp) {
+    if (count($curatedItems) >= 60) break;
+    if (!isset($curatedIds[$cp['id']])) {
+        $curatedItems[] = $cp;
+        $curatedIds[$cp['id']] = true;
+    }
+}
+
+$catalogSummaryLines = [];
+foreach ($curatedItems as $cp) {
     $catalogSummaryLines[] = "[ID: {$cp['id']}] {$cp['name']} ({$cp['category']} | Stock: {$cp['stock']} units | MinReorder: {$cp['reorder']})";
 }
 $catalogContextText = implode("\n", $catalogSummaryLines);
@@ -242,17 +294,13 @@ Provide exactly 6 top in-demand consumer products.";
         ]
     ];
 
-    $selectedModel = $aiSettings['ai_vision_model'] ?? 'gemini-3.8-flash';
+    $selectedModel = $aiSettings['ai_vision_model'] ?? 'gemini-3.5-flash-lite';
 
+    // Prioritize high-quota, fast models first: gemini-3.5-flash-lite, then gemini-3.8-flash
     $models = array_unique(array_filter([
-        $selectedModel,
-        'gemini-3.8-flash',
         'gemini-3.5-flash-lite',
-        'gemini-3.5-flash',
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-1.5-pro'
+        $selectedModel,
+        'gemini-3.8-flash'
     ]));
 
     foreach ($models as $m) {
@@ -261,7 +309,7 @@ Provide exactly 6 top in-demand consumer products.";
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 18);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
         curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
 
