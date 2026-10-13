@@ -3066,8 +3066,8 @@
     .txn-page-card form,
     .txn-page-card > div:first-child,
     #fullTransactionHistory > div:first-child,
-    .premium-card > form.flex-col,
-    .premium-card > div.flex-col {
+    .premium-card:not(.iw-quick-access) > form.flex-col,
+    .premium-card:not(.iw-quick-access) > div.flex-col:not(.iw-quick-access-body) {
         align-items: flex-start !important;
         text-align: left !important;
     }
@@ -3747,6 +3747,59 @@
 
     .pos-info-image-wrap {
         height: 190px !important;
+    }
+    /* ── Quick Access Mobile Full Width Guarantee ───────────────── */
+    .premium-card.iw-quick-access,
+    .iw-quick-access {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .premium-card.iw-quick-access > div.flex-col,
+    .iw-quick-access .iw-quick-access-body,
+    .iw-quick-access > div.flex-1,
+    .iw-quick-access-body {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        box-sizing: border-box !important;
+    }
+
+    .iw-quick-access a,
+    .iw-quick-access a.group,
+    .iw-quick-access .pos-quick-card,
+    .pos-quick-card {
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        align-self: stretch !important;
+        box-sizing: border-box !important;
+        flex: 1 1 auto !important;
+    }
+
+    .iw-quick-access a > div.min-w-0,
+    .iw-quick-access a .min-w-0,
+    .pos-quick-card > div:nth-child(2) {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        width: auto !important;
+    }
+
+    .iw-quick-access a svg:last-child,
+    .iw-quick-access a .ml-auto,
+    .pos-quick-chevron {
+        margin-left: auto !important;
+        flex-shrink: 0 !important;
     }
 }
 

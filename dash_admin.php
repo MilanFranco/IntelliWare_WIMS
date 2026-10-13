@@ -371,53 +371,43 @@ renderLayoutStart('Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?? $_SE
 
     <div class="premium-card flex flex-col h-[400px] w-full iw-quick-access" style="width: 100% !important;">
         <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-quick-access-header" style="width: 100% !important;">
-            <div>
-                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                    <svg class="w-5 h-5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Quick Access
-                </h3>
-                <p class="text-xs text-[#9aa6d1] mt-0.5">Direct inventory transaction workflows</p>
-            </div>
-            <span class="pos-zone-label" style="font-size:10.5px; letter-spacing:0.08em; font-weight:700;">TRANSACTIONS</span>
+            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Quick Access
+            </h3>
         </div>
-        <div class="flex-1 p-5 flex flex-col gap-3.5 w-full iw-quick-access-body" style="width: 100% !important; align-items: stretch !important;">
+        <div class="flex-1 p-5 flex flex-col gap-3.5 w-full iw-quick-access-body" style="width: 100% !important; min-width: 100% !important; align-items: stretch !important; justify-content: stretch !important; box-sizing: border-box !important;">
             <!-- Receive Inventory Card -->
-            <a href="receive.php" class="pos-quick-card pos-quick-card-receive group w-full flex items-center gap-4 p-4 rounded-xl transition-all flex-1" aria-label="Receive Inventory" style="width: 100% !important; min-width: 100% !important; box-sizing: border-box !important;">
+            <a href="receive.php" class="pos-quick-card pos-quick-card-receive group w-full flex items-center gap-4 p-4 rounded-xl transition-all flex-1" aria-label="Receive Inventory" style="width: 100% !important; min-width: 100% !important; max-width: 100% !important; align-self: stretch !important; box-sizing: border-box !important; display: flex !important;">
                 <div class="pos-quick-icon pos-quick-icon-receive flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12M12 16.5V3"/>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                     </svg>
                 </div>
                 <div class="min-w-0 flex-1" style="flex: 1 1 auto; min-width: 0;">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="pos-quick-title font-onest font-semibold text-base transition-colors">Receive Inventory</span>
-                        <span class="pos-quick-badge pos-quick-badge-in">STOCK IN</span>
-                    </div>
-                    <div class="pos-quick-desc text-xs mt-1">Add incoming stock to warehouse</div>
+                    <div class="pos-quick-title font-onest font-semibold text-base transition-colors text-white">Receive Inventory</div>
+                    <div class="pos-quick-desc text-xs mt-1 text-[#9aa6d1]">Add incoming stock</div>
                 </div>
                 <div class="pos-quick-chevron ml-auto flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-1" style="margin-left: auto !important;">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <svg class="w-5 h-5 text-[#9aa6d1] group-hover:text-emerald-400 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>
             </a>
 
             <!-- Release Inventory Card -->
-            <a href="release.php" class="pos-quick-card pos-quick-card-release group w-full flex items-center gap-4 p-4 rounded-xl transition-all flex-1" aria-label="Release Inventory" style="width: 100% !important; min-width: 100% !important; box-sizing: border-box !important;">
+            <a href="release.php" class="pos-quick-card pos-quick-card-release group w-full flex items-center gap-4 p-4 rounded-xl transition-all flex-1" aria-label="Release Inventory" style="width: 100% !important; min-width: 100% !important; max-width: 100% !important; align-self: stretch !important; box-sizing: border-box !important; display: flex !important;">
                 <div class="pos-quick-icon pos-quick-icon-release flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 7.5m0 0 4.5 4.5M12 7.5V21"/>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15"/>
                     </svg>
                 </div>
                 <div class="min-w-0 flex-1" style="flex: 1 1 auto; min-width: 0;">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="pos-quick-title font-onest font-semibold text-base transition-colors">Release Inventory</span>
-                        <span class="pos-quick-badge pos-quick-badge-out">STOCK OUT</span>
-                    </div>
-                    <div class="pos-quick-desc text-xs mt-1">Record outgoing stock and shipments</div>
+                    <div class="pos-quick-title font-onest font-semibold text-base transition-colors text-white">Release Inventory</div>
+                    <div class="pos-quick-desc text-xs mt-1 text-[#9aa6d1]">Record outgoing stock</div>
                 </div>
                 <div class="pos-quick-chevron ml-auto flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-1" style="margin-left: auto !important;">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <svg class="w-5 h-5 text-[#9aa6d1] group-hover:text-red-400 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
                     </svg>
                 </div>

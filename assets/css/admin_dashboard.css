@@ -405,9 +405,18 @@
 
 
 /* Quick Access — Ironclad 100% width and edge-to-edge alignment guarantee */
+.iw-quick-access,
+.premium-card.iw-quick-access {
+  width: 100% !important;
+  min-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
 .iw-quick-access-body,
 .iw-quick-access .flex-1.p-5,
-.iw-quick-access .iw-quick-access-body {
+.iw-quick-access .iw-quick-access-body,
+.premium-card.iw-quick-access > div.flex-col,
+.iw-quick-access > div.flex-col {
   display: flex !important;
   flex-direction: column !important;
   width: 100% !important;
@@ -429,6 +438,7 @@
   max-width: 100% !important;
   align-self: stretch !important;
   box-sizing: border-box !important;
+  flex: 1 1 auto !important;
 }
 
 .pos-quick-card > div:nth-child(2),
