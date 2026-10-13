@@ -24,9 +24,25 @@ class PythonHelper {
      * @return string|null Path to Python executable or null if not found
      */
     public static function findPython() {
-        // Check for venv Python in project directory first
+        // 0. Check custom environment variable
+        $envPython = getenv('PYTHON_PATH') ?: ($_ENV['PYTHON_PATH'] ?? null);
+        if (!empty($envPython) && file_exists($envPython)) {
+            return $envPython;
+        }
+
+        // Check for venv Python in project directory first (Windows and Linux)
         $projectRoot = dirname(__DIR__, 2); // Go up from src/ml to project root
         $venvPaths = [
+            // Linux / Unix virtualenv paths
+            $projectRoot . '/venv/bin/python3',
+            $projectRoot . '/venv/bin/python',
+            $projectRoot . '/.venv/bin/python3',
+            $projectRoot . '/.venv/bin/python',
+            '/opt/venv/bin/python3',
+            '/opt/venv/bin/python',
+            '/usr/bin/python3',
+            '/usr/local/bin/python3',
+            // Windows virtualenv paths
             $projectRoot . '\\.venv\\Scripts\\python.exe',
             $projectRoot . '\\venv\\Scripts\\python.exe',
             $projectRoot . '\\env\\Scripts\\python.exe',
@@ -41,21 +57,21 @@ class PythonHelper {
             }
         }
         
-        // Check if Python is in PATH
-        $output = [];
-        $return_var = 0;
-        @exec('python --version 2>&1', $output, $return_var);
-        if ($return_var === 0) {
-            // Python is in PATH, try to get full path
-            $paths = [];
-            @exec('where python 2>&1', $paths, $return_var);
-            if (!empty($paths) && file_exists(trim($paths[0]))) {
-                return trim($paths[0]);
-            }
-            // If where doesn't work, try which (for Git Bash)
-            @exec('which python 2>&1', $paths, $return_var);
-            if (!empty($paths) && file_exists(trim($paths[0]))) {
-                return trim($paths[0]);
+        // Check if python3 or python is in PATH
+        foreach (['python3', 'python'] as $cmd) {
+            $output = [];
+            $return_var = 0;
+            @exec("$cmd --version 2>&1", $output, $return_var);
+            if ($return_var === 0) {
+                $paths = [];
+                @exec("which $cmd 2>&1", $paths, $return_var);
+                if (!empty($paths) && file_exists(trim($paths[0]))) {
+                    return trim($paths[0]);
+                }
+                @exec("where $cmd 2>&1", $paths, $return_var);
+                if (!empty($paths) && file_exists(trim($paths[0]))) {
+                    return trim($paths[0]);
+                }
             }
         }
         
