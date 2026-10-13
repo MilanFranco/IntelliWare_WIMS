@@ -1,0 +1,34 @@
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env
+*.env.local
+
+# ── Large database dump files (use warehouse_system.sql only) ────────────────
+database/dump.sql
+
+# ── Python cache & virtualenv ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+src/ml/__pycache__/
+
+# ── OS & editor files ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.cursor/
+.vscode/
+
+# ── PHP logs ──────────────────────────────────────────────────────────────────
+logs/*.log
+logs/*.txt
+
+# ── Uploads (product images & TM models — upload manually via SFTP) ──────────
+# NOTE: Keep tm_models tracked so the AI scanner works after git clone
+uploads/products/*
+!uploads/products/.gitkeep
+
+# ── Node / npm (if ever used) ─────────────────────────────────────────────────
+node_modules/

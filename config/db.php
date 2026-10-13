@@ -2,13 +2,27 @@
 
 require_once __DIR__ . '/app.php';
 
-$dbHost = 'localhost';
+// Load .env file if present (for cloud deployments)
+$envFile = __DIR__ . '/../.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
+        [$k, $v] = explode('=', $line, 2);
+        $k = trim($k); $v = trim($v, " \t\"'");
+        if (getenv($k) === false) { putenv("$k=$v"); $_ENV[$k] = $v; }
+    }
+}
 
-$dbUser = 'root';
-$dbPass = '';
-$dbName = 'warehouse_system';
+// Read from environment variables (cloud/AWS) or fall back to XAMPP defaults
+$dbHost = getenv('DB_HOST') ?: 'localhost';
+$dbUser = getenv('DB_USER') ?: 'root';
+$dbPass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
+$dbName = getenv('DB_NAME') ?: 'warehouse_system';
+$dbPort = (int)(getenv('DB_PORT') ?: 3306);
 
-$conn = new mysqli($dbHost, $dbUser, $dbPass, $dbName);
+$conn = new mysqli($dbHost, $dbUser, $dbPass, $dbName, $dbPort);
 if ($conn->connect_error) {
 	die('Database connection failed: ' . $conn->connect_error);
 }
