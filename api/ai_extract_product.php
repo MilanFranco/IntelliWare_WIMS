@@ -81,10 +81,10 @@ if ($action === 'test_connection') {
         exit();
     }
 
-    if (!str_starts_with($apiKey, 'AIza')) {
+    if (strlen($apiKey) < 15) {
         echo json_encode([
             'success' => false,
-            'error' => 'Invalid Google Gemini API key format (received key starting with "' . htmlspecialchars(substr($apiKey, 0, 4)) . '..."). Official Gemini API keys start with "AIzaSy...". Please create a free API key at https://aistudio.google.com/'
+            'error' => 'API Key appears incomplete or too short. Please paste your complete Google Gemini API key.'
         ]);
         exit();
     }
@@ -199,25 +199,16 @@ $payload = [
 ];
 
 // List of Gemini models to try in order of speed and capability
-$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-2.5-flash';
-$modelMap = [
-    'gemini-3.5-flash-lite' => 'gemini-2.5-flash',
-    'gemini-3.5-flash'      => 'gemini-2.0-flash',
-    'gemini-3.8-flash'      => 'gemini-1.5-flash',
-    'gemini-3.1-flash-lite' => 'gemini-2.5-flash',
-    'gemini-flash-latest'   => 'gemini-2.5-flash',
-];
-if (isset($modelMap[$selectedModel])) {
-    $selectedModel = $modelMap[$selectedModel];
-}
+$selectedModel = $visionSettings['ai_vision_model'] ?? 'gemini-3.8-flash';
 
 $modelsToTry = array_unique(array_filter([
     $selectedModel,
+    'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
     'gemini-2.5-flash',
     'gemini-2.0-flash',
     'gemini-1.5-flash',
-    'gemini-1.5-flash-8b',
-    'gemini-2.0-flash-lite',
     'gemini-1.5-pro'
 ]));
 

@@ -242,25 +242,16 @@ Provide exactly 6 top in-demand consumer products.";
         ]
     ];
 
-    $selectedModel = $aiSettings['ai_vision_model'] ?? 'gemini-2.5-flash';
-    $modelMap = [
-        'gemini-3.5-flash-lite' => 'gemini-2.5-flash',
-        'gemini-3.5-flash'      => 'gemini-2.0-flash',
-        'gemini-3.8-flash'      => 'gemini-1.5-flash',
-        'gemini-3.1-flash-lite' => 'gemini-2.5-flash',
-        'gemini-flash-latest'   => 'gemini-2.5-flash',
-    ];
-    if (isset($modelMap[$selectedModel])) {
-        $selectedModel = $modelMap[$selectedModel];
-    }
+    $selectedModel = $aiSettings['ai_vision_model'] ?? 'gemini-3.8-flash';
 
     $models = array_unique(array_filter([
         $selectedModel,
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
         'gemini-2.5-flash',
         'gemini-2.0-flash',
         'gemini-1.5-flash',
-        'gemini-1.5-flash-8b',
-        'gemini-2.0-flash-lite',
         'gemini-1.5-pro'
     ]));
 

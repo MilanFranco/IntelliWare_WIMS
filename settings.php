@@ -242,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_vision_setting
     } else {
         saveNotificationSetting($conn, 'ai_vision_enabled', isset($_POST['ai_vision_enabled']) ? '1' : '0');
         saveNotificationSetting($conn, 'ai_vision_provider', trim($_POST['ai_vision_provider'] ?? 'gemini'));
-        saveNotificationSetting($conn, 'ai_vision_model', trim($_POST['ai_vision_model'] ?? 'gemini-2.5-flash'));
+        saveNotificationSetting($conn, 'ai_vision_model', trim($_POST['ai_vision_model'] ?? 'gemini-3.8-flash'));
         if (isset($_POST['ai_vision_api_key']) && trim($_POST['ai_vision_api_key']) !== '') {
             saveNotificationSetting($conn, 'ai_vision_api_key', trim($_POST['ai_vision_api_key']));
         }
@@ -1186,11 +1186,10 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                             <div>
                                 <label class="block text-xs font-bold uppercase tracking-wider text-[#9aa6d1] mb-2">Multimodal Model</label>
                                 <select name="ai_vision_model" class="premium-input w-full">
-                                    <?php $curModel = $notifSettings['ai_vision_model'] ?? 'gemini-2.5-flash'; ?>
-                                    <option value="gemini-2.5-flash" <?php echo ($curModel === 'gemini-2.5-flash' || $curModel === 'gemini-3.5-flash-lite') ? 'selected' : ''; ?>>Gemini 2.5 Flash (Fastest, Multimodal &amp; Recommended)</option>
-                                    <option value="gemini-2.0-flash" <?php echo ($curModel === 'gemini-2.0-flash' || $curModel === 'gemini-3.8-flash') ? 'selected' : ''; ?>>Gemini 2.0 Flash (High Speed Next-Gen)</option>
-                                    <option value="gemini-1.5-flash" <?php echo ($curModel === 'gemini-1.5-flash' || $curModel === 'gemini-3.5-flash') ? 'selected' : ''; ?>>Gemini 1.5 Flash (Stable Workhorse)</option>
-                                    <option value="gemini-1.5-pro" <?php echo $curModel === 'gemini-1.5-pro' ? 'selected' : ''; ?>>Gemini 1.5 Pro (Deep Reasoning &amp; Complex Labels)</option>
+                                    <?php $curModel = $notifSettings['ai_vision_model'] ?? 'gemini-3.8-flash'; ?>
+                                    <option value="gemini-3.8-flash" <?php echo ($curModel === 'gemini-3.8-flash' || $curModel === 'gemini-2.0-flash') ? 'selected' : ''; ?>>Gemini 3.8 Flash (Latest, Highest Capability &amp; Recommended)</option>
+                                    <option value="gemini-3.5-flash" <?php echo ($curModel === 'gemini-3.5-flash' || $curModel === 'gemini-2.5-flash') ? 'selected' : ''; ?>>Gemini 3.5 Flash (Balanced Multimodal)</option>
+                                    <option value="gemini-3.5-flash-lite" <?php echo ($curModel === 'gemini-3.5-flash-lite' || $curModel === 'gemini-1.5-flash') ? 'selected' : ''; ?>>Gemini 3.5 Flash Lite (Fastest &amp; Lightweight)</option>
                                 </select>
                             </div>
                         </div>
@@ -1205,12 +1204,12 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                 </a>
                             </div>
                             <div class="relative">
-                                <input type="password" id="ai-vision-api-key-input" name="ai_vision_api_key" class="premium-input w-full pr-12 font-mono text-sm" placeholder="<?php echo $hasVisionKey ? '•••••••••••••••••••••••••••••••••••••••• (Stored securely)' : 'Paste your Google Gemini API key here (AIzaSy...)'; ?>" value="<?php echo htmlspecialchars($notifSettings['ai_vision_api_key'] ?? ''); ?>">
+                                <input type="password" id="ai-vision-api-key-input" name="ai_vision_api_key" class="premium-input w-full pr-12 font-mono text-sm" placeholder="<?php echo $hasVisionKey ? '•••••••••••••••••••••••••••••••••••••••• (Stored securely)' : 'Paste your Google Gemini API key here'; ?>" value="<?php echo htmlspecialchars($notifSettings['ai_vision_api_key'] ?? ''); ?>">
                                 <button type="button" id="toggle-vision-key-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-[#9aa6d1] hover:text-white transition-colors p-1" title="Toggle visibility">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 </button>
                             </div>
-                            <p class="text-[11px] text-[#9aa6d1] mt-1.5">Free tier includes 1,500 scans/day with 0 credit card required. Official keys start with <code class="text-white bg-[#0e1726] px-1.5 py-0.5 rounded border border-[#233554] font-mono text-[11px]">AIzaSy...</code> from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="text-[#51D55A] underline">Google AI Studio</a>.</p>
+                            <p class="text-[11px] text-[#9aa6d1] mt-1.5">Free tier includes 1,500 scans/day with 0 credit card required from <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" class="text-[#51D55A] underline">Google AI Studio</a>.</p>
                         </div>
 
                         <!-- Live Diagnostic Test Response Box -->
