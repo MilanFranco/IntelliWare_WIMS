@@ -3801,6 +3801,24 @@
         margin-left: auto !important;
         flex-shrink: 0 !important;
     }
+
+    .pos-quick-header-row {
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        flex-wrap: nowrap !important;
+        white-space: nowrap !important;
+    }
+
+    .pos-quick-title {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    .pos-quick-badge {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
 }
 
 
