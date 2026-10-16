@@ -2006,7 +2006,7 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                     <h3 id="phSeasonalModalTitle" style="margin:0;font-size:18px;font-weight:700;color:var(--insights-heading,#FFFFFF);">
                         Philippine Market and Seasonal Demand Recommendations
                     </h3>
-                    <div style="font-size:12px;color:var(--insights-text-muted,#9aa6d1);margin-top:2px;">
+                    <div id="phSeasonalModalSubtitle" style="font-size:12px;color:var(--insights-text-muted,#9aa6d1);margin-top:2px;">
                         Multi-horizon retail forecasts, climate drivers and inventory stock alignment
                     </div>
                 </div>
@@ -2046,7 +2046,7 @@ if (!function_exists('formatSafeSeasonalHtml')) {
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8l-6.2 4.5 2.4-7.4L2 9.4h7.6z"/>
                 </svg>
-                <span>Gemini AI Daily Consumer Wants</span>
+                <span>Gemini AI Philippine Market Pulse</span>
                 <span class="ph-ai-badge">LIVE AI</span>
             </button>
         </div>
@@ -2366,6 +2366,8 @@ window.switchPhModalView = function(view) {
     const tabGeminiBtn = document.getElementById('tabGeminiPulseBtn');
     const titleEl = document.getElementById('phSeasonalModalTitle');
 
+    const subEl = document.getElementById('phSeasonalModalSubtitle');
+
     if (view === 'gemini') {
         if (calendarView) calendarView.style.display = 'none';
         if (geminiView) geminiView.style.display = 'block';
@@ -2378,7 +2380,10 @@ window.switchPhModalView = function(view) {
             tabGeminiBtn.setAttribute('aria-selected', 'true');
         }
         if (titleEl) {
-            titleEl.textContent = 'Philippine Market & Daily Consumer Wants (Gemini AI)';
+            titleEl.textContent = 'Gemini AI Philippine Market Pulse';
+        }
+        if (subEl) {
+            subEl.textContent = 'Real-time consumer purchasing intent & Pinoy cravings cross-referenced with live warehouse inventory';
         }
         // Auto-generate on first open if empty
         const resultsEl = document.getElementById('geminiPulseResults');
@@ -2398,6 +2403,9 @@ window.switchPhModalView = function(view) {
         }
         if (titleEl) {
             titleEl.textContent = 'Philippine Market and Seasonal Demand Recommendations';
+        }
+        if (subEl) {
+            subEl.textContent = 'Multi-horizon retail forecasts, climate drivers and inventory stock alignment';
         }
     }
 };

@@ -19,14 +19,14 @@ var InventoryTransaction = (function () {
 
     // ── Search debounce ──────────────────────────────────────────────────────
     var _searchTimer = null;
-    var _lastQuery   = '';
+    var _lastQuery = '';
 
     // ── Toast ────────────────────────────────────────────────────────────────
 
     function showToast(message, type) {
-        var toast    = document.getElementById('toast-container');
+        var toast = document.getElementById('toast-container');
         var toastMsg = document.getElementById('toast-message');
-        var toastIcon= document.getElementById('toast-icon');
+        var toastIcon = document.getElementById('toast-icon');
         if (!toast || !toastMsg) return;
 
         toastMsg.innerText = message;
@@ -61,14 +61,14 @@ var InventoryTransaction = (function () {
     function getStockStatusLabel(status) {
         switch (status) {
             case 'out_of_stock': return 'Out of Stock';
-            case 'low_stock':    return 'Low Stock';
-            default:             return 'In Stock';
+            case 'low_stock': return 'Low Stock';
+            default: return 'In Stock';
         }
     }
 
     function computeStockStatus(qty, reorderPoint) {
-        if (qty <= 0)              return 'out_of_stock';
-        if (qty <= reorderPoint)   return 'low_stock';
+        if (qty <= 0) return 'out_of_stock';
+        if (qty <= reorderPoint) return 'low_stock';
         return 'in_stock';
     }
 
@@ -83,10 +83,10 @@ var InventoryTransaction = (function () {
         var d = new Date(date);
         if (isNaN(d.getTime())) return '';
         var month = '' + (d.getMonth() + 1),
-            day   = '' + d.getDate(),
-            year  = d.getFullYear();
+            day = '' + d.getDate(),
+            year = d.getFullYear();
         if (month.length < 2) month = '0' + month;
-        if (day.length < 2)   day   = '0' + day;
+        if (day.length < 2) day = '0' + day;
         return [year, month, day].join('-');
     }
 
@@ -94,26 +94,26 @@ var InventoryTransaction = (function () {
         if (!raw) return null;
         if (raw._normalized) return raw;
 
-        var qty          = parseInt(raw.quantity != null ? raw.quantity : raw.qty || raw.currentStock || '0', 10);
+        var qty = parseInt(raw.quantity != null ? raw.quantity : raw.qty || raw.currentStock || '0', 10);
         var reorderPoint = parseInt(raw.reorder_point != null ? raw.reorder_point : raw.reorder || raw.reorderPoint || '10', 10);
-        var stockStatus  = raw.stock_status || raw.stockStatus || computeStockStatus(qty, reorderPoint);
+        var stockStatus = raw.stock_status || raw.stockStatus || computeStockStatus(qty, reorderPoint);
 
         return {
-            _normalized      : true,
-            productId        : parseInt(raw.product_id || raw.id || raw.productId || '0', 10),
-            name             : raw.product_name || raw.name || 'Unknown',
-            category         : raw.category || '',
-            location         : raw.location || '',
-            currentStock     : qty,
-            reorderPoint     : reorderPoint,
-            expiryDate       : raw.expiry_date || raw.expiryDate || null,
-            batchNumber      : raw.batch_number || raw.batchNumber || '',
-            shelfLife        : raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : (raw.shelfLife != null ? parseInt(raw.shelfLife, 10) : null),
-            stockStatus      : stockStatus,
-            stockStatusLabel : raw.stock_status_label || raw.stockStatusLabel || getStockStatusLabel(stockStatus),
-            imageUrl         : raw.image_url || raw.imageUrl || null,
-            unit             : raw.unit || raw.uom || '',
-            price            : parseFloat(raw.price != null ? raw.price : '0.00'),
+            _normalized: true,
+            productId: parseInt(raw.product_id || raw.id || raw.productId || '0', 10),
+            name: raw.product_name || raw.name || 'Unknown',
+            category: raw.category || '',
+            location: raw.location || '',
+            currentStock: qty,
+            reorderPoint: reorderPoint,
+            expiryDate: raw.expiry_date || raw.expiryDate || null,
+            batchNumber: raw.batch_number || raw.batchNumber || '',
+            shelfLife: raw.shelf_life != null ? parseInt(raw.shelf_life, 10) : (raw.shelfLife != null ? parseInt(raw.shelfLife, 10) : null),
+            stockStatus: stockStatus,
+            stockStatusLabel: raw.stock_status_label || raw.stockStatusLabel || getStockStatusLabel(stockStatus),
+            imageUrl: raw.image_url || raw.imageUrl || null,
+            unit: raw.unit || raw.uom || '',
+            price: parseFloat(raw.price != null ? raw.price : '0.00'),
         };
     }
 
@@ -154,10 +154,10 @@ var InventoryTransaction = (function () {
 
     function clearProductInfo() {
         selectedProductId = null;
-        var emptyEl   = document.getElementById('inv-info-empty');
+        var emptyEl = document.getElementById('inv-info-empty');
         var contentEl = document.getElementById('inv-info-content');
-        if (emptyEl)   emptyEl.style.display   = '';
-        if (contentEl) contentEl.style.display  = 'none';
+        if (emptyEl) emptyEl.style.display = '';
+        if (contentEl) contentEl.style.display = 'none';
         updateInfoActionButtons();
     }
 
@@ -167,31 +167,31 @@ var InventoryTransaction = (function () {
 
         selectedProductId = product.productId;
 
-        var emptyEl     = document.getElementById('inv-info-empty');
-        var contentEl   = document.getElementById('inv-info-content');
-        var imageWrap   = document.getElementById('inv-info-image-wrap');
-        var imageEl     = document.getElementById('inv-info-image');
-        var nameEl      = document.getElementById('inv-info-name');
-        var categoryEl  = document.getElementById('inv-info-category');
-        var stockEl     = document.getElementById('inv-info-stock');
-        var statusEl    = document.getElementById('inv-info-status');
-        var reorderEl   = document.getElementById('inv-info-reorder');
-        var expiryEl    = document.getElementById('inv-info-expiry');
-        var batchEl     = document.getElementById('inv-info-batch');
-        var locationEl  = document.getElementById('inv-info-location');
+        var emptyEl = document.getElementById('inv-info-empty');
+        var contentEl = document.getElementById('inv-info-content');
+        var imageWrap = document.getElementById('inv-info-image-wrap');
+        var imageEl = document.getElementById('inv-info-image');
+        var nameEl = document.getElementById('inv-info-name');
+        var categoryEl = document.getElementById('inv-info-category');
+        var stockEl = document.getElementById('inv-info-stock');
+        var statusEl = document.getElementById('inv-info-status');
+        var reorderEl = document.getElementById('inv-info-reorder');
+        var expiryEl = document.getElementById('inv-info-expiry');
+        var batchEl = document.getElementById('inv-info-batch');
+        var locationEl = document.getElementById('inv-info-location');
 
-        if (emptyEl)   emptyEl.style.display   = 'none';
-        if (contentEl) contentEl.style.display  = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (contentEl) contentEl.style.display = '';
 
-        if (nameEl)     nameEl.textContent     = product.name;
+        if (nameEl) nameEl.textContent = product.name;
         if (categoryEl) categoryEl.textContent = product.category || 'Uncategorized';
         if (locationEl) locationEl.textContent = product.location || '—';
 
         // Stock display — show remaining if release mode
         var stockText;
         if (txnMode === 'out') {
-            var cartItem    = findCartItem(product.productId);
-            var pendingQty  = cartItem ? cartItem.qty : 0;
+            var cartItem = findCartItem(product.productId);
+            var pendingQty = cartItem ? cartItem.qty : 0;
             var effectiveStock = product.currentStock - pendingQty;
             stockText = String(effectiveStock);
             if (product.unit) stockText += ' ' + product.unit;
@@ -206,13 +206,13 @@ var InventoryTransaction = (function () {
         if (statusEl) {
             var displayStatus, displayStatusLabel;
             if (txnMode === 'out') {
-                var cartItem2      = findCartItem(product.productId);
-                var pendingQty2    = cartItem2 ? cartItem2.qty : 0;
-                var effectiveStock2= product.currentStock - pendingQty2;
-                displayStatus      = computeStockStatus(effectiveStock2, product.reorderPoint);
+                var cartItem2 = findCartItem(product.productId);
+                var pendingQty2 = cartItem2 ? cartItem2.qty : 0;
+                var effectiveStock2 = product.currentStock - pendingQty2;
+                displayStatus = computeStockStatus(effectiveStock2, product.reorderPoint);
                 displayStatusLabel = getStockStatusLabel(displayStatus);
             } else {
-                displayStatus      = product.stockStatus;
+                displayStatus = product.stockStatus;
                 displayStatusLabel = product.stockStatusLabel;
             }
             statusEl.innerHTML = '<span class="pos-status-badge pos-status-' + escapeHtml(displayStatus) + '">'
@@ -220,8 +220,8 @@ var InventoryTransaction = (function () {
         }
 
         if (reorderEl) reorderEl.textContent = String(product.reorderPoint);
-        if (expiryEl)  expiryEl.textContent  = formatExpiryDate(product.expiryDate);
-        if (batchEl)   batchEl.textContent   = product.batchNumber || '—';
+        if (expiryEl) expiryEl.textContent = formatExpiryDate(product.expiryDate);
+        if (batchEl) batchEl.textContent = product.batchNumber || '—';
 
         if (imageWrap && imageEl) {
             if (product.imageUrl) {
@@ -246,23 +246,23 @@ var InventoryTransaction = (function () {
         if (txnMode !== 'in' || selectedProductId == null) return;
         var item = findCartItem(selectedProductId);
         if (!item) return;
-        var batchInput  = document.getElementById('inv-receive-batch');
-        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var batchInput = document.getElementById('inv-receive-batch');
+        var mfgInput = document.getElementById('inv-receive-mfg');
         var expiryInput = document.getElementById('inv-receive-expiry');
-        if (batchInput)  item.batch_number      = batchInput.value.trim();
-        if (mfgInput)    item.manufacturing_date = mfgInput.value.trim();
-        if (expiryInput) item.expiry_date        = expiryInput.value.trim();
+        if (batchInput) item.batch_number = batchInput.value.trim();
+        if (mfgInput) item.manufacturing_date = mfgInput.value.trim();
+        if (expiryInput) item.expiry_date = expiryInput.value.trim();
     }
 
     function loadReceiveFieldsFromCart(productId) {
-        var batchInput  = document.getElementById('inv-receive-batch');
-        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var batchInput = document.getElementById('inv-receive-batch');
+        var mfgInput = document.getElementById('inv-receive-mfg');
         var expiryInput = document.getElementById('inv-receive-expiry');
         if (!batchInput && !expiryInput && !mfgInput) return;
 
         var item = findCartItem(productId);
-        if (batchInput)  batchInput.value  = item ? (item.batch_number || '') : '';
-        if (mfgInput)    mfgInput.value    = item ? (item.manufacturing_date || '') : '';
+        if (batchInput) batchInput.value = item ? (item.batch_number || '') : '';
+        if (mfgInput) mfgInput.value = item ? (item.manufacturing_date || '') : '';
         if (expiryInput) {
             expiryInput.value = item && item.expiry_date
                 ? item.expiry_date
@@ -274,7 +274,7 @@ var InventoryTransaction = (function () {
         if (selectedProductId == null) return;
         var item = findCartItem(selectedProductId);
         if (!item) return;
-        var mfgInput    = document.getElementById('inv-receive-mfg');
+        var mfgInput = document.getElementById('inv-receive-mfg');
         var expiryInput = document.getElementById('inv-receive-expiry');
         if (!mfgInput || !expiryInput) return;
         if (item.shelf_life != null && !isNaN(item.shelf_life)) {
@@ -341,20 +341,20 @@ var InventoryTransaction = (function () {
         }
 
         cart.push({
-            productId           : product.productId,
-            name                : product.name,
-            category            : product.category,
-            location            : product.location,
-            currentStock        : product.currentStock,
-            unit                : product.unit,
-            price               : product.price,
-            imageUrl            : product.imageUrl,
-            productExpiryDate   : product.expiryDate || '',
-            batch_number        : product.batchNumber || '',
-            manufacturing_date  : '',
-            expiry_date         : initialExpiry,
-            shelf_life          : product.shelfLife,
-            qty                 : 1
+            productId: product.productId,
+            name: product.name,
+            category: product.category,
+            location: product.location,
+            currentStock: product.currentStock,
+            unit: product.unit,
+            price: product.price,
+            imageUrl: product.imageUrl,
+            productExpiryDate: product.expiryDate || '',
+            batch_number: product.batchNumber || '',
+            manufacturing_date: '',
+            expiry_date: initialExpiry,
+            shelf_life: product.shelfLife,
+            qty: 1
         });
 
         renderCart(product.productId);
@@ -365,7 +365,7 @@ var InventoryTransaction = (function () {
     function changeQty(productId, delta) {
         var idx = findCartIndex(productId);
         if (idx === -1) return;
-        var item   = cart[idx];
+        var item = cart[idx];
         var newQty = item.qty + delta;
 
         if (newQty <= 0) { removeFromCart(productId); return; }
@@ -468,39 +468,39 @@ var InventoryTransaction = (function () {
     }
 
     function renderCart(flashProductId) {
-        var emptyEl   = document.getElementById('inv-cart-empty');
-        var tableEl   = document.getElementById('inv-cart-table');
-        var bodyEl    = document.getElementById('inv-cart-body');
-        var confirmBtn= document.getElementById('inv-confirm-btn');
+        var emptyEl = document.getElementById('inv-cart-empty');
+        var tableEl = document.getElementById('inv-cart-table');
+        var bodyEl = document.getElementById('inv-cart-body');
+        var confirmBtn = document.getElementById('inv-confirm-btn');
         var summaryPr = document.getElementById('inv-summary-products');
         var summaryQt = document.getElementById('inv-summary-qty');
-        var summaryTot= document.getElementById('inv-summary-total');
+        var summaryTot = document.getElementById('inv-summary-total');
         var cartBadge = document.getElementById('inv-cart-badge');
-        var clearBtn  = document.getElementById('inv-clear-btn');
+        var clearBtn = document.getElementById('inv-clear-btn');
 
         if (!bodyEl) return;
         bodyEl.innerHTML = '';
 
         if (cart.length === 0) {
-            if (emptyEl)    emptyEl.style.display    = '';
-            if (tableEl)    tableEl.style.display    = 'none';
-            if (clearBtn)   clearBtn.style.display   = 'none';
-            if (cartBadge)  cartBadge.textContent    = '0';
+            if (emptyEl) emptyEl.style.display = '';
+            if (tableEl) tableEl.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = 'none';
+            if (cartBadge) cartBadge.textContent = '0';
             if (confirmBtn) {
                 confirmBtn.disabled = true;
                 confirmBtn.textContent = getConfirmBaseLabel();
             }
-            if (summaryPr)  summaryPr.textContent    = '0';
-            if (summaryQt)  summaryQt.textContent    = '0';
-            if (summaryTot) summaryTot.textContent   = '₱0.00';
+            if (summaryPr) summaryPr.textContent = '0';
+            if (summaryQt) summaryQt.textContent = '0';
+            if (summaryTot) summaryTot.textContent = '₱0.00';
             return;
         }
 
-        if (emptyEl)    emptyEl.style.display    = 'none';
-        if (tableEl)    tableEl.style.display    = '';
-        if (clearBtn)   clearBtn.style.display   = 'inline-flex';
-        if (cartBadge)  cartBadge.textContent    = String(cart.length);
-        if (confirmBtn) confirmBtn.disabled     = false;
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (tableEl) tableEl.style.display = '';
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+        if (cartBadge) cartBadge.textContent = String(cart.length);
+        if (confirmBtn) confirmBtn.disabled = false;
 
         var totalQty = 0;
         var grandTotal = 0;
@@ -521,8 +521,8 @@ var InventoryTransaction = (function () {
             if (item.imageUrl) {
                 var thumbImg = document.createElement('img');
                 thumbImg.className = 'pos-cart-thumb';
-                thumbImg.src   = item.imageUrl;
-                thumbImg.alt   = item.name;
+                thumbImg.src = item.imageUrl;
+                thumbImg.alt = item.name;
                 thumbImg.title = item.name;
                 thumbImg.onerror = function () {
                     var ph = document.createElement('div');
@@ -548,7 +548,7 @@ var InventoryTransaction = (function () {
             stockTd.innerHTML = '<span class="pos-cart-stock-chip">Stock: ' + escapeHtml(String(item.currentStock)) + '</span>';
 
             // Qty controls: [−] [ input ] [+]
-            var qtyTd       = document.createElement('td');
+            var qtyTd = document.createElement('td');
             qtyTd.style.textAlign = 'center';
             var qtyControls = document.createElement('div');
             qtyControls.className = 'pos-qty-controls';
@@ -630,7 +630,7 @@ var InventoryTransaction = (function () {
             totalTd.className = 'pos-cart-total-cell';
             totalTd.textContent = '₱' + lineTotal.toFixed(2);
 
-            var actionTd  = document.createElement('td');
+            var actionTd = document.createElement('td');
             var removeBtn = document.createElement('button');
             removeBtn.type = 'button';
             removeBtn.className = 'pos-remove-btn';
@@ -671,12 +671,12 @@ var InventoryTransaction = (function () {
         var btn = e.target.closest('[data-action]');
         if (!btn) return;
         e.stopPropagation();
-        var action    = btn.getAttribute('data-action');
+        var action = btn.getAttribute('data-action');
         var productId = parseInt(btn.getAttribute('data-id') || '0', 10);
         if (productId <= 0) return;
         if (action === 'increase') changeQty(productId, 1);
         else if (action === 'decrease') changeQty(productId, -1);
-        else if (action === 'remove')   removeFromCart(productId);
+        else if (action === 'remove') removeFromCart(productId);
     }
 
     function handleCartRowSelect(e) {
@@ -717,12 +717,12 @@ var InventoryTransaction = (function () {
 
         dropdown.innerHTML = '';
         products.forEach(function (p) {
-            var id       = parseInt(p.product_id || p.id || '0', 10);
-            var name     = p.product_name || p.name || 'Unknown';
+            var id = parseInt(p.product_id || p.id || '0', 10);
+            var name = p.product_name || p.name || 'Unknown';
             var category = p.category || '';
-            var qty      = parseInt(p.quantity || '0', 10);
-            var rp       = parseInt(p.reorder_point || '10', 10);
-            var status   = computeStockStatus(qty, rp);
+            var qty = parseInt(p.quantity || '0', 10);
+            var rp = parseInt(p.reorder_point || '10', 10);
+            var status = computeStockStatus(qty, rp);
             var imageUrl = p.image_url || null;
 
             var item = document.createElement('div');
@@ -807,7 +807,7 @@ var InventoryTransaction = (function () {
 
     function initSearch() {
         var searchInput = document.getElementById('inv-product-search');
-        var clearBtn    = document.getElementById('inv-search-clear');
+        var clearBtn = document.getElementById('inv-search-clear');
         if (!searchInput) return;
 
         searchInput.addEventListener('input', function () {
@@ -886,11 +886,11 @@ var InventoryTransaction = (function () {
         var payload = cart.map(function (item) {
             var row = { product_id: item.productId, qty: item.qty };
             if (txnMode === 'in') {
-                if (item.batch_number)       row.batch_number        = item.batch_number;
-                if (item.expiry_date)        row.expiry_date         = item.expiry_date;
-                if (item.manufacturing_date) row.manufacturing_date  = item.manufacturing_date;
-                if (item.location)           row.location            = item.location;
-                if (item.category)           row.category            = item.category;
+                if (item.batch_number) row.batch_number = item.batch_number;
+                if (item.expiry_date) row.expiry_date = item.expiry_date;
+                if (item.manufacturing_date) row.manufacturing_date = item.manufacturing_date;
+                if (item.location) row.location = item.location;
+                if (item.category) row.category = item.category;
             }
             return row;
         });
@@ -920,9 +920,9 @@ var InventoryTransaction = (function () {
         // Remarks collapsible drawer
         var remarksToggle = document.getElementById('inv-remarks-toggle');
         var remarksDrawer = document.getElementById('inv-remarks-drawer');
-        var remarksInput  = document.getElementById('inv-remarks-input');
-        var remarksIcon   = document.getElementById('inv-remarks-toggle-icon');
-        var remarksText   = document.getElementById('inv-remarks-toggle-text');
+        var remarksInput = document.getElementById('inv-remarks-input');
+        var remarksIcon = document.getElementById('inv-remarks-toggle-icon');
+        var remarksText = document.getElementById('inv-remarks-toggle-text');
 
         if (remarksToggle && remarksDrawer) {
             remarksToggle.addEventListener('click', function () {
@@ -954,9 +954,9 @@ var InventoryTransaction = (function () {
             showProductInfo(window.AUTOLOAD_PRODUCT);
         } else {
             var urlParams = new URLSearchParams(window.location.search);
-            var targetId  = urlParams.get('product_id') || urlParams.get('id');
+            var targetId = urlParams.get('product_id') || urlParams.get('id');
             var targetSku = urlParams.get('sku');
-            var targetQ   = urlParams.get('q');
+            var targetQ = urlParams.get('q');
             if (targetId) {
                 fetch('api/get_product_by_id.php?id=' + encodeURIComponent(targetId))
                     .then(function (r) { return r.json(); })
@@ -1039,17 +1039,17 @@ var InventoryTransaction = (function () {
     }
 
     // ── Camera Scanner ───────────────────────────────────────────────────────
-    var _cameraStream     = null;
-    var _cameraInterval   = null;
-    var _cameraBusy       = false;
-    var _catalogList      = [];
-    var _catalogLoaded    = false;
-    var _lastScannedId    = null;
-    var _lastScanTime     = 0;
+    var _cameraStream = null;
+    var _cameraInterval = null;
+    var _cameraBusy = false;
+    var _catalogList = [];
+    var _catalogLoaded = false;
+    var _lastScannedId = null;
+    var _lastScanTime = 0;
 
     function setCameraStatus(text, type) {
         var statusEl = document.getElementById('inv-camera-status-text');
-        var dotEl    = document.getElementById('inv-camera-dot');
+        var dotEl = document.getElementById('inv-camera-dot');
         if (statusEl) statusEl.textContent = text;
         if (dotEl) {
             dotEl.style.background = type === 'success' ? '#51D55A' : (type === 'scanning' ? '#fbbf24' : '#64748b');
@@ -1103,10 +1103,10 @@ var InventoryTransaction = (function () {
             _invFacingMode = requestedFacingMode;
         }
         var mode = _invFacingMode || 'environment';
-        var wrap    = document.getElementById('inv-camera-scanner-wrap');
-        var video   = document.getElementById('inv-camera-video');
+        var wrap = document.getElementById('inv-camera-scanner-wrap');
+        var video = document.getElementById('inv-camera-video');
         var btnText = document.getElementById('inv-camera-btn-text');
-        var camBtn  = document.getElementById('inv-camera-btn');
+        var camBtn = document.getElementById('inv-camera-btn');
         if (!wrap || !video) return;
 
         wrap.style.display = 'block';
@@ -1128,7 +1128,11 @@ var InventoryTransaction = (function () {
         }).then(function (stream) {
             _cameraStream = stream;
             video.srcObject = stream;
-            setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+            setCameraStatus('Point camera at product', 'scanning');
+
+            // Enable the Snap & Add button now that the camera is live
+            var snapBtn = document.getElementById('inv-camera-snap-manual');
+            if (snapBtn) snapBtn.disabled = false;
 
             clearInterval(_cameraInterval);
             _cameraInterval = setInterval(function () {
@@ -1152,29 +1156,31 @@ var InventoryTransaction = (function () {
             _cameraStream = null;
         }
 
-        var wrap    = document.getElementById('inv-camera-scanner-wrap');
+        var wrap = document.getElementById('inv-camera-scanner-wrap');
         var btnText = document.getElementById('inv-camera-btn-text');
-        var video   = document.getElementById('inv-camera-video');
-        var camBtn  = document.getElementById('inv-camera-btn');
+        var video = document.getElementById('inv-camera-video');
+        var camBtn = document.getElementById('inv-camera-btn');
+        var snapBtn = document.getElementById('inv-camera-snap-manual');
 
         if (wrap) wrap.style.display = 'none';
         if (video) video.srcObject = null;
         if (btnText) btnText.textContent = 'Camera Scanner';
         if (camBtn) camBtn.classList.remove('pos-camera-active');
+        if (snapBtn) snapBtn.disabled = true;  // Reset to grey until next session
     }
 
     function processLiveFrame(isManual) {
-        var video  = document.getElementById('inv-camera-video');
+        var video = document.getElementById('inv-camera-video');
         var canvas = document.getElementById('inv-camera-canvas');
         if (!video || !canvas || video.readyState < 2) return;
 
         _cameraBusy = true;
-        if (isManual) setCameraStatus('🔍 Reading packaging label…', 'scanning');
+        if (isManual) setCameraStatus('🔍 Analyzing product…', 'scanning');
 
         var vw = video.videoWidth || 640;
         var vh = video.videoHeight || 480;
         var scale = Math.min(1.0, 640 / vw);
-        canvas.width  = Math.round(vw * scale);
+        canvas.width = Math.round(vw * scale);
         canvas.height = Math.round(vh * scale);
 
         var ctx = canvas.getContext('2d');
@@ -1242,8 +1248,8 @@ var InventoryTransaction = (function () {
                 var rawText = (typeof res === 'object' && res.text != null) ? res.text : (res || '');
 
                 if (!rawText || !rawText.trim()) {
-                    if (isManual) showToast('No text detected on packaging. Hold closer or adjust lighting.', 'error');
-                    setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+                    if (isManual) showToast('No product detected. Move closer or try better lighting.', 'error');
+                    setCameraStatus('Point camera at product', 'scanning');
                     return;
                 }
 
@@ -1258,7 +1264,7 @@ var InventoryTransaction = (function () {
                         }
 
                         _lastScannedId = pId;
-                        _lastScanTime  = now;
+                        _lastScanTime = now;
 
                         var added = addToCart(matched.item);
                         if (added) {
@@ -1292,7 +1298,7 @@ var InventoryTransaction = (function () {
             }).catch(function (err) {
                 _cameraBusy = false;
                 console.warn('[CameraScanner] OCR error:', err);
-                setCameraStatus('Scanning… point camera at product packaging', 'scanning');
+                setCameraStatus('Point camera at product', 'scanning');
             });
         }
     }
@@ -1300,14 +1306,122 @@ var InventoryTransaction = (function () {
     function initCameraScanner() {
         var camBtn = document.getElementById('inv-camera-btn');
         if (camBtn) camBtn.addEventListener('click', toggleCameraScanner);
+
         var camClose = document.getElementById('inv-camera-close-btn');
         if (camClose) camClose.addEventListener('click', stopCameraScanner);
+
         var camFlip = document.getElementById('inv-camera-flip-btn');
         if (camFlip) camFlip.addEventListener('click', flipCameraScanner);
+
+        // Collapse / expand viewfinder
+        var camCollapse = document.getElementById('inv-camera-collapse-btn');
+        if (camCollapse) {
+            camCollapse.addEventListener('click', function () {
+                var vf = document.getElementById('inv-camera-viewfinder');
+                var sb = document.getElementById('inv-camera-snap-bar');
+                if (!vf) return;
+                var hidden = vf.style.display === 'none';
+                vf.style.display = hidden ? '' : 'none';
+                if (sb) sb.style.display = hidden ? '' : 'none';
+                // Rotate chevron
+                var icon = camCollapse.querySelector('svg');
+                if (icon) icon.style.transform = hidden ? '' : 'rotate(180deg)';
+            });
+        }
+
+        // Torch toggle
+        var camTorch = document.getElementById('inv-camera-torch-btn');
+        var _torchOn = false;
+        if (camTorch) {
+            camTorch.addEventListener('click', function () {
+                if (!_cameraStream) return;
+                var track = _cameraStream.getVideoTracks()[0];
+                if (!track) return;
+                _torchOn = !_torchOn;
+                track.applyConstraints({ advanced: [{ torch: _torchOn }] }).catch(function () {
+                    showToast('Torch not supported on this device.', 'error');
+                    _torchOn = false;
+                });
+                camTorch.classList.toggle('cam-torch-on', _torchOn);
+            });
+        }
+
+        // Snap & Add
         var camSnap = document.getElementById('inv-camera-snap-manual');
         if (camSnap) {
             camSnap.addEventListener('click', function () {
+                if (_cameraBusy) return;   // already processing — ignore double-tap
+                if (!_cameraStream) return; // camera not running
                 processLiveFrame(true);
+            });
+        }
+
+        // Type code toggle
+        var typeCodeBtn = document.getElementById('inv-camera-type-code-btn');
+        var manualWrap = document.getElementById('inv-camera-manual-code-wrap');
+        var manualInput = document.getElementById('inv-camera-manual-code-input');
+        var manualSubmit = document.getElementById('inv-camera-manual-code-submit');
+        var manualCancel = document.getElementById('inv-camera-manual-code-cancel');
+
+        if (typeCodeBtn && manualWrap) {
+            typeCodeBtn.addEventListener('click', function () {
+                var open = manualWrap.style.display !== 'none';
+                manualWrap.style.display = open ? 'none' : 'flex';
+                typeCodeBtn.style.display = open ? '' : 'none';
+                if (!open && manualInput) manualInput.focus();
+            });
+        }
+        if (manualCancel && manualWrap) {
+            manualCancel.addEventListener('click', function () {
+                manualWrap.style.display = 'none';
+                if (typeCodeBtn) typeCodeBtn.style.display = '';
+                if (manualInput) manualInput.value = '';
+            });
+        }
+        function submitManualCode() {
+            if (!manualInput) return;
+            var code = manualInput.value.trim();
+            if (!code) return;
+            setCameraStatus('Looking up "' + code + '"…', 'scanning');
+            ensureCatalogLoaded().then(function (catalog) {
+                var lc = code.toLowerCase();
+                var found = catalog.find(function (p) {
+                    return (p.product_id && String(p.product_id) === code) ||
+                        (p.sku && p.sku.toLowerCase() === lc) ||
+                        (p.barcode && p.barcode.toLowerCase() === lc) ||
+                        (p.product_name && p.product_name.toLowerCase().includes(lc)) ||
+                        (p.name && p.name.toLowerCase().includes(lc));
+                });
+                if (found) {
+                    addToCart(found);
+                    setCameraStatus('Added: ' + (found.product_name || found.name), 'success');
+                    showToast('Added ' + (found.product_name || found.name) + ' to transaction!', 'success');
+                    manualInput.value = '';
+                    manualWrap.style.display = 'none';
+                    if (typeCodeBtn) typeCodeBtn.style.display = '';
+                } else {
+                    fetch('api/search_products.php?q=' + encodeURIComponent(code))
+                        .then(function (r) { return r.json(); })
+                        .then(function (res) {
+                            if (res.success && res.data && res.data.length > 0) {
+                                addToCart(res.data[0]);
+                                setCameraStatus('Added: ' + res.data[0].product_name, 'success');
+                                showToast('Added ' + res.data[0].product_name + ' to transaction!', 'success');
+                                manualInput.value = '';
+                                manualWrap.style.display = 'none';
+                                if (typeCodeBtn) typeCodeBtn.style.display = '';
+                            } else {
+                                showToast('No product found for "' + code + '".', 'error');
+                                setCameraStatus('Point camera at product', 'scanning');
+                            }
+                        });
+                }
+            });
+        }
+        if (manualSubmit) manualSubmit.addEventListener('click', submitManualCode);
+        if (manualInput) {
+            manualInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') submitManualCode();
             });
         }
     }
@@ -1315,10 +1429,10 @@ var InventoryTransaction = (function () {
     document.addEventListener('DOMContentLoaded', init);
 
     return {
-        showToast         : showToast,
-        addToCart         : addToCart,
-        clearCart         : clearCart,
+        showToast: showToast,
+        addToCart: addToCart,
+        clearCart: clearCart,
         startCameraScanner: startCameraScanner,
-        stopCameraScanner : stopCameraScanner,
+        stopCameraScanner: stopCameraScanner,
     };
 })();

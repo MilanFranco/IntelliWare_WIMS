@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
 $role = $_SESSION['Role'] ?? 'staff';
@@ -9,6 +11,7 @@ require_once 'config/db.php';
 require_once 'src/services/StockMovementService.php';
 require_once 'src/services/LocationCategoryService.php';
 require_once 'src/services/ApiClient.php';
+require_once 'src/services/ProductMergeService.php';
 
 StockMovementService::ensureBatchColumn($conn);
 
@@ -228,46 +231,96 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $openingQty = $quantity;
             $categoryId = LocationCategoryService::resolveCategoryId($category, $conn);
 
-            $stmt = $conn->prepare("INSERT INTO products (product_name, category, category_id, supplier, location, quantity, reorder_point, unit, price, shelf_life) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)");
-            $stmt->bind_param("ssissisdi", $product_name, $category, $categoryId, $supplier, $location, $reorder_point, $unit, $price, $shelf_life);
-            if ($stmt->execute()) {
-                $newProductId = (int)$conn->insert_id;
-                $stmt->close();
+            $confirm_new_variant = ($_POST['confirm_new_variant'] ?? '0') === '1';
 
-                // Save captured product image if provided
-                if ($product_image_b64 !== '') {
-                    $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $product_image_b64));
-                    if ($imgData !== false) {
-                        $imgDir = __DIR__ . '/uploads/products/';
-                        if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
-                        file_put_contents($imgDir . $newProductId . '.jpg', $imgData);
-                    }
-                }
+            $productData = [
+                'product_name'        => $product_name,
+                'category'            => $category,
+                'category_id'         => $categoryId,
+                'supplier'            => $supplier,
+                'location'            => $location,
+                'quantity'            => $openingQty,
+                'reorder_point'       => $reorder_point,
+                'unit'                => $unit,
+                'price'               => $price,
+                'shelf_life'          => $shelf_life,
+                'expiry_date'         => $expiry_date,
+                'batch_number'        => $batch_number,
+                'product_image_b64'   => $product_image_b64,
+                'confirm_new_variant' => $confirm_new_variant
+            ];
 
-                if ($openingQty > 0) {
-                    $metadata = [
-                        'source' => 'opening_stock'
-                    ];
-                    if (!empty($expiry_date)) {
-                        $metadata['expiry_date'] = $expiry_date;
-                    }
-                    if (!empty($batch_number)) {
-                        $metadata['batch_number'] = $batch_number;
-                    }
-                    ApiClient::receiveInventory(
-                        $newProductId, $openingQty,
-                        $_SESSION['Username'], 'Opening stock on product create',
-                        $metadata
-                    );
-                }
+            $regResult = ProductMergeService::processProductRegistration($conn, $productData, $_SESSION['Username']);
 
-                setFlashMessage('success', 'Product added successfully.');
-            } else {
-                if ($conn->errno === 1062) {
-                    throw new Exception('A product with this information already exists.');
-                }
-                throw new Exception('Could not save product. Please try again.');
+            if ($regResult['status'] === 'restocked') {
+                setFlashMessage('success', $regResult['message']);
+                $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
+                header("Location: products.php?q=" . urlencode($regResult['sku']) . $filter_qs);
+                exit();
             }
+
+            if ($regResult['status'] === 'exact_match_zero_qty' || $regResult['status'] === 'near_match_blocked') {
+                $_SESSION['add_form_state'] = [
+                    'data'      => $_POST,
+                    'error'     => $regResult['message'],
+                    'top_match' => $regResult['top_match'],
+                    'is_exact'  => ($regResult['status'] === 'exact_match_zero_qty')
+                ];
+                setFlashMessage('error', $regResult['message']);
+                $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
+                header("Location: products.php?page=$page&q=" . urlencode($q) . "&category=" . urlencode($category_param) . "$filter_qs");
+                exit();
+            }
+
+            if ($regResult['status'] === 'created') {
+                setFlashMessage('success', $regResult['message']);
+                $filter_qs = $filter_param !== '' ? '&filter=' . urlencode($filter_param) : '';
+                header("Location: products.php?q=" . urlencode($regResult['sku']) . $filter_qs);
+                exit();
+            }
+        }
+        if ($action === 'restock_existing') {
+            $targetProductId = (int)($_POST['target_product_id'] ?? 0);
+            $restockQty = parseNonNegativeInt($_POST['quantity'] ?? null);
+            if ($targetProductId <= 0 || $restockQty === false || $restockQty <= 0) {
+                throw new Exception('Please enter a valid restock quantity of 1 or more.');
+            }
+            $expiry_date = !empty($_POST['expiry_date']) ? trim($_POST['expiry_date']) : null;
+            $batch_number = !empty($_POST['batch_number']) ? trim($_POST['batch_number']) : null;
+            $metadata = ['source' => 'quick_restock_modal'];
+            if (!empty($expiry_date)) $metadata['expiry_date'] = $expiry_date;
+            if (!empty($batch_number)) $metadata['batch_number'] = $batch_number;
+
+            ApiClient::receiveInventory(
+                $targetProductId,
+                $restockQty,
+                $_SESSION['Username'],
+                'Stock added via Quick Restock',
+                $metadata
+            );
+
+            $pStmt = $conn->prepare("SELECT product_name, quantity, unit FROM products WHERE product_id = ?");
+            $pStmt->bind_param("i", $targetProductId);
+            $pStmt->execute();
+            $pRow = $pStmt->get_result()->fetch_assoc();
+            $pStmt->close();
+
+            $sku = 'P-' . str_pad((string)$targetProductId, 4, '0', STR_PAD_LEFT);
+            setFlashMessage('success', "⚡ Successfully added {$restockQty} {$pRow['unit']} to {$pRow['product_name']} ({$sku}). Total stock is now {$pRow['quantity']} {$pRow['unit']}.");
+            header("Location: products.php?q=" . urlencode($sku));
+            exit();
+        }
+        if ($action === 'merge') {
+            if (!in_array($role, ['admin', 'manager'])) {
+                throw new Exception('Only administrators and managers can merge SKUs.');
+            }
+            $sourceId = (int)($_POST['source_id'] ?? 0);
+            $targetId = (int)($_POST['target_id'] ?? 0);
+
+            $mergeResult = ProductMergeService::mergeSkus($conn, $sourceId, $targetId, $_SESSION['Username']);
+            setFlashMessage('success', $mergeResult['message']);
+            header("Location: products.php?q=" . urlencode($mergeResult['target_sku']));
+            exit();
         }
         if ($action === 'edit') {
             $newQty = (int)$_POST['qty'];
@@ -943,25 +996,26 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     /* Action buttons */
     .inv-card-actions {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(65px, 1fr));
+        gap: 6px;
         padding: 10px 14px 12px 14px;
     }
     .inv-card-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 5px;
         height: 34px;
         border-radius: 8px;
         font-family: 'Onest', sans-serif;
-        font-size: 12px;
+        font-size: 11.5px;
         font-weight: 600;
         cursor: pointer;
         border: 1.5px solid #D6E8F7;
         background: #F3F8FD;
         color: #1E3A5F;
         transition: all 0.18s ease;
+        padding: 0 6px;
     }
     .inv-card-btn:hover {
         background: #E2EDF8;
@@ -979,6 +1033,285 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     .inv-card-btn--archive:hover svg,
     .inv-card-btn--restore:hover svg { stroke: #DC2626; }
+
+    @keyframes dupBannerSlideDown {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Enhanced Duplicate Warning UI (Matches Design System) ── */
+    .ai-suggestions-header {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: #C2410C;
+        font-family: 'Onest', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    [data-theme="dark"] .ai-suggestions-header {
+        color: #FB923C;
+    }
+
+    .ai-suggestion-chip {
+        border-radius: 9999px;
+        padding: 5px 14px;
+        font-size: 12px;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        line-height: 1.35;
+        text-align: left;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        outline: none;
+    }
+    .ai-suggestion-chip.active {
+        background: #FFFFFF !important;
+        border: 1.5px solid #10B981 !important;
+        color: #047857 !important;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(16, 185, 129, 0.15);
+    }
+    [data-theme="dark"] .ai-suggestion-chip.active {
+        background: rgba(16, 185, 129, 0.15) !important;
+        border-color: #34D399 !important;
+        color: #6EE7B7 !important;
+    }
+    .ai-suggestion-chip.inactive {
+        background: #EFF6FF !important;
+        border: 1px solid #BFDBFE !important;
+        color: #2563EB !important;
+        font-weight: 500;
+    }
+    .ai-suggestion-chip.inactive:hover {
+        background: #DBEAFE !important;
+        border-color: #93C5FD !important;
+        color: #1D4ED8 !important;
+    }
+    [data-theme="dark"] .ai-suggestion-chip.inactive {
+        background: rgba(37, 99, 235, 0.14) !important;
+        border-color: rgba(96, 165, 250, 0.35) !important;
+        color: #93C5FD !important;
+    }
+    [data-theme="dark"] .ai-suggestion-chip.inactive:hover {
+        background: rgba(37, 99, 235, 0.25) !important;
+        color: #BFDBFE !important;
+    }
+
+    /* Duplicate Match Warning Card */
+    .dup-warning-card {
+        margin-top: 14px;
+        background: #FFFDF5;
+        border: 1.5px solid #FDE68A;
+        border-radius: 16px;
+        padding: 16px 20px;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
+        animation: dupBannerSlideDown 0.25s ease-out;
+    }
+    [data-theme="dark"] .dup-warning-card {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1.5px solid rgba(245, 158, 11, 0.35);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    }
+
+    .dup-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .dup-card-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #B45309;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="dark"] .dup-card-title {
+        color: #FBBF24;
+    }
+    .dup-alert-icon {
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    .dup-match-badge {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        background: #FEF3C7;
+        color: #92400E;
+        border: 1px solid #FCD34D;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        font-family: 'Onest', sans-serif;
+        white-space: nowrap;
+    }
+    [data-theme="dark"] .dup-match-badge {
+        background: rgba(245, 158, 11, 0.22);
+        color: #FEF3C7;
+        border-color: rgba(245, 158, 11, 0.45);
+    }
+
+    .dup-card-body {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-top: 14px;
+    }
+
+    .dup-thumb-box {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        flex-shrink: 0;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    }
+    .dup-thumb-gradient {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #E9D5FF 0%, #DDD6FE 50%, #C4B5FD 100%);
+        border-radius: 12px;
+    }
+    .dup-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 12px;
+    }
+
+    .dup-details-col {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .dup-title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .dup-product-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0F172A;
+        font-family: 'Onest', sans-serif;
+        line-height: 1.35;
+    }
+    [data-theme="dark"] .dup-product-name {
+        color: #F8FAFC;
+    }
+
+    .dup-sku-pill {
+        display: inline-block;
+        background: #F1F5F9;
+        border: 1px solid #E2E8F0;
+        color: #64748B;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        letter-spacing: 0.02em;
+        vertical-align: middle;
+    }
+    [data-theme="dark"] .dup-sku-pill {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.16);
+        color: #94A3B8;
+    }
+
+    .dup-stats-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 28px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+    .dup-stat-col {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .dup-stat-label {
+        font-size: 11.5px;
+        color: #64748B;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="dark"] .dup-stat-label {
+        color: #94A3B8;
+    }
+    .dup-stat-val {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0F172A;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="dark"] .dup-stat-val {
+        color: #F1F5F9;
+    }
+
+    .dup-action-row {
+        margin-top: 12px;
+    }
+    .dup-variant-btn {
+        display: inline-flex;
+        align-items: center;
+        background: #FFFFFF;
+        border: 1px solid #CBD5E1;
+        border-radius: 8px;
+        padding: 6px 14px;
+        color: #475569;
+        font-size: 12.5px;
+        font-weight: 500;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .dup-variant-btn:hover {
+        background: #F8FAFC;
+        border-color: #94A3B8;
+        color: #1E293B;
+    }
+    [data-theme="dark"] .dup-variant-btn {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.18);
+        color: #E2E8F0;
+    }
+    [data-theme="dark"] .dup-variant-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: #FFFFFF;
+    }
+
+    /* Green Batch Sub-Banner */
+    .dup-batch-notice {
+        margin-top: 12px;
+        background: #ECFDF5;
+        border: 1.5px solid #A7F3D0;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: #047857;
+        font-family: 'Onest', sans-serif;
+        animation: dupBannerSlideDown 0.25s ease-out;
+    }
+    [data-theme="dark"] .dup-batch-notice {
+        background: rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.35);
+        color: #6EE7B7;
+    }
+
 
     /* Dark-mode overrides for summary cards & product cards — matching Insights page */
     [data-theme="dark"] .inv-summary-card {
@@ -2119,11 +2452,11 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                     Cancel
                                 </button>
                                 <button type="button" id="ai-capture-snap-btn" class="premium-button" style="height:40px; padding:0 24px; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:8px; box-shadow:0 0 15px rgba(81,213,90,0.35);" onclick="aiCaptureFrame()">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
                                     </svg>
-                                    📷 Capture &amp; Auto-fill
+                                    <span>Capture &amp; Auto-fill</span>
                                 </button>
                             </div>
                         </div>
@@ -2144,9 +2477,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input name="product_name" id="add-product-name" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. Barefaced Matte Sunscreen 50g" required maxlength="255">
                     <p class="add-field-error" id="add-product-name-error" hidden></p>
                     <!-- Quick-Select Suggestion Chips -->
-                    <div id="add-product-name-suggestions" style="display:none; margin-top:8px; align-items:center; gap:6px; flex-wrap:wrap;">
-                        <span style="font-size:11px; font-weight:700; color:#51D55A; font-family:'Onest',sans-serif; text-transform:uppercase; letter-spacing:0.04em;">✨ Suggestions:</span>
-                        <div id="add-product-name-chips" style="display:inline-flex; gap:6px; flex-wrap:wrap;"></div>
+                    <div id="add-product-name-suggestions" style="display:none; margin-top:10px;">
+                        <span class="ai-suggestions-header">✦ SUGGESTIONS</span>
+                        <div id="add-product-name-chips" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; align-items:center;"></div>
                     </div>
                     <!-- View detected text from packaging -->
                     <div id="add-ocr-raw-wrap" style="display:none; margin-top:6px;">
@@ -2154,6 +2487,70 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                             Show text read from packaging &darr;
                         </button>
                         <div id="add-ocr-raw-box" style="display:none; margin-top:6px; max-height:100px; overflow-y:auto; font-size:11px; background:#070b1e; border:1px solid #2A4484; border-radius:8px; padding:8px 12px; color:#cbd5e1; line-height:1.6;"></div>
+                    </div>
+
+                    <!-- Real-Time Duplicate / Similarity Warning Banner -->
+                    <input type="hidden" name="confirm_new_variant" id="add-confirm-new-variant" value="0">
+                    <input type="hidden" id="add-matched-duplicate-id" value="">
+                    
+                    <div id="add-duplicate-warning-banner" class="dup-warning-card" style="display:none;">
+                        <!-- Header: Alert title on left, match percentage pill on right -->
+                        <div class="dup-card-header">
+                            <div class="dup-card-title">
+                                <span class="dup-alert-icon">&#9888;</span>
+                                <span id="dup-banner-title">Exact item already in stock</span>
+                            </div>
+                            <span id="dup-banner-pct" class="dup-match-badge">100% MATCH</span>
+                        </div>
+
+                        <!-- Body: Thumbnail on left, Product Details & 3 stats on right -->
+                        <div class="dup-card-body">
+                            <!-- Left: Thumbnail / Lavender gradient squircle -->
+                            <div id="dup-thumb-box" class="dup-thumb-box">
+                                <div id="dup-thumb-gradient" class="dup-thumb-gradient"></div>
+                                <img id="dup-thumb-img" class="dup-thumb-img" src="" alt="Matched product thumbnail" style="display:none;">
+                            </div>
+
+                            <!-- Right: Product name, SKU pill, 3-column stats, and variant button -->
+                            <div class="dup-details-col">
+                                <div class="dup-title-row">
+                                    <span id="dup-match-name" class="dup-product-name">Palmolive Naturals Intensive Moisture Shampoo 15ml</span>
+                                    <span id="dup-match-sku" class="dup-sku-pill">P-0487</span>
+                                </div>
+
+                                <div class="dup-stats-row">
+                                    <div class="dup-stat-col">
+                                        <span class="dup-stat-label">Current stock</span>
+                                        <span id="dup-match-stock" class="dup-stat-val">120 pcs</span>
+                                    </div>
+                                    <div class="dup-stat-col">
+                                        <span class="dup-stat-label">Shelf</span>
+                                        <span id="dup-match-shelf" class="dup-stat-val">C2</span>
+                                    </div>
+                                    <div class="dup-stat-col">
+                                        <span class="dup-stat-label">Nearest expiry</span>
+                                        <span id="dup-match-expiry" class="dup-stat-val">2027-03-14</span>
+                                    </div>
+                                </div>
+
+                                <div class="dup-action-row">
+                                    <button type="button" id="dup-variant-btn" class="dup-variant-btn" onclick="confirmAsNewVariant()">
+                                        Not the same product, create new variant
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Green Sub-Banner below card for exact match -->
+                    <div id="dup-exact-batch-notice" class="dup-batch-notice" style="display:none;">
+                        These details will be added as a new batch to <strong id="dup-batch-target-sku">P-0487</strong>.
+                    </div>
+
+                    <!-- Confirmed Variant Badge -->
+                    <div id="add-variant-confirmed-badge" style="display:none; margin-top:8px; background:rgba(16, 185, 129, 0.12); border:1px solid rgba(16, 185, 129, 0.35); border-radius:10px; padding:8px 12px; font-size:12px; color:#6ee7b7; font-family:'Onest',sans-serif; align-items:center; justify-content:space-between;">
+                        <span>✓ <strong>Confirmed as distinct variant</strong> (different packaging size, flavor, or bottle vs. sachet).</span>
+                        <button type="button" onclick="resetVariantConfirmation()" style="background:none; border:none; color:#93c5fd; cursor:pointer; text-decoration:underline; font-size:11px;">Change</button>
                     </div>
                 </div>
 
@@ -2235,14 +2632,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </div>
 
                 <div id="add-expiry-date-group">
-                    <label class="form-label">Opening Batch Expiry Date</label>
+                    <label class="form-label" id="add-expiry-date-label">Opening Batch Expiry Date <span id="add-expiry-required-mark" style="color:#ef4444; display:none;">*</span></label>
                     <input type="date" name="expiry_date" id="add-expiry-date" class="premium-input w-full add-form-field" style="height:46px;" disabled>
                     <p class="add-field-error" id="add-expiry-date-error" hidden></p>
                     <span id="add-expiry-hint" style="font-size:11px; color:#9aa6d1; margin-top:4px; display:block;">Initial stock expiry (leave blank if non-perishable)</span>
                 </div>
 
                 <div id="add-batch-number-group" style="grid-column: span 2;">
-                    <label class="form-label">Batch / Lot Number (Optional)</label>
+                    <label class="form-label" id="add-batch-number-label">Batch / Lot Number (Optional) <span id="add-batch-required-mark" style="color:#ef4444; display:none;">*</span></label>
                     <input type="text" name="batch_number" id="add-batch-number" class="premium-input w-full add-form-field" style="height:46px;" placeholder="e.g. BATCH-2026-001 (auto-generated if empty)" maxlength="50" disabled>
                     <p class="add-field-error" id="add-batch-number-error" hidden></p>
                 </div>
@@ -2444,10 +2841,329 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
 </div>
 
-
-
-
 <script>
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/* ── Real-Time Duplicate & Similarity Checking (Add/Scan Modal) ── */
+let _dupCheckTimer = null;
+let _lastCheckedDupName = '';
+let _isVariantConfirmed = false;
+
+function checkProductDuplicateLive(customName) {
+    const nameInput = document.getElementById('add-product-name');
+    const name = (customName !== undefined ? customName : (nameInput ? nameInput.value : '')).trim();
+    const banner = document.getElementById('add-duplicate-warning-banner');
+    const batchNotice = document.getElementById('dup-exact-batch-notice');
+    const variantBadge = document.getElementById('add-variant-confirmed-badge');
+    if (!banner) return;
+
+    if (_isVariantConfirmed) {
+        banner.style.display = 'none';
+        if (batchNotice) batchNotice.style.display = 'none';
+        if (variantBadge) variantBadge.style.display = 'flex';
+        return;
+    }
+
+    if (name.length < 3) {
+        banner.style.display = 'none';
+        if (batchNotice) batchNotice.style.display = 'none';
+        return;
+    }
+
+    if (name === _lastCheckedDupName) return;
+    _lastCheckedDupName = name;
+
+    fetch('api/check_product_duplicate.php?name=' + encodeURIComponent(name))
+        .then(res => res.json())
+        .then(data => {
+            if (_isVariantConfirmed) return;
+            if (data && data.success && data.has_duplicate && data.top_match) {
+                const top = data.top_match;
+                const matchIdEl = document.getElementById('add-matched-duplicate-id');
+                if (matchIdEl) matchIdEl.value = top.product_id;
+
+                const nameEl = document.getElementById('dup-match-name');
+                if (nameEl) nameEl.textContent = top.product_name;
+
+                const skuEl = document.getElementById('dup-match-sku');
+                if (skuEl) skuEl.textContent = top.sku;
+
+                const batchSkuEl = document.getElementById('dup-batch-target-sku');
+                if (batchSkuEl) batchSkuEl.textContent = top.sku;
+
+                const stockEl = document.getElementById('dup-match-stock');
+                if (stockEl) stockEl.textContent = top.quantity + ' ' + (top.unit || 'pcs');
+
+                const shelfEl = document.getElementById('dup-match-shelf');
+                if (shelfEl) shelfEl.textContent = top.shelf || top.location || 'C2';
+
+                const expiryEl = document.getElementById('dup-match-expiry');
+                if (expiryEl) expiryEl.textContent = top.nearest_expiry || 'N/A';
+
+                // Thumbnail handling: image if available, else smooth pastel lavender gradient
+                const thumbImg = document.getElementById('dup-thumb-img');
+                const thumbGradient = document.getElementById('dup-thumb-gradient');
+                if (top.image_url && top.image_url !== '') {
+                    if (thumbImg) {
+                        thumbImg.src = top.image_url;
+                        thumbImg.style.display = 'block';
+                    }
+                    if (thumbGradient) thumbGradient.style.display = 'none';
+                } else {
+                    if (thumbImg) thumbImg.style.display = 'none';
+                    if (thumbGradient) thumbGradient.style.display = 'block';
+                }
+
+                const pct = top.similarity_pct !== undefined ? top.similarity_pct : (data.is_exact ? 100 : 95);
+                const pctEl = document.getElementById('dup-banner-pct');
+                if (pctEl) pctEl.textContent = pct + '% MATCH';
+
+                const isExact = Boolean(pct >= 100 || data.is_exact || top.is_exact);
+                const titleEl = document.getElementById('dup-banner-title');
+                if (titleEl) {
+                    titleEl.textContent = isExact
+                        ? 'Exact item already in stock'
+                        : 'Similar item already in stock';
+                }
+
+                // Green sub-banner: show only for exact match
+                if (batchNotice) {
+                    batchNotice.style.display = isExact ? 'block' : 'none';
+                }
+
+                // UX: If exact match, update main submit button and show expiry as required
+                const submitBtn = document.getElementById('add-product-submit');
+                const expiryReqMark = document.getElementById('add-expiry-required-mark');
+                const expiryInput = document.getElementById('add-expiry-date');
+
+                if (isExact) {
+                    if (submitBtn) submitBtn.innerHTML = `Add as new batch to ${top.sku}`;
+                    if (expiryReqMark) expiryReqMark.style.display = 'inline';
+                    if (expiryInput) expiryInput.required = true;
+                } else {
+                    if (submitBtn) submitBtn.innerHTML = 'Save Product';
+                    if (expiryReqMark) expiryReqMark.style.display = 'none';
+                    if (expiryInput) expiryInput.required = false;
+                }
+
+                banner.style.display = 'block';
+                if (variantBadge) variantBadge.style.display = 'none';
+            } else {
+                banner.style.display = 'none';
+                if (batchNotice) batchNotice.style.display = 'none';
+                const submitBtn = document.getElementById('add-product-submit');
+                if (submitBtn) submitBtn.innerHTML = 'Save Product';
+                const expiryReqMark = document.getElementById('add-expiry-required-mark');
+                if (expiryReqMark) expiryReqMark.style.display = 'none';
+                const expiryInput = document.getElementById('add-expiry-date');
+                if (expiryInput) expiryInput.required = false;
+            }
+        })
+        .catch(err => {
+            console.warn('[Duplicate Check] Failed:', err);
+        });
+}
+
+function restockMatchedDuplicate() {
+    const targetId = document.getElementById('add-matched-duplicate-id')?.value;
+    if (!targetId) {
+        showToast('No matching product identified to restock.', 'error');
+        return;
+    }
+
+    const qtyInput = document.getElementById('add-quantity');
+    let qty = parseInt(qtyInput ? qtyInput.value : '', 10);
+    if (isNaN(qty) || qty <= 0) {
+        qty = 1;
+    }
+
+    const sku = document.getElementById('dup-match-sku')?.textContent || 'this SKU';
+    const name = document.getElementById('dup-match-name')?.textContent || 'product';
+
+    if (!confirm('⚡ Restock existing inventory?\n\nAdd ' + qty + ' unit(s) directly to:\n' + name + ' (' + sku + ')\n\nThis will update the existing product stock without creating a duplicate.')) {
+        return;
+    }
+
+    const expDate = (document.getElementById('add-expiry-date')?.value || '').trim();
+    const batchNo = (document.getElementById('add-batch-number')?.value || '').trim();
+
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = 'products.php';
+    f.style.display = 'none';
+
+    const csrf = '<?php echo $csrf_token; ?>';
+    f.innerHTML = `
+        <input type="hidden" name="action" value="restock_existing">
+        <input type="hidden" name="csrf_token" value="${csrf}">
+        <input type="hidden" name="target_product_id" value="${targetId}">
+        <input type="hidden" name="quantity" value="${qty}">
+        <input type="hidden" name="expiry_date" value="${expDate}">
+        <input type="hidden" name="batch_number" value="${batchNo}">
+    `;
+    document.body.appendChild(f);
+    f.submit();
+}
+
+function confirmAsNewVariant() {
+    _isVariantConfirmed = true;
+    const confirmInput = document.getElementById('add-confirm-new-variant');
+    if (confirmInput) confirmInput.value = '1';
+
+    const banner = document.getElementById('add-duplicate-warning-banner');
+    if (banner) banner.style.display = 'none';
+
+    const batchNotice = document.getElementById('dup-exact-batch-notice');
+    if (batchNotice) batchNotice.style.display = 'none';
+
+    const badge = document.getElementById('add-variant-confirmed-badge');
+    if (badge) badge.style.display = 'flex';
+
+    const submitBtn = document.getElementById('add-product-submit');
+    if (submitBtn) submitBtn.innerHTML = 'Save Product';
+    const expiryReqMark = document.getElementById('add-expiry-required-mark');
+    if (expiryReqMark) expiryReqMark.style.display = 'none';
+    const expiryInput = document.getElementById('add-expiry-date');
+    if (expiryInput) expiryInput.required = false;
+
+    if (typeof showToast === 'function') {
+        showToast('✓ Confirmed as distinct variant. Save is now unlocked.', 'success');
+    }
+}
+
+function resetVariantConfirmation() {
+    _isVariantConfirmed = false;
+    const confirmInput = document.getElementById('add-confirm-new-variant');
+    if (confirmInput) confirmInput.value = '0';
+
+    const badge = document.getElementById('add-variant-confirmed-badge');
+    if (badge) badge.style.display = 'none';
+
+    _lastCheckedDupName = '';
+    checkProductDuplicateLive();
+}
+
+function restoreAddFormState(pendingState) {
+    if (!pendingState || !pendingState.data) return;
+    openAddModal();
+    var d = pendingState.data;
+
+    var nameInput = document.getElementById('add-product-name');
+    if (nameInput && d.product_name !== undefined) nameInput.value = d.product_name;
+
+    var catSelect = document.getElementById('add-category');
+    if (catSelect && d.category !== undefined) catSelect.value = d.category;
+
+    var supInput = document.getElementById('add-supplier');
+    if (supInput && d.supplier !== undefined) supInput.value = d.supplier;
+
+    var locInput = document.getElementById('add-location');
+    if (locInput && d.location !== undefined) locInput.value = d.location;
+
+    var qtyInput = document.getElementById('add-quantity');
+    if (qtyInput && d.quantity !== undefined) qtyInput.value = d.quantity;
+
+    var unitSelect = document.getElementById('add-unit');
+    if (unitSelect && d.unit !== undefined) unitSelect.value = d.unit;
+
+    var priceInput = document.getElementById('add-price');
+    if (priceInput && d.price !== undefined) priceInput.value = d.price;
+
+    var ropInput = document.getElementById('add-reorder-point');
+    if (ropInput && d.reorder_point !== undefined) ropInput.value = d.reorder_point;
+
+    var shelfInput = document.getElementById('add-shelf-life');
+    if (shelfInput && d.shelf_life !== undefined) shelfInput.value = d.shelf_life;
+
+    var expInput = document.getElementById('add-expiry-date');
+    if (expInput && d.expiry_date !== undefined) expInput.value = d.expiry_date;
+
+    var batchInput = document.getElementById('add-batch-number');
+    if (batchInput && d.batch_number !== undefined) batchInput.value = d.batch_number;
+
+    setAddFormFieldsEnabled(true);
+    setAddSubmitState(true);
+
+    if (pendingState.top_match) {
+        var top = pendingState.top_match;
+        var banner = document.getElementById('add-duplicate-warning-banner');
+        var batchNotice = document.getElementById('dup-exact-batch-notice');
+        var matchIdEl = document.getElementById('add-matched-duplicate-id');
+        if (matchIdEl) matchIdEl.value = top.product_id;
+
+        var nameEl = document.getElementById('dup-match-name');
+        if (nameEl) nameEl.textContent = top.product_name;
+
+        var skuEl = document.getElementById('dup-match-sku');
+        if (skuEl) skuEl.textContent = top.sku;
+
+        var batchSkuEl = document.getElementById('dup-batch-target-sku');
+        if (batchSkuEl) batchSkuEl.textContent = top.sku;
+
+        var stockEl = document.getElementById('dup-match-stock');
+        if (stockEl) stockEl.textContent = top.quantity + ' ' + (top.unit || 'pcs');
+
+        var shelfEl = document.getElementById('dup-match-shelf');
+        if (shelfEl) shelfEl.textContent = top.shelf || top.location || 'C2';
+
+        var expiryEl = document.getElementById('dup-match-expiry');
+        if (expiryEl) expiryEl.textContent = top.nearest_expiry || 'N/A';
+
+        var thumbImg = document.getElementById('dup-thumb-img');
+        var thumbGradient = document.getElementById('dup-thumb-gradient');
+        if (top.image_url && top.image_url !== '') {
+            if (thumbImg) {
+                thumbImg.src = top.image_url;
+                thumbImg.style.display = 'block';
+            }
+            if (thumbGradient) thumbGradient.style.display = 'none';
+        } else {
+            if (thumbImg) thumbImg.style.display = 'none';
+            if (thumbGradient) thumbGradient.style.display = 'block';
+        }
+
+        var pct = top.similarity_pct !== undefined ? top.similarity_pct : (pendingState.is_exact ? 100 : 95);
+        var pctEl = document.getElementById('dup-banner-pct');
+        if (pctEl) pctEl.textContent = pct + '% MATCH';
+
+        var titleEl = document.getElementById('dup-banner-title');
+        var isExact = Boolean(pendingState.is_exact || top.is_exact || pct >= 100);
+        if (titleEl) {
+            titleEl.textContent = isExact
+                ? 'Exact item already in stock'
+                : 'Similar item already in stock';
+        }
+
+        if (batchNotice) {
+            batchNotice.style.display = isExact ? 'block' : 'none';
+        }
+
+        var submitBtn = document.getElementById('add-product-submit');
+        var expiryReqMark = document.getElementById('add-expiry-required-mark');
+        var expiryInput = document.getElementById('add-expiry-date');
+
+        if (isExact) {
+            if (submitBtn) submitBtn.innerHTML = `Add as new batch to ${top.sku}`;
+            if (expiryReqMark) expiryReqMark.style.display = 'inline';
+            if (expiryInput) expiryInput.required = true;
+        } else {
+            if (submitBtn) submitBtn.innerHTML = 'Save Product';
+            if (expiryReqMark) expiryReqMark.style.display = 'none';
+            if (expiryInput) expiryInput.required = false;
+        }
+
+        if (banner) banner.style.display = 'block';
+    }
+}
+
 const editInputs = <?php echo json_encode($edit_inputs); ?>;
 const locationCategoryMap = <?php echo json_encode($locationCategoryMap); ?>;
 const DB_BRANDS = <?php echo json_encode($brands); ?>;
@@ -2679,6 +3395,7 @@ function aiProcessOcr(imageSource, isCameraSnapshot) {
             nameInput.dispatchEvent(new Event('input', { bubbles: true }));
             renderNameSuggestions([item.product_name], item.product_name);
             autoFilledCount++;
+            if (typeof checkProductDuplicateLive === 'function') checkProductDuplicateLive(item.product_name);
         }
         if (supplierInput && item.brand) {
             supplierInput.value = item.brand;
@@ -2774,6 +3491,7 @@ function aiProcessOcr(imageSource, isCameraSnapshot) {
                         nameInput.dispatchEvent(new Event('input', { bubbles: true }));
                         renderNameSuggestions([topMatch.product_name], topMatch.product_name);
                         autoFilledCount++;
+                        if (typeof checkProductDuplicateLive === 'function') checkProductDuplicateLive(topMatch.product_name);
                     }
                     if (fillSelect(catInput, topMatch.category)) autoFilledCount++;
                     if (topMatch.supplier && supplierInput) {
@@ -2811,6 +3529,7 @@ function aiProcessOcr(imageSource, isCameraSnapshot) {
                         clearAddFieldError('add-product-name', 'add-product-name-error');
                         nameInput.dispatchEvent(new Event('input', { bubbles: true }));
                         autoFilledCount++;
+                        if (typeof checkProductDuplicateLive === 'function') checkProductDuplicateLive(parsed.name);
                     }
                     if (parsed.brand && supplierInput) {
                         supplierInput.value = parsed.brand;
@@ -2832,6 +3551,7 @@ function aiProcessOcr(imageSource, isCameraSnapshot) {
                     clearAddFieldError('add-product-name', 'add-product-name-error');
                     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
                     autoFilledCount++;
+                    if (typeof checkProductDuplicateLive === 'function') checkProductDuplicateLive(parsed.name);
                 }
                 if (parsed.brand && supplierInput) {
                     supplierInput.value = parsed.brand;
@@ -2882,49 +3602,47 @@ function renderNameSuggestions(suggestions, activeName) {
         return;
     }
 
+    var currentVal = (activeName !== undefined && activeName !== null)
+        ? String(activeName).trim()
+        : (document.getElementById('add-product-name')?.value || '').trim();
+
     suggestions.forEach(function(sug) {
         if (!sug) return;
+        var sugTrim = String(sug).trim();
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'ai-suggestion-chip';
-        btn.textContent = sug;
-        btn.style.cssText = 'background:#13275B; border:1px solid #2A4484; color:#E3E3E3; border-radius:16px; padding:4px 12px; font-size:11px; cursor:pointer; font-family:"Onest",sans-serif; transition:all 0.15s; line-height:1.3; text-align:left;';
-        if (sug === activeName) {
-            btn.style.borderColor = '#51D55A';
-            btn.style.color = '#d1fae5';
-            btn.style.background = 'rgba(6,95,70,0.45)';
-        }
-        btn.onmouseover = function() { this.style.borderColor = '#51D55A'; this.style.color = '#fff'; };
-        btn.onmouseout = function() {
-            var isCurrent = (document.getElementById('add-product-name')?.value === sug);
-            this.style.borderColor = isCurrent ? '#51D55A' : '#2A4484';
-            this.style.color = isCurrent ? '#d1fae5' : '#E3E3E3';
-            this.style.background = isCurrent ? 'rgba(6,95,70,0.45)' : '#13275B';
-        };
+        btn.setAttribute('data-name', sugTrim);
+
+        var isCurrent = (sugTrim.toLowerCase() === currentVal.toLowerCase());
+        btn.className = 'ai-suggestion-chip ' + (isCurrent ? 'active' : 'inactive');
+        btn.innerHTML = (isCurrent ? '&#10003; ' : '') + escapeHtml(sugTrim);
+
         btn.onclick = function() {
-            applySuggestedName(sug);
+            applySuggestedName(sugTrim);
         };
         chipsWrap.appendChild(btn);
     });
 
-    container.style.display = 'flex';
+    container.style.display = 'block';
 }
 
 function applySuggestedName(name) {
     var input = document.getElementById('add-product-name');
+    var nameTrim = String(name || '').trim();
     if (input) {
-        input.value = name;
+        input.value = nameTrim;
         clearAddFieldError('add-product-name', 'add-product-name-error');
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.focus();
+        if (typeof checkProductDuplicateLive === 'function') checkProductDuplicateLive(nameTrim);
     }
-    // Update chip styling
+    // Update chip styling & checkmarks
     var chips = document.querySelectorAll('#add-product-name-chips .ai-suggestion-chip');
     chips.forEach(function(chip) {
-        var isMatch = chip.textContent === name;
-        chip.style.borderColor = isMatch ? '#51D55A' : '#2A4484';
-        chip.style.color = isMatch ? '#d1fae5' : '#E3E3E3';
-        chip.style.background = isMatch ? 'rgba(6,95,70,0.45)' : '#13275B';
+        var rawName = (chip.getAttribute('data-name') || chip.textContent.replace(/^✓\s*/, '')).trim();
+        var isMatch = (rawName.toLowerCase() === nameTrim.toLowerCase());
+        chip.className = 'ai-suggestion-chip ' + (isMatch ? 'active' : 'inactive');
+        chip.innerHTML = (isMatch ? '&#10003; ' : '') + escapeHtml(rawName);
     });
 }
 
@@ -3219,6 +3937,26 @@ function resetAddProductForm() {
     if (chipsWrap)            chipsWrap.innerHTML = '';
     if (rawWrap)              rawWrap.style.display = 'none';
     if (rawBox)             { rawBox.innerHTML = ''; rawBox.style.display = 'none'; }
+
+    var dupBanner = document.getElementById('add-duplicate-warning-banner');
+    if (dupBanner) dupBanner.style.display = 'none';
+    var dupBatchNotice = document.getElementById('dup-exact-batch-notice');
+    if (dupBatchNotice) dupBatchNotice.style.display = 'none';
+    var dupBadge = document.getElementById('add-variant-confirmed-badge');
+    if (dupBadge) dupBadge.style.display = 'none';
+    var confirmInput = document.getElementById('add-confirm-new-variant');
+    if (confirmInput) confirmInput.value = '0';
+    var matchedDup = document.getElementById('add-matched-duplicate-id');
+    if (matchedDup) matchedDup.value = '';
+    _isVariantConfirmed = false;
+    _lastCheckedDupName = '';
+
+    var submitBtn = document.getElementById('add-product-submit');
+    if (submitBtn) submitBtn.innerHTML = 'Save Product';
+    var expiryReqMark = document.getElementById('add-expiry-required-mark');
+    if (expiryReqMark) expiryReqMark.style.display = 'none';
+    var expiryInput = document.getElementById('add-expiry-date');
+    if (expiryInput) expiryInput.required = false;
 
     setAiStatus('Take photo or upload packaging — auto-fills product details', 'idle');
 }
@@ -3926,9 +4664,18 @@ document.getElementById('add-product-form')?.addEventListener('submit', function
     if (el) {
         el.addEventListener('input', function () {
             clearAddFieldError(pair[0], pair[1]);
+            if (pair[0] === 'add-product-name') {
+                clearTimeout(_dupCheckTimer);
+                _dupCheckTimer = setTimeout(function() {
+                    checkProductDuplicateLive();
+                }, 250);
+            }
         });
         el.addEventListener('change', function () {
             clearAddFieldError(pair[0], pair[1]);
+            if (pair[0] === 'add-product-name') {
+                checkProductDuplicateLive();
+            }
         });
     }
 });
@@ -4414,5 +5161,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 }());
 </script>
+<?php if (!empty($_SESSION['add_form_state'])): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var pendingState = <?php echo json_encode($_SESSION['add_form_state']); ?>;
+    if (typeof restoreAddFormState === 'function') {
+        restoreAddFormState(pendingState);
+    }
+});
+</script>
+<?php unset($_SESSION['add_form_state']); ?>
+<?php endif; ?>
 
 <?php renderLayoutFooter(); ?>

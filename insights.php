@@ -203,7 +203,7 @@ function getExpiryRiskAnalysis($conn) {
     return $expiryRisks;
 }
 
-// --- Fetch pre-computed analytics from Insights Microservice ---
+// --- Fetch dynamic analytics from Insights Microservice / Engine ---
 $insightsSummary = ApiClient::getInsightsSummary();
 
 $categoryPerformance = $insightsSummary['category_performance'] ?? [];
@@ -217,8 +217,14 @@ $attentionNeededCount = (int)($insightsSummary['attention_needed_count'] ?? 0);
 $fastMovingCount      = (int)($insightsSummary['fast_moving_count'] ?? 0);
 $expiringSoonCount    = (int)($insightsSummary['expiring_soon_count'] ?? 0);
 $lastUpdatedTimestamp = $insightsSummary['last_updated_formatted'] ?? date('F j, Y, g:i A');
+$studyMetadata        = $insightsSummary['study_metadata'] ?? [];
+$dbSignature          = $insightsSummary['db_signature'] ?? [];
+$clientLastTxId       = (int)($dbSignature['max_tx_id'] ?? ($studyMetadata['last_transaction_id'] ?? 0));
 
 $forecastPeriod = $_GET['forecast_period'] ?? 'monthly';
+if (!empty($_GET['highlight'])) {
+    $forecastPeriod = 'monthly';
+}
 $selectedQuarter = isset($_GET['selected_quarter']) ? intval($_GET['selected_quarter']) : ceil(date('n')/3);
 $selectedSemester = isset($_GET['selected_semester']) ? intval($_GET['selected_semester']) : (date('n') <= 6 ? 1 : 2);
 $selectedMonth = isset($_GET['selected_month']) ? intval($_GET['selected_month']) : (isset($_GET['month']) ? intval($_GET['month']) : (int)date('n'));
@@ -355,22 +361,45 @@ if (empty($forecastData)) {
     }
 }
 
-$highlightProductId = null;
-if (isset($_GET['product_id']) && (int)$_GET['product_id'] > 0) {
+$highlightProductId = 0;
+if (isset($_GET['highlight'])) {
+    $highlightProductId = (int)$_GET['highlight'];
+} elseif (isset($_GET['product_id'])) {
     $highlightProductId = (int)$_GET['product_id'];
 }
 
-if ($highlightProductId && isset($conn)) {
-    $alreadyListed = false;
-    foreach ($forecastData as &$forecastItem) {
+$highlightPageIndex = 1;
+
+if ($highlightProductId > 0 && isset($conn)) {
+    // 1. Verify product exists silently in active products
+    $chkStmt = $conn->prepare("SELECT product_id FROM products WHERE product_id = ? AND archived = 0 LIMIT 1");
+    if ($chkStmt) {
+        $chkStmt->bind_param("i", $highlightProductId);
+        $chkStmt->execute();
+        $prodRow = $chkStmt->get_result()->fetch_assoc();
+        $chkStmt->close();
+        if (!$prodRow) {
+            // Product does not exist or is archived -> ignore parameter silently
+            $highlightProductId = 0;
+        }
+    }
+}
+
+if ($highlightProductId > 0 && isset($conn)) {
+    $foundIndex = -1;
+    foreach ($forecastData as $fIdx => &$forecastItem) {
         if (isset($forecastItem['product_id']) && (int)$forecastItem['product_id'] === $highlightProductId) {
             $forecastItem['highlight'] = true;
-            $alreadyListed = true;
+            $foundIndex = $fIdx;
+        } else {
+            $forecastItem['highlight'] = false;
         }
     }
     unset($forecastItem);
 
-    if (!$alreadyListed) {
+    if ($foundIndex >= 0) {
+        $highlightPageIndex = (int)ceil(($foundIndex + 1) / 5);
+    } else {
         $productStmt = $conn->prepare("
             SELECT product_id, product_name, quantity AS current_stock, reorder_point, category AS category_name
             FROM products WHERE product_id = ?
@@ -434,6 +463,7 @@ if ($highlightProductId && isset($conn)) {
                 $productRow['insight'] = $insightData['insight'];
                 $productRow['highlight'] = true;
                 array_unshift($forecastData, $productRow);
+                $highlightPageIndex = 1;
             }
             $productStmt->close();
         }
@@ -523,6 +553,24 @@ body {
     font-family: 'Onest', sans-serif !important;
     color: var(--insights-text);
     background: var(--insights-bg);
+}
+
+@keyframes spinFast {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+.spin-anim {
+    animation: spinFast 0.75s linear infinite !important;
+}
+
+@keyframes pulseHighlight {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.06); filter: brightness(1.3) drop-shadow(0 0 8px rgba(81, 213, 90, 0.5)); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+.kpi-pulse-glow {
+    display: inline-block;
+    animation: pulseHighlight 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
@@ -701,8 +749,26 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     background: var(--insights-accent);
     border-radius: 999px;
 }
-.tab-content { display: none; animation: fadeIn 0.4s ease; }
-.tab-content.active { display: block; }
+@keyframes tabFadeIn {
+    0% { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.tab-content {
+    display: none;
+    contain: layout style;
+}
+.tab-content.active {
+    display: block;
+    animation: tabFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.iw-table-scroll {
+    transform: translateZ(0);
+    -webkit-overflow-scrolling: touch !important;
+}
+.forecast-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 500px;
+}
 /* br helpers inside tab labels — hidden globally, shown only on mobile */
 .tab-br { display: none; }
 
@@ -1428,7 +1494,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     transform: rotate(15deg); pointer-events: none; color: var(--insights-heading);
 }
 .bg-icon svg { width: 100%; height: 100%; }
-.forecast-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+.forecast-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 15px; }
 .forecast-table th {
     text-align: left; color: var(--insights-text-muted); font-size: 11px; font-weight: 700; uppercase; tracking-wider;
     padding: 12px; border-bottom: 1px solid var(--insights-border-soft); background: var(--insights-surface-alt);
@@ -1588,8 +1654,40 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     transform: translateY(1px);
 }
 
-.forecast-row--highlighted { background: rgba(81, 213, 90, 0.1) !important; }
-.forecast-row--highlighted td { border-bottom-color: rgba(81, 213, 90, 0.25) !important; }
+/* ─── Targeted Product Row Highlight (Matches Dashboard Design System) ─── */
+.forecast-row--highlighted td {
+    background-color: rgba(245, 158, 11, 0.12) !important;
+    border-top: 2px solid rgba(245, 158, 11, 0.75) !important;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.75) !important;
+    animation: forecastRowPulseDark 2s ease-out 1 forwards;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+.forecast-row--highlighted td:first-child {
+    border-left: 2px solid rgba(245, 158, 11, 0.75) !important;
+    border-top-left-radius: 14px !important;
+    border-bottom-left-radius: 14px !important;
+}
+.forecast-row--highlighted td:last-child {
+    border-right: 2px solid rgba(245, 158, 11, 0.75) !important;
+    border-top-right-radius: 14px !important;
+    border-bottom-right-radius: 14px !important;
+}
+
+@keyframes forecastRowPulseDark {
+    0% {
+        background-color: rgba(245, 158, 11, 0.32);
+        box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.8), 0 0 16px rgba(245, 158, 11, 0.35);
+    }
+    50% {
+        background-color: rgba(245, 158, 11, 0.20);
+        box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.5), 0 0 8px rgba(245, 158, 11, 0.2);
+    }
+    100% {
+        background-color: rgba(245, 158, 11, 0.12);
+        box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.25), 0 0 0 transparent;
+    }
+}
+
 
 
 /* ─── Smart Restock Visual Hierarchy ───────────────────────── */
@@ -1795,9 +1893,37 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 }
 
 [data-theme="light"] .forecast-row--highlighted td,
-[data-theme="light"] .forecast-table tbody tr.forecast-row--highlighted {
-    background: #F0FDF4 !important;
-    border-color: #86EFAC !important;
+[data-theme="light"] .forecast-table tbody tr.forecast-row--highlighted td {
+    background-color: rgba(254, 243, 199, 0.65) !important;
+    border-top: 2px solid rgba(217, 119, 6, 0.75) !important;
+    border-bottom: 2px solid rgba(217, 119, 6, 0.75) !important;
+    animation: forecastRowPulseLight 2s ease-out 1 forwards;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+[data-theme="light"] .forecast-row--highlighted td:first-child {
+    border-left: 2px solid rgba(217, 119, 6, 0.75) !important;
+    border-top-left-radius: 14px !important;
+    border-bottom-left-radius: 14px !important;
+}
+[data-theme="light"] .forecast-row--highlighted td:last-child {
+    border-right: 2px solid rgba(217, 119, 6, 0.75) !important;
+    border-top-right-radius: 14px !important;
+    border-bottom-right-radius: 14px !important;
+}
+
+@keyframes forecastRowPulseLight {
+    0% {
+        background-color: #FDE68A;
+        box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.6), 0 0 14px rgba(217, 119, 6, 0.25);
+    }
+    50% {
+        background-color: #FEF3C7;
+        box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.4), 0 0 6px rgba(217, 119, 6, 0.15);
+    }
+    100% {
+        background-color: rgba(254, 243, 199, 0.65);
+        box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.2), 0 0 0 transparent;
+    }
 }
 
 [data-theme="light"] .forecast-table .product-title {
@@ -2247,7 +2373,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                 Smart Insights &amp; Analytics
             </h1>
             <p class="insights-hero-desc text-sm text-[#9aa6d1] mt-1 max-w-2xl font-onest">
-                Advanced analytics powered by data mining algorithms — forecast demand, identify movement trends, and optimize warehouse restocking decisions.
+                Advanced analytics powered by data mining algorithms — dynamically studying warehouse database events, tracking real-time sales velocity, and generating automated restock intelligence.
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2.5">
@@ -2269,7 +2395,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
             <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalProducts); ?></span>
+                <span class="num text-3xl" id="numTotalProducts" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($totalProducts); ?></span>
             </div>
             <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;">Active catalog SKUs</div>
         </div>
@@ -2282,9 +2408,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Low & Out of Stock</div>
             <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($attentionNeededCount); ?></span>
+                <span class="num text-3xl" id="numAttentionNeeded" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($attentionNeededCount); ?></span>
             </div>
-            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $attentionNeededCount === 0 ? 'All items well-stocked' : ($attentionNeededCount === 1 ? '1 item needs reorder' : number_format($attentionNeededCount) . ' items need reorder'); ?></div>
+            <div class="stat-card-sub mt-1 font-onest" id="subAttentionNeeded" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $attentionNeededCount === 0 ? 'All items well-stocked' : ($attentionNeededCount === 1 ? '1 item needs reorder' : number_format($attentionNeededCount) . ' items need reorder'); ?></div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
@@ -2295,7 +2421,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Fast Moving</div>
             <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($fastMovingCount); ?></span>
+                <span class="num text-3xl" id="numFastMoving" style="background: linear-gradient(135deg, #34d399 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($fastMovingCount); ?></span>
             </div>
             <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;">High sales velocity</div>
         </div>
@@ -2308,9 +2434,9 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Expiring Soon</div>
             <div class="premium-metric">
-                <span class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($expiringSoonCount); ?></span>
+                <span class="num text-3xl" id="numExpiringSoon" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($expiringSoonCount); ?></span>
             </div>
-            <div class="stat-card-sub mt-1 font-onest" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $expiringSoonCount === 0 ? 'No batches near expiry' : ($expiringSoonCount === 1 ? '1 batch expiring in 30d' : number_format($expiringSoonCount) . ' batches expiring in 30d'); ?></div>
+            <div class="stat-card-sub mt-1 font-onest" id="subExpiringSoon" style="text-transform: none !important; letter-spacing: normal !important;"><?php echo $expiringSoonCount === 0 ? 'No batches near expiry' : ($expiringSoonCount === 1 ? '1 batch expiring in 30d' : number_format($expiringSoonCount) . ' batches expiring in 30d'); ?></div>
         </div>
         <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
@@ -2331,7 +2457,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         <div class="card-section-title" style="margin-bottom: 16px;">Product Movement Analysis</div>
         <div class="search-filter-container">
             <div class="search-input-group flex items-center gap-2 flex-1 w-full min-w-0">
-                <input type="text" id="productSearch" oninput="currentProductPage = 1; filterProductTable();" onkeydown="if(event.key==='Enter'){event.preventDefault(); currentProductPage = 1; filterProductTable();}" class="search-box flex-1 min-w-0" style="height: 42px; width: 100%;" placeholder="Search products...">
+                <input type="text" id="productSearch" oninput="debouncedSearchInput();" onkeydown="if(event.key==='Enter'){event.preventDefault(); currentProductPage = 1; filterProductTable();}" class="search-box flex-1 min-w-0" style="height: 42px; width: 100%;" placeholder="Search products...">
                 <button type="button" onclick="currentProductPage = 1; filterProductTable();" class="btn-secondary h-[42px] w-[42px] min-w-[42px] flex items-center justify-center shrink-0 rounded-xl" style="padding:0;" title="Search Products" aria-label="Search">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </button>
@@ -2375,12 +2501,12 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     </tr>
                 </thead>
                 <tbody id="productTableBody">
-                    <?php foreach ($productMovement as $index => $product): ?>
+                    <?php foreach (array_slice($productMovement, 0, 8) as $index => $product): ?>
                     <tr data-category="<?php echo htmlspecialchars($product['category_name']); ?>"
                         data-movement="<?php echo $product['movement_class']; ?>"
                         data-stock="<?php echo $product['stock_status']; ?>"
-                        class="product-row <?php echo $index >= 8 ? 'hidden' : ''; ?>"
-                        <?php echo $index >= 8 ? 'style="display: none !important;"' : ''; ?>>
+                        data-matched="true"
+                        class="product-row">
                         <td style="font-weight: 500; color: #fff;"><?php echo htmlspecialchars($product['product_name']); ?></td>
                         <td style="color: #9aa6d1;"><?php echo htmlspecialchars($product['category_name']); ?></td>
                         <td><?php echo $product['current_stock']; ?></td>
@@ -2547,9 +2673,6 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
             <!-- PH Seasonal Guide button replaced by floating FAB (see #phSeasonalFab) -->
         </div>
     </div>
-
-    <!-- Gemini AI Real-Time Philippine Market Pulse & Consumer Demand Intelligence -->
-    <?php require __DIR__ . '/src/partials/gemini_market_pulse_card.php'; ?>
 
     <div class="smart-restock-banner">
         <div class="bg-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg></div>
@@ -2798,7 +2921,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 </div>
 
 <div class="info-tooltip" id="sales-forecast-tooltip"><strong><?php echo $daysLookback; ?>-Day Sales Forecast</strong><br><br>• <strong>Green Line:</strong> Historical daily sales from transactions<br>• <strong>Orange Dashed Line:</strong> ML-predicted future demand<br>• Powered by Prophet or Random Forest model<br>• Train the model from Settings to enable predictions</div>
-<div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• Shows top products by forecasted demand<br>• <span style="color: #ef4444">High</span> = 50+ units (Priority restock)<br>• <span style="color: #f59e0b">Medium-High</span> = 25-50 units<br>• <span style="color: #3b82f6">Medium</span> = 10-25 units<br>• <span style="color: #10b981">Low</span> = Under 10 units</div>
+<div class="info-tooltip" id="heatmap-tooltip"><strong>Product Demand Heatmap</strong><br><br>• <strong>Real-Time 30-Day Forecast:</strong> Dynamic projection combining live sales velocity from actual transactions with ML forecast models.<br>• <span style="color: #ef4444">Critical / Red:</span> High velocity with stockout risk in &lt; 7 days (or currently out of stock).<br>• <span style="color: #f59e0b">Warning / Amber:</span> Stockout risk within 8–15 days.<br>• <span style="color: #3b82f6">High Demand / Blue:</span> Strong sales velocity with healthy stock.<br>• <span style="color: #10b981">Stable / Green:</span> Steady demand with safe inventory levels.</div>
 <div class="info-tooltip" id="seasonal-tooltip"><strong>Seasonal Demand Patterns</strong><br><br>• <strong>Green:</strong> Historical monthly sales from transactions<br>• <strong>Orange:</strong> ML forecasted demand for upcoming months<br>• <strong>Purple dashed:</strong> Trend line projection<br>• Identifies monthly peaks, declines, and seasonality</div>
 <div class="info-tooltip" id="accuracy-tooltip"><strong>Forecast Accuracy</strong><br><br>• Calculated from backtest: predicted vs actual sales<br>• <strong>MAE:</strong> Mean Absolute Error (units)<br>• <strong>MAPE:</strong> Mean Absolute Percentage Error<br>• <strong>Accuracy %</strong> = 100 − MAPE<br>• Segment chart shows accuracy by product movement class</div>
 <div class="info-tooltip" id="depletion-tooltip"><strong>Stock Depletion Trend</strong><br><br>• Compares monthly stock-outs against replenishment activity<br>• Helps identify where inventory is draining faster than it is restocked</div>
@@ -2809,7 +2932,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
         <div class="recommendation-card success">
             <div class="card-label">High Priority Restock</div>
-            <div class="card-copy">
+            <div class="card-copy" id="recomRestockCopy">
                 <?php
                 $urgentOos = count(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'out_of_stock'; }));
                 $urgentLow = count(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'low_stock'; }));
@@ -2845,7 +2968,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
                     </svg>
                 </span>
             </div>
-            <div class="card-copy">
+            <div class="card-copy" id="recomSeasonalCopy">
                 <?php
                 $mCount = count($allSeasonalMonthsData[$selectedMonth]['items'] ?? []);
                 $mName = $activeMonthProfile['name'] ?? date('F');
@@ -2856,7 +2979,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         </div>
         <div class="recommendation-card info">
             <div class="card-label">Optimize Inventory</div>
-            <div class="card-copy">
+            <div class="card-copy" id="recomOverstockedCopy">
                 <?php
                 $overstocked = array_values(array_filter($productMovement, function($p) { return ($p['stock_status'] ?? '') === 'overstocked'; }));
                 $overstockedCount = count($overstocked);
@@ -2871,7 +2994,7 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         </div>
         <div class="recommendation-card purple">
             <div class="card-label">Promotional Opportunities</div>
-            <div class="card-copy">
+            <div class="card-copy" id="recomSlowMovingCopy">
                 <?php
                 $slowMoving = array_values(array_filter($productMovement, function($p) { return ($p['movement_class'] ?? '') === 'slow_moving' && ($p['current_stock'] ?? 0) > 20; }));
                 $slowCount = count($slowMoving);
@@ -2975,12 +3098,22 @@ function renderPagination(tableBodyId, paginationId, pageVar, setPageFunc, custo
     }
 }
 
-let categoryPage = 1, trendsPage = 1, supplierPage = 1, expiryPage = 1, forecastPage = 1, seasonalModalPage = 1;
+const initialForecastPage = <?php echo (int)($highlightPageIndex ?? 1); ?>;
+let categoryPage = 1, trendsPage = 1, supplierPage = 1, expiryPage = 1, forecastPage = initialForecastPage, seasonalModalPage = 1;
 window.setCategoryPage = (p) => { categoryPage = p; renderPagination('categoryTableBody', 'categoryPagination', categoryPage, 'setCategoryPage'); };
 window.setTrendsPage = (p) => { trendsPage = p; renderPagination('trendsTableBody', 'trendsPagination', trendsPage, 'setTrendsPage'); };
 window.setSupplierPage = (p) => { supplierPage = p; renderPagination('supplierTableBody', 'supplierPagination', supplierPage, 'setSupplierPage'); };
 window.setExpiryPage = (p) => { expiryPage = p; renderPagination('expiryTableBody', 'expiryPagination', expiryPage, 'setExpiryPage'); };
-window.setForecastPage = (p) => { forecastPage = p; renderPagination('forecastTableBody', 'forecastPagination', forecastPage, 'setForecastPage', 5); };
+window.setForecastPage = (p) => { 
+    forecastPage = p; 
+    renderPagination('forecastTableBody', 'forecastPagination', forecastPage, 'setForecastPage', 5); 
+    if (window.location.search && (window.location.search.includes('highlight=') || window.location.search.includes('product_id='))) {
+        const u = new URL(window.location.href);
+        u.searchParams.delete('highlight');
+        u.searchParams.delete('product_id');
+        window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    }
+};
 
 let currentSeasonalModalItems = [];
 let currentSeasonalPeriodName = '';
@@ -3198,11 +3331,19 @@ window.setSeasonalModalPage = function(page) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    setCategoryPage(1); setTrendsPage(1); setSupplierPage(1); setExpiryPage(1); setForecastPage(1);
+    setCategoryPage(1); setTrendsPage(1); setSupplierPage(1); setExpiryPage(1); setForecastPage(initialForecastPage);
     const initData = (allSeasonalMonthsData && (allSeasonalMonthsData[currentModalMonth] || allSeasonalMonthsData[String(currentModalMonth)])) || {};
     currentSeasonalModalItems = Array.isArray(initData) ? initData : (initData.items || []);
     currentSeasonalPeriodName = (philippineProfiles && philippineProfiles[currentModalMonth]) ? philippineProfiles[currentModalMonth].month_name : '';
     setSeasonalModalPage(1);
+    <?php if ($highlightProductId > 0): ?>
+    setTimeout(function() {
+        const hlRow = document.getElementById('highlighted-product-row');
+        if (hlRow) {
+            hlRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    }, 180);
+    <?php endif; ?>
 });
 
 // ------------------------
@@ -3215,10 +3356,13 @@ if (typeof Chart !== 'undefined') {
     Chart.defaults.font.size = 12;
 }
 
-const categoriesLabels = <?php echo json_encode(array_column($categoryPerformance, 'category_name')); ?>;
-const monthlySalesData = <?php echo json_encode(array_column($categoryPerformance, 'monthly_sales')); ?>;
-const salesTrendsData = <?php echo json_encode(array_reverse($salesTrends)); ?>;
-const topProductsData = <?php echo json_encode(array_slice($productMovement, 0, 8)); ?>;
+let categoriesLabels = <?php echo json_encode(array_column($categoryPerformance, 'category_name')); ?>;
+let monthlySalesData = <?php echo json_encode(array_column($categoryPerformance, 'monthly_sales')); ?>;
+let salesTrendsData = <?php echo json_encode(array_reverse($salesTrends)); ?>;
+let topProductsData = <?php echo json_encode(array_slice($productMovement, 0, 8)); ?>;
+let allProductMovementData = <?php echo json_encode($productMovement); ?>;
+window.allProductMovementData = allProductMovementData;
+let clientLastTxId = <?php echo (int)$clientLastTxId; ?>;
 const daysLookback = <?php echo $daysLookback; ?>;
 const hasMlModel = <?php echo $hasMlModel ? 'true' : 'false'; ?>;
 const seasonalChartData = <?php echo json_encode($seasonalChartData); ?>;
@@ -3240,22 +3384,36 @@ let currentModalQuarter = <?php echo $selectedQuarter; ?>;
 let currentModalSemester = <?php echo $selectedSemester; ?>;
 
 window.openPhilippineSeasonalModal = function(horizon, key) {
+    const modal = document.getElementById('philippineSeasonalModal');
+    if (!modal) return;
+
+    if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
+
+    if (horizon === 'gemini') {
+        modal.classList.add('open');
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        if (typeof window.switchPhModalView === 'function') {
+            window.switchPhModalView('gemini');
+        }
+        return;
+    }
+
     if (horizon) currentHorizon = horizon;
     if (horizon === 'quarterly' && key) currentModalQuarter = parseInt(key, 10);
     else if (horizon === 'semi-annual' && key) currentModalSemester = parseInt(key, 10);
     else if (key) currentModalMonth = parseInt(key, 10);
 
-    const modal = document.getElementById('philippineSeasonalModal');
-    if (modal) {
-        if (modal.parentElement !== document.body) {
-            document.body.appendChild(modal);
-        }
-        seasonalModalPage = 1;
-        window.switchSeasonalHorizon(currentHorizon);
-        modal.classList.add('open');
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+    seasonalModalPage = 1;
+    window.switchSeasonalHorizon(currentHorizon);
+    if (typeof window.switchPhModalView === 'function') {
+        window.switchPhModalView('calendar');
     }
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 };
 
 window.closePhilippineSeasonalModal = function() {
@@ -3763,6 +3921,8 @@ function loadForecastContent(e, url) {
         if (typeof setForecastPage === 'function') {
             setForecastPage(1);
         }
+        window._forecastChartsRendered = false;
+        renderAllForecastCharts();
         
         window.history.pushState({}, '', url);
         
@@ -3778,8 +3938,13 @@ function loadForecastContent(e, url) {
 }
 
 function renderCategoryChart() {
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-    if (window.categoryChartInstance) window.categoryChartInstance.destroy();
+    const canvas = document.getElementById('categoryChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window.categoryChartInstance) {
+        window.categoryChartInstance.destroy();
+        window.categoryChartInstance = null;
+    }
 
     window.categoryChartInstance = new Chart(ctx, {
         type: 'bar',
@@ -3796,6 +3961,7 @@ function renderCategoryChart() {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
@@ -3806,8 +3972,13 @@ function renderCategoryChart() {
 }
 
 function renderSalesTrendChart() {
-    const ctx = document.getElementById('salesTrendChart').getContext('2d');
-    if (window.trendChartInstance) window.trendChartInstance.destroy();
+    const canvas = document.getElementById('salesTrendChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window.trendChartInstance) {
+        window.trendChartInstance.destroy();
+        window.trendChartInstance = null;
+    }
 
     const dates = salesTrendsData.map(trend => trend.sale_date);
     const quantities = salesTrendsData.map(trend => trend.total_quantity_sold);
@@ -3836,6 +4007,7 @@ function renderSalesTrendChart() {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { color: '#9aa6d1' } }
@@ -3846,11 +4018,17 @@ function renderSalesTrendChart() {
 }
 
 function renderSalesForecastChart() {
-    const ctx = document.getElementById('salesForecastChart').getContext('2d');
+    const canvas = document.getElementById('salesForecastChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window.salesForecastChartInstance) {
+        window.salesForecastChartInstance.destroy();
+        window.salesForecastChartInstance = null;
+    }
 
     let labels, historicalVals, forecastVals;
 
-    if (hasMlModel && salesForecastChartData.has_predictions) {
+    if (hasMlModel && salesForecastChartData && salesForecastChartData.has_predictions) {
         labels = salesForecastChartData.labels.map((d, i) => d || `Day ${i + 1}`);
         historicalVals = salesForecastChartData.historical;
         forecastVals = salesForecastChartData.predicted;
@@ -3860,7 +4038,7 @@ function renderSalesForecastChart() {
         forecastVals = historicalVals.map(() => null);
     }
 
-    new Chart(ctx, {
+    window.salesForecastChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
@@ -3890,6 +4068,7 @@ function renderSalesForecastChart() {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { display: false, maxTicksLimit: 10 } }
@@ -3899,54 +4078,124 @@ function renderSalesForecastChart() {
     });
 }
 
-function renderDemandHeatmapChart() {
+function renderDemandHeatmapChart(customData) {
     const canvas = document.getElementById('demandHeatmapChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-
-    let productNames = [], forecastDemand = [];
-
-    if (hasMlModel && heatmapForecastData && heatmapForecastData.available && heatmapForecastData.labels.length > 0) {
-        productNames = heatmapForecastData.labels.map(n => n.length > 15 ? n.substring(0, 15) + '...' : n);
-        forecastDemand = heatmapForecastData.demand.map(d => Number(d) || 0);
-    } else if (topProductsData && topProductsData.length > 0) {
-        productNames = topProductsData.map(p => (p.product_name || 'Item').length > 15 ? (p.product_name || 'Item').substring(0, 15) + '...' : (p.product_name || 'Item'));
-        forecastDemand = topProductsData.map(p => Number(p.monthly_sales) || 0);
+    if (window.demandHeatmapChartInstance) {
+        window.demandHeatmapChartInstance.destroy();
+        window.demandHeatmapChartInstance = null;
     }
 
-    if (productNames.length === 0) return;
+    const dataSource = customData || (typeof heatmapForecastData !== 'undefined' ? heatmapForecastData : null);
+    let items = [];
 
-    // Calculate dynamic demand thresholds based on actual distribution in the dataset
-    const maxDemand = Math.max(...forecastDemand, 1);
-    const highThreshold = maxDemand * 0.75;
-    const medThreshold  = maxDemand * 0.45;
-    const lowThreshold  = maxDemand * 0.20;
+    if (dataSource && dataSource.items && dataSource.items.length > 0) {
+        items = dataSource.items;
+    } else if (dataSource && dataSource.labels && dataSource.labels.length > 0) {
+        items = dataSource.labels.map((name, i) => ({
+            product_name: name,
+            forecast_demand: Number(dataSource.demand[i]) || 0,
+            unit: 'units',
+            sales_30d: Number(dataSource.demand[i]) || 0,
+            daily_velocity: Math.round(((Number(dataSource.demand[i]) || 0) / 30) * 10) / 10,
+            current_stock: 0,
+            days_of_supply: 999,
+            stock_status: 'normal'
+        }));
+    } else if (typeof topProductsData !== 'undefined' && topProductsData && topProductsData.length > 0) {
+        items = topProductsData.map(p => ({
+            product_name: p.product_name || 'Item',
+            forecast_demand: Number(p.monthly_sales) || 0,
+            unit: p.unit || 'units',
+            sales_30d: Number(p.monthly_sales) || 0,
+            daily_velocity: Number(p.daily_sales_velocity) || 0,
+            current_stock: Number(p.current_stock) || 0,
+            days_of_supply: Number(p.days_of_supply) || 999,
+            stock_status: p.stock_status || 'normal'
+        }));
+    }
 
-    new Chart(ctx, {
+    if (items.length === 0) return;
+
+    // Display labels with clear readability (up to 24 chars) and ellipsis
+    const displayLabels = items.map(it => {
+        const name = it.product_name || 'Item';
+        return name.length > 24 ? name.substring(0, 24) + '…' : name;
+    });
+    const forecastDemand = items.map(it => Number(it.forecast_demand) || 0);
+
+    // Dynamic, operational urgency color coding
+    const backgroundColors = items.map(it => {
+        if (it.current_stock <= 0) return '#ef4444'; // Out of stock (Critical alert)
+        if (it.days_of_supply <= 7) return '#f87171'; // Critical stockout risk (< 7 days)
+        if (it.days_of_supply <= 15) return '#f59e0b'; // Low supply warning
+        if (it.forecast_demand >= 150) return '#3b82f6'; // High velocity mover
+        return '#10b981'; // Steady safe inventory
+    });
+
+    window.demandHeatmapChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: productNames,
+            labels: displayLabels,
             datasets: [{
-                label: 'Forecasted Demand',
+                label: '30-Day Forecast Demand',
                 data: forecastDemand,
-                backgroundColor: forecastDemand.map(d => {
-                    if (d <= 0) return '#51D55A';
-                    if (d >= highThreshold) return '#ef4444';
-                    if (d >= medThreshold) return '#f59e0b';
-                    if (d >= lowThreshold) return '#3b82f6';
-                    return '#51D55A';
-                }),
-                borderRadius: 4
+                backgroundColor: backgroundColors,
+                borderRadius: 6,
+                borderSkipped: false
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true, maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
-                x: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                y: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+                x: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(42, 68, 132, 0.3)' },
+                    ticks: { color: '#E3E3E3', font: { family: 'Onest', size: 11 } },
+                    title: { display: true, text: 'Projected 30-Day Demand (Units)', color: '#9AA6D1', font: { size: 11 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#E3E3E3', font: { family: 'Onest', size: 11, weight: '500' } }
+                }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#F8FAFC',
+                    titleFont: { size: 13, weight: 'bold', family: 'Onest' },
+                    bodyColor: '#CBD5E1',
+                    bodyFont: { size: 12, family: 'Onest' },
+                    borderColor: 'rgba(42, 68, 132, 0.6)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            const idx = context[0].dataIndex;
+                            return items[idx] ? items[idx].product_name : context[0].label;
+                        },
+                        label: function(context) {
+                            const idx = context.dataIndex;
+                            const it = items[idx];
+                            if (!it) return `30-Day Forecast Demand: ${context.parsed.x} units`;
+                            const statusClean = (it.stock_status || 'normal').replace(/_/g, ' ').toUpperCase();
+                            const supplyText = it.days_of_supply < 900 ? `${it.days_of_supply} days supply` : 'Ample supply';
+                            return [
+                                `• 30-Day Forecast Demand: ${it.forecast_demand} ${it.unit}`,
+                                `• Past 30-Day Sales: ${it.sales_30d} ${it.unit} (${it.daily_velocity}/day)`,
+                                `• Current Stock: ${it.current_stock} ${it.unit} (${supplyText})`,
+                                `• Status: ${statusClean}`
+                            ];
+                        }
+                    }
+                }
+            }
         }
     });
 }
@@ -3956,7 +4205,12 @@ function renderDepletionTrendChart() {
     if (!canvas || !depletionTrendData || !depletionTrendData.available) return;
 
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    if (window.depletionTrendChartInstance) {
+        window.depletionTrendChartInstance.destroy();
+        window.depletionTrendChartInstance = null;
+    }
+
+    window.depletionTrendChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: depletionTrendData.labels,
@@ -3982,6 +4236,7 @@ function renderDepletionTrendChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
@@ -3993,10 +4248,15 @@ function renderDepletionTrendChart() {
 
 function renderReorderFrequencyChart() {
     const canvas = document.getElementById('reorderFrequencyChart');
-    if (!canvas || !reorderFrequencyData.available) return;
+    if (!canvas || !reorderFrequencyData || !reorderFrequencyData.available) return;
 
     const ctx = canvas.getContext('2d');
-    new Chart(ctx, {
+    if (window.reorderFrequencyChartInstance) {
+        window.reorderFrequencyChartInstance.destroy();
+        window.reorderFrequencyChartInstance = null;
+    }
+
+    window.reorderFrequencyChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: reorderFrequencyData.labels,
@@ -4025,6 +4285,7 @@ function renderReorderFrequencyChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
@@ -4035,11 +4296,17 @@ function renderReorderFrequencyChart() {
 }
 
 function renderSeasonalChart() {
-    if (!hasMlModel || !seasonalChartData.available) return;
+    if (!hasMlModel || !seasonalChartData || !seasonalChartData.available) return;
 
-    const ctx = document.getElementById('seasonalChart').getContext('2d');
+    const canvas = document.getElementById('seasonalChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window.seasonalChartInstance) {
+        window.seasonalChartInstance.destroy();
+        window.seasonalChartInstance = null;
+    }
 
-    new Chart(ctx, {
+    window.seasonalChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: seasonalChartData.labels,
@@ -4079,6 +4346,7 @@ function renderSeasonalChart() {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
                 x: { grid: { display: false }, ticks: { color: '#E3E3E3', font: { size: 9 }, maxRotation: 45 } }
@@ -4091,11 +4359,17 @@ function renderSeasonalChart() {
 function renderAccuracyChart() {
     if (!hasMlModel) return;
 
-    const ctx = document.getElementById('accuracyChart').getContext('2d');
+    const canvas = document.getElementById('accuracyChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window.accuracyChartInstance) {
+        window.accuracyChartInstance.destroy();
+        window.accuracyChartInstance = null;
+    }
     const segLabels = Object.keys(segmentAccuracy);
     const segValues = Object.values(segmentAccuracy);
 
-    new Chart(ctx, {
+    window.accuracyChartInstance = new Chart(ctx, {
         type: 'radar',
         data: {
             labels: segLabels,
@@ -4110,6 +4384,7 @@ function renderAccuracyChart() {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            animation: { duration: 350 },
             scales: {
                 r: {
                     angleLines: { color: 'rgba(42, 68, 132, 0.3)' },
@@ -4124,19 +4399,51 @@ function renderAccuracyChart() {
     });
 }
 
+window._forecastChartsRendered = false;
+function renderAllForecastCharts() {
+    window._forecastChartsRendered = true;
+    requestAnimationFrame(() => {
+        renderSalesForecastChart();
+        renderDemandHeatmapChart();
+        renderDepletionTrendChart();
+        renderReorderFrequencyChart();
+        renderSeasonalChart();
+        renderAccuracyChart();
+    });
+}
+window.renderAllForecastCharts = renderAllForecastCharts;
+
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
+        const targetTabId = tab.getAttribute('data-tab');
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
-        document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
-        if (tab.getAttribute('data-tab') === 'category-performance') { renderCategoryChart(); } 
-        else if (tab.getAttribute('data-tab') === 'sales-trends') { renderSalesTrendChart(); }
+        const targetContent = document.getElementById(targetTabId);
+        if (targetContent) {
+            targetContent.classList.add('active');
+        }
+        if (targetTabId === 'category-performance') { 
+            requestAnimationFrame(() => renderCategoryChart()); 
+        } else if (targetTabId === 'sales-trends') { 
+            requestAnimationFrame(() => renderSalesTrendChart()); 
+        }
     });
 });
 
 let currentProductPage = 1;
 const productsPerPage = 8;
+window.currentMatchingProducts = [];
+
+let _searchDebounceTimer = null;
+function debouncedSearchInput() {
+    clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(() => {
+        currentProductPage = 1;
+        filterProductTable();
+    }, 120);
+}
+window.debouncedSearchInput = debouncedSearchInput;
 
 function filterProductTable() {
     const searchEl = document.getElementById('productSearch');
@@ -4145,78 +4452,89 @@ function filterProductTable() {
     const stockEl = document.getElementById('stockFilter');
 
     const searchTerm = (searchEl ? searchEl.value : '').toLowerCase().trim();
-    const categoryFilter = categoryEl ? categoryEl.value : '';
-    const movementFilter = movementEl ? movementEl.value : '';
-    const stockFilter = stockEl ? stockEl.value : '';
-    
-    const allRows = document.querySelectorAll('#productTableBody tr');
-    let matchingRows = [];
-    
-    allRows.forEach(row => {
-        if (row.id === 'noProductMatchRow') return;
-        if (!row.cells || row.cells.length < 8) return;
+    const rawCategory = (categoryEl ? categoryEl.value : '').trim();
+    const categoryFilter = rawCategory.toLowerCase();
+    const movementFilter = (movementEl ? movementEl.value : '').toLowerCase().trim();
+    const stockFilter = (stockEl ? stockEl.value : '').toLowerCase().trim();
 
-        const productName = (row.cells[0].textContent || '').toLowerCase().trim();
-        const category = (row.getAttribute('data-category') || row.dataset.category || '').trim();
-        const movement = (row.getAttribute('data-movement') || row.dataset.movement || '').trim();
-        const stock = (row.getAttribute('data-stock') || row.dataset.stock || '').trim();
-        
-        const matchesSearch = !searchTerm || productName.includes(searchTerm) || category.toLowerCase().includes(searchTerm) || (row.textContent || '').toLowerCase().includes(searchTerm);
-        const matchesCategory = !categoryFilter || category.toLowerCase() === categoryFilter.toLowerCase();
-        const matchesMovement = !movementFilter || movement.toLowerCase() === movementFilter.toLowerCase();
-        const matchesStock = !stockFilter || (stockFilter === 'attention_needed' && (stock.toLowerCase() === 'low_stock' || stock.toLowerCase() === 'out_of_stock')) || stock.toLowerCase() === stockFilter.toLowerCase();
-        
+    // Live update Product Demand Heatmap when category filter changes
+    if (window._currentHeatmapCat !== rawCategory) {
+        window._currentHeatmapCat = rawCategory;
+        const url = 'api/ml/forecast_data.php' + (rawCategory ? '?category=' + encodeURIComponent(rawCategory) : '');
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.heatmap) {
+                    renderDemandHeatmapChart(data.heatmap);
+                }
+            })
+            .catch(err => console.warn('[Heatmap Filter Sync]', err));
+    }
+
+    const dataList = window.allProductMovementData || [];
+    let matchingItems = [];
+
+    for (let i = 0; i < dataList.length; i++) {
+        const p = dataList[i];
+        const pName = (p.product_name || '').toLowerCase();
+        const cat = (p.category_name || '').toLowerCase();
+        const mov = (p.movement_class || '').toLowerCase();
+        const st = (p.stock_status || '').toLowerCase();
+
+        const matchesSearch = !searchTerm || pName.includes(searchTerm) || cat.includes(searchTerm);
+        const matchesCategory = !categoryFilter || cat === categoryFilter;
+        const matchesMovement = !movementFilter || mov === movementFilter;
+        const matchesStock = !stockFilter 
+            || (stockFilter === 'attention_needed' && (st === 'low_stock' || st === 'out_of_stock')) 
+            || st === stockFilter;
+
         if (matchesSearch && matchesCategory && matchesMovement && matchesStock) {
-            row.setAttribute('data-matched', 'true');
-            matchingRows.push(row);
-        } else {
-            row.setAttribute('data-matched', 'false');
-            row.style.setProperty('display', 'none', 'important');
-            row.classList.add('hidden');
+            matchingItems.push(p);
         }
-    });
-    
-    const totalMatches = matchingRows.length;
+    }
+
+    window.currentMatchingProducts = matchingItems;
+    const totalMatches = matchingItems.length;
     const totalPages = Math.ceil(totalMatches / productsPerPage) || 1;
-    
-    if (currentProductPage > totalPages) {
-        currentProductPage = totalPages;
-    }
-    if (currentProductPage < 1) {
-        currentProductPage = 1;
-    }
-    
+
+    if (currentProductPage > totalPages) currentProductPage = totalPages;
+    if (currentProductPage < 1) currentProductPage = 1;
+
     const startIndex = (currentProductPage - 1) * productsPerPage;
     const endIndex = Math.min(startIndex + productsPerPage, totalMatches);
-    
-    matchingRows.forEach((row, index) => {
-        if (index >= startIndex && index < endIndex) {
-            row.style.removeProperty('display');
-            row.classList.remove('hidden');
-        } else {
-            row.style.setProperty('display', 'none', 'important');
-            row.classList.add('hidden');
-        }
-    });
+    const visiblePageItems = matchingItems.slice(startIndex, endIndex);
 
-    // Empty state handling
-    let noMatchRow = document.getElementById('noProductMatchRow');
-    if (totalMatches === 0) {
-        if (!noMatchRow) {
-            noMatchRow = document.createElement('tr');
-            noMatchRow.id = 'noProductMatchRow';
-            noMatchRow.innerHTML = '<td colspan="8" style="text-align:center; padding:32px 16px; color:#9aa6d1; font-size:14px; position:static !important; background:transparent !important; box-shadow:none !important;">No products match the selected criteria.</td>';
-            const tbody = document.getElementById('productTableBody');
-            if (tbody) tbody.appendChild(noMatchRow);
+    const tbody = document.getElementById('productTableBody');
+    if (tbody) {
+        if (totalMatches === 0) {
+            tbody.innerHTML = '<tr id="noProductMatchRow"><td colspan="8" style="text-align:center; padding:32px 16px; color:#9aa6d1; font-size:14px; position:static !important; background:transparent !important; box-shadow:none !important;">No products match the selected criteria.</td></tr>';
         } else {
-            noMatchRow.style.removeProperty('display');
-            noMatchRow.classList.remove('hidden');
+            tbody.innerHTML = visiblePageItems.map(p => {
+                const catEsc = escapeHtml(p.category_name || '');
+                const movEsc = escapeHtml(p.movement_class || 'steady');
+                const stEsc = escapeHtml(p.stock_status || 'normal');
+                const pNameEsc = escapeHtml(p.product_name || 'Product');
+                const stockNum = Number(p.current_stock || 0);
+                const salesNum = Number(p.monthly_sales || 0);
+                const velNum = Number(p.daily_sales_velocity || 0).toFixed(2);
+                const daysNum = Number(p.days_of_supply || 0);
+                const movText = formatBadgeText(movEsc);
+                const stText = formatBadgeText(stEsc);
+
+                return `<tr data-category="${catEsc}" data-movement="${movEsc}" data-stock="${stEsc}" data-matched="true" class="product-row">
+                    <td style="font-weight: 500; color: #fff;">${pNameEsc}</td>
+                    <td style="color: #9aa6d1;">${catEsc}</td>
+                    <td>${stockNum}</td>
+                    <td>${salesNum}</td>
+                    <td>${velNum}</td>
+                    <td>${daysNum}</td>
+                    <td><span class="badge ${movEsc}">${movText}</span></td>
+                    <td><span class="badge ${stEsc}">${stText}</span></td>
+                </tr>`;
+            }).join('');
         }
-    } else if (noMatchRow) {
-        noMatchRow.style.setProperty('display', 'none', 'important');
-        noMatchRow.classList.add('hidden');
     }
-    
+
     // Update pagination controls UI
     const infoStart = document.getElementById('paginationInfoStart');
     const infoEnd = document.getElementById('paginationInfoEnd');
@@ -4224,7 +4542,7 @@ function filterProductTable() {
     if (infoStart) infoStart.textContent = totalMatches > 0 ? startIndex + 1 : 0;
     if (infoEnd) infoEnd.textContent = endIndex;
     if (infoTotal) infoTotal.textContent = totalMatches;
-    
+
     const prevBtn = document.getElementById('prevPageBtn');
     const nextBtn = document.getElementById('nextPageBtn');
     if (prevBtn) {
@@ -4304,7 +4622,7 @@ function initProductFilters() {
     var nextPageBtn     = document.getElementById('nextPageBtn');
 
     if (productSearch) {
-        productSearch.oninput = function () { currentProductPage = 1; filterProductTable(); };
+        productSearch.oninput = debouncedSearchInput;
     }
 
     function bindSelectFilter(el) {
@@ -4390,20 +4708,32 @@ function filterData(filterType) {
 function refreshAnalysis() { location.reload(); }
 function generateReport() { alert('PDF report generation feature coming soon!'); }
 function exportData() {
-    const activeTab = document.querySelector('.tab-content.active').id;
+    const activeTabEl = document.querySelector('.tab-content.active');
+    const activeTab = activeTabEl ? activeTabEl.id : 'product-analysis';
     let csv = '';
     let filename = '';
     switch(activeTab) {
         case 'product-analysis':
+        default:
             csv = 'Product,Category,Current Stock,Monthly Sales,Daily Sales Velocity,Days of Supply,Movement Class,Stock Status\n';
-            document.querySelectorAll('#productTableBody tr[data-matched="true"]').forEach(row => {
-                const cells = row.querySelectorAll('td');
-                csv += `"${cells[0].textContent}","${cells[1].textContent}",${cells[2].textContent},${cells[3].textContent},${cells[4].textContent},${cells[5].textContent},"${cells[6].textContent}","${cells[7].textContent}"\n`;
+            const exportList = (window.currentMatchingProducts && window.currentMatchingProducts.length > 0)
+                ? window.currentMatchingProducts
+                : (window.allProductMovementData || []);
+            exportList.forEach(p => {
+                const name = (p.product_name || '').replace(/"/g, '""');
+                const cat = (p.category_name || '').replace(/"/g, '""');
+                const stock = Number(p.current_stock || 0);
+                const sales = Number(p.monthly_sales || 0);
+                const vel = Number(p.daily_sales_velocity || 0).toFixed(2);
+                const days = Number(p.days_of_supply || 0);
+                const mov = (p.movement_class || 'steady').replace(/"/g, '""');
+                const st = (p.stock_status || 'normal').replace(/"/g, '""');
+                csv += `"${name}","${cat}",${stock},${sales},${vel},${days},"${mov}","${st}"\n`;
             });
             filename = 'product_analysis_' + new Date().toISOString().split('T')[0] + '.csv';
             break;
     }
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -4412,14 +4742,366 @@ function exportData() {
     window.URL.revokeObjectURL(url);
 }
 
+// ==========================================
+// DYNAMIC LIVE DATABASE STUDY & SYNCHRONIZATION
+// ==========================================
+function formatBadgeText(str) {
+    if (!str) return '';
+    const clean = String(str).replace(/_/g, ' ');
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function updateKpiCounters(kpis) {
+    if (!kpis) return;
+    const totalEl = document.getElementById('numTotalProducts');
+    const attEl   = document.getElementById('numAttentionNeeded');
+    const subAtt  = document.getElementById('subAttentionNeeded');
+    const fastEl  = document.getElementById('numFastMoving');
+    const expEl   = document.getElementById('numExpiringSoon');
+    const subExp  = document.getElementById('subExpiringSoon');
+
+    const animateNumber = (el, newVal) => {
+        if (!el) return;
+        el.classList.add('kpi-pulse-glow');
+        el.textContent = Number(newVal).toLocaleString();
+        setTimeout(() => el.classList.remove('kpi-pulse-glow'), 1200);
+    };
+
+    if (totalEl && kpis.total_products !== undefined) animateNumber(totalEl, kpis.total_products);
+    if (attEl && kpis.attention_needed_count !== undefined) {
+        animateNumber(attEl, kpis.attention_needed_count);
+        if (subAtt) {
+            const count = Number(kpis.attention_needed_count);
+            subAtt.textContent = count === 0 ? 'All items well-stocked' : (count === 1 ? '1 item needs reorder' : count.toLocaleString() + ' items need reorder');
+        }
+    }
+    if (fastEl && kpis.fast_moving_count !== undefined) animateNumber(fastEl, kpis.fast_moving_count);
+    if (expEl && kpis.expiring_soon_count !== undefined) {
+        animateNumber(expEl, kpis.expiring_soon_count);
+        if (subExp) {
+            const count = Number(kpis.expiring_soon_count);
+            subExp.textContent = count === 0 ? 'No batches near expiry' : (count === 1 ? '1 batch expiring in 30d' : count.toLocaleString() + ' batches expiring in 30d');
+        }
+    }
+}
+
+function updateStudyMetadata(meta) {
+    if (!meta) return;
+    const txEl = document.getElementById('statTxCount');
+    const skuEl = document.getElementById('statSkuCount');
+    const prodEl = document.getElementById('statRecentProduct');
+    const typeEl = document.getElementById('statRecentType');
+    const qtyEl = document.getElementById('statRecentQty');
+    const timeEl = document.getElementById('statRecentTime');
+    const timeRecon = document.getElementById('pulseReconcileTime');
+
+    const totalTx = meta.total_transactions !== undefined ? meta.total_transactions : meta.total_transactions_analyzed;
+    const activeSkus = meta.active_skus !== undefined ? meta.active_skus : meta.active_products_analyzed;
+    if (txEl && totalTx !== undefined) txEl.textContent = Number(totalTx).toLocaleString();
+    if (skuEl && activeSkus !== undefined) skuEl.textContent = Number(activeSkus).toLocaleString();
+    
+    const act = meta.latest_activity_item || (Array.isArray(meta.recent_activity) ? meta.recent_activity[0] : meta.recent_activity);
+    if (act) {
+        if (prodEl && act.product_name) prodEl.textContent = act.product_name;
+        if (typeEl && (act.movement_type || act.transaction_type)) typeEl.textContent = formatBadgeText(act.movement_type || act.transaction_type);
+        if (qtyEl && act.quantity !== undefined) qtyEl.textContent = Number(act.quantity).toLocaleString();
+        if (timeEl && (act.human_time || act.time_ago)) timeEl.textContent = act.human_time || act.time_ago;
+    }
+    if (timeRecon) {
+        timeRecon.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+}
+
+function updateRecommendations(rec) {
+    if (!rec) return;
+    const restockEl = document.getElementById('recomRestockCopy');
+    const overEl = document.getElementById('recomOverstockedCopy');
+    const slowEl = document.getElementById('recomSlowMovingCopy');
+
+    if (restockEl && rec.total_urgent !== undefined) {
+        if (rec.total_urgent === 0) {
+            restockEl.innerHTML = 'All catalog items are currently well-stocked above minimum thresholds.';
+        } else {
+            const oosHtml = rec.urgent_oos > 0 ? `<span style="color:#ef4444;">${rec.urgent_oos} out of stock</span>, ` : '';
+            restockEl.innerHTML = `<strong>${rec.total_urgent} products</strong> require replenishment (${oosHtml}${rec.urgent_low} at/below reorder point).`;
+        }
+    }
+    if (overEl && rec.overstocked_count !== undefined) {
+        if (rec.overstocked_count === 0) {
+            overEl.innerHTML = 'Inventory turnover is healthy. No severely overstocked products detected.';
+        } else {
+            const sampleName = rec.top_overstocked ? ` (e.g. ${escapeHtml(rec.top_overstocked)})` : '';
+            overEl.innerHTML = `<strong>${rec.overstocked_count} overstocked items</strong> identified (>90 days supply). Reallocate working capital from surplus stock${sampleName}.`;
+        }
+    }
+    if (slowEl && rec.slow_count !== undefined) {
+        if (rec.slow_count === 0) {
+            slowEl.innerHTML = 'All stock lines are maintaining steady or active sales velocity.';
+        } else {
+            const sampleName = rec.top_slow ? ` (e.g. ${escapeHtml(rec.top_slow)})` : '';
+            slowEl.innerHTML = `<strong>${rec.slow_count} slow-moving products</strong> with surplus units${sampleName}. Bundle with fast movers or run weekend discounts.`;
+        }
+    }
+}
+
+function renderProductTableRows(products) {
+    if (!Array.isArray(products)) return;
+    window.allProductMovementData = products;
+    if (typeof filterProductTable === 'function') {
+        filterProductTable();
+    }
+}
+
+function renderCategoryTableRows(categories) {
+    const tbody = document.getElementById('categoryTableBody');
+    if (!tbody || !Array.isArray(categories)) return;
+
+    tbody.innerHTML = categories.map(cat => {
+        const cName = escapeHtml(cat.category_name || '');
+        const pCount = Number(cat.product_count || 0);
+        const tStock = Number(cat.total_stock || 0);
+        const aStock = Number(cat.avg_stock || 0).toFixed(1);
+        const lCount = Number(cat.low_stock_count || 0);
+        const mSales = Number(cat.monthly_sales || 0);
+        const badgeClass = lCount > 0 ? 'medium' : 'low';
+
+        return `<tr>
+            <td style="color: #fff; font-weight: 500;">${cName}</td>
+            <td class="text-right">${pCount}</td>
+            <td class="text-right">${tStock}</td>
+            <td class="text-right">${aStock}</td>
+            <td class="text-center"><span class="badge ${badgeClass}">${lCount}</span></td>
+            <td class="text-right">${mSales}</td>
+        </tr>`;
+    }).join('');
+
+    if (typeof setCategoryPage === 'function') {
+        setCategoryPage(categoryPage || 1);
+    }
+}
+
+function renderSalesTrendsTableRows(trends) {
+    const tbody = document.getElementById('trendsTableBody');
+    if (!tbody || !Array.isArray(trends)) return;
+
+    tbody.innerHTML = trends.map(trend => {
+        const date = escapeHtml(trend.sale_date || '');
+        const day = escapeHtml(trend.day_name || '');
+        const uProd = Number(trend.unique_products_sold || 0);
+        const tQty = Number(trend.total_quantity_sold || 0);
+        const avgQty = Number(trend.avg_quantity_per_transaction || 0).toFixed(2);
+
+        return `<tr>
+            <td style="color: #fff;">${date}</td>
+            <td style="color: #9aa6d1;">${day}</td>
+            <td class="text-right">${uProd}</td>
+            <td class="text-right">${tQty}</td>
+            <td class="text-right">${avgQty}</td>
+        </tr>`;
+    }).join('');
+
+    if (typeof setTrendsPage === 'function') {
+        setTrendsPage(trendsPage || 1);
+    }
+}
+
+function renderSupplierTableRows(suppliers) {
+    const tbody = document.getElementById('supplierTableBody');
+    if (!tbody || !Array.isArray(suppliers)) return;
+
+    tbody.innerHTML = suppliers.map(sup => {
+        const supName = escapeHtml(sup.supplier || 'Unknown');
+        const pCount = Number(sup.product_count || 0);
+        const tVal = Number(sup.total_stock_value || 0);
+        const aStock = Number(sup.avg_stock_per_product || 0).toFixed(1);
+        const mSales = Number(sup.monthly_sales || 0);
+        const lCount = Number(sup.low_stock_count || 0);
+
+        let performance = 'Good';
+        let badgeClass = 'low';
+        if (lCount > pCount * 0.3) {
+            performance = 'Needs Attention';
+            badgeClass = 'medium';
+        }
+        if (mSales === 0) {
+            performance = 'Poor';
+            badgeClass = 'high';
+        }
+
+        return `<tr>
+            <td style="color:#fff; font-weight:500;">${supName}</td>
+            <td class="text-right">${pCount}</td>
+            <td class="text-right">${tVal}</td>
+            <td class="text-right">${aStock}</td>
+            <td class="text-right">${mSales}</td>
+            <td class="text-center"><span class="badge ${lCount > 0 ? 'medium' : 'low'}">${lCount}</span></td>
+            <td class="text-center"><span class="badge ${badgeClass}">${performance}</span></td>
+        </tr>`;
+    }).join('');
+
+    if (typeof setSupplierPage === 'function') {
+        setSupplierPage(supplierPage || 1);
+    }
+}
+
+function renderExpiryTableRows(expiryRisks) {
+    const tbody = document.getElementById('expiryTableBody');
+    if (!tbody || !Array.isArray(expiryRisks)) return;
+
+    tbody.innerHTML = expiryRisks.map(item => {
+        const pName = escapeHtml(item.product_name || '');
+        const cName = escapeHtml(item.category_name || '');
+        const qty = Number(item.quantity || 0);
+        const expDate = escapeHtml(item.expiry_date || '');
+        const daysLeft = Number(item.days_until_expiry || 0);
+        const mSales = Number(item.monthly_sales || 0);
+        const sellDays = Number(item.sell_through_days || 0);
+        const riskClass = escapeHtml((item.expiry_risk || 'low').toLowerCase());
+        const riskLabel = riskClass.charAt(0).toUpperCase() + riskClass.slice(1);
+        const daysColor = daysLeft < 30 ? '#f87171' : '#E3E3E3';
+
+        return `<tr>
+            <td style="color:#fff; font-weight:500;">${pName}</td>
+            <td style="color:#9aa6d1;">${cName}</td>
+            <td class="text-right">${qty}</td>
+            <td class="text-right">${expDate}</td>
+            <td class="text-right" style="font-weight:700; color: ${daysColor};">${daysLeft}</td>
+            <td class="text-right">${mSales}</td>
+            <td class="text-right">${sellDays}</td>
+            <td class="text-center"><span class="badge ${riskClass}">${riskLabel} Risk</span></td>
+        </tr>`;
+    }).join('');
+
+    if (typeof setExpiryPage === 'function') {
+        setExpiryPage(expiryPage || 1);
+    }
+}
+
+function showPulseToast(msg, isSuccess = true) {
+    // Kept silent for design consistency
+    console.debug('[Live DB Sync]', msg);
+}
+
+window.triggerFullDatabaseStudy = function(isSilent = true) {
+    const btn = document.getElementById('btnStudyDbNow');
+    const spinner = document.getElementById('studyDbSpinner');
+    const label = document.getElementById('studyDbBtnLabel');
+
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.classList.add('spin-anim');
+    if (label) label.textContent = 'Studying DB...';
+
+    return fetch('api/insights_live_pulse.php?action=study_now', {
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+    })
+    .then(data => {
+        if (!data.success) throw new Error(data.error || 'Study failed');
+
+        if (data.db_signature && data.db_signature.max_tx_id) {
+            clientLastTxId = parseInt(data.db_signature.max_tx_id, 10);
+        }
+
+        // 1. Update Top KPI Cards
+        updateKpiCounters(data.kpis);
+
+        // 2. Update Header Study Banner (if present)
+        updateStudyMetadata(data.study_metadata);
+
+        // 3. Update Recommendation Cards
+        updateRecommendations(data.recommendations);
+
+        // 4. Update Tables
+        if (data.product_movement) renderProductTableRows(data.product_movement);
+        if (data.category_performance) renderCategoryTableRows(data.category_performance);
+        if (data.sales_trends) renderSalesTrendsTableRows(data.sales_trends);
+        if (data.supplier_performance) renderSupplierTableRows(data.supplier_performance);
+        if (data.expiry_risk_analysis) renderExpiryTableRows(data.expiry_risk_analysis);
+
+        // 5. Update Charts
+        if (data.chart_data) {
+            if (data.chart_data.category_labels && data.chart_data.category_sales) {
+                categoriesLabels = data.chart_data.category_labels;
+                monthlySalesData = data.chart_data.category_sales;
+                const catTab = document.querySelector('.tab[data-tab="category-performance"]');
+                if (catTab && catTab.classList.contains('active')) {
+                    renderCategoryChart();
+                }
+            }
+            if (data.sales_trends) {
+                salesTrendsData = [...data.sales_trends].reverse();
+                const trendTab = document.querySelector('.tab[data-tab="sales-trends"]');
+                if (trendTab && trendTab.classList.contains('active')) {
+                    renderSalesTrendChart();
+                }
+            }
+        }
+
+        const txCount = (data.study_metadata && data.study_metadata.total_transactions) ? Number(data.study_metadata.total_transactions).toLocaleString() : '';
+        console.debug(`[Live DB Sync] Insights reconciled automatically with ${txCount} movements.`);
+        window.dispatchEvent(new CustomEvent('insights:reconciled', { detail: data }));
+    })
+    .catch(err => {
+        console.debug('[Live DB Sync Error]', err);
+    })
+    .finally(() => {
+        if (btn) btn.disabled = false;
+        if (spinner) spinner.classList.remove('spin-anim');
+        if (label) label.textContent = 'Study DB Now';
+    });
+};
+
+window.checkDatabasePulse = function() {
+    fetch(`api/insights_live_pulse.php?action=pulse&client_last_tx_id=${clientLastTxId}`, {
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) return;
+
+        if (data.needs_sync === true) {
+            console.log('Database activity detected, performing live study:', data.db_signature);
+            window.triggerFullDatabaseStudy(true);
+        } else {
+            if (data.study_metadata) updateStudyMetadata(data.study_metadata);
+            if (data.kpis) updateKpiCounters(data.kpis);
+            if (data.db_signature && data.db_signature.max_tx_id) {
+                clientLastTxId = Math.max(clientLastTxId, parseInt(data.db_signature.max_tx_id, 10));
+            }
+        }
+    })
+    .catch(err => {
+        console.debug('Live pulse heartbeat error:', err);
+    });
+};
+
 
 document.addEventListener('DOMContentLoaded', function() {
-    renderSalesForecastChart();
-    renderDemandHeatmapChart();
-    renderDepletionTrendChart();
-    renderReorderFrequencyChart();
-    renderSeasonalChart();
-    renderAccuracyChart();
+    // Start Live DB Synchronization Pulse Polling (15s heartbeat)
+    if (!window._insightsPulseInterval) {
+        window._insightsPulseInterval = setInterval(window.checkDatabasePulse, 15000);
+    }
+    // Lazy render forecast charts when user scrolls near the forecastWidget or after idle
+    const forecastWidget = document.getElementById('forecastWidget');
+    if (forecastWidget && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    renderAllForecastCharts();
+                    observer.disconnect();
+                }
+            });
+        }, { rootMargin: '200px' });
+        observer.observe(forecastWidget);
+        setTimeout(() => {
+            if (!window._forecastChartsRendered) renderAllForecastCharts();
+        }, 1500);
+    } else {
+        renderAllForecastCharts();
+    }
     
     if (document.querySelector('.tab[data-tab="category-performance"]').classList.contains('active')) { renderCategoryChart(); } 
     else if (document.querySelector('.tab[data-tab="sales-trends"]').classList.contains('active')) { renderSalesTrendChart(); }

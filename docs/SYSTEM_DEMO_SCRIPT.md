@@ -381,7 +381,7 @@ Before commencing the presentation in front of panelists, evaluators, or clients
     - **"Upload Image" Button (`#ai-upload-btn`):** Allows selecting a packaging photo from disk.
     - **"Take Photo" Button (`#ai-capture-btn`):** Opens live device camera.
     - **Camera Viewfinder (`#ai-camera-area`):** Live video feed with visual targeting reticle (`.tm-viewfinder-ring`).
-    - **Shutter Bar (`#ai-camera-bottom-bar`):** Features **"📷 Capture & Auto-fill"** (`#ai-capture-snap-btn`) and **"Cancel"**.
+    - **Shutter Bar (`#ai-camera-bottom-bar`):** Features **"Capture & Auto-fill"** (`#ai-capture-snap-btn`) and **"Cancel"**.
     - **OCR Text Detection Box (`#add-ocr-raw-wrap`):** Accordion revealing exact text recognized from the product packaging via Tesseract OCR.
     - **Smart Suggestion Chips (`#add-product-name-chips`):** Clickable pill tags suggesting detected product names.
   - **Section 2: Form Input Hierarchies:**

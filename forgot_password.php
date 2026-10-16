@@ -146,61 +146,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             100% { background-position: 0% 50%; }
         }
 
+        :root {
+            --gap: 40px;
+        }
+
         /* --- WRAPPER (MATCH SIGNIN.PHP) --- */
         .auth-wrapper {
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             width: 100%;
-            padding: 40px 20px 80px;
+            padding: 24px 16px;
             box-sizing: border-box;
         }
 
         /* --- HEADER (MATCH SIGNIN.PHP) --- */
+        .brand-block,
         .header { 
-            margin-top: auto; 
-            margin-bottom: 60px; 
-            text-align: center;
             width: 100%;
+            margin: 0 0 var(--gap) 0;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         
-        .header .signin-logo { 
-            width: clamp(200px, 70vw, 460px); 
-            height: auto; 
-            display: block; 
-            margin-left: auto; 
-            margin-right: auto; 
-            animation: fadeIn 2s ease-in-out;
+        .brand-logo {
+            font-family: 'Overpass', sans-serif;
+            font-size: clamp(44px, 14.5vw, 62px);
+            font-weight: 800;
+            line-height: 1;
+            color: #FFFFFF;
+            white-space: nowrap;
+            text-align: center;
+            letter-spacing: -0.5px;
+            margin: 0;
+            text-decoration: none;
+        }
+
+        .brand-logo:hover {
+            text-decoration: none;
+            color: #FFFFFF;
+        }
+
+        .brand-logo .brand-accent {
+            color: #51D55A;
+            font-style: italic;
+            font-weight: 800;
+        }
+
+        .brand-tagline {
+            font-family: 'Onest', sans-serif;
+            font-size: clamp(12px, 3.6vw, 15px);
+            font-weight: 400;
+            color: #cbd5e1;
+            margin-top: 10px;
+            margin-bottom: 0;
+            text-align: center;
+            line-height: 1.3;
+            letter-spacing: 0.2px;
         }
 
         .auth-wrapper .container,
-        .container {
+        .container,
+        .auth-container {
             flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding-top: 0;
-            padding-bottom: 0;
-            margin-bottom: auto;
+            padding: 0;
+            margin: 0 auto;
             width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
         }
 
         /* --- CARD (MATCH SIGNINBOX) --- */
         .reset-box {
             background-color: #1D387B;
             border: 1px solid #3d74ff;
-            border-radius: 10px;
-            width: 340px; 
-            max-width: 90vw;
-            padding: 24px 22px;
-            box-shadow: 0 0 20px 2px #304374;
-            margin-bottom: 15px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 420px;
+            padding: 28px 24px;
+            box-shadow: 0 0 25px 2px #304374;
+            margin: 0;
             text-align: left;
             position: relative;
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
 
         .reset-box h3 {
@@ -491,27 +530,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* --- FOOTER (EXACT MATCH TO SIGNIN.PHP) --- */
         .footer {
-            position: fixed;
-            bottom: 40px;
+            width: 100%;
+            max-width: 420px;
+            margin: var(--gap) auto 0;
             text-align: center;
-            font-family: "Overpass", sans-serif;
-            font-weight: 200;
+            font-family: "Onest", sans-serif;
+            font-weight: 300;
             font-size: 12px;
             color: rgb(168, 168, 168);
-            padding: 10px 0;
-            width: 100%;
+            padding: 0;
+            position: static;
+            box-sizing: border-box;
         }
 
-        .footer hr {
+        .footer hr,
+        .footer-divider {
             border: none;
-            border-top: 0.2px solid #314f9b; 
-            margin: 10px auto;
-            width: 320px; 
-            max-width: 90vw;
+            border-top: 1px solid #314f9b; 
+            margin: 0 0 14px 0;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        .footer a { color: rgb(168, 168, 168); margin: 0 5px; text-decoration: none; }
-        .footer a:hover { text-decoration: underline; }
+        .footer .footer-copy {
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: rgb(168, 168, 168);
+        }
+
+        .footer .footer-links {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .footer .footer-dot {
+            opacity: 0.4;
+            font-size: 10px;
+        }
+
+        .footer a {
+            color: rgb(168, 168, 168);
+            margin: 0;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer a:hover {
+            color: #FFFFFF;
+            text-decoration: underline;
+        }
 
         .spinner {
             display: inline-block;
@@ -526,23 +595,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media (max-width: 480px) {
-            .auth-wrapper {
-                padding-top: 24px;
-                padding-bottom: 90px;
-                justify-content: flex-start;
-            }
-            .header {
-                margin-top: 12px;
-                margin-bottom: 14px;
-            }
-            .auth-wrapper .container,
-            .container {
-                margin-bottom: 0;
-            }
             .reset-box {
-                padding: 18px 16px;
-                width: 100%;
-                max-width: 100%;
+                padding: 24px 20px;
             }
             .step-item span {
                 font-size: 9.5px;
@@ -551,9 +605,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 font-size: 17px;
                 letter-spacing: 4px;
             }
-            .footer {
-                bottom: 20px;
-                font-size: 11px;
+        }
+
+        @media (max-height: 560px) {
+            :root {
+                --gap: 24px;
+            }
+            .auth-wrapper {
+                justify-content: flex-start;
+                padding-top: 16px;
+                padding-bottom: 24px;
             }
         }
 
@@ -904,13 +965,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="auth-page">
 
     <div class="auth-wrapper">
-        <div class="header">
-            <a href="signin.php">
-                <img src="img/main%20logo.png" alt="IntelliWare" class="fade-in signin-logo" />
-            </a>
-        </div>
-
-        <div class="container">
+        <div class="auth-container">
+            <div class="brand-block">
+                <a href="signin.php" class="brand-logo">INTELLI<span class="brand-accent">WARE</span></a>
+                <div class="brand-tagline">Intelligent Inventory Management System</div>
+            </div>
             <div class="reset-box">
 
                 <!-- Step Progress (3 Steps) -->
@@ -1107,10 +1166,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <!-- FOOTER (MATCH SIGNIN.PHP) -->
             <div class="footer">
-                <hr><br>
-                © 2025 IntelliWare. All rights reserved.
-                <a href="javascript:void(0)" onclick="openAboutModal(event)">About IntelliWare</a>
-                <a href="javascript:void(0)" onclick="openContactModal(event)">Contact our Support</a>
+                <hr class="footer-divider">
+                <div class="footer-copy">© 2025 IntelliWare. All rights reserved.</div>
+                <div class="footer-links">
+                    <a href="javascript:void(0)" onclick="openAboutModal(event)">About IntelliWare</a>
+                    <span class="footer-dot">•</span>
+                    <a href="javascript:void(0)" onclick="openContactModal(event)">Contact our Support</a>
+                </div>
             </div>
         </div>
     </div>

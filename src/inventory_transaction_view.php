@@ -476,39 +476,208 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         color: #DC2626;
     }
 
-    /* Camera reticle overlay */
-    .pos-scanner-reticle-box {
-        width: 170px;
-        height: 130px;
-        border: 2px dashed #51D55A;
-        border-radius: 12px;
-        box-shadow: 0 0 0 9999px rgba(4, 7, 20, 0.5);
-        position: relative;
+    /* ── Camera Scanner Card ─────────────────────────────────────────────── */
+    /* Top control bar */
+    #inv-camera-topbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 10px;
+        background: #070d24;
+        border-bottom: 1px solid rgba(42,68,132,0.4);
     }
-    .pos-scanner-reticle-label {
-        position: absolute;
-        top: -22px;
-        left: 0;
-        right: 0;
+    #inv-camera-topbar .cam-ctrl-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(42,68,132,0.35);
+        border: 1px solid rgba(81,213,90,0.3);
+        color: #9aa6d1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.18s ease;
+        padding: 0;
+    }
+    #inv-camera-topbar .cam-ctrl-btn:hover { color: #51D55A; border-color: #51D55A; background: rgba(81,213,90,0.15); }
+    #inv-camera-topbar .cam-ctrl-btn.cam-ctrl-danger { border-color: rgba(255,255,255,0.2); }
+    #inv-camera-topbar .cam-ctrl-btn.cam-ctrl-danger:hover { color: #f87171; border-color: #f87171; background: rgba(239,68,68,0.15); }
+    #inv-camera-topbar .cam-ctrl-btn.cam-torch-on { color: #fbbf24; border-color: #fbbf24; background: rgba(251,191,36,0.15); }
+    #inv-camera-topbar .cam-label {
+        flex: 1;
         text-align: center;
-        color: #51D55A;
         font-size: 11px;
         font-weight: 700;
+        letter-spacing: 1.5px;
+        color: #9aa6d1;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-family: 'Onest', sans-serif;
     }
-    .pos-accent-release .pos-scanner-reticle-box {
-        border-color: #ef4444;
+
+    /* Viewfinder */
+    #inv-camera-viewfinder {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4/3;
+        background: #040714;
+        overflow: hidden;
     }
-    .pos-accent-release .pos-scanner-reticle-label {
-        color: #f87171;
+    #inv-camera-video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
     }
-    .pos-accent-release #inv-camera-snap-manual {
+
+    /* Reticle — white corner brackets, square for product recognition */
+    .pos-scanner-reticle-box {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 62%;
+        height: 70%;
+        box-sizing: border-box;
+    }
+    /* Corner brackets */
+    .pos-reticle-corner {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+    }
+    .pos-reticle-corner.tl { top: 0; left: 0; border-top: 3px solid rgba(255,255,255,0.9); border-left: 3px solid rgba(255,255,255,0.9); border-top-left-radius: 5px; }
+    .pos-reticle-corner.tr { top: 0; right: 0; border-top: 3px solid rgba(255,255,255,0.9); border-right: 3px solid rgba(255,255,255,0.9); border-top-right-radius: 5px; }
+    .pos-reticle-corner.bl { bottom: 0; left: 0; border-bottom: 3px solid rgba(255,255,255,0.9); border-left: 3px solid rgba(255,255,255,0.9); border-bottom-left-radius: 5px; }
+    .pos-reticle-corner.br { bottom: 0; right: 0; border-bottom: 3px solid rgba(255,255,255,0.9); border-right: 3px solid rgba(255,255,255,0.9); border-bottom-right-radius: 5px; }
+
+    /* Pulsing glow on corners instead of a scan line — product feel */
+    @keyframes cornerPulse {
+        0%,100% { opacity: 0.55; filter: drop-shadow(0 0 0px rgba(81,213,90,0)); }
+        50%      { opacity: 1;    filter: drop-shadow(0 0 6px rgba(81,213,90,0.9)); }
+    }
+    .pos-reticle-corner { animation: cornerPulse 2s ease-in-out infinite; }
+    .pos-reticle-corner.tr { animation-delay: 0.5s; }
+    .pos-reticle-corner.bl { animation-delay: 1s; }
+    .pos-reticle-corner.br { animation-delay: 1.5s; }
+    .pos-accent-release .pos-reticle-corner {
+        animation-name: cornerPulseRed;
+    }
+    @keyframes cornerPulseRed {
+        0%,100% { opacity: 0.55; filter: drop-shadow(0 0 0px rgba(239,68,68,0)); }
+        50%      { opacity: 1;    filter: drop-shadow(0 0 6px rgba(239,68,68,0.9)); }
+    }
+
+    /* Soft scan sweep — horizontal, product-style */
+    .pos-scan-line {
+        position: absolute;
+        left: 6%;
+        width: 88%;
+        height: 1.5px;
+        background: linear-gradient(90deg, transparent, rgba(81,213,90,0.9), transparent);
+        box-shadow: 0 0 6px rgba(81,213,90,0.6);
+        animation: scanSweep 2.6s ease-in-out infinite;
+        border-radius: 2px;
+    }
+    .pos-accent-release .pos-scan-line {
+        background: linear-gradient(90deg, transparent, rgba(239,68,68,0.9), transparent);
+        box-shadow: 0 0 6px rgba(239,68,68,0.6);
+    }
+    @keyframes scanSweep {
+        0%   { top: 8%;  opacity: 0.4; }
+        50%  { top: 88%; opacity: 1; }
+        100% { top: 8%;  opacity: 0.4; }
+    }
+
+    /* Status pill — overlaid at bottom of viewfinder */
+    #inv-camera-status-pill {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: rgba(4,7,20,0.80);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 20px;
+        padding: 5px 14px 5px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #e2e8f0;
+        white-space: nowrap;
+        pointer-events: none;
+        z-index: 5;
+        font-family: 'Onest', sans-serif;
+    }
+
+    /* Snap & Add — full-width green bar at bottom of card */
+    #inv-camera-snap-bar {
+        padding: 10px 10px;
+        background: #070d24;
+        border-top: 1px solid rgba(42,68,132,0.4);
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+    }
+    #inv-camera-snap-manual {
+        width: 100% !important;
+        height: 48px !important;
+        border-radius: 10px !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
+        font-family: 'Onest', sans-serif !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        border: none !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        letter-spacing: 0.3px !important;
+    }
+    /* Enabled — solid green */
+    #inv-camera-snap-manual:not(:disabled) {
+        background: linear-gradient(135deg, #2DB744 0%, #22a038 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 16px rgba(45,183,68,0.4) !important;
+    }
+    #inv-camera-snap-manual:not(:disabled):hover {
+        background: linear-gradient(135deg, #34c74a 0%, #28bb45 100%) !important;
+        box-shadow: 0 6px 20px rgba(45,183,68,0.5) !important;
+        transform: translateY(-1px) !important;
+    }
+    /* Disabled / scanning — neutral dark grey */
+    #inv-camera-snap-manual:disabled {
+        background: rgba(30,41,59,0.9) !important;
+        color: #64748b !important;
+        box-shadow: none !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+    }
+    /* Release mode active */
+    .pos-accent-release #inv-camera-snap-manual:not(:disabled) {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-        border-color: #ef4444 !important;
-        color: #ffffff !important;
-        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35) !important;
+        box-shadow: 0 4px 16px rgba(239,68,68,0.4) !important;
     }
+    /* Manual entry type-code link */
+    #inv-camera-type-code-btn {
+        width: 100%;
+        background: transparent;
+        border: none;
+        color: #64748b;
+        font-size: 11.5px;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        padding: 2px 0;
+        text-align: center;
+        transition: color 0.15s;
+        display: block;
+    }
+    #inv-camera-type-code-btn:hover { color: #9aa6d1; }
 
     /* ── Search Dropdown ─────────────────────────────────────────────────── */
     .pos-search-dropdown {
@@ -1579,37 +1748,76 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <div class="pos-search-dropdown" id="inv-search-dropdown"></div>
                     </div>
 
-                    <!-- Camera Scanner Viewfinder (collapsible) -->
-                    <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid #2A4484; background:#0B1438; position:relative; margin-top:8px;">
-                        <div style="position:relative; width:100%; min-height:260px; max-height:360px; height:42vh; background:#040714; overflow:hidden;">
-                            <video id="inv-camera-video" playsinline muted autoplay style="width:100%; height:100%; object-fit:contain; display:block;"></video>
-                            <canvas id="inv-camera-canvas" style="display:none;"></canvas>
-                            
-                            <!-- Scanning Reticle Overlay -->
-                            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
-                                <div class="pos-scanner-reticle-box">
-                                    <div class="pos-scanner-reticle-label">Point at product</div>
-                                </div>
-                            </div>
+                    <!-- Camera Scanner Card (collapsible) -->
+                    <div id="inv-camera-scanner-wrap" style="display:none; border-radius:14px; overflow:hidden; border:1px solid rgba(42,68,132,0.6); background:#0B1438; margin-top:8px;">
 
-                            <!-- Flip camera button on top-right -->
-                            <button type="button" id="inv-camera-flip-btn" title="Switch Camera" style="position:absolute; top:8px; right:42px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(81,213,90,0.5); color:#51D55A; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">
-                                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <!-- Top Control Bar -->
+                        <div id="inv-camera-topbar">
+                            <!-- Torch -->
+                            <button type="button" class="cam-ctrl-btn" id="inv-camera-torch-btn" title="Toggle torch">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+                                </svg>
+                            </button>
+                            <!-- Flip / Refresh -->
+                            <button type="button" class="cam-ctrl-btn" id="inv-camera-flip-btn" title="Switch camera">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
                                 </svg>
                             </button>
-
-                            <!-- Close button on top-right -->
-                            <button type="button" id="inv-camera-close-btn" title="Close scanner" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.25); color:#cbd5e1; font-size:18px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10;">&times;</button>
+                            <!-- Center label -->
+                            <span class="cam-label">SCANNER</span>
+                            <!-- Collapse -->
+                            <button type="button" class="cam-ctrl-btn" id="inv-camera-collapse-btn" title="Collapse scanner">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5"/>
+                                </svg>
+                            </button>
+                            <!-- Close -->
+                            <button type="button" class="cam-ctrl-btn cam-ctrl-danger" id="inv-camera-close-btn" title="Close scanner">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
 
-                        <!-- Status Bar -->
-                        <div style="padding:10px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:rgba(13,22,56,0.95); font-size:12px; border-top:1px solid rgba(42,68,132,0.5);">
-                            <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
-                                <div id="inv-camera-dot" style="width:8px; height:8px; border-radius:50%; background:#fbbf24; flex-shrink:0;"></div>
-                                <span id="inv-camera-status-text" style="color:#9aa6d1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Scanning… point camera at product packaging</span>
+                        <!-- Viewfinder -->
+                        <div id="inv-camera-viewfinder">
+                            <video id="inv-camera-video" playsinline muted autoplay></video>
+                            <canvas id="inv-camera-canvas" style="display:none;"></canvas>
+
+                            <!-- Corner-bracket reticle -->
+                            <div class="pos-scanner-reticle-box">
+                                <span class="pos-reticle-corner tl"></span>
+                                <span class="pos-reticle-corner tr"></span>
+                                <span class="pos-reticle-corner bl"></span>
+                                <span class="pos-reticle-corner br"></span>
+                                <!-- Animated scan line -->
+                                <div class="pos-scan-line"></div>
                             </div>
-                            <button type="button" id="inv-camera-snap-manual" class="tm-start-btn" style="padding:4px 12px; font-size:11px; height:28px; border-radius:6px; margin:0; flex-shrink:0;">Snap &amp; Add</button>
+
+                            <!-- Status pill overlaid at bottom of viewfinder -->
+                            <div id="inv-camera-status-pill">
+                                <div id="inv-camera-dot" style="width:8px; height:8px; border-radius:50%; background:#fbbf24; flex-shrink:0;"></div>
+                                <span id="inv-camera-status-text">Point camera at product</span>
+                            </div>
+                        </div>
+
+                        <!-- Snap & Add bar -->
+                        <div id="inv-camera-snap-bar">
+                            <button type="button" id="inv-camera-snap-manual" disabled>
+                                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/>
+                                </svg>
+                                Snap &amp; Add
+                            </button>
+                            <button type="button" id="inv-camera-type-code-btn">⌨️ Type product name / SKU manually</button>
+                            <div id="inv-camera-manual-code-wrap" style="display:none; gap:6px; width:100%;">
+                                <input type="text" id="inv-camera-manual-code-input" style="flex:1; height:38px; padding:0 12px; background:rgba(15,23,42,0.9); border:1px solid rgba(42,68,132,0.7); border-radius:8px; color:#e2e8f0; font-size:13px; font-family:'Onest',sans-serif; outline:none;" placeholder="Product name, SKU, or ID…" autocomplete="off" spellcheck="false">
+                                <button type="button" id="inv-camera-manual-code-submit" style="padding:0 14px; height:38px; border-radius:8px; background:rgba(81,213,90,0.2); border:1px solid #51D55A; color:#51D55A; font-size:13px; font-weight:600; font-family:'Onest',sans-serif; cursor:pointer;">Add</button>
+                                <button type="button" id="inv-camera-manual-code-cancel" style="width:38px; height:38px; border-radius:8px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#9aa6d1; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+                            </div>
                         </div>
                     </div>
                 </section>

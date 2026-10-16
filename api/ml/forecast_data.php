@@ -17,6 +17,8 @@ require_once __DIR__ . '/../../src/ml/ForecastDataService.php';
 $daysLookback = isset($_GET['days']) ? intval($_GET['days']) : 30;
 $service = new ForecastDataService();
 
+$catFilter = isset($_GET['category']) ? trim((string)$_GET['category']) : null;
+
 echo json_encode([
     'success' => true,
     'has_model' => $service->hasTrainedModel(),
@@ -24,7 +26,7 @@ echo json_encode([
     'accuracy' => $service->getAccuracyTrend(),
     'segments' => $service->getSegmentAccuracy(),
     'sales_forecast' => $service->getSalesForecastChartData($daysLookback),
-    'heatmap' => $service->getProductForecastDemand(8),
+    'heatmap' => $service->getProductForecastDemand(8, $catFilter),
     'depletion' => $service->getStockDepletionTrend(),
     'reorder_frequency' => $service->getReorderFrequencyTrend(),
 ]);

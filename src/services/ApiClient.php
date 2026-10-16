@@ -131,20 +131,20 @@ class ApiClient
     /**
      * Fetch pre-calculated summary from Insights Microservice.
      */
-    public static function getInsightsSummary(): array
+    public static function getInsightsSummary(bool $forceRefresh = false): array
     {
         // 1. Instant in-process execution (<1ms) if local repository is available
         if (class_exists('InsightsEngine')) {
             try {
                 $engine = new InsightsEngine();
-                return $engine->getSummary();
+                return $engine->getSummary(true, $forceRefresh);
             } catch (Throwable $e) {
                 error_log('[ApiClient] In-process Insights summary error: ' . $e->getMessage());
             }
         }
 
         // 2. Fallback to HTTP microservice if deployed remotely
-        $url = self::getInsightsBaseUrl() . '?endpoint=summary';
+        $url = self::getInsightsBaseUrl() . '?endpoint=summary' . ($forceRefresh ? '&refresh=1' : '');
         $response = self::httpGet($url, 1500);
 
         if ($response && !empty($response['success'])) {
@@ -153,7 +153,7 @@ class ApiClient
 
         try {
             $engine = new InsightsEngine();
-            return $engine->getSummary();
+            return $engine->getSummary(true, $forceRefresh);
         } catch (Throwable $e) {
             error_log('[ApiClient] Insights summary fallback error: ' . $e->getMessage());
             return [

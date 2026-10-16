@@ -263,6 +263,14 @@ class StockMovementService
         $logStmt->execute();
         $logStmt->close();
 
+        // Invalidate insights cache so the insights page immediately re-studies the database
+        try {
+            require_once __DIR__ . '/../../services/insights-service/InsightsEngine.php';
+            InsightsEngine::invalidateCache($conn);
+        } catch (Throwable $e) {
+            // Non-blocking
+        }
+
         $product['quantity'] = $newStock;
         $reorderPoint = (int)($product['reorder_point'] ?? 10);
         $isOutOfStockTransition = ($transactionType === 'stock_out' && $previousStock > 0 && $newStock === 0);

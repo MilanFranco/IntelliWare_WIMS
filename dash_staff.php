@@ -27,7 +27,7 @@ require_once 'config/db.php';
 
 // 3. Fetch Products for stats & priority detection
 $items = [];
-$productQuery = "SELECT product_id as id, product_name as name, category, quantity as qty, reorder_point FROM products WHERE archived = 0";
+$productQuery = "SELECT product_id as id, CONCAT('P-', LPAD(product_id, 4, '0')) as sku, product_name as name, category, supplier, location, unit, price, quantity as qty, reorder_point FROM products WHERE archived = 0";
 $productResult = $conn->query($productQuery);
 
 if ($productResult && $productResult->num_rows > 0) {
@@ -282,10 +282,10 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
 
     <!-- Card 1: Quick Access (Receive & Release Inventory) -->
     <div class="premium-card flex flex-col h-[400px] w-full iw-quick-access" style="width: 100% !important;">
-        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-quick-access-header" style="width: 100% !important;">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-card-header iw-quick-access-header" style="width: 100% !important;">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-[#51D55A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                Quick Access
+                <svg class="w-5 h-5 text-[#51D55A] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span>Quick Access</span>
             </h3>
         </div>
         <div class="flex-1 p-5 flex flex-col gap-3.5 w-full iw-quick-access-body" style="width: 100% !important; min-width: 100% !important; max-width: 100% !important; align-items: stretch !important; justify-content: stretch !important; box-sizing: border-box !important;">
@@ -335,12 +335,15 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
 
     <!-- Card 2: Recent Activity (Transactions Feed) -->
     <div class="premium-card flex flex-col h-[400px] iw-recent-activity">
-        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-card-header">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Recent Activity
+                <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Recent Activity</span>
             </h3>
-            <a href="transactions.php" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest">View All &rarr;</a>
+            <a href="transactions.php" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest font-semibold flex items-center gap-1 hover:underline transition-colors">
+                <span>View All</span>
+                <span>&rarr;</span>
+            </a>
         </div>
         <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
             <?php if (empty($recentTransactions)): ?>
@@ -383,56 +386,119 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
     </div>
 
     <!-- Card 3: Critical Stock Levels -->
-    <div class="premium-card flex flex-col h-[350px]">
-        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
-            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
-                Critical Stock Levels
-            </h3>
-            <a href="products.php?filter=low_stock" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest">Manage &rarr;</a>
+    <div class="premium-card flex flex-col h-[400px] iw-critical-stock-card">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-card-header iw-critical-stock-header">
+            <div class="flex items-center gap-2.5">
+                <svg class="w-5 h-5 text-[#C2410C] shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 pos-crit-header-title">
+                    <span>Critical Stock Levels</span>
+                    <?php if (!empty($lowStockCount)): ?>
+                    <span class="pos-crit-header-count"><?php echo (int)$lowStockCount; ?></span>
+                    <?php endif; ?>
+                </h3>
+            </div>
+            <a href="products.php?filter=low_stock" class="text-xs text-[#51D55A] hover:text-[#4bc052] font-onest font-semibold flex items-center gap-1 hover:underline transition-colors pos-crit-manage-link" title="Manage low stock items in inventory">
+                <span>Manage</span>
+                <span>&rarr;</span>
+            </a>
         </div>
-        <div class="overflow-y-auto premium-scrollbar flex-1 p-2">
+        <div class="iw-crit-stock-body iw-crit-stock-scrollbar bg-[#F8FAFC]/50 dark:bg-transparent">
             <?php if (empty($lowStockItems)): ?>
-                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1]">
+                <div class="flex flex-col items-center justify-center h-full text-[#9aa6d1] py-8">
                     <svg class="w-12 h-12 mb-2 text-emerald-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <span>All items well stocked!</span>
                 </div>
             <?php else: ?>
-                <div class="space-y-2">
-                    <?php foreach(array_slice($lowStockItems, 0, 7) as $item): ?>
-                    <?php $isOut = (int)$item['qty'] <= 0; ?>
-                    <div class="flex items-center justify-between p-3 rounded-lg bg-[#13275B]/50 border border-[#2A4484] <?php echo $isOut ? 'hover:border-red-500/30' : 'hover:border-amber-500/30'; ?> transition-colors">
-                        <div class="flex items-center gap-3">
-                            <div class="w-2 h-2 rounded-full <?php echo $isOut ? 'bg-red-500' : 'bg-amber-500'; ?> animate-pulse"></div>
-                            <div>
-                                <div class="text-[#E3E3E3] text-sm font-medium"><?php echo htmlspecialchars($item['name']); ?></div>
-                                <div class="text-[#9aa6d1] text-xs">Reorder Point: <?php echo $item['reorder_point']; ?></div>
+                <?php foreach(array_slice($lowStockItems, 0, 7) as $item): ?>
+                <?php 
+                    $isOut = (int)$item['qty'] <= 0; 
+                    $itemSku = $item['sku'] ?? ('P-' . str_pad((string)$item['id'], 4, '0', STR_PAD_LEFT));
+                    $loc = trim($item['location'] ?? '');
+                    if (empty($loc)) {
+                        $shelfDisplay = 'Shelf Unassigned';
+                    } else {
+                        $shelfDisplay = (stripos($loc, 'shelf') !== false) ? $loc : ('Shelf ' . $loc);
+                    }
+                ?>
+                <div id="crit-stock-row-<?php echo (int)$item['id']; ?>"
+                     onclick="openCriticalStockModal(<?php echo (int)$item['id']; ?>)" 
+                     class="pos-crit-card group"
+                     title="Click to inspect and restock <?php echo htmlspecialchars($item['name']); ?>">
+                    
+                    <!-- Left: Tinted Icon Tile -->
+                    <div class="pos-crit-tile <?php echo $isOut ? 'pos-crit-tile-out' : 'pos-crit-tile-low'; ?>" id="crit-stock-tile-<?php echo (int)$item['id']; ?>">
+                        <?php if ($isOut): ?>
+                            <!-- Red circle with X for OUT -->
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        <?php else: ?>
+                            <!-- Amber circle with alert exclamation for LOW -->
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Middle: Product Name + Status Pill + Details Line -->
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="pos-crit-name">
+                                <?php echo htmlspecialchars($item['name']); ?>
+                            </span>
+                            <span class="pos-crit-badge <?php echo $isOut ? 'pos-crit-badge-out' : 'pos-crit-badge-low'; ?>" id="crit-stock-badge-<?php echo (int)$item['id']; ?>">
+                                <?php echo $isOut ? 'OUT' : 'LOW'; ?>
+                            </span>
+                        </div>
+                        <div class="pos-crit-details">
+                            <span class="sku"><?php echo htmlspecialchars($itemSku); ?></span>
+                            <span class="dot">&middot;</span>
+                            <span>Reorder: <strong class="reorder-val"><?php echo (int)$item['reorder_point']; ?></strong></span>
+                            <span class="dot">&middot;</span>
+                            <span class="shelf-val"><?php echo htmlspecialchars($shelfDisplay); ?></span>
+                        </div>
+                    </div>
+
+                    <!-- Right: Quantity + Unit + Plain Chevron -->
+                    <div class="shrink-0 flex items-center gap-2.5">
+                        <div>
+                            <div class="pos-crit-qty-num <?php echo $isOut ? 'qty-out' : 'qty-low'; ?>" id="crit-stock-qty-<?php echo (int)$item['id']; ?>">
+                                <?php echo (int)$item['qty']; ?>
+                            </div>
+                            <div class="pos-crit-qty-unit">
+                                <?php echo htmlspecialchars($item['unit'] ?? 'pieces'); ?>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <div class="<?php echo $isOut ? 'text-red-400' : 'text-amber-400'; ?> font-bold font-mono text-lg"><?php echo (int)$item['qty']; ?></div>
-                            <div class="text-[#9aa6d1] text-[10px]">Remaining</div>
+                        <div class="pos-crit-chevron">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                            </svg>
                         </div>
                     </div>
-                    <?php endforeach; ?>
-                    <?php if ($lowStockCount > 7): ?>
-                    <div class="text-center py-2 text-xs text-[#9aa6d1]">
-                        ...and <?php echo $lowStockCount - 7; ?> more items
-                    </div>
-                    <?php endif; ?>
+
                 </div>
+                <?php endforeach; ?>
+                <?php if ($lowStockCount > 7): ?>
+                <a href="products.php?filter=low_stock" class="block text-center py-2 text-xs text-[#059669] hover:text-[#047857] dark:text-[#51D55A] hover:underline font-onest transition-colors" title="View all low stock products">
+                    ...and <?php echo $lowStockCount - 7; ?> more items &rarr; (View All in Inventory)
+                </a>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
 
     <!-- Card 4: Inventory Distribution Chart -->
-    <div class="premium-card flex flex-col h-[350px]">
-        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
+    <div class="premium-card flex flex-col h-[400px]">
+        <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30 iw-card-header">
             <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                Inventory Distribution
+                <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span>Inventory Distribution</span>
             </h3>
-            <span class="text-xs text-[#9aa6d1] font-onest">Category Units</span>
+            <span class="text-xs text-[#9aa6d1] font-onest font-medium">Category Units</span>
         </div>
         <div class="p-4 flex-1 relative">
             <?php if (empty($categoryData)): ?>
@@ -549,4 +615,7 @@ document.addEventListener('themechange', function() {
 })();
 </script>
 
-<?php renderLayoutFooter(); ?>
+<?php 
+require_once __DIR__ . '/src/partials/critical_stock_modal.php';
+renderLayoutFooter(); 
+?>

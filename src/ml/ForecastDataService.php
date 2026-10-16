@@ -548,38 +548,152 @@ class ForecastDataService
     }
 
     /**
-     * Product demand heatmap from real per-product forecasts.
+     * Product demand heatmap calculated from live sales velocity blended with ML forecast results.
+     * Updates in real-time as sales and stock movements occur.
      */
-    public function getProductForecastDemand(int $limit = 8): array
+    public function getProductForecastDemand(int $limit = 8, ?string $category = null): array
     {
-        $result = $this->conn->query(
-            "SELECT p.product_name,
-                    SUM(fr.predicted_quantity) AS forecast_demand
-             FROM forecast_results fr
-             INNER JOIN products p ON fr.product_id = p.product_id
-             WHERE fr.product_id > 0
-               AND fr.horizon_type = 'daily'
-               AND fr.forecast_date >= CURDATE()
-               AND fr.forecast_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-             GROUP BY fr.product_id, p.product_name
-             ORDER BY forecast_demand DESC
-             LIMIT " . intval($limit)
-        );
+        $categoryFilter = '';
+        $bindTypes = '';
+        $bindParams = [];
 
-        $products = [];
-        $demand = [];
+        if (!empty($category) && $category !== 'all' && $category !== 'All Categories') {
+            $categoryFilter = " AND p.category = ? ";
+            $bindTypes .= 's';
+            $bindParams[] = $category;
+        }
 
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $products[] = $row['product_name'];
-                $demand[] = round((float)$row['forecast_demand'], 1);
+        $sql = "
+            SELECT 
+                p.product_id,
+                p.product_name,
+                p.category,
+                p.quantity AS current_stock,
+                p.reorder_point,
+                p.unit,
+                COALESCE(t30.qty_30d, 0) AS sales_30d,
+                COALESCE(t14.qty_14d, 0) AS sales_14d,
+                COALESCE(tall.all_qty, 0) AS sales_all,
+                COALESCE(fr.ml_demand, 0) AS ml_demand
+            FROM products p
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) AS qty_30d
+                FROM transactions
+                WHERE transaction_type = 'stock_out'
+                  AND transaction_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                GROUP BY product_id
+            ) t30 ON p.product_id = t30.product_id
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) AS qty_14d
+                FROM transactions
+                WHERE transaction_type = 'stock_out'
+                  AND transaction_date >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+                GROUP BY product_id
+            ) t14 ON p.product_id = t14.product_id
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) AS all_qty
+                FROM transactions
+                WHERE transaction_type = 'stock_out'
+                GROUP BY product_id
+            ) tall ON p.product_id = tall.product_id
+            LEFT JOIN (
+                SELECT product_id, SUM(predicted_quantity) AS ml_demand
+                FROM forecast_results
+                WHERE horizon_type = 'daily'
+                  AND forecast_date >= CURDATE()
+                  AND forecast_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+                GROUP BY product_id
+            ) fr ON p.product_id = fr.product_id
+            WHERE p.archived = 0 {$categoryFilter}
+            HAVING (sales_30d > 0 OR sales_all > 0 OR ml_demand > 0)
+            ORDER BY sales_30d DESC, ml_demand DESC, sales_all DESC
+            LIMIT 40
+        ";
+
+        if (!empty($bindParams)) {
+            $stmt = $this->conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param($bindTypes, ...$bindParams);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $stmt->close();
+            } else {
+                $res = $this->conn->query($sql);
+            }
+        } else {
+            $res = $this->conn->query($sql);
+        }
+
+        $items = [];
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $s30 = (float)$row['sales_30d'];
+                $s14 = (float)$row['sales_14d'];
+                $ml  = (float)$row['ml_demand'];
+                $sAll = (float)$row['sales_all'];
+                $stock = (int)$row['current_stock'];
+                $reorder = (int)($row['reorder_point'] ?? 10);
+                $unit = !empty($row['unit']) ? $row['unit'] : 'pcs';
+
+                // Real-time sales momentum projection
+                if ($s14 > 0) {
+                    $liveRunRate = ($s14 / 14) * 30;
+                    $liveVelocityDemand = (0.65 * $liveRunRate) + (0.35 * $s30);
+                } elseif ($s30 > 0) {
+                    $liveVelocityDemand = $s30;
+                } else {
+                    $liveVelocityDemand = max(1.0, round($sAll / 4, 1));
+                }
+
+                // Blend live velocity with ML model if ML has data
+                if ($ml > 0 && $liveVelocityDemand > 0) {
+                    $projectedDemand = round((0.60 * $liveVelocityDemand) + (0.40 * $ml), 1);
+                } elseif ($liveVelocityDemand > 0) {
+                    $projectedDemand = round($liveVelocityDemand, 1);
+                } else {
+                    $projectedDemand = round($ml, 1);
+                }
+
+                $dailyVelocity = round($projectedDemand / 30, 2);
+                $daysSupply = ($dailyVelocity > 0) ? round($stock / $dailyVelocity, 1) : 999;
+
+                $stockStatus = 'normal';
+                if ($stock <= 0) {
+                    $stockStatus = 'out_of_stock';
+                } elseif ($stock <= $reorder || $daysSupply <= 7) {
+                    $stockStatus = 'low_stock';
+                } elseif ($daysSupply > 90) {
+                    $stockStatus = 'overstocked';
+                }
+
+                $items[] = [
+                    'product_id'     => (int)$row['product_id'],
+                    'product_name'   => $row['product_name'],
+                    'category'       => $row['category'] ?? 'Unassigned',
+                    'current_stock'  => $stock,
+                    'reorder_point'  => $reorder,
+                    'unit'           => $unit,
+                    'sales_30d'      => round($s30, 1),
+                    'daily_velocity' => $dailyVelocity,
+                    'forecast_demand'=> $projectedDemand,
+                    'days_of_supply' => $daysSupply,
+                    'stock_status'   => $stockStatus,
+                ];
             }
         }
 
+        // Sort by projected demand descending and slice to limit
+        usort($items, fn($a, $b) => $b['forecast_demand'] <=> $a['forecast_demand']);
+        $items = array_slice($items, 0, $limit);
+
+        $labels = array_column($items, 'product_name');
+        $demands = array_column($items, 'forecast_demand');
+
         return [
-            'available' => !empty($products),
-            'labels' => $products,
-            'demand' => $demand,
+            'available' => !empty($items),
+            'labels'    => $labels,
+            'demand'    => $demands,
+            'items'     => $items,
         ];
     }
 
