@@ -7,6 +7,8 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/../../src/services/PhilippineSeasonalService.php';
 
+@ini_set('memory_limit', '256M');
+
 class InsightsEngine
 {
     private mysqli $conn;
@@ -387,11 +389,19 @@ class InsightsEngine
             : $this->resolvePeriodKey($period);
 
         if ($forceRefresh) {
-            $this->computeAndStoreForecasts();
+            $stored = $this->computeAndStoreForecasts($period);
+            if (!empty($stored[$period])) {
+                $data = $stored[$period];
+                $data['source'] = 'recomputed';
+                if (!empty($data['items']) && is_array($data['items'])) {
+                    $this->hydrateForecastItemsWithLiveStock($data['items']);
+                }
+                return $data;
+            }
         }
 
         $stmt = $this->conn->prepare("
-            SELECT predictions_data, computed_at 
+            SELECT predictions_data, UNIX_TIMESTAMP(computed_at) AS computed_ts, computed_at 
             FROM insight_predictions 
             WHERE period_type = ? AND period_key = ? 
             LIMIT 1
@@ -406,15 +416,18 @@ class InsightsEngine
             if ($row && !empty($row['predictions_data'])) {
                 $data = json_decode($row['predictions_data'], true);
                 if (is_array($data)) {
-                    $age = time() - strtotime($row['computed_at']);
-                    // If prediction is older than 60s or DB has drifted, recompute forecasts
-                    if ($age > 60) {
-                        $this->computeAndStoreForecasts();
-                        return $this->getForecast($period, $month, false, false);
+                    $computedTs = (int)($row['computed_ts'] ?? 0);
+                    $age = ($computedTs > 0) ? (time() - $computedTs) : 0;
+                    // If prediction is older than 30 minutes, recompute for this period without recursion
+                    if ($autoGenerateIfEmpty && $age > 1800) {
+                        $stored = $this->computeAndStoreForecasts($period);
+                        if (!empty($stored[$period])) {
+                            $data = $stored[$period];
+                        }
                     }
 
                     $data['computed_at'] = $row['computed_at'];
-                    $data['last_updated_formatted'] = date('F j, Y, g:i A', strtotime($row['computed_at']));
+                    $data['last_updated_formatted'] = date('F j, Y, g:i A', $computedTs > 0 ? $computedTs : time());
                     $data['source'] = $forceRefresh ? 'recomputed' : 'cache';
 
                     // Dynamically hydrate each item with real-time stock levels from the products table
@@ -428,8 +441,14 @@ class InsightsEngine
         }
 
         if ($autoGenerateIfEmpty) {
-            $this->computeAndStoreForecasts();
-            return $this->getForecast($period, $month, false, false);
+            $stored = $this->computeAndStoreForecasts($period);
+            if (!empty($stored[$period])) {
+                $data = $stored[$period];
+                if (!empty($data['items']) && is_array($data['items'])) {
+                    $this->hydrateForecastItemsWithLiveStock($data['items']);
+                }
+                return $data;
+            }
         }
 
         return ['source' => 'empty', 'items' => []];
@@ -849,9 +868,12 @@ class InsightsEngine
      * Compute and store demand forecasts for all periods.
      * Integrates with ML results (forecast_results table) when available.
      */
-    public function computeAndStoreForecasts(): array
+    public function computeAndStoreForecasts(?string $specificPeriod = null): array
     {
-        $periods = ['weekly', 'monthly', 'quarterly', 'semi-annual', 'annual'];
+        $allPeriods = ['weekly', 'monthly', 'quarterly', 'semi-annual', 'annual'];
+        $periods = ($specificPeriod !== null && in_array($specificPeriod, $allPeriods, true))
+            ? [$specificPeriod]
+            : $allPeriods;
         $results = [];
 
         foreach ($periods as $period) {
@@ -866,106 +888,146 @@ class InsightsEngine
 
             // Check if ML model results exist in forecast_results
             $mlItems = [];
-            $mlQuery = "
-                SELECT 
-                    p.product_id,
-                    p.product_name,
-                    p.quantity as current_stock,
-                    p.reorder_point,
-                    p.category AS category_name,
-                    SUM(fr.predicted_quantity) AS total_historical_sales
+            $mlRes = @$this->conn->query("
+                SELECT fr.product_id, SUM(fr.predicted_quantity) AS total_historical_sales
                 FROM forecast_results fr
-                JOIN products p ON fr.product_id = p.product_id
-                WHERE fr.product_id > 0
-                  AND fr.horizon_type = 'daily'
+                WHERE fr.horizon_type = 'daily'
                   AND fr.forecast_date >= CURDATE()
                   AND fr.forecast_date < DATE_ADD(CURDATE(), INTERVAL {$forecastDays} DAY)
-                GROUP BY p.product_id
+                GROUP BY fr.product_id
                 ORDER BY total_historical_sales DESC
                 LIMIT 10
-            ";
-            $mlRes = @$this->conn->query($mlQuery);
+            ");
             if ($mlRes && $mlRes->num_rows > 0) {
+                $pids = [];
+                $predMap = [];
                 while ($r = $mlRes->fetch_assoc()) {
-                    $mlItems[] = $this->enrichForecastRow($r, true, $forecastDays);
+                    $pid = (int)$r['product_id'];
+                    $pids[] = $pid;
+                    $predMap[$pid] = (float)$r['total_historical_sales'];
+                }
+                if (!empty($pids)) {
+                    $idList = implode(',', $pids);
+                    $pRes = $this->conn->query("
+                        SELECT product_id, product_name, quantity as current_stock, reorder_point, category AS category_name
+                        FROM products
+                        WHERE product_id IN ($idList)
+                    ");
+                    if ($pRes && $pRes->num_rows > 0) {
+                        while ($pr = $pRes->fetch_assoc()) {
+                            $pr['total_historical_sales'] = $predMap[(int)$pr['product_id']] ?? 0;
+                            $mlItems[] = $this->enrichForecastRow($pr, true, $forecastDays);
+                        }
+                    }
                 }
             }
 
             // 1. Critical Inventory Items: Out of Stock and Low Stock MUST be analyzed in Smart Restock
             $attentionItems = [];
-            $attentionQuery = "
-                SELECT 
-                    p.product_id,
-                    p.product_name,
-                    p.quantity as current_stock,
-                    p.reorder_point,
-                    p.category AS category_name,
-                    COALESCE(t_recent.recent_sales, 0) AS recent_sales,
-                    COALESCE(t_all.all_time_sales, 0) AS all_time_sales,
-                    COALESCE(t_all.sale_count, 0) AS sale_count
-                FROM products p
-                LEFT JOIN (
+            $attRes = $this->conn->query("
+                SELECT product_id, product_name, quantity as current_stock, reorder_point, category AS category_name
+                FROM products
+                WHERE archived = 0 
+                  AND (quantity <= 0 OR quantity <= reorder_point)
+                ORDER BY quantity ASC, reorder_point DESC
+                LIMIT 25
+            ");
+            $attProducts = [];
+            $attPids = [];
+            if ($attRes && $attRes->num_rows > 0) {
+                while ($r = $attRes->fetch_assoc()) {
+                    $attProducts[] = $r;
+                    $attPids[] = (int)$r['product_id'];
+                }
+            }
+
+            $recentSalesMap = [];
+            $allSalesMap = [];
+            $saleCountMap = [];
+
+            if (!empty($attPids)) {
+                $idList = implode(',', $attPids);
+                $rRes = $this->conn->query("
                     SELECT product_id, SUM(quantity) AS recent_sales
                     FROM transactions
                     WHERE transaction_type = 'stock_out'
+                      AND product_id IN ($idList)
                       AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL {$forecastDays} DAY)
                     GROUP BY product_id
-                ) t_recent ON p.product_id = t_recent.product_id
-                LEFT JOIN (
+                ");
+                if ($rRes) {
+                    while ($rr = $rRes->fetch_assoc()) {
+                        $recentSalesMap[(int)$rr['product_id']] = (float)$rr['recent_sales'];
+                    }
+                }
+
+                $aRes = $this->conn->query("
                     SELECT product_id, SUM(quantity) AS all_time_sales, COUNT(*) as sale_count
                     FROM transactions
                     WHERE transaction_type = 'stock_out'
+                      AND product_id IN ($idList)
                     GROUP BY product_id
-                ) t_all ON p.product_id = t_all.product_id
-                WHERE p.archived = 0 
-                  AND (p.quantity <= 0 OR p.quantity <= p.reorder_point)
-                ORDER BY p.quantity ASC, p.reorder_point DESC
-            ";
-            $attRes = $this->conn->query($attentionQuery);
-            if ($attRes && $attRes->num_rows > 0) {
-                while ($r = $attRes->fetch_assoc()) {
-                    $stock = (int)$r['current_stock'];
-                    $reorder = (int)$r['reorder_point'];
-                    $recent = (float)$r['recent_sales'];
-                    $allTime = (float)$r['all_time_sales'];
-                    $cnt = (int)$r['sale_count'];
-
-                    if ($recent > 0) {
-                        $demand = $recent;
-                    } elseif ($allTime > 0 && $cnt > 0) {
-                        $demand = max(1, round(($allTime / $cnt) * max(1, $forecastDays / 30)));
-                    } else {
-                        $demand = max(5, (float)$reorder);
+                ");
+                if ($aRes) {
+                    while ($ar = $aRes->fetch_assoc()) {
+                        $allSalesMap[(int)$ar['product_id']] = (float)$ar['all_time_sales'];
+                        $saleCountMap[(int)$ar['product_id']] = (int)$ar['sale_count'];
                     }
-
-                    $r['total_historical_sales'] = $demand;
-                    $attentionItems[] = $this->enrichForecastRow($r, false, $forecastDays);
                 }
+            }
+
+            foreach ($attProducts as $r) {
+                $pid = (int)$r['product_id'];
+                $stock = (int)$r['current_stock'];
+                $reorder = (int)$r['reorder_point'];
+                $recent = $recentSalesMap[$pid] ?? 0.0;
+                $allTime = $allSalesMap[$pid] ?? 0.0;
+                $cnt = $saleCountMap[$pid] ?? 0;
+
+                if ($recent > 0) {
+                    $demand = $recent;
+                } elseif ($allTime > 0 && $cnt > 0) {
+                    $demand = max(1, round(($allTime / $cnt) * max(1, $forecastDays / 30)));
+                } else {
+                    $demand = max(5, (float)$reorder);
+                }
+
+                $r['total_historical_sales'] = $demand;
+                $attentionItems[] = $this->enrichForecastRow($r, false, $forecastDays);
             }
 
             // 2. Fallback to transaction patterns if ML results are empty
             if (empty($mlItems)) {
-                $histQuery = "
-                    SELECT 
-                        p.product_id,
-                        p.product_name,
-                        p.quantity as current_stock,
-                        p.reorder_point,
-                        p.category AS category_name,
-                        SUM(t.quantity) AS total_historical_sales
-                    FROM transactions t
-                    JOIN products p ON t.product_id = p.product_id
-                    WHERE t.transaction_type = 'stock_out'
-                      AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL {$forecastDays} DAY)
-                      AND p.archived = 0
-                    GROUP BY p.product_id
+                $histRes = $this->conn->query("
+                    SELECT product_id, SUM(quantity) AS total_historical_sales
+                    FROM transactions
+                    WHERE transaction_type = 'stock_out'
+                      AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL {$forecastDays} DAY)
+                    GROUP BY product_id
                     ORDER BY total_historical_sales DESC
                     LIMIT 15
-                ";
-                $histRes = $this->conn->query($histQuery);
+                ");
                 if ($histRes && $histRes->num_rows > 0) {
-                    while ($r = $histRes->fetch_assoc()) {
-                        $mlItems[] = $this->enrichForecastRow($r, false, $forecastDays);
+                    $hPids = [];
+                    $hSalesMap = [];
+                    while ($hr = $histRes->fetch_assoc()) {
+                        $hpid = (int)$hr['product_id'];
+                        $hPids[] = $hpid;
+                        $hSalesMap[$hpid] = (float)$hr['total_historical_sales'];
+                    }
+                    if (!empty($hPids)) {
+                        $hIdList = implode(',', $hPids);
+                        $hpRes = $this->conn->query("
+                            SELECT product_id, product_name, quantity as current_stock, reorder_point, category AS category_name
+                            FROM products
+                            WHERE product_id IN ($hIdList) AND archived = 0
+                        ");
+                        if ($hpRes) {
+                            while ($hpr = $hpRes->fetch_assoc()) {
+                                $hpr['total_historical_sales'] = $hSalesMap[(int)$hpr['product_id']] ?? 0;
+                                $mlItems[] = $this->enrichForecastRow($hpr, false, $forecastDays);
+                            }
+                        }
                     }
                 }
             }
@@ -1020,9 +1082,11 @@ class InsightsEngine
                 VALUES (?, ?, ?, NOW())
                 ON DUPLICATE KEY UPDATE predictions_data = VALUES(predictions_data), computed_at = NOW()
             ");
-            $stmt->bind_param('sss', $period, $periodKey, $json);
-            $stmt->execute();
-            $stmt->close();
+            if ($stmt) {
+                $stmt->bind_param('sss', $period, $periodKey, $json);
+                $stmt->execute();
+                $stmt->close();
+            }
 
             $results[$period] = $payload;
         }

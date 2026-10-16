@@ -1,5 +1,6 @@
 <?php
 session_start();
+@ini_set('memory_limit', '256M');
 
 if (!isset($_SESSION['Username'])) {
     header('Location: signin.php');

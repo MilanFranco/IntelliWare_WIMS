@@ -84,8 +84,9 @@ class ForecastDataService
     private function safeQuery(string $sql): ?mysqli_result
     {
         try {
-            return $this->conn->query($sql);
-        } catch (mysqli_sql_exception $e) {
+            $res = $this->conn->query($sql);
+            return ($res instanceof mysqli_result) ? $res : null;
+        } catch (Throwable $e) {
             return null;
         }
     }
