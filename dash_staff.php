@@ -91,7 +91,7 @@ $transQuery = "SELECT t.transaction_type, t.quantity, t.transaction_date, COALES
                FROM transactions t
                LEFT JOIN products p ON t.product_id = p.product_id
                LEFT JOIN users u ON t.user_id = u.user_id
-               ORDER BY t.transaction_date DESC LIMIT 5";
+               ORDER BY t.transaction_date DESC, t.transaction_id DESC LIMIT 5";
 $transResult = $conn->query($transQuery);
 if ($transResult && $transResult->num_rows > 0) {
     while ($row = $transResult->fetch_assoc()) {
@@ -375,7 +375,7 @@ renderLayoutStart('Staff Dashboard', $_SESSION['Role'], $userInfo['full_name'] ?
                             </td>
                             <td class="p-3 text-right">
                                 <div class="text-[#E3E3E3] text-xs"><?php echo htmlspecialchars($tx['username']); ?></div>
-                                <div class="text-[#6b7280] text-[10px]"><?php echo date('M j, g:ia', strtotime($tx['transaction_date'])); ?></div>
+                                <div class="text-[#6b7280] text-[10px]"><?php echo formatActivityDate($tx['transaction_date']); ?></div>
                             </td>
                         </tr>
                         <?php endforeach; ?>

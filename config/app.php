@@ -7,8 +7,56 @@
  * supporting environment variables (.env / getenv) and automatic host/subfolder detection.
  */
 
+date_default_timezone_set('Asia/Manila');
+
 if (!defined('INTELLIWARE_APP_CONFIG_LOADED')) {
     define('INTELLIWARE_APP_CONFIG_LOADED', true);
+}
+
+if (!function_exists('formatActivityDate')) {
+    /**
+     * Format transaction/activity timestamps consistently as "M j, g:ia" (e.g. "Oct 17, 7:58am").
+     * Shows the year only if the entry is from a different/previous year ("M j, Y, g:ia").
+     *
+     * @param string|int|DateTimeInterface|null $timestamp
+     * @param bool $storedInUtc Set to true only if the input value is an unadjusted UTC string.
+     * @return string
+     */
+    function formatActivityDate($timestamp, bool $storedInUtc = false): string
+    {
+        if (empty($timestamp)) {
+            return '—';
+        }
+
+        try {
+            if ($timestamp instanceof DateTimeInterface) {
+                $dt = clone $timestamp;
+                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+            } elseif (is_numeric($timestamp)) {
+                $dt = new DateTime('@' . (int)$timestamp);
+                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+            } else {
+                $rawStr = trim((string)$timestamp);
+                if ($storedInUtc) {
+                    $dt = new DateTime($rawStr, new DateTimeZone('UTC'));
+                    $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                } else {
+                    $dt = new DateTime($rawStr, new DateTimeZone('Asia/Manila'));
+                }
+            }
+
+            $currentYear = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Y');
+            $entryYear = $dt->format('Y');
+
+            if ($entryYear !== $currentYear) {
+                return $dt->format('M j, Y, g:ia');
+            }
+
+            return $dt->format('M j, g:ia');
+        } catch (Throwable $e) {
+            return (string)$timestamp;
+        }
+    }
 }
 
 if (!function_exists('loadIntelliwareEnv')) {

@@ -12,7 +12,7 @@ $logs = [];
 $logQuery = "SELECT l.log_id, l.action, l.timestamp, u.username 
              FROM logs l 
              LEFT JOIN users u ON l.user_id = u.user_id 
-             ORDER BY l.timestamp DESC LIMIT 100";
+             ORDER BY l.timestamp DESC, l.log_id DESC LIMIT 100";
 $logResult = $conn->query($logQuery);
 
 if ($logResult && $logResult->num_rows > 0) {
@@ -29,7 +29,7 @@ $transactionQuery = "SELECT t.*, p.product_name, p.category, u.username
                      FROM transactions t 
                      LEFT JOIN products p ON t.product_id = p.product_id 
                      LEFT JOIN users u ON t.user_id = u.user_id 
-                     ORDER BY t.transaction_date DESC LIMIT 100";
+                     ORDER BY t.transaction_date DESC, t.transaction_id DESC LIMIT 100";
 $transactionResult = $conn->query($transactionQuery);
 
 if ($transactionResult && $transactionResult->num_rows > 0) {
@@ -54,7 +54,7 @@ $historyQuery = "SELECT t.*, p.product_name, p.category, u.username
                  FROM transactions t 
                  LEFT JOIN products p ON t.product_id = p.product_id 
                  LEFT JOIN users u ON t.user_id = u.user_id 
-                 ORDER BY t.transaction_date DESC 
+                 ORDER BY t.transaction_date DESC, t.transaction_id DESC 
                  LIMIT $perPage OFFSET $offset";
 $historyResult = $conn->query($historyQuery);
 if ($historyResult && $historyResult->num_rows > 0) {
@@ -457,7 +457,7 @@ html { scroll-behavior: smooth; }
                                 <span class="text-[#9aa6d1]"><?php echo htmlspecialchars($log['action']); ?></span>
                             </td>
                             <td class="p-3 text-right text-xs text-[#6b7280]">
-                                <?php echo date('M j, H:i', strtotime($log['timestamp'])); ?>
+                                <?php echo formatActivityDate($log['timestamp']); ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -509,7 +509,7 @@ html { scroll-behavior: smooth; }
                                 <?php echo $trans['quantity']; ?>
                             </td>
                             <td class="p-3 text-right text-xs text-[#6b7280]">
-                                <?php echo date('H:i', strtotime($trans['transaction_date'])); ?>
+                                <?php echo formatActivityDate($trans['transaction_date']); ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -609,7 +609,7 @@ html { scroll-behavior: smooth; }
                                 <?php echo htmlspecialchars($trans['username'] ?? 'Unknown'); ?>
                             </div>
                         </td>
-                        <td class="text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo date('M j, Y H:i', strtotime($trans['transaction_date'])); ?></td>
+                        <td class="text-xs text-[#9aa6d1] whitespace-nowrap"><?php echo formatActivityDate($trans['transaction_date']); ?></td>
                         <td class="text-sm text-[#9aa6d1] italic max-w-[200px] truncate"><?php echo htmlspecialchars($trans['remarks'] ?? '-'); ?></td>
                     </tr>
                     <?php endforeach; ?>
@@ -650,7 +650,7 @@ html { scroll-behavior: smooth; }
                                 <?php endif; ?>
                                 <?php echo $badgeText; ?>
                             </span>
-                            <span class="txnacc-date"><?php echo date('M j, g:i A', strtotime($trans['transaction_date'])); ?></span>
+                            <span class="txnacc-date"><?php echo formatActivityDate($trans['transaction_date']); ?></span>
                         </div>
                     </div>
                     <div class="txnacc-right">
@@ -800,7 +800,7 @@ function exportLogs() {
     let csv = 'Transaction ID,Product,Category,Type,Quantity,User,Date,Remarks\n';
     
     <?php foreach ($historyTransactions as $trans): ?>
-    csv += '<?php echo $trans['transaction_id']; ?>,<?php echo addslashes($trans['product_name'] ?? 'Unknown'); ?>,<?php echo addslashes($trans['category'] ?? 'N/A'); ?>,<?php echo $trans['transaction_type']; ?>,<?php echo $trans['quantity']; ?>,<?php echo addslashes($trans['username'] ?? 'Unknown'); ?>,<?php echo date('Y-m-d H:i', strtotime($trans['transaction_date'])); ?>,<?php echo addslashes($trans['remarks'] ?? 'N/A'); ?>\n';
+    csv += '<?php echo $trans['transaction_id']; ?>,<?php echo addslashes($trans['product_name'] ?? 'Unknown'); ?>,<?php echo addslashes($trans['category'] ?? 'N/A'); ?>,<?php echo $trans['transaction_type']; ?>,<?php echo $trans['quantity']; ?>,<?php echo addslashes($trans['username'] ?? 'Unknown'); ?>,<?php echo formatActivityDate($trans['transaction_date']); ?>,<?php echo addslashes($trans['remarks'] ?? 'N/A'); ?>\n';
     <?php endforeach; ?>
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -939,7 +939,7 @@ function filterModalLogs() {
                                 <span class="log-action text-[#9aa6d1]"><?php echo htmlspecialchars($log['action']); ?></span>
                             </td>
                             <td class="p-3 pr-5 text-right text-xs text-[#6b7280] whitespace-nowrap font-mono">
-                                <?php echo date('M j, Y H:i', strtotime($log['timestamp'])); ?>
+                                <?php echo formatActivityDate($log['timestamp']); ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

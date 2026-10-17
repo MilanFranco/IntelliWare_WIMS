@@ -28,6 +28,7 @@ function getInsightsDbConnection(): mysqli {
         }
 
         $conn->set_charset('utf8mb4');
+        $conn->query("SET time_zone = '+08:00'");
     }
     return $conn;
 }

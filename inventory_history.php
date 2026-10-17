@@ -95,7 +95,7 @@ $countStmt->close();
 
 $totalPages = max(1, (int)ceil($totalRows / $limit));
 
-$sql .= " ORDER BY t.transaction_date DESC LIMIT ? OFFSET ?";
+$sql .= " ORDER BY t.transaction_date DESC, t.transaction_id DESC LIMIT ? OFFSET ?";
 $listParams = $params;
 $listTypes = $types;
 $listParams[] = $limit;
@@ -543,7 +543,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                                 </td>
                                 <td class="col-datetime">
                                     <span class="font-medium text-white text-[13px] whitespace-nowrap">
-                                        <?php echo htmlspecialchars(date('M j, Y g:i A', strtotime($txn['transaction_date']))); ?>
+                                        <?php echo htmlspecialchars(formatActivityDate($txn['transaction_date'])); ?>
                                     </span>
                                 </td>
                                 <td class="col-product">
@@ -634,7 +634,7 @@ renderLayoutStart('Transaction History', $role, $_SESSION['Username']);
                                     <span>STOCK OUT</span>
                                 </span>
                             <?php endif; ?>
-                            <span class="txnacc-date"><?php echo date('M j, Y g:i A', strtotime($txn['transaction_date'])); ?></span>
+                            <span class="txnacc-date"><?php echo formatActivityDate($txn['transaction_date']); ?></span>
                         </div>
                     </div>
                     <div class="txnacc-right">

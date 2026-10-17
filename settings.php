@@ -1049,7 +1049,7 @@ renderLayoutStart('System Configuration', $currentRole, $_SESSION['Username']);
                                         <?php echo htmlspecialchars($log['product_name'] ?: $log['title']); ?>
                                     </div>
                                     <div class="text-[10px] text-[#9aa6d1] mt-0.5">
-                                        <?php echo date('M j, g:i A', strtotime($log['created_at'])); ?> &bull; <?php echo htmlspecialchars($log['notification_type']); ?>
+                                        <?php echo formatActivityDate($log['created_at']); ?> &bull; <?php echo htmlspecialchars($log['notification_type']); ?>
                                     </div>
                                     <?php if (!empty($log['error_message']) && $log['status'] === 'FAILED'): ?>
                                         <div class="text-[10px] text-red-400 mt-1 max-w-[200px] truncate" title="<?php echo htmlspecialchars($log['error_message']); ?>">
