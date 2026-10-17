@@ -370,12 +370,7 @@ class ProductMergeService
 
         // Save image if present
         if ($product_image_b64 !== '') {
-            $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $product_image_b64));
-            if ($imgData !== false) {
-                $imgDir = dirname(__DIR__, 2) . '/uploads/products/';
-                if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
-                file_put_contents($imgDir . $newProductId . '.jpg', $imgData);
-            }
+            saveProductImageFromBase64($newProductId, $product_image_b64);
         }
 
         // Add opening stock if > 0

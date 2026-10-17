@@ -102,34 +102,16 @@ if (isset($_SESSION['Username'])) {
             justify-content: center;
         }
         
-        .brand-logo {
-            font-family: 'Overpass', sans-serif;
-            font-size: clamp(44px, 14.5vw, 62px);
-            font-weight: 800;
-            line-height: 1;
-            color: #FFFFFF;
-            white-space: nowrap;
-            text-align: center;
-            letter-spacing: -0.5px;
-            margin: 0;
-        }
-
-        .brand-logo .brand-accent {
-            color: #51D55A;
-            font-style: italic;
-            font-weight: 800;
-        }
-
-        .brand-tagline {
-            font-family: 'Onest', sans-serif;
-            font-size: clamp(12px, 3.6vw, 15px);
-            font-weight: 400;
-            color: #cbd5e1;
-            margin-top: 10px;
-            margin-bottom: 0;
-            text-align: center;
-            line-height: 1.3;
-            letter-spacing: 0.2px;
+        .signin-logo {
+            width: 100%;
+            max-width: 440px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
         /* --- CARD --- */
@@ -397,6 +379,10 @@ if (isset($_SESSION['Username'])) {
 
         /* ---- Mobile responsive adjustments ---- */
         @media (max-width: 480px) {
+            .signin-logo {
+                max-width: 350px;
+            }
+
             .signinbox {
                 padding: 24px 20px;
             }
@@ -770,8 +756,7 @@ if (isset($_SESSION['Username'])) {
     <div class="auth-wrapper">
         <div class="auth-container">
             <div class="brand-block">
-                <div class="brand-logo">INTELLI<span class="brand-accent">WARE</span></div>
-                <div class="brand-tagline">Intelligent Inventory Management System</div>
+                <img src="img/main%20logo.png" alt="IntelliWare" class="fade-in signin-logo" />
             </div>
             <form action="src/scripts/authenticate.php" method="POST" style="width: 100%; margin: 0;">
                 <div class="signinbox">

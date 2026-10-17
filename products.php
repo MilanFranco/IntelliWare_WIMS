@@ -12,6 +12,7 @@ require_once 'src/services/StockMovementService.php';
 require_once 'src/services/LocationCategoryService.php';
 require_once 'src/services/ApiClient.php';
 require_once 'src/services/ProductMergeService.php';
+require_once 'src/helpers/product_image_url.php';
 
 StockMovementService::ensureBatchColumn($conn);
 
@@ -135,12 +136,7 @@ if ($view_id > 0) {
                 'shelf'    => $vRow['shelf_life'] !== null ? (string)(int)$vRow['shelf_life'] : '',
                 'sku'      => $vRow['sku'],
             ];
-            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
-                if (file_exists(__DIR__ . '/uploads/products/' . (int)$vRow['product_id'] . '.' . $ext)) {
-                    $autoOpenProduct['image'] = 'uploads/products/' . (int)$vRow['product_id'] . '.' . $ext;
-                    break;
-                }
-            }
+            $autoOpenProduct['image'] = getProductImageUrl((int)$vRow['product_id']);
         }
         $vStmt->close();
     }
@@ -378,31 +374,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
 
             // ── Image handling ──────────────────────────────────────────────────
-            $imgDir     = __DIR__ . '/uploads/products/';
-            $imgPath    = $imgDir . $id . '.jpg';
             $imgAction  = trim($_POST['edit_image_action'] ?? 'keep');
             $imgB64     = trim($_POST['edit_image_b64'] ?? '');
 
             if ($imgAction === 'remove') {
-                // Delete stored image if it exists
-                foreach (['jpg', 'png', 'jpeg', 'webp'] as $ext) {
-                    if (file_exists($imgDir . $id . '.' . $ext)) {
-                        @unlink($imgDir . $id . '.' . $ext);
-                    }
-                }
+                deleteProductImageFiles($id);
             } elseif ($imgAction === 'replace' && $imgB64 !== '') {
-                // Clean up any other extension variants
-                foreach (['png', 'jpeg', 'webp'] as $ext) {
-                    if (file_exists($imgDir . $id . '.' . $ext)) {
-                        @unlink($imgDir . $id . '.' . $ext);
-                    }
-                }
-                // Decode and overwrite
-                $imgData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $imgB64));
-                if ($imgData !== false) {
-                    if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
-                    file_put_contents($imgPath, $imgData);
-                }
+                saveProductImageFromBase64($id, $imgB64);
             }
             // 'keep' → no change
 
@@ -2103,14 +2081,8 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             $isLow       = !$isOut && $qty <= $reorder;
             $statusClass = $isOut ? 'badge-out' : ($isLow ? 'badge-low' : 'badge-good');
             $statusLabel = $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD');
-            $thumbSrc = null;
-            foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
-                if (file_exists(__DIR__ . '/uploads/products/' . (int)$it['id'] . '.' . $ext)) {
-                    $thumbSrc = 'uploads/products/' . (int)$it['id'] . '.' . $ext;
-                    break;
-                }
-            }
-            $hasThumb    = !empty($thumbSrc);
+            $thumbSrc = getProductImageUrl((int)$it['id']);
+            $hasThumb = !empty($thumbSrc);
         ?>
         <div class="inv-card"
              data-id="<?php echo $it['id']; ?>"
@@ -2205,13 +2177,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <tbody>
                     <?php foreach ($items as $it): ?>
                     <?php
-                        $tblThumb = null;
-                        foreach (['png', 'jpg', 'jpeg', 'webp'] as $ext) {
-                            if (file_exists(__DIR__ . '/uploads/products/' . (int)$it['id'] . '.' . $ext)) {
-                                $tblThumb = 'uploads/products/' . (int)$it['id'] . '.' . $ext;
-                                break;
-                            }
-                        }
+                        $tblThumb = getProductImageUrl((int)$it['id']);
                     ?>
                     <tr id="row-<?php echo $it['id']; ?>"
                         class="hover:bg-[#1D387B]/50 transition-colors"
@@ -2390,9 +2356,9 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                     Retake
                                 </button>
                                 <!-- Upload from file -->
-                                <input type="file" id="ai-upload-input" accept="image/*" style="display:none;" onchange="aiUploadImage(this)">
-                                <input type="file" id="ai-mobile-cam-input" accept="image/*" capture="environment" style="display:none;" onchange="aiUploadImage(this)">
-                                <button type="button" id="ai-upload-btn" class="btn-secondary" style="height:38px; padding:0 14px; display:inline-flex; align-items:center; gap:6px;" onclick="document.getElementById('ai-upload-input').click()">
+                                <input type="file" id="ai-upload-input" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="aiUploadImage(this)">
+                                <input type="file" id="ai-mobile-cam-input" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none;" onchange="aiUploadImage(this)">
+                                <button type="button" id="ai-upload-btn" class="btn-secondary" style="height:38px; padding:0 14px; display:inline-flex; align-items:center; gap:6px;" onclick="var inp=document.getElementById('ai-upload-input'); if(inp){inp.value=''; inp.click();}">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
                                     </svg>
@@ -2760,7 +2726,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 <div style="grid-column: span 2;">
                     <label class="form-label">Product Image</label>
                     <!-- File input (hidden) -->
-                    <input type="file" id="edit-image-file-input" accept="image/*" style="display:none;" onchange="editHandleImageUpload(this)">
+                    <input type="file" id="edit-image-file-input" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="editHandleImageUpload(this)">
                     <!-- Current / preview image -->
                     <div id="edit-image-current-wrap" style="border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative; display:none;">
                         <img id="edit-image-preview-img" src="" alt="Product image" style="width:100%; max-height:200px; object-fit:contain; display:block;">
@@ -2776,14 +2742,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <div id="edit-image-empty-wrap" style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; border:1px dashed rgba(100,116,139,0.4); background:rgba(13,22,56,0.25);">
                         <svg width="20" height="20" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75 7.5 10.5l3.75 3.75 3-3 4.5 4.5M3.75 21h16.5M21 3.75H3A.75.75 0 0 0 2.25 4.5v15A.75.75 0 0 0 3 20.25h18a.75.75 0 0 0 .75-.75V4.5A.75.75 0 0 0 21 3.75z"/></svg>
                         <span style="font-size:13px; color:#64748b; font-family:'Onest',sans-serif; flex:1;">No image</span>
-                        <button type="button" class="btn-secondary" style="height:34px; padding:0 14px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                        <button type="button" class="btn-secondary" style="height:34px; padding:0 14px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="triggerEditImageUpload()">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
                             Upload Image
                         </button>
                     </div>
                     <!-- Replace button shown below when image exists -->
                     <div id="edit-image-replace-bar" style="display:none; margin-top:8px; align-items:center; gap:8px; justify-content:flex-end;">
-                        <button type="button" class="btn-secondary" style="height:32px; padding:0 12px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="document.getElementById('edit-image-file-input').click()">
+                        <button type="button" class="btn-secondary" style="height:32px; padding:0 12px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="triggerEditImageUpload()">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
                             Replace Image
                         </button>
@@ -4244,13 +4210,25 @@ function aiUploadImage(input) {
     var file = input.files[0];
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
+    var allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    var extMatch = /\.(jpe?g|png|webp)$/i.test(file.name);
+    if (!allowedTypes.includes(file.type) && !extMatch) {
+        if (typeof showToast === 'function') {
+            showToast('Please select a valid image file (JPG, PNG, or WEBP).', 'error');
+        }
         setAiStatus('Please select a valid image file (JPG, PNG, WEBP…)', 'error');
+        input.value = '';
         return;
     }
-    // Warn if file is unusually large (> 8 MB)
+    // Limit file size to 8MB
     if (file.size > 8 * 1024 * 1024) {
-        setAiStatus('Image is very large (' + Math.round(file.size / 1024 / 1024) + ' MB) — may be slow to save.', 'scanning');
+        var sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        if (typeof showToast === 'function') {
+            showToast('Image file size (' + sizeMB + ' MB) exceeds the 8MB limit. Please choose a smaller image.', 'error');
+        }
+        setAiStatus('Image exceeds 8MB limit (' + sizeMB + ' MB). Please choose a smaller image.', 'error');
+        input.value = '';
+        return;
     }
 
     var reader = new FileReader();
@@ -4397,32 +4375,42 @@ function openEditModal(data) {
     if (fileInput)   fileInput.value   = '';
     if (statusLabel) statusLabel.textContent = 'Current image';
 
+    // Save original image state in case user cancels
+    window.__editModalOriginalImage = data.image || '';
+    window.__editModalOriginalId = data.id || '';
+
     // Probe whether a product image exists on the server
     var knownImg = data.image || '';
     if (knownImg) {
-        if (previewImg) previewImg.src = knownImg + (knownImg.includes('?') ? '&' : '?') + '_=' + Date.now();
+        if (previewImg) {
+            previewImg.src = knownImg + (knownImg.includes('?') ? '&' : '?') + '_=' + Date.now();
+            previewImg.onerror = function() { editSetImageState(false); };
+            previewImg.onload = function() { editSetImageState(true); };
+        }
         editSetImageState(true);
     } else {
-        var pngUrl = 'uploads/products/' + data.id + '.png?_=' + Date.now();
-        var probe = new Image();
-        probe.onload = function() {
-            if (previewImg) previewImg.src = pngUrl;
-            editSetImageState(true);
-        };
-        probe.onerror = function() {
-            var jpgUrl = 'uploads/products/' + data.id + '.jpg?_=' + Date.now();
-            var probe2 = new Image();
-            probe2.onload = function() {
-                if (previewImg) previewImg.src = jpgUrl;
-                editSetImageState(true);
-            };
-            probe2.onerror = function() {
+        var probeExts = ['png', 'jpg', 'jpeg', 'webp'];
+        var probeIdx = 0;
+        function tryNextProbe() {
+            if (probeIdx >= probeExts.length) {
                 if (previewImg) previewImg.src = '';
                 editSetImageState(false);
+                return;
+            }
+            var ext = probeExts[probeIdx++];
+            var probeUrl = 'uploads/products/' + data.id + '.' + ext + '?_=' + Date.now();
+            var probe = new Image();
+            probe.onload = function() {
+                if (previewImg) {
+                    previewImg.src = probeUrl;
+                    previewImg.onerror = function() { editSetImageState(false); };
+                }
+                editSetImageState(true);
             };
-            probe2.src = jpgUrl;
-        };
-        probe.src = pngUrl;
+            probe.onerror = tryNextProbe;
+            probe.src = probeUrl;
+        }
+        tryNextProbe();
     }
 
     const editScroll = document.querySelector('#edit-modal-overlay .modal-body-scroll');
@@ -4440,6 +4428,10 @@ function openEditModal(data) {
 function closeEditModal() {
     document.getElementById('edit-modal-overlay').classList.remove('active');
     document.body.style.overflow = '';
+    // If closed without saving, revert unconfirmed DOM preview on the card
+    if (!editModalSubmitting && window.__editModalOriginalId) {
+        updateCardThumbnailInDom(window.__editModalOriginalId, window.__editModalOriginalImage);
+    }
     editModalSubmitting = false;
 }
 
@@ -4882,6 +4874,43 @@ document.addEventListener('DOMContentLoaded', setupCategorySmartPresets);
 <script>
 
 // ── Edit Product: image helpers ─────────────────────────────────────────────
+function triggerEditImageUpload() {
+    var fi = document.getElementById('edit-image-file-input');
+    if (fi) {
+        fi.value = '';
+        fi.click();
+    }
+}
+
+function updateCardThumbnailInDom(productId, src) {
+    if (!productId) return;
+    var cards = document.querySelectorAll('.inv-card[data-id="' + productId + '"]');
+    var rows  = document.querySelectorAll('#row-' + productId);
+
+    cards.forEach(function(card) {
+        card.setAttribute('data-image', src || '');
+        var thumbWrap = card.querySelector('.inv-card-thumb');
+        if (!thumbWrap) return;
+
+        if (src) {
+            var img = thumbWrap.querySelector('.inv-card-thumb-img');
+            if (img) {
+                img.src = src;
+            } else {
+                thumbWrap.innerHTML = '<img src="' + src + '" alt="Product thumbnail" class="inv-card-thumb-img" loading="lazy">';
+            }
+        } else {
+            thumbWrap.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"/>' +
+                '</svg>';
+        }
+    });
+
+    rows.forEach(function(row) {
+        row.setAttribute('data-image', src || '');
+    });
+}
+
 function editSetImageState(hasImage) {
     var currentWrap  = document.getElementById('edit-image-current-wrap');
     var emptyWrap    = document.getElementById('edit-image-empty-wrap');
@@ -4901,15 +4930,40 @@ function editSetImageState(hasImage) {
 function editHandleImageUpload(input) {
     if (!input.files || !input.files[0]) return;
     var file = input.files[0];
-    if (!file.type.startsWith('image/')) return;
+
+    // Allowed formats: JPG, PNG, WEBP
+    var allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    var extMatch = /\.(jpe?g|png|webp)$/i.test(file.name);
+    if (!allowedTypes.includes(file.type) && !extMatch) {
+        if (typeof showToast === 'function') {
+            showToast('Please select a valid image file (JPG, PNG, or WEBP).', 'error');
+        } else {
+            alert('Please select a valid image file (JPG, PNG, or WEBP).');
+        }
+        input.value = '';
+        return;
+    }
+
+    // 8MB limit
+    if (file.size > 8 * 1024 * 1024) {
+        var sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        if (typeof showToast === 'function') {
+            showToast('Image file size (' + sizeMB + ' MB) exceeds the 8MB limit. Please choose a smaller image.', 'error');
+        } else {
+            alert('Image file size exceeds the 8MB limit. Please choose a smaller image.');
+        }
+        input.value = '';
+        return;
+    }
 
     var reader = new FileReader();
     reader.onload = function(e) {
         var b64 = e.target.result;
-        var imgField   = document.getElementById('edit-image-b64');
+        var imgField    = document.getElementById('edit-image-b64');
         var actionField = document.getElementById('edit-image-action');
         var previewImg  = document.getElementById('edit-image-preview-img');
         var statusLabel = document.getElementById('edit-image-status-label');
+        var idField     = document.getElementById('edit-id');
 
         if (imgField)    imgField.value    = b64;
         if (actionField) actionField.value = 'replace';
@@ -4917,6 +4971,15 @@ function editHandleImageUpload(input) {
         if (statusLabel) statusLabel.textContent = 'New image selected';
 
         editSetImageState(true);
+        if (idField && idField.value) {
+            updateCardThumbnailInDom(idField.value, b64);
+        }
+    };
+    reader.onerror = function() {
+        if (typeof showToast === 'function') {
+            showToast('Failed to read the selected image file. Please try again.', 'error');
+        }
+        input.value = '';
     };
     reader.readAsDataURL(file);
 }
@@ -4940,6 +5003,7 @@ function editRemoveImage(force) {
     var imgField    = document.getElementById('edit-image-b64');
     var fileInput   = document.getElementById('edit-image-file-input');
     var previewImg  = document.getElementById('edit-image-preview-img');
+    var idField     = document.getElementById('edit-id');
 
     if (actionField) actionField.value = 'remove';
     if (imgField)    imgField.value    = '';
@@ -4947,6 +5011,9 @@ function editRemoveImage(force) {
     if (previewImg)  previewImg.src    = '';
 
     editSetImageState(false);
+    if (idField && idField.value) {
+        updateCardThumbnailInDom(idField.value, null);
+    }
 }
 
 // ── Inventory View Mode Toggle (Grid vs Table) ──────────────────────────────
