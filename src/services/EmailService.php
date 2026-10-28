@@ -2,7 +2,7 @@
 /**
  * src/services/EmailService.php
  *
- * Enterprise SMTP email notification service for IntelliWare WIMS using PHPMailer.
+ * Enterprise SMTP email notification service for IntelliWare IMS using PHPMailer.
  * Features:
  * - Direct SMTP sending (Gmail, Outlook, SendGrid, Amazon SES, or custom SMTP).
  * - Edge-triggered stock alerts: Low Stock (<= Reorder Point) and Out of Stock (0).
@@ -1187,7 +1187,7 @@ class EmailService
                "Date/Time: {$dateTime}\n\n" .
                ($isOutOfStock ? "URGENT: Stock has reached 0 units. Immediate replenishment needed.\n" : "WARNING: Stock is at or below reorder threshold. Please prepare restock.\n") .
                "View in IntelliWare: {$actionUrl}\n\n" .
-               "---\nIntelliWare WIMS Automated Alerts";
+               "---\nIntelliWare IMS Automated Alerts";
     }
 
     /**
@@ -1363,7 +1363,7 @@ class EmailService
         }
 
         $text .= "Open Inventory: {$inventoryUrl}\n\n" .
-                 "---\nIntelliWare WIMS Batch Digest";
+                 "---\nIntelliWare IMS Batch Digest";
 
         return $text;
     }

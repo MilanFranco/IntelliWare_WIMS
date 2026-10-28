@@ -8,7 +8,7 @@
 ## Document Overview & Presenter Guidelines
 
 ### 1. Demonstration Purpose
-This comprehensive script serves as the master walkthrough and presentation guide for demonstrating the **IntelliWare Warehouse Inventory Management System (WIMS)**. It provides:
+This comprehensive script serves as the master walkthrough and presentation guide for demonstrating the **IntelliWare Inventory Management System (IMS)**. It provides:
 - **Exact Step-by-Step Navigation:** How to move seamlessly through each module without getting lost.
 - **Button-by-Button & Field-by-Field Explanations:** What each interface component is, what it controls, how it behaves, and what happens behind the scenes.
 - **Role-Based Demonstration Flow:** Clear separation of permissions and duties across **Staff**, **Manager**, and **Administrator**.

@@ -158,8 +158,200 @@ var InventoryTransaction = (function () {
         var contentEl = document.getElementById('inv-info-content');
         if (emptyEl) emptyEl.style.display = '';
         if (contentEl) contentEl.style.display = 'none';
+        var wrap = document.getElementById('inv-existing-batches-wrap');
+        if (wrap) wrap.style.display = 'none';
+        var modeWrap = document.getElementById('inv-receive-mode-wrap');
+        if (modeWrap) modeWrap.style.display = 'none';
         updateInfoActionButtons();
     }
+
+    var _currentBatchesCache = [];
+
+    function fetchProductBatchesForReceive(productId) {
+        var wrap = document.getElementById('inv-existing-batches-wrap');
+        var modeWrap = document.getElementById('inv-receive-mode-wrap');
+        var countEl = document.getElementById('inv-batches-count');
+        var listEl = document.getElementById('inv-batches-list');
+        var batchEl = document.getElementById('inv-info-batch');
+        var expiryEl = document.getElementById('inv-info-expiry');
+
+        if (!wrap || !listEl) return;
+
+        listEl.innerHTML = '<div style="padding:10px 12px; font-size:12px; color:#9aa6d1;">Loading active batches...</div>';
+        wrap.style.display = 'block';
+
+        fetch('api/get_product_batches.php?product_id=' + productId)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (selectedProductId !== productId) return;
+                if (data && data.success && Array.isArray(data.batches) && data.batches.length > 0) {
+                    _currentBatchesCache = data.batches;
+                    wrap.style.display = 'block';
+                    if (modeWrap) modeWrap.style.display = 'block';
+                    if (countEl) countEl.textContent = data.batches.length + (data.batches.length === 1 ? ' batch' : ' batches');
+                    if (batchEl) batchEl.textContent = data.batches.length + (data.batches.length === 1 ? ' batch' : ' batches');
+                    if (expiryEl && data.batches[0] && data.batches[0].expiry_formatted) {
+                        expiryEl.textContent = data.batches[0].expiry_formatted;
+                    }
+
+                    var item = findCartItem(productId);
+                    var activeTargetId = item ? (item.target_batch_id || null) : null;
+                    var activeMode = item ? (item.receive_mode || 'new') : 'new';
+
+                    var html = '';
+                    data.batches.forEach(function (b, idx) {
+                        var isSelected = activeMode === 'merge' && (activeTargetId === b.batch_id || (!activeTargetId && idx === 0));
+                        var expText = b.expiry_formatted || 'No Expiry';
+                        var expClass = 'pos-batch-expiry-ok';
+                        if (b.expiry_date) {
+                            var diffDays = Math.ceil((new Date(b.expiry_date + 'T00:00:00').getTime() - Date.now()) / (1000 * 3600 * 24));
+                            if (diffDays < 0) expClass = 'pos-batch-expiry-crit';
+                            else if (diffDays <= 90) expClass = 'pos-batch-expiry-warn';
+                        } else {
+                            expClass = 'pos-batch-expiry-none';
+                        }
+
+                        html += '<div class="pos-batch-row ' + (isSelected ? 'selected' : '') + '" '
+                            + 'data-batch-id="' + b.batch_id + '" '
+                            + 'data-batch-no="' + escapeHtml(b.batch_number || '') + '" '
+                            + 'data-expiry="' + escapeHtml(b.expiry_date || '') + '" '
+                            + 'onclick="window.selectBatchToReceive(this, ' + b.batch_id + ')">'
+                            + '<div class="pos-batch-row-icon"></div>'
+                            + '<div class="pos-batch-row-num">' + escapeHtml(b.batch_number || ('Batch ' + (idx + 1))) + '</div>'
+                            + '<div class="pos-batch-row-qty">' + b.qty + ' <span style="font-size:10px; color:#9aa6d1;">' + escapeHtml((data.product && data.product.unit) || 'pcs') + '</span></div>'
+                            + '<div class="pos-batch-row-expiry ' + expClass + '">Exp: ' + escapeHtml(expText) + '</div>'
+                            + '</div>';
+                    });
+                    listEl.innerHTML = html;
+
+                    window.setReceiveMode(activeMode, true);
+                } else {
+                    _currentBatchesCache = [];
+                    wrap.style.display = 'none';
+                    if (modeWrap) modeWrap.style.display = 'none';
+                    if (batchEl) batchEl.textContent = 'None';
+                    if (expiryEl) expiryEl.textContent = 'No Expiry';
+                    window.setReceiveMode('new', true);
+                }
+            })
+            .catch(function (err) {
+                console.error('[Receive Batches] Error:', err);
+                wrap.style.display = 'none';
+                if (modeWrap) modeWrap.style.display = 'none';
+            });
+    }
+
+    window.selectBatchToReceive = function(el, batchId) {
+        if (!el) return;
+        var list = document.getElementById('inv-batches-list');
+        if (list) {
+            list.querySelectorAll('.pos-batch-row').forEach(function (r) { r.classList.remove('selected'); });
+        }
+        el.classList.add('selected');
+
+        var batchNo = el.getAttribute('data-batch-no') || '';
+        var expiry = el.getAttribute('data-expiry') || '';
+
+        var batchInput = document.getElementById('inv-receive-batch');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+        if (batchInput) batchInput.value = batchNo;
+        if (expiryInput) expiryInput.value = expiry;
+
+        if (selectedProductId != null) {
+            var item = findCartItem(selectedProductId);
+            if (item) {
+                item.receive_mode = 'merge';
+                item.target_batch_id = batchId;
+                item.batch_number = batchNo;
+                item.expiry_date = expiry;
+            }
+        }
+
+        window.setReceiveMode('merge', false, batchNo, expiry);
+    };
+
+    window.setReceiveMode = function(mode, skipFieldUpdate, batchNoVal, expiryVal) {
+        var newBtn = document.getElementById('inv-mode-new-batch');
+        var mergeBtn = document.getElementById('inv-mode-merge');
+        var hintEl = document.getElementById('inv-receive-mode-hint');
+        var mergeHint = document.getElementById('inv-expiry-merge-hint');
+        var batchInput = document.getElementById('inv-receive-batch');
+        var expiryInput = document.getElementById('inv-receive-expiry');
+
+        if (mode === 'merge') {
+            if (newBtn) newBtn.classList.remove('active');
+            if (mergeBtn) mergeBtn.classList.add('active');
+
+            var list = document.getElementById('inv-batches-list');
+            var selectedRow = list ? list.querySelector('.pos-batch-row.selected') : null;
+            if (!selectedRow && list) {
+                selectedRow = list.querySelector('.pos-batch-row');
+                if (selectedRow) selectedRow.classList.add('selected');
+            }
+
+            var bNo = batchNoVal || (selectedRow ? selectedRow.getAttribute('data-batch-no') : '');
+            var exp = expiryVal || (selectedRow ? selectedRow.getAttribute('data-expiry') : '');
+            var bId = selectedRow ? parseInt(selectedRow.getAttribute('data-batch-id'), 10) : null;
+
+            if (!skipFieldUpdate) {
+                if (batchInput && bNo) batchInput.value = bNo;
+                if (expiryInput && exp) expiryInput.value = exp;
+            }
+
+            if (mergeHint) {
+                mergeHint.style.display = 'inline';
+                mergeHint.textContent = bNo ? 'Will merge into ' + bNo : 'Will merge with selected batch';
+            }
+            if (hintEl) {
+                hintEl.textContent = 'Stock will be added into existing batch ' + (bNo || '') + (exp ? ' (expires ' + exp + ')' : '') + '.';
+                hintEl.style.color = '#51D55A';
+            }
+
+            if (selectedProductId != null) {
+                var item = findCartItem(selectedProductId);
+                if (item) {
+                    item.receive_mode = 'merge';
+                    item.target_batch_id = bId;
+                    if (bNo) item.batch_number = bNo;
+                    if (exp) item.expiry_date = exp;
+                }
+            }
+        } else {
+            if (newBtn) newBtn.classList.add('active');
+            if (mergeBtn) mergeBtn.classList.remove('active');
+
+            var list2 = document.getElementById('inv-batches-list');
+            if (list2) {
+                list2.querySelectorAll('.pos-batch-row').forEach(function (r) { r.classList.remove('selected'); });
+            }
+
+            if (mergeHint) mergeHint.style.display = 'none';
+            if (hintEl) {
+                hintEl.textContent = 'Creates a new batch row with its own expiry date. Select a batch above to merge instead.';
+                hintEl.style.color = '#9aa6d1';
+            }
+
+            if (!skipFieldUpdate) {
+                if (batchInput && batchInput.value && _currentBatchesCache.some(function(b){ return b.batch_number === batchInput.value; })) {
+                    batchInput.value = '';
+                }
+                if (expiryInput && expiryInput.value && _currentBatchesCache.some(function(b){ return b.expiry_date === expiryInput.value; })) {
+                    expiryInput.value = '';
+                }
+            }
+
+            if (selectedProductId != null) {
+                var item2 = findCartItem(selectedProductId);
+                if (item2) {
+                    item2.receive_mode = 'new';
+                    item2.target_batch_id = null;
+                    if (batchInput) item2.batch_number = batchInput.value.trim();
+                    if (expiryInput) item2.expiry_date = expiryInput.value.trim();
+                }
+            }
+        }
+        syncReceiveFieldsToCart();
+    };
 
     function showProductInfo(rawProduct) {
         var product = normalizeProduct(rawProduct);
@@ -238,6 +430,10 @@ var InventoryTransaction = (function () {
         loadReceiveFieldsFromCart(product.productId);
         highlightSelectedCartRow();
         updateInfoActionButtons();
+
+        if (txnMode === 'in') {
+            fetchProductBatchesForReceive(product.productId);
+        }
     }
 
     // ── Receive fields ───────────────────────────────────────────────────────
@@ -252,6 +448,18 @@ var InventoryTransaction = (function () {
         if (batchInput) item.batch_number = batchInput.value.trim();
         if (mfgInput) item.manufacturing_date = mfgInput.value.trim();
         if (expiryInput) item.expiry_date = expiryInput.value.trim();
+
+        var mergeBtn = document.getElementById('inv-mode-merge');
+        if (mergeBtn && mergeBtn.classList.contains('active')) {
+            item.receive_mode = 'merge';
+            var selectedRow = document.querySelector('#inv-batches-list .pos-batch-row.selected');
+            if (selectedRow) {
+                item.target_batch_id = parseInt(selectedRow.getAttribute('data-batch-id'), 10) || null;
+            }
+        } else {
+            item.receive_mode = 'new';
+            item.target_batch_id = null;
+        }
     }
 
     function loadReceiveFieldsFromCart(productId) {
@@ -267,6 +475,9 @@ var InventoryTransaction = (function () {
             expiryInput.value = item && item.expiry_date
                 ? item.expiry_date
                 : (item && item.productExpiryDate ? item.productExpiryDate : '');
+        }
+        if (item && item.receive_mode) {
+            window.setReceiveMode(item.receive_mode, true);
         }
     }
 
@@ -891,6 +1102,8 @@ var InventoryTransaction = (function () {
                 if (item.manufacturing_date) row.manufacturing_date = item.manufacturing_date;
                 if (item.location) row.location = item.location;
                 if (item.category) row.category = item.category;
+                if (item.target_batch_id) row.target_batch_id = item.target_batch_id;
+                if (item.receive_mode) row.receive_mode = item.receive_mode;
             }
             return row;
         });
@@ -1434,5 +1647,7 @@ var InventoryTransaction = (function () {
         clearCart: clearCart,
         startCameraScanner: startCameraScanner,
         stopCameraScanner: stopCameraScanner,
+        setReceiveMode: window.setReceiveMode,
+        selectBatchToReceive: window.selectBatchToReceive,
     };
 })();

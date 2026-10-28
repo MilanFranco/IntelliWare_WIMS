@@ -34,6 +34,23 @@ class StockMovementService
                     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
+
+            $pbCheck = $conn->query("SHOW TABLES LIKE 'product_batches'");
+            if (!$pbCheck || $pbCheck->num_rows === 0) {
+                $conn->query("CREATE TABLE IF NOT EXISTS `product_batches` (
+                    `batch_id` INT(11) NOT NULL AUTO_INCREMENT,
+                    `product_id` INT(11) NOT NULL,
+                    `qty` INT(11) NOT NULL DEFAULT 0,
+                    `expiry_date` DATE DEFAULT NULL,
+                    `received_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `batch_number` VARCHAR(50) DEFAULT NULL,
+                    PRIMARY KEY (`batch_id`),
+                    KEY `idx_pb_product` (`product_id`),
+                    KEY `idx_pb_expiry` (`expiry_date`),
+                    KEY `idx_pb_prod_exp` (`product_id`, `expiry_date`),
+                    CONSTRAINT `fk_pb_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`product_id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
         } catch (Throwable $e) {
             error_log('[StockMovementService] ensureBatchColumn check: ' . $e->getMessage());
         }
@@ -138,29 +155,173 @@ class StockMovementService
             throw new Exception('Product not found.');
         }
 
-        $previousStock = (int)$product['quantity'];
-        $newStock = $previousStock;
+        // Derive actual current stock from active batches
+        $curTotStmt = $conn->prepare("SELECT COALESCE(SUM(qty), 0) AS total FROM product_batches WHERE product_id = ? AND qty > 0");
+        $curTotStmt->bind_param("i", $productId);
+        $curTotStmt->execute();
+        $batchTotal = (int)($curTotStmt->get_result()->fetch_assoc()['total'] ?? 0);
+        $curTotStmt->close();
 
-        if ($transactionType === 'stock_in') {
-            $newStock = $previousStock + $quantity;
-            $updateStmt = $conn->prepare('UPDATE products SET quantity = ? WHERE product_id = ?');
-            $updateStmt->bind_param('ii', $newStock, $productId);
-        } else {
+        $previousStock = $batchTotal > 0 ? $batchTotal : (int)$product['quantity'];
+
+        if ($transactionType === 'stock_out') {
             if ($quantity > $previousStock) {
                 throw new Exception(
                     'Insufficient stock. Available: ' . $previousStock . ', requested: ' . $quantity . '.'
                 );
             }
-            $newStock = $previousStock - $quantity;
-            $updateStmt = $conn->prepare('UPDATE products SET quantity = ? WHERE product_id = ?');
-            $updateStmt->bind_param('ii', $newStock, $productId);
         }
 
-        if (!$updateStmt->execute()) {
-            $updateStmt->close();
-            throw new Exception('Failed to update stock.');
+        $userId = self::getUserId($conn, $username);
+        $validSources = ['manual', 'ai_scan'];
+        $cleanSource = in_array(strtolower(trim($source)), $validSources, true) ? strtolower(trim($source)) : 'manual';
+
+        // Process batch changes
+        if ($transactionType === 'stock_in') {
+            $batchNo = !empty($metadata['batch_number']) ? trim((string)$metadata['batch_number']) : null;
+            $expDate = !empty($metadata['expiry_date']) ? trim((string)$metadata['expiry_date']) : null;
+            $mfgDate = !empty($metadata['manufacturing_date']) ? trim((string)$metadata['manufacturing_date']) : null;
+            $targetBatchId = !empty($metadata['target_batch_id']) ? (int)$metadata['target_batch_id'] : 0;
+            $receiveMode = !empty($metadata['receive_mode']) ? trim((string)$metadata['receive_mode']) : '';
+
+            $merged = false;
+
+            // 1. Direct merge by specified target batch ID
+            if ($receiveMode === 'merge' && $targetBatchId > 0) {
+                $chk = $conn->prepare("SELECT batch_id, qty, batch_number, expiry_date FROM product_batches WHERE batch_id = ? AND product_id = ? LIMIT 1");
+                $chk->bind_param("ii", $targetBatchId, $productId);
+                $chk->execute();
+                $matchedPb = $chk->get_result()->fetch_assoc();
+                $chk->close();
+
+                if ($matchedPb) {
+                    $pbId = (int)$matchedPb['batch_id'];
+                    $newPbQty = (int)$matchedPb['qty'] + $quantity;
+                    $updPb = $conn->prepare("UPDATE product_batches SET qty = ?, received_at = CURRENT_TIMESTAMP WHERE batch_id = ?");
+                    $updPb->bind_param("ii", $newPbQty, $pbId);
+                    $updPb->execute();
+                    $updPb->close();
+
+                    // Sync inventory_batches
+                    $updIb = $conn->prepare("UPDATE inventory_batches SET quantity = quantity + ?, initial_quantity = initial_quantity + ? WHERE batch_id = ?");
+                    if ($updIb) {
+                        $updIb->bind_param("iii", $quantity, $quantity, $pbId);
+                        $updIb->execute();
+                        $updIb->close();
+                    }
+                    $merged = true;
+                }
+            }
+
+            // 2. Merge by matching expiry date if merge mode selected or auto-matching
+            if (!$merged && $receiveMode !== 'new') {
+                if (!empty($expDate)) {
+                    $chk = $conn->prepare("SELECT batch_id, qty, batch_number FROM product_batches WHERE product_id = ? AND expiry_date = ? AND qty > 0 ORDER BY batch_id ASC LIMIT 1");
+                    $chk->bind_param("is", $productId, $expDate);
+                } elseif ($receiveMode === 'merge') {
+                    $chk = $conn->prepare("SELECT batch_id, qty, batch_number FROM product_batches WHERE product_id = ? AND (expiry_date IS NULL OR expiry_date = '') AND qty > 0 ORDER BY batch_id ASC LIMIT 1");
+                    $chk->bind_param("i", $productId);
+                } else {
+                    $chk = null;
+                }
+
+                if ($chk) {
+                    $chk->execute();
+                    $matchedPb = $chk->get_result()->fetch_assoc();
+                    $chk->close();
+
+                    if ($matchedPb) {
+                        $pbId = (int)$matchedPb['batch_id'];
+                        $newPbQty = (int)$matchedPb['qty'] + $quantity;
+                        $updPb = $conn->prepare("UPDATE product_batches SET qty = ?, received_at = CURRENT_TIMESTAMP WHERE batch_id = ?");
+                        $updPb->bind_param("ii", $newPbQty, $pbId);
+                        $updPb->execute();
+                        $updPb->close();
+
+                        // Sync inventory_batches
+                        $updIb = $conn->prepare("UPDATE inventory_batches SET quantity = quantity + ?, initial_quantity = initial_quantity + ? WHERE batch_id = ?");
+                        if ($updIb) {
+                            $updIb->bind_param("iii", $quantity, $quantity, $pbId);
+                            $updIb->execute();
+                            $updIb->close();
+                        }
+                        $merged = true;
+                    }
+                }
+            }
+
+            // 3. Create new batch row if not merged
+            if (!$merged) {
+                if (empty($batchNo)) {
+                    $batchNo = 'BATCH-' . date('Ymd') . '-IN';
+                }
+                $insPb = $conn->prepare("INSERT INTO product_batches (product_id, qty, expiry_date, received_at, batch_number) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)");
+                $insPb->bind_param("iiss", $productId, $quantity, $expDate, $batchNo);
+                $insPb->execute();
+                $pbId = (int)$conn->insert_id;
+                $insPb->close();
+
+                // Sync inventory_batches
+                $insIb = $conn->prepare("INSERT INTO inventory_batches (batch_id, product_id, batch_number, quantity, initial_quantity, manufacturing_date, expiry_date, date_received) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)");
+                if ($insIb) {
+                    $insIb->bind_param("iisiiss", $pbId, $productId, $batchNo, $quantity, $quantity, $mfgDate, $expDate);
+                    $insIb->execute();
+                    $insIb->close();
+                }
+            }
+        } else {
+            // Deduct from batches using FEFO (First Expired, First Out)
+            $remainingToDeduct = $quantity;
+
+            $batchQuery = 'SELECT batch_id, qty FROM product_batches WHERE product_id = ? AND qty > 0 ORDER BY expiry_date IS NULL ASC, expiry_date ASC, received_at ASC, batch_id ASC';
+            $batchStmt = $conn->prepare($batchQuery);
+            $batchStmt->bind_param('i', $productId);
+            $batchStmt->execute();
+            $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $batchStmt->close();
+
+            foreach ($batches as $batch) {
+                if ($remainingToDeduct <= 0) {
+                    break;
+                }
+                $batchId = (int)$batch['batch_id'];
+                $batchQty = (int)$batch['qty'];
+
+                if ($batchQty >= $remainingToDeduct) {
+                    $newBatchQty = $batchQty - $remainingToDeduct;
+                    $remainingToDeduct = 0;
+                } else {
+                    $newBatchQty = 0;
+                    $remainingToDeduct -= $batchQty;
+                }
+
+                $updatePb = $conn->prepare('UPDATE product_batches SET qty = ? WHERE batch_id = ?');
+                $updatePb->bind_param('ii', $newBatchQty, $batchId);
+                $updatePb->execute();
+                $updatePb->close();
+
+                // Sync inventory_batches
+                $updateIb = $conn->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
+                if ($updateIb) {
+                    $updateIb->bind_param('ii', $newBatchQty, $batchId);
+                    $updateIb->execute();
+                    $updateIb->close();
+                }
+            }
         }
-        $updateStmt->close();
+
+        // Strictly derive product total from SUM(batch.qty)
+        $sumStmt = $conn->prepare("SELECT COALESCE(SUM(qty), 0) AS new_total FROM product_batches WHERE product_id = ? AND qty > 0");
+        $sumStmt->bind_param("i", $productId);
+        $sumStmt->execute();
+        $newStock = (int)($sumStmt->get_result()->fetch_assoc()['new_total'] ?? ($transactionType === 'stock_in' ? $previousStock + $quantity : $previousStock - $quantity));
+        $sumStmt->close();
+
+        // Update products table with derived sum
+        $updProd = $conn->prepare("UPDATE products SET quantity = ? WHERE product_id = ?");
+        $updProd->bind_param("ii", $newStock, $productId);
+        $updProd->execute();
+        $updProd->close();
 
         if ($transactionType === 'stock_in' && is_array($metadata) && !empty($metadata)) {
             self::applyProductMetadata($conn, $productId, $metadata);
@@ -169,11 +330,6 @@ class StockMovementService
         if ($remarks === null || $remarks === '') {
             $remarks = $transactionType === 'stock_in' ? 'Stock received' : 'Stock issued';
         }
-
-        $userId = self::getUserId($conn, $username);
-
-        $validSources = ['manual', 'ai_scan'];
-        $cleanSource = in_array(strtolower(trim($source)), $validSources, true) ? strtolower(trim($source)) : 'manual';
 
         $transStmt = $conn->prepare(
             'INSERT INTO transactions
@@ -197,58 +353,6 @@ class StockMovementService
         }
         $transactionId = (int)$conn->insert_id;
         $transStmt->close();
-
-        // Record or deduct inventory batches
-        if ($transactionType === 'stock_in') {
-            $batchNo = !empty($metadata['batch_number']) ? trim((string)$metadata['batch_number']) : null;
-            $expDate = !empty($metadata['expiry_date']) ? trim((string)$metadata['expiry_date']) : null;
-            $mfgDate = !empty($metadata['manufacturing_date']) ? trim((string)$metadata['manufacturing_date']) : null;
-
-            $batchStmt = $conn->prepare(
-                'INSERT INTO inventory_batches (product_id, transaction_id, batch_number, quantity, initial_quantity, manufacturing_date, expiry_date)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)'
-            );
-            $batchStmt->bind_param('iisiiss', $productId, $transactionId, $batchNo, $quantity, $quantity, $mfgDate, $expDate);
-            if (!$batchStmt->execute()) {
-                $batchStmt->close();
-                throw new Exception('Failed to record inventory batch.');
-            }
-            $batchStmt->close();
-        } else {
-            // Deduct from batches using FEFO
-            $remainingToDeduct = $quantity;
-
-            $batchQuery = 'SELECT batch_id, quantity FROM inventory_batches WHERE product_id = ? AND quantity > 0 ORDER BY expiry_date IS NULL ASC, expiry_date ASC, date_received ASC, batch_id ASC';
-            $batchStmt = $conn->prepare($batchQuery);
-            $batchStmt->bind_param('i', $productId);
-            $batchStmt->execute();
-            $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            $batchStmt->close();
-
-            foreach ($batches as $batch) {
-                if ($remainingToDeduct <= 0) {
-                    break;
-                }
-                $batchId = (int)$batch['batch_id'];
-                $batchQty = (int)$batch['quantity'];
-
-                if ($batchQty >= $remainingToDeduct) {
-                    $newBatchQty = $batchQty - $remainingToDeduct;
-                    $remainingToDeduct = 0;
-                } else {
-                    $newBatchQty = 0;
-                    $remainingToDeduct -= $batchQty;
-                }
-
-                $updateBatchStmt = $conn->prepare('UPDATE inventory_batches SET quantity = ? WHERE batch_id = ?');
-                $updateBatchStmt->bind_param('ii', $newBatchQty, $batchId);
-                if (!$updateBatchStmt->execute()) {
-                    $updateBatchStmt->close();
-                    throw new Exception('Failed to update inventory batch quantity.');
-                }
-                $updateBatchStmt->close();
-            }
-        }
 
         $logAction = sprintf(
             'Processed %s (Qty: %d) for %s — stock %d → %d',

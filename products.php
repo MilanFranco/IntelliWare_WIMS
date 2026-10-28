@@ -751,6 +751,49 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     .view-mode-table #inventory-desktop-table { display: block !important; }
     .view-mode-table #inventory-card-grid { display: none !important; }
 
+    /* Inventory Table horizontal scroll & Date Received column styling */
+    #productTableWrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(42, 68, 132, 0.4) transparent;
+    }
+    #productTableWrap::-webkit-scrollbar {
+        height: 6px;
+    }
+    #productTableWrap::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    #productTableWrap::-webkit-scrollbar-thumb {
+        background: rgba(42, 68, 132, 0.4);
+        border-radius: 9999px;
+    }
+    #productTableWrap::-webkit-scrollbar-thumb:hover {
+        background: rgba(81, 213, 90, 0.5);
+    }
+    [data-theme="light"] #productTableWrap {
+        scrollbar-color: #CBD5E1 transparent;
+    }
+    [data-theme="light"] #productTableWrap::-webkit-scrollbar-thumb {
+        background: #CBD5E1;
+    }
+    [data-theme="light"] #productTableWrap::-webkit-scrollbar-thumb:hover {
+        background: #94A3B8;
+    }
+    #productTable th,
+    #productTable td:not([data-label="Name"]) {
+        white-space: nowrap !important;
+    }
+    .inv-date-received {
+        color: var(--iw-text, #e2e8f0);
+        font-weight: 500;
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+    [data-theme="light"] .inv-date-received {
+        color: #1E293B !important;
+    }
+
     /* Modal Form Responsive Grid / Stack */
     .inv-product-modal-body {
         padding: 30px;
@@ -838,14 +881,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         box-shadow: var(--iw-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.08));
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-        cursor: default;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+        cursor: pointer;
         position: relative;
     }
     .inv-card:hover {
-        border-color: var(--iw-border-accent, #A8C8F0);
-        box-shadow: var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15));
-        transform: translateY(-2px);
+        border-color: rgba(81, 213, 90, 0.5);
+        box-shadow: 0 10px 24px -4px rgba(81, 213, 90, 0.15), var(--iw-shadow-card-hover, 0 8px 22px rgba(55, 75, 99, 0.15));
+        transform: translateY(-3px);
     }
 
     /* Top section: thumb | info | badge */
@@ -1290,6 +1333,122 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         color: #6EE7B7;
     }
 
+    /* Duplicate Card Batches Breakdown & Preview */
+    .dup-batches-section {
+        background: rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        border-radius: 12px;
+        padding: 10px 14px;
+        margin-top: 10px;
+    }
+    [data-theme="dark"] .dup-batches-section {
+        background: rgba(15, 23, 42, 0.45);
+        border-color: rgba(42, 68, 132, 0.5);
+    }
+    .dup-batches-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .dup-batch-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 12px;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        font-size: 12.5px;
+        color: #1E293B;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="dark"] .dup-batch-item {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.08);
+        color: #E2E8F0;
+    }
+    .dup-batch-item--incoming {
+        background: #F0FDF4;
+        border-color: #86EFAC;
+        color: #166534;
+        font-weight: 600;
+    }
+    [data-theme="dark"] .dup-batch-item--incoming {
+        background: rgba(34, 197, 94, 0.12);
+        border-color: rgba(34, 197, 94, 0.35);
+        color: #86EFAC;
+    }
+    .dup-batch-item--merged {
+        background: #EFF6FF;
+        border-color: #93C5FD;
+        color: #1E40AF;
+        font-weight: 600;
+    }
+    [data-theme="dark"] .dup-batch-item--merged {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #93C5FD;
+    }
+
+    /* Product Cards & Table Batch Badges */
+    .inv-card-batch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 7px 12px;
+        margin-top: 10px;
+        background: rgba(15, 23, 42, 0.03);
+        border-radius: 10px;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        font-size: 11.5px;
+    }
+    [data-theme="dark"] .inv-card-batch-row {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(42, 68, 132, 0.4);
+    }
+    .inv-expiry-label {
+        color: #64748B;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="dark"] .inv-expiry-label { color: #9aa6d1; }
+    .inv-expiry-val {
+        font-weight: 600;
+        color: #0F172A;
+    }
+    [data-theme="dark"] .inv-expiry-val { color: #F1F5F9; }
+
+    .inv-batch-badge-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        color: #2563EB;
+        padding: 2.5px 8px;
+        border-radius: 9999px;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        line-height: 1.2;
+    }
+    .inv-batch-badge-btn:hover {
+        background: rgba(59, 130, 246, 0.18);
+        border-color: rgba(59, 130, 246, 0.45);
+        transform: translateY(-1px);
+    }
+    [data-theme="dark"] .inv-batch-badge-btn {
+        background: rgba(81, 213, 90, 0.12);
+        border-color: rgba(81, 213, 90, 0.3);
+        color: #51D55A;
+    }
+    [data-theme="dark"] .inv-batch-badge-btn:hover {
+        background: rgba(81, 213, 90, 0.22);
+        border-color: rgba(81, 213, 90, 0.5);
+    }
+
 
     /* Dark-mode overrides for summary cards & product cards — matching Insights page */
     [data-theme="dark"] .inv-summary-card {
@@ -1485,7 +1644,282 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         padding: 20px;
         box-sizing: border-box;
     }
-    .modal-overlay.active { display: flex; }
+    .modal-overlay.active { display: flex !important; }
+    #edit-modal-overlay { z-index: 100060 !important; }
+    #edit-modal-overlay.active { display: flex !important; }
+    #batch-breakdown-modal-overlay { z-index: 100055 !important; }
+    #batch-breakdown-modal-overlay.active { display: flex !important; }
+
+    /* ── Product Information Modal Styles (Matching Receive/Release Panel) ── */
+    .pos-info-name {
+        font-family: 'Onest', sans-serif;
+        font-size: 19px;
+        font-weight: 700;
+        color: var(--iw-text, #ffffff);
+        line-height: 1.3;
+    }
+    .pos-info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    @media (max-width: 480px) {
+        .pos-info-grid { grid-template-columns: 1fr; }
+    }
+    .pos-info-field {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4));
+        background: var(--iw-bg-surface, rgba(13, 22, 56, 0.45));
+    }
+    .pos-info-field dt {
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #9aa6d1;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+    .pos-info-field dd {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--iw-text, #E3E3E3);
+        margin: 0;
+        word-break: break-word;
+    }
+    .pos-status-badge {
+        display: inline-block;
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 4px;
+        line-height: 1.3;
+    }
+    .pos-status-in_stock, .pos-status-good {
+        background: rgba(81,213,90,0.15);
+        color: #51D55A;
+        border: 1px solid rgba(81,213,90,0.3);
+    }
+    .pos-status-low_stock, .pos-status-low {
+        background: rgba(245,158,11,0.15);
+        color: #fbbf24;
+        border: 1px solid rgba(245,158,11,0.3);
+    }
+    .pos-status-out_of_stock, .pos-status-out {
+        background: rgba(239,68,68,0.12);
+        color: #f87171;
+        border: 1px solid rgba(239,68,68,0.3);
+    }
+    .pos-info-image-section { display: flex; flex-direction: column; gap: 6px; }
+    .pos-info-image-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #9aa6d1;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .pos-info-image-expand-btn {
+        background: none;
+        border: none;
+        color: #9aa6d1;
+        cursor: pointer;
+        padding: 2px;
+        line-height: 1;
+        transition: color 0.15s;
+    }
+    .pos-info-image-expand-btn:hover { color: #51D55A; }
+    .pos-info-image-wrap {
+        width: 100%;
+        height: 250px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4));
+        background: var(--iw-bg-surface, rgba(13, 22, 56, 0.45));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9aa6d1;
+        font-size: 12px;
+        position: relative;
+        transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .pos-info-image-wrap.has-image {
+        border-color: rgba(81, 213, 90, 0.40);
+        box-shadow: 0 0 0 1px rgba(81, 213, 90, 0.10), 0 6px 24px rgba(0, 0, 0, 0.25);
+    }
+    .pos-info-image-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: none;
+        cursor: zoom-in;
+        transition: transform 0.25s;
+    }
+    .pos-info-image-wrap img:hover { transform: scale(1.02); }
+    .pos-info-image-placeholder {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+    }
+    .pos-info-image-wrap.has-image .pos-info-image-placeholder { display: none !important; }
+    .pos-batches-panel {
+        border: 1px solid var(--iw-border, rgba(42,68,132,0.4));
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--iw-bg-surface, rgba(13,22,56,0.35));
+    }
+    .pos-batches-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: rgba(0,0,0,0.18);
+        border-bottom: 1px solid var(--iw-border, rgba(42,68,132,0.3));
+    }
+    .pos-batches-panel-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #9aa6d1;
+    }
+    .pos-batches-panel-count {
+        font-size: 10px;
+        font-weight: 700;
+        color: #51D55A;
+        background: rgba(81,213,90,0.12);
+        border: 1px solid rgba(81,213,90,0.25);
+        border-radius: 6px;
+        padding: 1px 7px;
+    }
+    .pos-batch-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 14px;
+        border-bottom: 1px solid rgba(42,68,132,0.2);
+        transition: background 0.15s;
+    }
+    .pos-batch-row:last-child { border-bottom: none; }
+    .pos-batch-row:hover { background: rgba(81,213,90,0.06); }
+
+    /* Light mode adaptive styling for Product Information modal */
+    [data-theme="light"] #batch-breakdown-modal-overlay .modal-box {
+        background: #F0F6FE !important;
+        border-color: #D0E2FF !important;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.2) !important;
+    }
+    .pos-panel-header {
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-panel-header {
+        background: #F8FAFC !important;
+        border-bottom-color: #E2E8F0 !important;
+        border-top-left-radius: 20px !important;
+        border-top-right-radius: 20px !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-panel-header h3 {
+        color: #0B1526 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-panel-header p {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-info-name {
+        color: #0B1526 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-info-image-wrap {
+        background: #FFFFFF !important;
+        border-color: #DCE6F5 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-info-field {
+        background: #FFFFFF !important;
+        border-color: #DCE6F5 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-info-field dt {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-info-field dd {
+        color: #0B1526 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-batches-panel {
+        background: #FFFFFF !important;
+        border-color: #DCE6F5 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-batches-panel-header {
+        background: #F1F5F9 !important;
+        border-bottom-color: #E2E8F0 !important;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .pos-batches-panel-title {
+        color: #64748B !important;
+    }
+    #batch-breakdown-modal-overlay .modal-footer {
+        border-bottom-left-radius: 20px;
+        border-bottom-right-radius: 20px;
+    }
+    [data-theme="light"] #batch-breakdown-modal-overlay .modal-footer {
+        background: #F8FAFC !important;
+        border-top-color: #E2E8F0 !important;
+        border-bottom-left-radius: 20px !important;
+        border-bottom-right-radius: 20px !important;
+    }
+
+    /* Lightbox for full size photo */
+    .pos-img-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 100099;
+        background: rgba(0,0,0,0.88);
+        backdrop-filter: blur(6px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s;
+    }
+    .pos-img-lightbox.open {
+        display: flex !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+    .pos-img-lightbox img {
+        max-width: min(90vw, 900px);
+        max-height: 88vh;
+        object-fit: contain;
+        border-radius: 12px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+    .pos-img-lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 24px;
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.14);
+        color: #fff;
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 20px;
+        line-height: 1;
+        transition: background 0.15s;
+    }
+    .pos-img-lightbox-close:hover {
+        background: rgba(255,255,255,0.22);
+    }
 
     .modal-box {
         background: linear-gradient(170deg, #1D387B 0%, #11204a 100%);
@@ -1538,13 +1972,19 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         overflow-x: hidden;
         flex: 1 1 auto;
         max-height: min(560px, calc(100vh - 220px));
-        scrollbar-color: #51D55A rgba(19, 39, 91, 0.3);
         scrollbar-width: thin;
+    }
+    @supports not selector(::-webkit-scrollbar) {
+        .modal-body-scroll {
+            scrollbar-color: #51D55A rgba(19, 39, 91, 0.3);
+        }
     }
     .modal-body-scroll::-webkit-scrollbar { width: 6px; }
     .modal-body-scroll::-webkit-scrollbar-track { background: rgba(19, 39, 91, 0.3); border-radius: 4px; }
     .modal-body-scroll::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); border-radius: 4px; }
     .modal-body-scroll::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #4BC052 0%, #3EA147 100%); }
+    .modal-body-scroll::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+    .modal-body-scroll::-webkit-scrollbar-corner { display: none !important; background: transparent !important; }
 
     .modal-footer {
         padding: 20px 30px;
@@ -1660,7 +2100,11 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     }
     [data-theme="light"] .modal-body-scroll {
         background: #FFFFFF !important;
-        scrollbar-color: #CBD5E1 transparent !important;
+    }
+    @supports not selector(::-webkit-scrollbar) {
+        [data-theme="light"] .modal-body-scroll {
+            scrollbar-color: #CBD5E1 transparent !important;
+        }
     }
     [data-theme="light"] .modal-body-scroll::-webkit-scrollbar {
         width: 6px;
@@ -1675,6 +2119,15 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-thumb:hover {
         background: #94A3B8 !important;
     }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-button {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+    [data-theme="light"] .modal-body-scroll::-webkit-scrollbar-corner {
+        display: none !important;
+        background: transparent !important;
+    }
     [data-theme="light"] .form-keyboard-hint {
         color: #64748B !important;
     }
@@ -1683,12 +2136,213 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
         border-color: var(--iw-border) !important;
         color: var(--iw-text) !important;
     }
-    [data-theme="light"] #edit-image-empty-wrap {
+    /* Edit Modal - Image and Batches Base Styles */
+    .edit-image-current-wrap {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4));
+        background: #060816;
+        position: relative;
+    }
+    .edit-image-gradient-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    .edit-image-status-pill {
+        position: absolute;
+        bottom: 10px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(15, 23, 42, 0.75);
+        border: 1px solid rgba(52, 211, 153, 0.35);
+        border-radius: 9999px;
+        padding: 2.5px 10px;
+        backdrop-filter: blur(4px);
+    }
+    .edit-image-status-label {
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Onest', sans-serif;
+        color: #d1fae5;
+    }
+    .edit-image-remove-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: #cbd5e1;
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        z-index: 10;
+    }
+    .edit-image-remove-btn:hover {
+        background: rgba(239, 68, 68, 0.85) !important;
+        border-color: #ef4444 !important;
+        color: #ffffff !important;
+    }
+    .edit-image-empty-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px dashed rgba(100, 116, 139, 0.4);
+        background: rgba(13, 22, 56, 0.25);
+    }
+    .edit-no-image-text {
+        font-size: 13px;
+        color: #64748b;
+        font-family: 'Onest', sans-serif;
+        flex: 1;
+    }
+    .edit-batches-panel {
+        background: rgba(13, 22, 56, 0.35);
+        border: 1px solid rgba(42, 68, 132, 0.4);
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+    .edit-batches-title {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #51D55A;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .edit-batches-count-pill {
+        font-size: 11px;
+        color: #9aa6d1;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(42, 68, 132, 0.3);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .edit-batches-empty {
+        font-size: 12px;
+        color: #9aa6d1;
+        padding: 6px 0;
+    }
+    .edit-batch-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.25);
+        font-size: 12px;
+        border-radius: 6px;
+        transition: background 0.15s ease;
+    }
+    .edit-batch-row:last-child {
+        border-bottom: none;
+    }
+    .edit-batch-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+    .edit-batch-num {
+        font-weight: 600;
+        color: #f1f5f9;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .edit-batch-qty {
+        font-weight: 700;
+        color: #51D55A;
+    }
+    .edit-batch-exp {
+        color: #fbbf24;
+        font-weight: 600;
+        font-family: 'Onest', sans-serif;
+    }
+    .edit-derived-hint {
+        font-size: 11px;
+        color: #9aa6d1;
+        margin-top: 3px;
+        display: block;
+    }
+
+    /* Light Theme overrides for Edit Modal */
+    [data-theme="light"] #edit-modal-overlay .edit-image-current-wrap {
         background: #F8FAFC !important;
         border-color: #CBD5E1 !important;
     }
-    [data-theme="light"] #edit-image-current-wrap {
+    [data-theme="light"] #edit-modal-overlay .edit-image-gradient-overlay {
+        background: linear-gradient(to top, rgba(15, 23, 42, 0.15) 0%, transparent 60%) !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-image-status-pill {
+        background: #FFFFFF !important;
+        border: 1px solid #A7F3D0 !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-image-status-label {
+        color: #065F46 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-image-remove-btn {
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        color: #475569 !important;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12) !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-image-remove-btn:hover {
+        background: #EF4444 !important;
+        border-color: #DC2626 !important;
+        color: #FFFFFF !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-image-empty-wrap {
         background: #F8FAFC !important;
+        border-color: #CBD5E1 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-no-image-text {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batches-panel {
+        background: #F8FAFC !important;
+        border-color: #E2E8F0 !important;
+        box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.02) !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batches-title {
+        color: #166534 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batches-count-pill {
+        background: #EFF6FF !important;
+        color: #1E40AF !important;
+        border: 1px solid #BFDBFE !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batch-row {
+        border-bottom-color: #E2E8F0 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batch-row:hover {
+        background: #F1F5F9 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batch-num {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batch-qty {
+        color: #15803D !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batch-exp {
+        color: #B45309 !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-batches-empty {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #edit-modal-overlay .edit-derived-hint {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #ai-upload-preview-wrap {
+        background: #F8FAFC !important;
+        border-color: #CBD5E1 !important;
     }
     [data-theme="light"] #ai-capture-block {
         background: #F1F5F9 !important;
@@ -1981,13 +2635,27 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
 <div class="premium-card">
     <div class="p-4 sm:p-6 border-b border-[#2A4484]/50 flex flex-col gap-4 bg-[#13275B]/30">
-        <div>
-            <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 flex-wrap">
-                <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path></svg>
-                Inventory List
-                <span class="text-[10px] text-[#51D55A] bg-[#51D55A]/10 border border-[#51D55A]/20 px-2 py-1 rounded font-normal"><?php echo $total_items; ?> Items</span>
-            </h3>
-            <p class="text-xs text-[#9aa6d1] mt-1">Manage products and stock levels.</p>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 flex-wrap">
+                    <svg class="w-5 h-5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z"></path></svg>
+                    Inventory List
+                    <span class="text-[10px] text-[#51D55A] bg-[#51D55A]/10 border border-[#51D55A]/20 px-2 py-1 rounded font-normal"><?php echo $total_items; ?> Items</span>
+                </h3>
+                <p class="text-xs text-[#9aa6d1] mt-1">Manage products and stock levels.</p>
+            </div>
+            <?php if ($role === 'admin'): ?>
+            <a href="inventory_report.php?<?php echo http_build_query(array_filter(['q' => $q, 'category' => $category_param, 'filter' => $filter_param])); ?>"
+               target="_blank"
+               id="btn-download-inventory"
+               class="btn-secondary self-start sm:self-center whitespace-nowrap h-[40px] inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 text-xs sm:text-sm font-semibold rounded-xl shrink-0"
+               title="Open Inventory Report document in new tab">
+                <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span>Download Inventory</span>
+            </a>
+            <?php endif; ?>
         </div>
 
         <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 w-full">
@@ -2083,6 +2751,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             $statusLabel = $isOut ? 'OUT' : ($isLow ? 'LOW' : 'GOOD');
             $thumbSrc = getProductImageUrl((int)$it['id']);
             $hasThumb = !empty($thumbSrc);
+            $recDate  = !empty($it['date_received']) ? $it['date_received'] : (!empty($it['created_at']) ? $it['created_at'] : '');
         ?>
         <div class="inv-card"
              data-id="<?php echo $it['id']; ?>"
@@ -2096,7 +2765,10 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
              data-reorder="<?php echo $reorder; ?>"
              data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
              data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>"
-             data-image="<?php echo htmlspecialchars($thumbSrc ?: ''); ?>">
+             data-date-received="<?php echo htmlspecialchars($recDate, ENT_QUOTES); ?>"
+             data-image="<?php echo htmlspecialchars($thumbSrc ?: ''); ?>"
+             onclick="openProductDetailsModal(this.dataset, event)"
+             title="Click to view product details & batches">
 
             <!-- Top: thumb + info + badge -->
             <div class="inv-card-top">
@@ -2125,7 +2797,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
             <!-- Stats -->
             <div class="inv-card-stats">
                 <div class="inv-card-stat">
-                    <span class="inv-stat-label">STOCK</span>
+                    <span class="inv-stat-label">TOTAL STOCK</span>
                     <span class="inv-stat-value <?php echo $isOut ? 'stat-out' : ($isLow ? 'stat-low' : ''); ?>"><?php echo $qty; ?><?php if ($it['uom']): ?><span class="inv-stat-unit"><?php echo htmlspecialchars($it['uom']); ?></span><?php endif; ?></span>
                 </div>
                 <div class="inv-card-stat">
@@ -2138,21 +2810,35 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                 </div>
             </div>
 
+            <!-- Batch & Nearest Expiry Breakdown Badge -->
+            <div class="inv-card-batch-row">
+                <div class="inv-card-expiry-info">
+                    <span class="inv-expiry-label">Nearest Exp:</span>
+                    <span class="inv-expiry-val"><?php echo !empty($it['next_expiry']) ? date('M d, Y', strtotime($it['next_expiry'])) : 'No Expiry'; ?></span>
+                </div>
+                <?php $bCnt = (int)($it['batch_count'] ?? 0); ?>
+                <button type="button" class="inv-batch-badge-btn" onclick="event.stopPropagation(); openProductDetailsModal(this.closest('.inv-card').dataset, event)" title="View batch breakdown">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    <span><?php echo $bCnt; ?> <?php echo $bCnt === 1 ? 'batch' : 'batches'; ?></span>
+                    <span style="font-size:9px;">▾</span>
+                </button>
+            </div>
+
             <!-- Actions -->
             <div class="inv-card-actions"<?php echo ($role === 'staff') ? ' style="grid-template-columns: 1fr;"' : ''; ?>>
-                <button type="button" class="inv-card-btn inv-card-btn--edit" onclick="openEditModal(this.closest('.inv-card').dataset)">
+                <button type="button" class="inv-card-btn inv-card-btn--edit" title="Edit Product" onclick="event.stopPropagation(); event.preventDefault(); openEditModal(this.closest('.inv-card') ? this.closest('.inv-card').dataset : '<?php echo $it['id']; ?>', event)">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Edit
                 </button>
                 <?php if ($role !== 'staff'): ?>
                 <?php if (!$show_archived): ?>
-                <button type="button" class="inv-card-btn inv-card-btn--archive" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                <button type="button" class="inv-card-btn inv-card-btn--archive" title="Archive Product" onclick="event.stopPropagation(); event.preventDefault(); promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
                     Archive
                 </button>
                 <?php else: ?>
-                <button type="button" class="inv-card-btn inv-card-btn--restore" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                <button type="button" class="inv-card-btn inv-card-btn--restore" title="Restore Product" onclick="event.stopPropagation(); event.preventDefault(); promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                     Restore
                 </button>
                 <?php endif; ?>
@@ -2165,22 +2851,33 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     <!-- ── Table View (Optional Toggle) ─────────────────────────── -->
     <div class="inv-desktop-table" id="inventory-desktop-table" style="display: none;">
         <div class="overflow-x-auto iw-table-scroll" id="productTableWrap">
-            <table id="productTable" class="premium-table w-full text-left min-w-[950px]">
+            <table id="productTable" class="premium-table w-full text-left min-w-[1080px]">
                 <thead>
                     <tr>
-                        <th width="8%">SKU</th> <th width="18%">Name</th> <th width="10%">Category</th>
-                        <th width="8%">Supplier</th> <th width="8%">Location</th> <th width="5%">Qty</th>
-                        <th width="6%">Price</th> <th width="5%">Unit</th> <th width="6%">Reorder</th> <th width="8%">Shelf Life</th> <th width="6%">Status</th>
-                        <th width="10%" class="text-right">Actions</th>
+                        <th width="7%">SKU</th>
+                        <th width="16%">Name</th>
+                        <th width="9%">Category</th>
+                        <th width="8%">Supplier</th>
+                        <th width="7%">Location</th>
+                        <th width="7%">Total Stock</th>
+                        <th width="11%">Batches / Expiry</th>
+                        <th width="6%">Price</th>
+                        <th width="5%">Unit</th>
+                        <th width="5%">Reorder</th>
+                        <th width="6%">Status</th>
+                        <th width="10%">Date Received</th>
+                        <th width="8%" class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($items as $it): ?>
                     <?php
                         $tblThumb = getProductImageUrl((int)$it['id']);
+                        $tBatchCount = (int)($it['batch_count'] ?? 0);
+                        $tRecDate = !empty($it['date_received']) ? $it['date_received'] : (!empty($it['created_at']) ? $it['created_at'] : '');
                     ?>
                     <tr id="row-<?php echo $it['id']; ?>"
-                        class="hover:bg-[#1D387B]/50 transition-colors"
+                        class="hover:bg-[#1D387B]/50 transition-colors cursor-pointer"
                         data-id="<?php echo $it['id']; ?>"
                         data-name="<?php echo htmlspecialchars($it['name'], ENT_QUOTES); ?>"
                         data-category="<?php echo htmlspecialchars($it['category'], ENT_QUOTES); ?>"
@@ -2192,17 +2889,34 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                         data-reorder="<?php echo (int)$it['reorder_point']; ?>"
                         data-shelf="<?php echo htmlspecialchars($it['shelf_life'] ?? '', ENT_QUOTES); ?>"
                         data-sku="<?php echo htmlspecialchars($it['sku'], ENT_QUOTES); ?>"
-                        data-image="<?php echo htmlspecialchars($tblThumb ?: ''); ?>">
+                        data-date-received="<?php echo htmlspecialchars($tRecDate, ENT_QUOTES); ?>"
+                        data-image="<?php echo htmlspecialchars($tblThumb ?: ''); ?>"
+                        onclick="openProductDetailsModal(this.dataset, event)"
+                        title="Click to view product details & batches">
                         <td data-label="SKU"><span style="font-family:monospace; color:#9aa6d1;"><?php echo htmlspecialchars($it['sku']); ?></span></td>
                         <td data-label="Name"><span style="font-weight:600;"><?php echo htmlspecialchars($it['name']); ?></span></td>
                         <td data-label="Category"><?php echo htmlspecialchars($it['category']); ?></td>
                         <td data-label="Supplier"><?php echo htmlspecialchars($it['supplier']); ?></td>
                         <td data-label="Location"><?php echo htmlspecialchars($it['location']); ?></td>
-                        <td data-label="Qty"><span style="font-weight:700;"><?php echo htmlspecialchars($it['qty']); ?></span></td>
+                        <td data-label="Total Stock">
+                            <span style="font-weight:700; font-size:14px;"><?php echo htmlspecialchars($it['qty']); ?></span>
+                            <?php if ($it['uom']): ?><span style="font-size:11px; color:#9aa6d1;"><?php echo htmlspecialchars($it['uom']); ?></span><?php endif; ?>
+                        </td>
+                        <td data-label="Batches / Expiry">
+                            <div style="display:flex; flex-direction:column; gap:3px;">
+                                <button type="button" class="inv-batch-badge-btn" onclick="event.stopPropagation(); openProductDetailsModal(this.closest('tr').dataset, event)" style="align-self:flex-start;" title="Click to view batches breakdown">
+                                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                    <span><?php echo $tBatchCount; ?> <?php echo $tBatchCount === 1 ? 'batch' : 'batches'; ?></span>
+                                    <span style="font-size:9px;">▾</span>
+                                </button>
+                                <span style="font-size:11px; color:#9aa6d1;">
+                                    Exp: <?php echo !empty($it['next_expiry']) ? date('M d, Y', strtotime($it['next_expiry'])) : 'No Expiry'; ?>
+                                </span>
+                            </div>
+                        </td>
                         <td data-label="Price"><span style="font-family:monospace;">&#8369;<?php echo number_format((float)($it['price'] ?? 0), 2); ?></span></td>
                         <td data-label="Unit"><?php echo htmlspecialchars($it['uom']); ?></td>
                         <td data-label="Reorder"><?php echo htmlspecialchars($it['reorder_point']); ?></td>
-                        <td data-label="Shelf Life"><?php echo $it['shelf_life'] !== null ? htmlspecialchars($it['shelf_life']) . ' days' : '—'; ?></td>
                         <td data-label="Status">
                             <?php if ((int)$it['qty'] <= 0): ?>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Out</span>
@@ -2212,19 +2926,24 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Good</span>
                             <?php endif; ?>
                         </td>
+                        <td data-label="Date Received" style="white-space:nowrap;">
+                            <span class="inv-date-received text-xs" style="font-family:'Onest',sans-serif;">
+                                <?php echo !empty($tRecDate) ? date('M d, Y', strtotime($tRecDate)) : '—'; ?>
+                            </span>
+                        </td>
                         <td data-label="Actions" class="text-right">
                             <div style="display:flex; gap:8px; justify-content:flex-end;">
-                                <button type="button" class="inventory-action-btn edit-btn" onclick="openEditModal(this.closest('tr').dataset)" title="Edit">
+                                <button type="button" class="inventory-action-btn edit-btn" onclick="event.stopPropagation(); event.preventDefault(); openEditModal(this.closest('tr') ? this.closest('tr').dataset : '<?php echo $it['id']; ?>', event)" title="Edit Product">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
                                 <?php if ($role !== 'staff'): ?>
                                 <?php if (!$show_archived): ?>
-                                <button type="button" class="inventory-action-btn delete-btn" onclick="promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Archive">
+                                <button type="button" class="inventory-action-btn delete-btn" onclick="event.stopPropagation(); event.preventDefault(); promptArchive('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Archive Product">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>
                                 </button>
                                 <?php else: ?>
-                                <button type="button" class="inventory-action-btn restore-btn" onclick="promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Restore">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 .49-3.51"></path></svg>
+                                <button type="button" class="inventory-action-btn restore-btn" onclick="event.stopPropagation(); event.preventDefault(); promptRestore('<?php echo $it['id']; ?>', '<?php echo htmlspecialchars(addslashes($it['name'])); ?>')" title="Restore Product">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
                                 </button>
                                 <?php endif; ?>
                                 <?php endif; ?>
@@ -2494,8 +3213,19 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                                         <span id="dup-match-shelf" class="dup-stat-val">C2</span>
                                     </div>
                                     <div class="dup-stat-col">
-                                        <span class="dup-stat-label">Nearest expiry</span>
-                                        <span id="dup-match-expiry" class="dup-stat-val">2027-03-14</span>
+                                        <span class="dup-stat-label">Total after restock</span>
+                                        <span id="dup-projected-stock" class="dup-stat-val" style="color:#51D55A;">120 pcs</span>
+                                    </div>
+                                </div>
+
+                                <!-- Dynamic Batch List & Incoming Batch Preview -->
+                                <div id="dup-batches-container" class="dup-batches-section" style="margin-top:12px;">
+                                    <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#94A3B8; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                        <span>Batches in Stock &amp; Incoming Preview</span>
+                                        <span id="dup-batch-count-pill" style="font-size:11px; color:#51D55A; font-weight:700;">Active Batches</span>
+                                    </div>
+                                    <div id="dup-batches-list" class="dup-batches-list">
+                                        <!-- Injected by JS -->
                                     </div>
                                 </div>
 
@@ -2510,7 +3240,7 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
                     <!-- Green Sub-Banner below card for exact match -->
                     <div id="dup-exact-batch-notice" class="dup-batch-notice" style="display:none;">
-                        These details will be added as a new batch to <strong id="dup-batch-target-sku">P-0487</strong>.
+                        <!-- Injected dynamically by JS -->
                     </div>
 
                     <!-- Confirmed Variant Badge -->
@@ -2664,25 +3394,25 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
 
 <!-- Restore Confirmation Modal -->
 <div id="restore-modal-overlay" class="modal-overlay">
-    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 40px;">
-        <div style="margin-bottom: 16px; display: flex; justify-content: center;">
-            <div style="width: 80px; height: 80px; background: rgba(81,213,90,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(81,213,90,0.25);">
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#51D55A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 38px 30px; border-radius: 20px;">
+        <div style="margin-bottom: 18px; display: flex; justify-content: center;">
+            <div class="restore-icon-wrap" style="width: 76px; height: 76px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="restore-modal-icon" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="1 4 1 10 7 10"></polyline>
-                    <path d="M3.51 15a9 9 0 1 0 .49-3.51"></path>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
                 </svg>
             </div>
         </div>
-        <h3 style="color:#fff; margin-bottom:8px; font-family:'Onest',sans-serif;">Restore Product?</h3>
-        <p style="color:#9aa6d1; margin-bottom:6px; font-size:14px;"><strong id="restore-product-name" style="color:#e3e3e3;"></strong></p>
-        <p style="color:#9aa6d1; margin-bottom:28px; font-size:13px;">This product will be returned to the active inventory list.</p>
+        <h3 class="restore-modal-title" style="margin-bottom:8px; font-family:'Onest',sans-serif; font-size:20px; font-weight:700;">Restore Product?</h3>
+        <p class="restore-modal-product-line" style="margin-bottom:6px; font-size:14px;"><strong id="restore-product-name"></strong></p>
+        <p class="restore-modal-desc" style="margin-bottom:28px; font-size:13px;">This product will be returned to the active inventory list.</p>
         <div style="display:flex; justify-content:center; gap:12px;">
-            <button type="button" class="btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+            <button type="button" class="btn-secondary" onclick="closeRestoreModal()" style="min-width:105px; height:42px; font-size:13px; font-weight:600;">Cancel</button>
             <form method="POST" id="modal-restore-form" style="display:inline;">
                 <input type="hidden" name="action" value="restore">
                 <input type="hidden" name="id" id="modal-restore-id">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
-                <button type="submit" class="premium-button" style="background: linear-gradient(135deg,#059669,#047857) !important; box-shadow: 0 4px 14px rgba(5,150,105,0.35) !important;">
+                <button type="submit" class="premium-button" style="background: linear-gradient(135deg,#059669,#047857) !important; box-shadow: 0 4px 14px rgba(5,150,105,0.35) !important; min-width:130px; height:42px; font-size:13px; font-weight:700; border-radius:12px;">
                     Restore Product
                 </button>
             </form>
@@ -2705,7 +3435,145 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
     </div>
 </div>
 
-<div id="edit-modal-overlay" class="modal-overlay">
+<!-- Product Information Modal (Matching Receive/Release Product Info panel & 2nd picture) -->
+<div id="batch-breakdown-modal-overlay" class="modal-overlay" style="z-index: 100055;">
+    <div class="modal-box pos-info-modal-box" style="max-width: 580px; width: 100%; max-height: calc(100vh - 40px); display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px;">
+        
+        <!-- Modal Header -->
+        <div class="pos-panel-header" style="padding: 16px 22px; border-bottom: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4)); display: flex; justify-content: space-between; align-items: flex-start; border-top-left-radius: 20px; border-top-right-radius: 20px;">
+            <div>
+                <h3 class="font-onest font-semibold text-lg text-white" style="margin: 0; font-size: 18px; font-weight: 700; font-family: 'Onest', sans-serif;">Product Information</h3>
+                <p class="text-xs text-[#9aa6d1] mt-1" style="margin: 3px 0 0 0; font-size: 12px; color: #9aa6d1;">Updates when a product is scanned or selected.</p>
+            </div>
+            <button type="button" onclick="closeBatchBreakdownModal()" class="modal-close-btn" title="Close" aria-label="Close" style="margin-left: 12px; flex-shrink: 0;">&times;</button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div class="modal-body-scroll pos-info-modal-scroll" style="padding: 20px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px;">
+            
+            <!-- Top bar: Product Name and Header Edit Button -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;">
+                <div style="flex: 1; min-width: 0;">
+                    <h4 class="pos-info-name" id="batch-modal-prod-name" style="font-size: 19px; font-weight: 700; color: var(--iw-text, #ffffff); line-height: 1.3; margin: 0 0 5px 0; word-break: break-word;">Product Name</h4>
+                    <span id="batch-modal-sku" class="dup-sku-pill" style="font-family: monospace; font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); color: #9aa6d1; border: 1px solid rgba(42,68,132,0.3);">P-0000</span>
+                </div>
+                <!-- Action / Edit button on top right, styled like 2nd picture -->
+                <button type="button"
+                        onclick="editFromDetailsModal()"
+                        title="Edit Product"
+                        style="width: 38px; height: 38px; border-radius: 10px; border: 1.5px solid rgba(81, 213, 90, 0.4); background: rgba(81, 213, 90, 0.12); color: #51D55A; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: all 0.2s;"
+                        onmouseover="this.style.background='rgba(81, 213, 90, 0.22)';"
+                        onmouseout="this.style.background='rgba(81, 213, 90, 0.12)';">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Reference Photo Section (Exact match with 2nd picture) -->
+            <div class="pos-info-image-section">
+                <div class="pos-info-image-label">
+                    <span>REFERENCE PHOTO</span>
+                    <button type="button" class="pos-info-image-expand-btn" id="batch-modal-image-expand" onclick="openDetailsImageLightbox()" title="View full size">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="pos-info-image-wrap" id="batch-modal-image-wrap">
+                    <img id="batch-modal-image" src="" alt="Product reference image" onclick="openDetailsImageLightbox()">
+                    <div class="pos-info-image-placeholder" id="batch-modal-placeholder">
+                        <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2" opacity="0.35">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
+                        </svg>
+                        <span style="font-size: 12px; color: #9aa6d1;">No reference image</span>
+                        <span style="font-size: 10px; color: rgba(154,166,209,0.5);">Upload one via Edit Product</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Details Grid (Exact match with 2nd picture) -->
+            <dl class="pos-info-grid">
+                <div class="pos-info-field">
+                    <dt>CATEGORY</dt>
+                    <dd id="batch-modal-category">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>LOCATION</dt>
+                    <dd id="batch-modal-location">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>TOTAL STOCK</dt>
+                    <dd id="batch-modal-total-stock">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>STOCK STATUS</dt>
+                    <dd id="batch-modal-status">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>REORDER POINT</dt>
+                    <dd id="batch-modal-reorder">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>NEAREST EXPIRY</dt>
+                    <dd id="batch-modal-earliest-exp">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>BATCH COUNT</dt>
+                    <dd id="batch-modal-batch-count">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>PRICE</dt>
+                    <dd id="batch-modal-price">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>SUPPLIER</dt>
+                    <dd id="batch-modal-supplier">—</dd>
+                </div>
+                <div class="pos-info-field">
+                    <dt>SHELF LIFE</dt>
+                    <dd id="batch-modal-shelflife">—</dd>
+                </div>
+            </dl>
+
+            <!-- Existing Batches Panel (Exact match with Receive/Release page) -->
+            <div class="pos-batches-panel">
+                <div class="pos-batches-panel-header">
+                    <span class="pos-batches-panel-title">📦 Existing Batches in Stock</span>
+                    <span class="pos-batches-panel-count" id="batch-modal-count">0 batches</span>
+                </div>
+                <div id="batch-modal-batches-list" style="max-height: 180px; overflow-y: auto;">
+                    <!-- Batches populated via JS -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer" style="padding: 14px 22px; border-top: 1px solid var(--iw-border, rgba(42, 68, 132, 0.4)); display: flex; justify-content: flex-end; align-items: center; background: rgba(0,0,0,0.12); border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
+            <div style="display: flex; gap: 10px;">
+                <a id="batch-modal-receive-link" href="receive.php" class="btn-secondary" style="height: 38px; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; text-decoration: none; padding: 0 14px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                    Receive Stock
+                </a>
+                <button type="button" class="premium-button" id="batch-modal-edit-btn" onclick="editFromDetailsModal()" style="height: 38px; padding: 0 16px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit Product
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Details Image Lightbox -->
+<div class="pos-img-lightbox" id="details-img-lightbox" role="dialog" aria-modal="true" aria-label="Product image full view" onclick="closeDetailsImageLightbox(event)">
+    <button class="pos-img-lightbox-close" onclick="closeDetailsImageLightbox(event)" title="Close">&times;</button>
+    <img id="details-img-lightbox-img" src="" alt="Product reference image full size">
+</div>
+
+<div id="edit-modal-overlay" class="modal-overlay" style="z-index: 100060;">
     <div class="modal-box">
         <div class="modal-header">
             <div class="modal-title">
@@ -2728,20 +3596,20 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <!-- File input (hidden) -->
                     <input type="file" id="edit-image-file-input" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="editHandleImageUpload(this)">
                     <!-- Current / preview image -->
-                    <div id="edit-image-current-wrap" style="border-radius:12px; overflow:hidden; border:1px solid var(--iw-border); background:#060816; position:relative; display:none;">
+                    <div id="edit-image-current-wrap" class="edit-image-current-wrap" style="display:none;">
                         <img id="edit-image-preview-img" src="" alt="Product image" style="width:100%; max-height:200px; object-fit:contain; display:block;">
-                        <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%); pointer-events:none;"></div>
-                        <div style="position:absolute; bottom:10px; left:12px; display:flex; align-items:center; gap:6px;">
+                        <div class="edit-image-gradient-overlay"></div>
+                        <div class="edit-image-status-pill">
                             <svg width="16" height="16" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-                            <span id="edit-image-status-label" style="font-size:12px; font-weight:600; font-family:'Onest',sans-serif; color:#d1fae5;">Current image</span>
+                            <span id="edit-image-status-label" class="edit-image-status-label">Current image</span>
                         </div>
                         <!-- Remove image button (×) -->
-                        <button type="button" onclick="editRemoveImage()" title="Remove image" style="position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; background:rgba(15,23,42,0.80); border:1px solid rgba(148,163,184,0.35); color:#cbd5e1; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s, color 0.2s; z-index:10;" onmouseover="this.style.background='rgba(239,68,68,0.75)';this.style.color='#fff';" onmouseout="this.style.background='rgba(15,23,42,0.80)';this.style.color='#cbd5e1';">&times;</button>
+                        <button type="button" onclick="editRemoveImage()" title="Remove image" class="edit-image-remove-btn">&times;</button>
                     </div>
                     <!-- No image / upload prompt -->
-                    <div id="edit-image-empty-wrap" style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px; border:1px dashed rgba(100,116,139,0.4); background:rgba(13,22,56,0.25);">
+                    <div id="edit-image-empty-wrap" class="edit-image-empty-wrap">
                         <svg width="20" height="20" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75 7.5 10.5l3.75 3.75 3-3 4.5 4.5M3.75 21h16.5M21 3.75H3A.75.75 0 0 0 2.25 4.5v15A.75.75 0 0 0 3 20.25h18a.75.75 0 0 0 .75-.75V4.5A.75.75 0 0 0 21 3.75z"/></svg>
-                        <span style="font-size:13px; color:#64748b; font-family:'Onest',sans-serif; flex:1;">No image</span>
+                        <span class="edit-no-image-text">No image</span>
                         <button type="button" class="btn-secondary" style="height:34px; padding:0 14px; display:inline-flex; align-items:center; gap:5px; font-size:12px;" onclick="triggerEditImageUpload()">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
                             Upload Image
@@ -2759,6 +3627,16 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <label class="form-label">Product Name *</label>
                     <input type="text" name="name" id="edit-name" class="premium-input w-full" style="height:46px;" required maxlength="255">
                 </div>
+                <!-- Active Batches & Expiry Dates in Edit Modal -->
+                <div id="edit-batches-panel" class="edit-batches-panel" style="grid-column: span 2;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span class="edit-batches-title">📦 Active Batches & Expiry Dates</span>
+                        <span id="edit-batches-count-pill" class="edit-batches-count-pill">Loading batches...</span>
+                    </div>
+                    <div id="edit-batches-list-wrap" style="max-height: 130px; overflow-y: auto;">
+                        <div class="edit-batches-empty">Loading batches for this product...</div>
+                    </div>
+                </div>
                 <div>
                     <label class="form-label">Category</label>
                     <select name="category" id="edit-category" class="premium-input inventory-select w-full cursor-pointer" style="height:46px;">
@@ -2770,8 +3648,14 @@ renderLayoutStart('Inventory', $role, $_SESSION['Username']);
                     <input type="text" name="supplier" id="edit-supplier" class="premium-input w-full" style="height:46px;" placeholder="Supplier Name">
                 </div>
                 <div>
-                    <label class="form-label">Quantity *</label>
+                    <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>Quantity *</span>
+                        <button type="button" class="inv-batch-badge-btn" onclick="openBatchBreakdownModal(document.getElementById('edit-id').value, event)" style="font-size:10px; padding:2px 6px;">
+                            View Batches ▾
+                        </button>
+                    </label>
                     <input type="number" name="qty" id="edit-qty" class="premium-input w-full" style="height:46px;" min="0" step="1" inputmode="numeric" required>
+                    <span class="edit-derived-hint">Total stock = SUM(batch.qty) derived</span>
                 </div>
                 <div>
                     <label class="form-label">Price *</label>
@@ -2822,6 +3706,117 @@ function escapeHtml(str) {
 let _dupCheckTimer = null;
 let _lastCheckedDupName = '';
 let _isVariantConfirmed = false;
+window._currentDuplicateMatch = null;
+window._isExactDuplicate = false;
+
+function renderDuplicateBatchesPreview(top, isExact) {
+    if (!top) return;
+    const batchesList = document.getElementById('dup-batches-list');
+    const projectedEl = document.getElementById('dup-projected-stock');
+    const batchNotice = document.getElementById('dup-exact-batch-notice');
+    const batchCountPill = document.getElementById('dup-batch-count-pill');
+    if (!batchesList) return;
+
+    const unit = top.unit || 'pcs';
+    const existingBatches = Array.isArray(top.existing_batches) ? top.existing_batches : [];
+    const qtyInput = document.getElementById('add-quantity');
+    const rawQty = parseInt(qtyInput ? qtyInput.value : '', 10);
+    const incomingQty = (!isNaN(rawQty) && rawQty > 0) ? rawQty : 0;
+    const expiryInput = document.getElementById('add-expiry-date');
+    const incomingExp = (expiryInput ? expiryInput.value : '').trim();
+
+    let matchedBatch = null;
+    if (incomingExp) {
+        matchedBatch = existingBatches.find(b => {
+            const bExp = (b.expiry_date || '').substring(0, 10);
+            return bExp === incomingExp;
+        });
+    }
+
+    let html = '';
+    let batchNumCounter = 1;
+
+    if (existingBatches.length === 0) {
+        html += `<div class="dup-batch-item" style="color:#94A3B8; font-style:italic;">No active batches recorded in inventory.</div>`;
+    } else {
+        existingBatches.forEach(b => {
+            const bExp = b.expiry_formatted || (b.expiry_date ? b.expiry_date.substring(0, 10) : 'No Expiry');
+            const bName = b.batch_number ? b.batch_number : ('Batch ' + batchNumCounter);
+            const isThisMerged = Boolean(matchedBatch && b.batch_id === matchedBatch.batch_id && incomingQty > 0);
+
+            if (isThisMerged) {
+                const mergedQty = b.qty + incomingQty;
+                html += `
+                    <div class="dup-batch-item dup-batch-item--merged">
+                        <div>
+                            <strong>${escapeHtml(bName)}:</strong> ${b.qty} ${escapeHtml(unit)} + <span style="color:#2563EB;">${incomingQty} incoming</span> = <strong>${mergedQty} ${escapeHtml(unit)}</strong>, exp ${escapeHtml(bExp)}
+                        </div>
+                        <span class="dup-batch-badge-pill" style="background:#DBEAFE; color:#1E40AF; padding:2px 7px; border-radius:9999px; font-size:10px;">Merged</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="dup-batch-item">
+                        <div>
+                            <strong>${escapeHtml(bName)}:</strong> ${b.qty} ${escapeHtml(unit)}, exp ${escapeHtml(bExp)}
+                        </div>
+                        <span style="font-size:11px; color:#64748B;">Existing</span>
+                    </div>
+                `;
+            }
+            batchNumCounter++;
+        });
+    }
+
+    // Incoming preview if incomingQty > 0 and not merged into an existing batch
+    if (incomingQty > 0 && !matchedBatch) {
+        const incomingExpDisplay = incomingExp ? incomingExp : 'No Expiry';
+        const incomingBatchName = 'Batch ' + (existingBatches.length + 1);
+        html += `
+            <div class="dup-batch-item dup-batch-item--incoming">
+                <div>
+                    <strong>${escapeHtml(incomingBatchName)}:</strong> ${incomingQty} ${escapeHtml(unit)}, exp ${escapeHtml(incomingExpDisplay)}
+                </div>
+                <span class="dup-batch-badge-pill" style="background:#DCFCE7; color:#15803D; padding:2px 7px; border-radius:9999px; font-size:10px;">Incoming</span>
+            </div>
+        `;
+    }
+
+    batchesList.innerHTML = html;
+
+    if (batchCountPill) {
+        const totalActive = existingBatches.length + (incomingQty > 0 && !matchedBatch ? 1 : 0);
+        batchCountPill.textContent = totalActive + (totalActive === 1 ? ' batch' : ' batches');
+    }
+
+    // Projected Total Stock
+    const currentStock = typeof top.quantity === 'number' ? top.quantity : 0;
+    const projectedStock = currentStock + incomingQty;
+    if (projectedEl) {
+        projectedEl.textContent = projectedStock + ' ' + unit;
+    }
+
+    // Green Banner Update
+    if (batchNotice) {
+        if (isExact) {
+            if (incomingQty > 0) {
+                if (matchedBatch) {
+                    const bExp = matchedBatch.expiry_formatted || matchedBatch.expiry_date || 'No Expiry';
+                    const bName = matchedBatch.batch_number || ('Batch ' + matchedBatch.batch_id);
+                    batchNotice.innerHTML = `Incoming <strong>${incomingQty} ${escapeHtml(unit)}</strong> will be merged into <strong>${escapeHtml(bName)}</strong> (${matchedBatch.qty} &rarr; <strong>${matchedBatch.qty + incomingQty} ${escapeHtml(unit)}</strong>, exp ${escapeHtml(bExp)}) of <strong>${escapeHtml(top.sku)}</strong>. Existing batches updated.`;
+                } else {
+                    const expDisplay = incomingExp ? incomingExp : 'No Expiry';
+                    batchNotice.innerHTML = `A new batch (<strong>${incomingQty} ${escapeHtml(unit)}</strong>, exp <strong>${escapeHtml(expDisplay)}</strong>) will be added to <strong>${escapeHtml(top.sku)}</strong>. Existing batches are unchanged.`;
+                }
+            } else {
+                batchNotice.innerHTML = `A new batch will be added to <strong>${escapeHtml(top.sku)}</strong>. Enter quantity and expiry date to preview restock.`;
+            }
+            batchNotice.style.display = 'block';
+        } else {
+            batchNotice.style.display = 'none';
+        }
+    }
+}
 
 function checkProductDuplicateLive(customName) {
     const nameInput = document.getElementById('add-product-name');
@@ -2829,6 +3824,8 @@ function checkProductDuplicateLive(customName) {
     const banner = document.getElementById('add-duplicate-warning-banner');
     const batchNotice = document.getElementById('dup-exact-batch-notice');
     const variantBadge = document.getElementById('add-variant-confirmed-badge');
+    const unitInput = document.getElementById('add-unit');
+    const unit = (unitInput ? unitInput.value : '').trim();
     if (!banner) return;
 
     if (_isVariantConfirmed) {
@@ -2841,18 +3838,22 @@ function checkProductDuplicateLive(customName) {
     if (name.length < 3) {
         banner.style.display = 'none';
         if (batchNotice) batchNotice.style.display = 'none';
+        window._currentDuplicateMatch = null;
+        window._isExactDuplicate = false;
         return;
     }
 
-    if (name === _lastCheckedDupName) return;
-    _lastCheckedDupName = name;
+    const checkCacheKey = name + '::' + unit;
+    if (checkCacheKey === _lastCheckedDupName) return;
+    _lastCheckedDupName = checkCacheKey;
 
-    fetch('api/check_product_duplicate.php?name=' + encodeURIComponent(name))
+    fetch('api/check_product_duplicate.php?name=' + encodeURIComponent(name) + '&unit=' + encodeURIComponent(unit))
         .then(res => res.json())
         .then(data => {
             if (_isVariantConfirmed) return;
             if (data && data.success && data.has_duplicate && data.top_match) {
                 const top = data.top_match;
+                window._currentDuplicateMatch = top;
                 const matchIdEl = document.getElementById('add-matched-duplicate-id');
                 if (matchIdEl) matchIdEl.value = top.product_id;
 
@@ -2862,19 +3863,13 @@ function checkProductDuplicateLive(customName) {
                 const skuEl = document.getElementById('dup-match-sku');
                 if (skuEl) skuEl.textContent = top.sku;
 
-                const batchSkuEl = document.getElementById('dup-batch-target-sku');
-                if (batchSkuEl) batchSkuEl.textContent = top.sku;
-
                 const stockEl = document.getElementById('dup-match-stock');
                 if (stockEl) stockEl.textContent = top.quantity + ' ' + (top.unit || 'pcs');
 
                 const shelfEl = document.getElementById('dup-match-shelf');
-                if (shelfEl) shelfEl.textContent = top.shelf || top.location || 'C2';
+                if (shelfEl) shelfEl.textContent = top.shelf || top.location || 'Unassigned';
 
-                const expiryEl = document.getElementById('dup-match-expiry');
-                if (expiryEl) expiryEl.textContent = top.nearest_expiry || 'N/A';
-
-                // Thumbnail handling: image if available, else smooth pastel lavender gradient
+                // Thumbnail handling
                 const thumbImg = document.getElementById('dup-thumb-img');
                 const thumbGradient = document.getElementById('dup-thumb-gradient');
                 if (top.image_url && top.image_url !== '') {
@@ -2893,6 +3888,8 @@ function checkProductDuplicateLive(customName) {
                 if (pctEl) pctEl.textContent = pct + '% MATCH';
 
                 const isExact = Boolean(pct >= 100 || data.is_exact || top.is_exact);
+                window._isExactDuplicate = isExact;
+
                 const titleEl = document.getElementById('dup-banner-title');
                 if (titleEl) {
                     titleEl.textContent = isExact
@@ -2900,12 +3897,10 @@ function checkProductDuplicateLive(customName) {
                         : 'Similar item already in stock';
                 }
 
-                // Green sub-banner: show only for exact match
-                if (batchNotice) {
-                    batchNotice.style.display = isExact ? 'block' : 'none';
-                }
+                // Render Batch list breakdown & projected stock
+                renderDuplicateBatchesPreview(top, isExact);
 
-                // UX: If exact match, update main submit button and show expiry as required
+                // UX: If exact match, update main submit button and enforce expiry as required
                 const submitBtn = document.getElementById('add-product-submit');
                 const expiryReqMark = document.getElementById('add-expiry-required-mark');
                 const expiryInput = document.getElementById('add-expiry-date');
@@ -2923,6 +3918,8 @@ function checkProductDuplicateLive(customName) {
                 banner.style.display = 'block';
                 if (variantBadge) variantBadge.style.display = 'none';
             } else {
+                window._currentDuplicateMatch = null;
+                window._isExactDuplicate = false;
                 banner.style.display = 'none';
                 if (batchNotice) batchNotice.style.display = 'none';
                 const submitBtn = document.getElementById('add-product-submit');
@@ -2936,6 +3933,290 @@ function checkProductDuplicateLive(customName) {
         .catch(err => {
             console.warn('[Duplicate Check] Failed:', err);
         });
+}
+
+// Live interactive listener on quantity and expiry in Add Product form
+document.addEventListener('DOMContentLoaded', function() {
+    const qtyInput = document.getElementById('add-quantity');
+    if (qtyInput) {
+        qtyInput.addEventListener('input', function() {
+            if (window._currentDuplicateMatch) {
+                renderDuplicateBatchesPreview(window._currentDuplicateMatch, window._isExactDuplicate);
+            }
+        });
+    }
+
+    const expInput = document.getElementById('add-expiry-date');
+    if (expInput) {
+        expInput.addEventListener('input', function() {
+            if (window._currentDuplicateMatch) {
+                renderDuplicateBatchesPreview(window._currentDuplicateMatch, window._isExactDuplicate);
+            }
+        });
+        expInput.addEventListener('change', function() {
+            if (window._currentDuplicateMatch) {
+                renderDuplicateBatchesPreview(window._currentDuplicateMatch, window._isExactDuplicate);
+            }
+        });
+    }
+
+    const unitInput = document.getElementById('add-unit');
+    if (unitInput) {
+        unitInput.addEventListener('change', function() {
+            _lastCheckedDupName = '';
+            checkProductDuplicateLive();
+        });
+    }
+});
+
+// Interactive Product Details & Information Modal for Inventory views (Matching Receive/Release Product Info panel)
+var _lastViewedProductDataset = null;
+
+function openProductDetailsModal(data, event) {
+    if (event && event.target && event.target.closest('.inv-card-btn, .inventory-action-btn, a[href]')) {
+        return;
+    }
+    if (!data || (!data.id && !data.productId)) return;
+    const productId = data.id || data.productId;
+    _lastViewedProductDataset = data;
+
+    const modal = document.getElementById('batch-breakdown-modal-overlay');
+    if (!modal) return;
+
+    const setT = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = (val != null && val !== '') ? val : '—';
+    };
+
+    const qty = parseInt(data.qty || '0', 10);
+    const reorder = parseInt(data.reorder || '10', 10);
+    const uom = data.uom || 'piece';
+    const isOut = qty <= 0;
+    const isLow = !isOut && qty <= reorder;
+    const statusClass = isOut ? 'pos-status-out_of_stock' : (isLow ? 'pos-status-low_stock' : 'pos-status-in_stock');
+    const statusLabel = isOut ? 'OUT OF STOCK' : (isLow ? 'LOW STOCK' : 'IN STOCK');
+
+    setT('batch-modal-prod-name', data.name || 'Product Details');
+    setT('batch-modal-sku', data.sku || ('P-' + String(productId).padStart(4, '0')));
+    setT('batch-modal-category', data.category || 'Uncategorized');
+    setT('batch-modal-location', data.location || '—');
+    setT('batch-modal-supplier', data.supplier || '—');
+    setT('batch-modal-reorder', String(reorder));
+    setT('batch-modal-shelflife', data.shelf ? (data.shelf + ' days') : '—');
+    setT('batch-modal-price', data.price != null ? ('₱' + parseFloat(data.price || 0).toFixed(2)) : '₱0.00');
+    setT('batch-modal-total-stock', qty + ' ' + uom);
+
+    const statusEl = document.getElementById('batch-modal-status');
+    if (statusEl) {
+        statusEl.innerHTML = `<span class="pos-status-badge ${statusClass}">${statusLabel}</span>`;
+    }
+
+    setT('batch-modal-batch-count', 'Loading...');
+    setT('batch-modal-earliest-exp', 'Loading...');
+
+    const rcvLink = document.getElementById('batch-modal-receive-link');
+    if (rcvLink) rcvLink.href = 'receive.php?q=' + encodeURIComponent(data.name || data.sku || '');
+
+    // Image thumbnail & photo wrap
+    const imgWrap = document.getElementById('batch-modal-image-wrap');
+    const imgEl = document.getElementById('batch-modal-image');
+    const phEl = document.getElementById('batch-modal-placeholder');
+    const expBtn = document.getElementById('batch-modal-image-expand');
+
+    const imgSrc = data.image || '';
+    if (imgSrc && imgSrc.trim() !== '') {
+        if (imgEl) {
+            imgEl.src = imgSrc;
+            imgEl.style.display = 'block';
+        }
+        if (phEl) phEl.style.display = 'none';
+        if (imgWrap) imgWrap.classList.add('has-image');
+        if (expBtn) expBtn.style.display = 'inline-flex';
+    } else {
+        if (imgEl) {
+            imgEl.style.display = 'none';
+            imgEl.src = '';
+        }
+        if (phEl) phEl.style.display = 'flex';
+        if (imgWrap) imgWrap.classList.remove('has-image');
+        if (expBtn) expBtn.style.display = 'none';
+    }
+
+    const listWrap = document.getElementById('batch-modal-batches-list');
+    if (listWrap) {
+        listWrap.innerHTML = '<div style="padding:16px; text-align:center; color:#9aa6d1; font-size:12px;">Loading active batch records...</div>';
+    }
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Fetch batch records from API
+    fetch('api/get_product_batches.php?product_id=' + encodeURIComponent(productId))
+        .then(res => res.json())
+        .then(resData => {
+            if (resData && resData.success) {
+                const p = resData.product || {};
+                if (p.product_name) setT('batch-modal-prod-name', p.product_name);
+                if (p.sku) setT('batch-modal-sku', p.sku);
+                if (p.category) setT('batch-modal-category', p.category);
+                if (p.location) setT('batch-modal-location', p.location);
+                if (p.supplier) setT('batch-modal-supplier', p.supplier);
+                if (p.price != null) setT('batch-modal-price', '₱' + parseFloat(p.price).toFixed(2));
+                if (p.reorder_point != null) setT('batch-modal-reorder', String(p.reorder_point));
+                if (p.shelf_life != null) setT('batch-modal-shelflife', p.shelf_life + ' days');
+                if (resData.total_stock != null) {
+                    const apiQty = parseInt(resData.total_stock, 10);
+                    const apiUnit = p.unit || data.uom || 'piece';
+                    setT('batch-modal-total-stock', apiQty + ' ' + apiUnit);
+                    const apiOut = apiQty <= 0;
+                    const apiLow = !apiOut && apiQty <= (p.reorder_point != null ? p.reorder_point : reorder);
+                    const sCls = apiOut ? 'pos-status-out_of_stock' : (apiLow ? 'pos-status-low_stock' : 'pos-status-in_stock');
+                    const sLbl = apiOut ? 'OUT OF STOCK' : (apiLow ? 'LOW STOCK' : 'IN STOCK');
+                    if (statusEl) {
+                        statusEl.innerHTML = `<span class="pos-status-badge ${sCls}">${sLbl}</span>`;
+                    }
+                }
+                if (p.image_url && (!imgSrc || imgSrc === '')) {
+                    if (imgEl) {
+                        imgEl.src = p.image_url;
+                        imgEl.style.display = 'block';
+                    }
+                    if (phEl) phEl.style.display = 'none';
+                    if (imgWrap) imgWrap.classList.add('has-image');
+                    if (expBtn) expBtn.style.display = 'inline-flex';
+                }
+
+                const batches = resData.batches || [];
+                const bCount = batches.length;
+                const countBadge = document.getElementById('batch-modal-count');
+                if (countBadge) countBadge.textContent = bCount + (bCount === 1 ? ' batch' : ' batches');
+
+                let earliest = 'No Expiry';
+                let batchCountText = bCount === 0 ? '0 batches' : (bCount + (bCount === 1 ? ' batch' : ' batches'));
+
+                if (bCount === 0) {
+                    if (listWrap) {
+                        listWrap.innerHTML = '<div style="padding:18px; text-align:center; color:#9aa6d1; font-size:12.5px;">No active batches recorded in inventory.</div>';
+                    }
+                    setT('batch-modal-earliest-exp', 'No Expiry');
+                    setT('batch-modal-batch-count', '0 batches');
+                } else {
+                    earliest = batches[0].expiry_formatted || 'No Expiry';
+                    setT('batch-modal-earliest-exp', earliest);
+
+                    if (bCount === 1 && batches[0].batch_number) {
+                        batchCountText = batches[0].batch_number;
+                    } else if (batches[0].batch_number) {
+                        batchCountText = `${bCount} batches (${batches[0].batch_number})`;
+                    }
+                    setT('batch-modal-batch-count', batchCountText);
+
+                    let rowsHtml = '';
+                    batches.forEach((b, idx) => {
+                        const exp = b.expiry_formatted || 'No Expiry';
+                        const rcv = b.received_at ? b.received_at.substring(0, 10) : '—';
+                        let badgeColor = '#51D55A';
+                        let badgeBg = 'rgba(81,213,90,0.12)';
+                        let badgeText = 'Valid';
+                        if (b.expiry_date) {
+                            const diff = Math.ceil((new Date(b.expiry_date + 'T00:00:00').getTime() - Date.now()) / (1000 * 3600 * 24));
+                            if (diff < 0) {
+                                badgeColor = '#f87171';
+                                badgeBg = 'rgba(239,68,68,0.15)';
+                                badgeText = 'Expired';
+                            } else if (diff <= 90) {
+                                badgeColor = '#fbbf24';
+                                badgeBg = 'rgba(245,158,11,0.15)';
+                                badgeText = 'Expiring in ' + diff + 'd';
+                            } else {
+                                const mo = Math.round(diff / 30);
+                                badgeText = mo + (mo === 1 ? ' mo left' : ' mos left');
+                            }
+                        } else {
+                            badgeColor = '#9aa6d1';
+                            badgeBg = 'rgba(255,255,255,0.06)';
+                            badgeText = 'No Expiry';
+                        }
+
+                        rowsHtml += `
+                            <div class="pos-batch-row" style="display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid rgba(42,68,132,0.22); transition:background 0.15s;">
+                                <div style="display:flex; flex-direction:column; gap:2px; min-width:130px; flex-shrink:0;">
+                                    <span style="font-weight:700; font-size:12.5px; color:#ffffff; font-family:monospace;">${escapeHtml(b.batch_number || ('Batch ' + (idx + 1)))}</span>
+                                    <span style="font-size:11px; color:#9aa6d1;">Rec: ${escapeHtml(rcv)}</span>
+                                </div>
+                                <div style="min-width:70px;">
+                                    <span style="font-weight:800; font-size:13.5px; color:#51D55A;">${b.qty}</span>
+                                    <span style="font-size:11px; color:#9aa6d1; margin-left:3px;">${escapeHtml(p.unit || data.uom || 'piece')}</span>
+                                </div>
+                                <div style="flex:1; text-align:right;">
+                                    <span style="font-weight:600; font-size:12.5px; color:${badgeColor};">${escapeHtml(exp)}</span>
+                                    <span style="font-size:10px; font-weight:700; color:${badgeColor}; background:${badgeBg}; padding:2px 7px; border-radius:4px; margin-left:6px; display:inline-block;">${badgeText}</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    if (listWrap) listWrap.innerHTML = rowsHtml;
+                }
+            } else {
+                if (listWrap) listWrap.innerHTML = '<div style="padding:18px; text-align:center; color:#ef4444; font-size:12px;">Could not load active batches.</div>';
+            }
+        })
+        .catch(err => {
+            console.error('[Batches Modal] Error:', err);
+            if (listWrap) listWrap.innerHTML = '<div style="padding:18px; text-align:center; color:#ef4444; font-size:12px;">Error fetching batches.</div>';
+        });
+}
+
+function openBatchBreakdownModal(productId, event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    const card = document.querySelector(`.inv-card[data-id="${productId}"]`) || document.querySelector(`tr[data-id="${productId}"]`);
+    if (card && card.dataset) {
+        openProductDetailsModal(card.dataset, event);
+    } else {
+        openProductDetailsModal({ id: productId }, event);
+    }
+}
+
+function closeBatchBreakdownModal() {
+    const modal = document.getElementById('batch-breakdown-modal-overlay');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    }
+    document.body.style.overflow = '';
+}
+
+function editFromDetailsModal() {
+    closeBatchBreakdownModal();
+    if (_lastViewedProductDataset) {
+        openEditModal(_lastViewedProductDataset);
+    }
+}
+
+function openDetailsImageLightbox() {
+    const img = document.getElementById('batch-modal-image');
+    if (!img || !img.src || img.style.display === 'none') return;
+    const lb = document.getElementById('details-img-lightbox');
+    const lbImg = document.getElementById('details-img-lightbox-img');
+    if (lb && lbImg) {
+        lbImg.src = img.src;
+        lb.classList.add('open');
+        lb.style.display = 'flex';
+    }
+}
+
+function closeDetailsImageLightbox(e) {
+    if (e && e.target && e.target.id === 'details-img-lightbox-img') return;
+    const lb = document.getElementById('details-img-lightbox');
+    if (lb) {
+        lb.classList.remove('open');
+        lb.style.display = 'none';
+    }
 }
 
 function restockMatchedDuplicate() {
@@ -3829,7 +5110,11 @@ function validateAddProductForm() {
     }
 
     var expRaw = (document.getElementById('add-expiry-date')?.value || '').trim();
-    if (expRaw !== '') {
+    if (window._isExactDuplicate && !expRaw) {
+        setAddFieldError('add-expiry-date', 'add-expiry-date-error', 'Expiry date is required when adding a batch to an existing product.');
+        valid = false;
+        firstInvalid = firstInvalid || document.getElementById('add-expiry-date');
+    } else if (expRaw !== '') {
         var expDate = new Date(expRaw + 'T00:00:00');
         if (isNaN(expDate.getTime())) {
             setAddFieldError('add-expiry-date', 'add-expiry-date-error', 'Please enter a valid expiry date.');
@@ -4326,111 +5611,234 @@ function closeRestoreModal() {
 // ── Edit Product Modal ──────────────────────────────────────
 let editModalSubmitting = false;
 
-function openEditModal(data) {
-    // data is the row's dataset (DOMStringMap)
-    document.getElementById('edit-id').value          = data.id;
-    document.getElementById('edit-name').value        = data.name || '';
-    document.getElementById('edit-supplier').value    = data.supplier || '';
-    document.getElementById('edit-location').value    = data.location || '';
-    document.getElementById('edit-qty').value         = data.qty || '0';
-    document.getElementById('edit-price').value       = data.price || '0.00';
-    document.getElementById('edit-reorder-point').value = data.reorder || '10';
-    document.getElementById('edit-shelf-life').value  = data.shelf || '';
-    document.getElementById('edit-sync-driver').value = 'category';
-    document.getElementById('edit-modal-sku').textContent = data.sku || '';
+function fetchEditModalBatches(productId) {
+    const listWrap = document.getElementById('edit-batches-list-wrap');
+    const pill = document.getElementById('edit-batches-count-pill');
+    if (!listWrap) return;
+    listWrap.innerHTML = '<div class="edit-batches-empty">Loading active batches...</div>';
+    if (pill) pill.textContent = '...';
 
-    // Set category select
-    const catSel = document.getElementById('edit-category');
-    catSel.value = data.category || '';
-    if (catSel.value !== (data.category || '')) {
-        const opt = document.createElement('option');
-        opt.value = opt.textContent = data.category;
-        catSel.appendChild(opt);
-        catSel.value = data.category;
-    }
-
-    // Set UoM select
-    const uomSel = document.getElementById('edit-uom');
-    uomSel.value = data.uom || '';
-    if (uomSel.value !== (data.uom || '')) {
-        const opt = document.createElement('option');
-        opt.value = opt.textContent = data.uom;
-        uomSel.appendChild(opt);
-        uomSel.value = data.uom;
-    }
-
-    editModalSubmitting = false;
-    document.getElementById('edit-product-submit').disabled = false;
-    document.getElementById('edit-product-submit').textContent = 'Save Changes';
-
-    // ── Reset image section ──────────────────────────────────────────────────
-    var actionField = document.getElementById('edit-image-action');
-    var imgField    = document.getElementById('edit-image-b64');
-    var fileInput   = document.getElementById('edit-image-file-input');
-    var statusLabel = document.getElementById('edit-image-status-label');
-    var previewImg  = document.getElementById('edit-image-preview-img');
-
-    if (actionField) actionField.value = 'keep';
-    if (imgField)    imgField.value    = '';
-    if (fileInput)   fileInput.value   = '';
-    if (statusLabel) statusLabel.textContent = 'Current image';
-
-    // Save original image state in case user cancels
-    window.__editModalOriginalImage = data.image || '';
-    window.__editModalOriginalId = data.id || '';
-
-    // Probe whether a product image exists on the server
-    var knownImg = data.image || '';
-    if (knownImg) {
-        if (previewImg) {
-            previewImg.src = knownImg + (knownImg.includes('?') ? '&' : '?') + '_=' + Date.now();
-            previewImg.onerror = function() { editSetImageState(false); };
-            previewImg.onload = function() { editSetImageState(true); };
-        }
-        editSetImageState(true);
-    } else {
-        var probeExts = ['png', 'jpg', 'jpeg', 'webp'];
-        var probeIdx = 0;
-        function tryNextProbe() {
-            if (probeIdx >= probeExts.length) {
-                if (previewImg) previewImg.src = '';
-                editSetImageState(false);
-                return;
+    fetch('api/get_product_batches.php?product_id=' + productId)
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success && Array.isArray(data.batches) && data.batches.length > 0) {
+                if (pill) pill.textContent = data.batches.length + (data.batches.length === 1 ? ' batch' : ' batches');
+                let rows = '';
+                data.batches.forEach((b, idx) => {
+                    const exp = b.expiry_formatted || 'No Expiry';
+                    rows += `
+                        <div class="edit-batch-row">
+                            <span class="edit-batch-num">${escapeHtml(b.batch_number || 'Batch ' + (idx + 1))}</span>
+                            <span class="edit-batch-qty">${b.qty} ${(data.product && data.product.unit) || 'pcs'}</span>
+                            <span class="edit-batch-exp">Exp: ${escapeHtml(exp)}</span>
+                        </div>
+                    `;
+                });
+                listWrap.innerHTML = rows;
+            } else {
+                if (pill) pill.textContent = '0 batches';
+                listWrap.innerHTML = '<div class="edit-batches-empty">No active batches recorded in inventory.</div>';
             }
-            var ext = probeExts[probeIdx++];
-            var probeUrl = 'uploads/products/' + data.id + '.' + ext + '?_=' + Date.now();
-            var probe = new Image();
-            probe.onload = function() {
-                if (previewImg) {
-                    previewImg.src = probeUrl;
-                    previewImg.onerror = function() { editSetImageState(false); };
-                }
-                editSetImageState(true);
-            };
-            probe.onerror = tryNextProbe;
-            probe.src = probeUrl;
-        }
-        tryNextProbe();
+        })
+        .catch(err => {
+            if (pill) pill.textContent = '—';
+            listWrap.innerHTML = '<div class="edit-batches-empty">Batches not loaded.</div>';
+        });
+}
+
+function openEditModal(data, event) {
+    if (event) {
+        event.stopPropagation();
+        if (typeof event.preventDefault === 'function') event.preventDefault();
     }
 
-    const editScroll = document.querySelector('#edit-modal-overlay .modal-body-scroll');
-    if (editScroll) editScroll.scrollTop = 0;
-    if (window.matchMedia('(max-width: 767px)').matches) {
-        document.body.style.overflow = 'hidden';
+    // 1. Immediately display the Edit Product Modal
+    const overlay = document.getElementById('edit-modal-overlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
     }
-    document.getElementById('edit-modal-overlay').classList.add('active');
-    setTimeout(() => {
-        const nameInput = document.getElementById('edit-name');
-        if (nameInput) nameInput.focus({ preventScroll: true });
-    }, 60);
+
+    // Close batch breakdown details modal if open
+    const detailsModal = document.getElementById('batch-breakdown-modal-overlay');
+    if (detailsModal) {
+        detailsModal.classList.remove('active');
+        detailsModal.style.display = 'none';
+    }
+    document.body.style.overflow = 'hidden';
+
+    // 2. Resolve dataset/data
+    if (!data) return;
+    if (data instanceof HTMLElement) {
+        data = data.dataset;
+    } else if (typeof data === 'string' || typeof data === 'number') {
+        const targetId = String(data);
+        const cardOrRow = document.querySelector(`.inv-card[data-id="${targetId}"]`) || document.querySelector(`tr[data-id="${targetId}"]`);
+        if (cardOrRow && cardOrRow.dataset) {
+            data = cardOrRow.dataset;
+        } else {
+            // Fetch product via API and populate
+            fetch('api/get_product_by_id.php?id=' + encodeURIComponent(targetId))
+                .then(r => r.json())
+                .then(res => {
+                    if (res && res.success && res.found && res.product) {
+                        const p = res.product;
+                        openEditModal({
+                            id: String(p.product_id),
+                            name: p.product_name,
+                            category: p.category || '',
+                            supplier: p.supplier || '',
+                            location: p.location || '',
+                            qty: String(p.quantity || 0),
+                            price: String(p.price || '0.00'),
+                            uom: p.unit || '',
+                            reorder: String(p.reorder_point || 10),
+                            shelf: p.shelf_life != null ? String(p.shelf_life) : '',
+                            sku: p.sku || '',
+                            image: p.image_url || ''
+                        });
+                    }
+                })
+                .catch(err => console.error('[openEditModal] API fallback fetch error:', err));
+            return;
+        }
+    }
+
+    // 3. Defensively populate modal inputs
+    try {
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = (val != null) ? val : '';
+        };
+        const setText = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = (val != null) ? val : '';
+        };
+
+        setVal('edit-id', data.id);
+        setVal('edit-name', data.name);
+        setVal('edit-supplier', data.supplier);
+        setVal('edit-location', data.location);
+        setVal('edit-qty', data.qty || '0');
+        setVal('edit-price', data.price || '0.00');
+        setVal('edit-reorder-point', data.reorder || '10');
+        setVal('edit-shelf-life', data.shelf || '');
+        setVal('edit-sync-driver', 'category');
+        setText('edit-modal-sku', data.sku || '');
+
+        // Set category select
+        const catSel = document.getElementById('edit-category');
+        if (catSel) {
+            const targetCat = data.category || '';
+            catSel.value = targetCat;
+            if (targetCat && catSel.value !== targetCat) {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = targetCat;
+                catSel.appendChild(opt);
+                catSel.value = targetCat;
+            }
+        }
+
+        // Set UoM select
+        const uomSel = document.getElementById('edit-uom');
+        if (uomSel) {
+            const targetUom = data.uom || '';
+            uomSel.value = targetUom;
+            if (targetUom && uomSel.value !== targetUom) {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = targetUom;
+                uomSel.appendChild(opt);
+                uomSel.value = targetUom;
+            }
+        }
+
+        editModalSubmitting = false;
+        const submitBtn = document.getElementById('edit-product-submit');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Changes';
+        }
+
+        // Populate active batches breakdown inside edit modal
+        if (data.id) {
+            fetchEditModalBatches(data.id);
+        }
+
+        // Reset image section
+        var actionField = document.getElementById('edit-image-action');
+        var imgField    = document.getElementById('edit-image-b64');
+        var fileInput   = document.getElementById('edit-image-file-input');
+        var statusLabel = document.getElementById('edit-image-status-label');
+        var previewImg  = document.getElementById('edit-image-preview-img');
+
+        if (actionField) actionField.value = 'keep';
+        if (imgField)    imgField.value    = '';
+        if (fileInput)   fileInput.value   = '';
+        if (statusLabel) statusLabel.textContent = 'Current image';
+
+        window.__editModalOriginalImage = data.image || '';
+        window.__editModalOriginalId = data.id || '';
+
+        var knownImg = data.image || '';
+        if (knownImg) {
+            if (previewImg) {
+                previewImg.src = knownImg + (knownImg.includes('?') ? '&' : '?') + '_=' + Date.now();
+                previewImg.onerror = function() { if (typeof editSetImageState === 'function') editSetImageState(false); };
+                previewImg.onload = function() { if (typeof editSetImageState === 'function') editSetImageState(true); };
+            }
+            if (typeof editSetImageState === 'function') editSetImageState(true);
+        } else {
+            if (typeof editSetImageState === 'function') editSetImageState(false);
+            if (data.id) {
+                var probeExts = ['png', 'jpg', 'jpeg', 'webp'];
+                var probeIdx = 0;
+                function tryNextProbe() {
+                    if (probeIdx >= probeExts.length) {
+                        if (previewImg) previewImg.src = '';
+                        if (typeof editSetImageState === 'function') editSetImageState(false);
+                        return;
+                    }
+                    var ext = probeExts[probeIdx++];
+                    var probeUrl = 'uploads/products/' + data.id + '.' + ext + '?_=' + Date.now();
+                    var probe = new Image();
+                    probe.onload = function() {
+                        if (previewImg) {
+                            previewImg.src = probeUrl;
+                            previewImg.onerror = function() { if (typeof editSetImageState === 'function') editSetImageState(false); };
+                        }
+                        if (typeof editSetImageState === 'function') editSetImageState(true);
+                    };
+                    probe.onerror = tryNextProbe;
+                    probe.src = probeUrl;
+                }
+                tryNextProbe();
+            }
+        }
+
+        const editScroll = document.querySelector('#edit-modal-overlay .modal-body-scroll');
+        if (editScroll) editScroll.scrollTop = 0;
+
+        setTimeout(() => {
+            const nameInput = document.getElementById('edit-name');
+            if (nameInput) nameInput.focus({ preventScroll: true });
+        }, 60);
+    } catch (err) {
+        console.error('[openEditModal] Error populating fields:', err);
+    }
 }
 
 function closeEditModal() {
-    document.getElementById('edit-modal-overlay').classList.remove('active');
+    const overlay = document.getElementById('edit-modal-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+    }
     document.body.style.overflow = '';
     // If closed without saving, revert unconfirmed DOM preview on the card
     if (!editModalSubmitting && window.__editModalOriginalId) {
-        updateCardThumbnailInDom(window.__editModalOriginalId, window.__editModalOriginalImage);
+        if (typeof updateCardThumbnailInDom === 'function') {
+            updateCardThumbnailInDom(window.__editModalOriginalId, window.__editModalOriginalImage);
+        }
     }
     editModalSubmitting = false;
 }
@@ -4476,6 +5884,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeArchiveModal();
                 return;
             }
+            const detailsOverlay = document.getElementById('batch-breakdown-modal-overlay');
+            if (detailsOverlay && detailsOverlay.classList.contains('active')) {
+                closeBatchBreakdownModal();
+                return;
+            }
+            const lb = document.getElementById('details-img-lightbox');
+            if (lb && lb.classList.contains('open')) {
+                closeDetailsImageLightbox();
+                return;
+            }
             const restoreOverlay = document.getElementById('restore-modal-overlay');
             if (restoreOverlay && restoreOverlay.classList.contains('active')) {
                 closeRestoreModal();
@@ -4485,6 +5903,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Close on backdrop click
+    document.getElementById('batch-breakdown-modal-overlay')?.addEventListener('click', function(e) {
+        if (e.target === this) closeBatchBreakdownModal();
+    });
     document.getElementById('edit-modal-overlay')?.addEventListener('click', function(e) {
         if (e.target === this) closeEditModal();
     });
@@ -5225,6 +6646,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Fallback: load after 3s idle so it's ready before the user clicks
         setTimeout(ensureImageScannerReady, 3000);
+    });
+
+    // Sync live filters to Download Inventory report button
+    document.getElementById('btn-download-inventory')?.addEventListener('click', function(e) {
+        const searchInput = document.getElementById('product-search-input');
+        const searchVal = searchInput ? searchInput.value.trim() : '';
+        const catSelect = document.querySelector('select[name="category"]');
+        const catVal = catSelect ? catSelect.value : '';
+        const filterSelect = document.querySelector('select[name="filter"]');
+        const filterVal = filterSelect ? filterSelect.value : '';
+
+        const params = new URLSearchParams();
+        if (searchVal) params.set('q', searchVal);
+        if (catVal) params.set('category', catVal);
+        if (filterVal) params.set('filter', filterVal);
+        const qs = params.toString();
+        this.href = 'inventory_report.php' + (qs ? '?' + qs : '');
     });
 }());
 </script>

@@ -99,10 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'batch_number' => trim((string)($item['batch_number'] ?? '')),
                         'expiry_date' => trim((string)($item['expiry_date'] ?? '')),
                         'manufacturing_date' => trim((string)($item['manufacturing_date'] ?? '')),
+                        'target_batch_id' => !empty($item['target_batch_id']) ? (int)$item['target_batch_id'] : null,
+                        'receive_mode' => in_array($item['receive_mode'] ?? '', ['new', 'merge'], true) ? $item['receive_mode'] : 'new',
                         'location' => trim((string)($item['location'] ?? '')),
                         'category' => trim((string)($item['category'] ?? '')),
                     ], static function ($value) {
-                        return $value !== '';
+                        return $value !== null && $value !== '';
                     });
                     if (!empty($metadata)) {
                         $entry['metadata'] = $metadata;
@@ -1424,6 +1426,130 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         box-shadow: none !important;
     }
 
+    /* ── Existing Batches Panel (Receive mode) ────────────────────────────── */
+    .pos-batches-panel {
+        background: var(--iw-bg-surface);
+        border: 1px solid var(--iw-border);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .pos-batches-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: rgba(42,68,132,0.18);
+        border-bottom: 1px solid var(--iw-border);
+    }
+    .pos-batches-panel-title {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #9aa6d1;
+    }
+    .pos-batches-panel-count {
+        font-size: 10px;
+        font-weight: 600;
+        color: #51D55A;
+        background: rgba(81,213,90,0.12);
+        border: 1px solid rgba(81,213,90,0.25);
+        border-radius: 6px;
+        padding: 1px 7px;
+    }
+    .pos-batch-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(42,68,132,0.2);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .pos-batch-row:last-child { border-bottom: none; }
+    .pos-batch-row:hover { background: rgba(81,213,90,0.06); }
+    .pos-batch-row.selected {
+        background: rgba(81,213,90,0.12);
+        border-left: 3px solid #51D55A;
+        padding-left: 9px;
+    }
+    .pos-batch-row-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: #9aa6d1;
+        min-width: 60px;
+        flex-shrink: 0;
+    }
+    .pos-batch-row-qty {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--iw-text);
+        min-width: 55px;
+    }
+    .pos-batch-row-expiry {
+        flex: 1;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: right;
+    }
+    .pos-batch-expiry-ok    { color: #51D55A; }
+    .pos-batch-expiry-warn  { color: #fbbf24; }
+    .pos-batch-expiry-crit  { color: #f87171; }
+    .pos-batch-expiry-none  { color: #9aa6d1; }
+    .pos-batch-row-icon {
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(81,213,90,0.3);
+        flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.15s;
+    }
+    .pos-batch-row.selected .pos-batch-row-icon {
+        background: #51D55A;
+        border-color: #51D55A;
+    }
+    .pos-batch-row.selected .pos-batch-row-icon::after {
+        content: '';
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: white;
+    }
+    .pos-receive-mode-selector {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    .pos-receive-mode-btn {
+        flex: 1;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--iw-border);
+        background: var(--iw-bg-surface);
+        color: #9aa6d1;
+        font-size: 11.5px;
+        font-weight: 600;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.18s;
+    }
+    .pos-receive-mode-btn.active {
+        background: rgba(81,213,90,0.12);
+        border-color: rgba(81,213,90,0.5);
+        color: #51D55A;
+    }
+    .pos-receive-mode-btn:hover:not(.active) {
+        border-color: rgba(81,213,90,0.25);
+        color: var(--iw-text);
+    }
+    [data-theme="light"] .pos-batches-panel { background: #F8FAFC; border-color: #E2E8F0; }
+    [data-theme="light"] .pos-batches-panel-header { background: #F1F5F9; }
+    [data-theme="light"] .pos-batches-panel-title { color: #64748B; }
+    [data-theme="light"] .pos-batch-row:hover { background: rgba(16,185,129,0.06); }
+    [data-theme="light"] .pos-batch-row.selected { background: rgba(16,185,129,0.08); border-left-color: #10B981; }
+    [data-theme="light"] .pos-batch-row-num { color: #64748B; }
+    [data-theme="light"] .pos-batch-row-qty { color: #0F172A; }
+
     /* ── Product Info Panel ──────────────────────────────────────────────── */
     .pos-info-empty {
         flex: 1;
@@ -1590,20 +1716,31 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%) translateY(20px);
-        padding: 13px 24px;
-        border-radius: 12px;
+        padding: 10px 22px;
+        border-radius: 9999px;
         font-family: 'Onest', sans-serif;
-        font-size: 14px;
-        font-weight: 500;
+        font-size: 13.5px;
+        font-weight: 600;
         z-index: 100005;
         opacity: 0;
-        transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        display: flex;
+        display: inline-flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        white-space: nowrap;
         align-items: center;
+        justify-content: center;
         gap: 10px;
+        width: auto;
+        max-width: min(92vw, 680px);
+    }
+    #toast-message {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast-container.success { background-color: rgba(6,44,28,0.96); border: 1.5px solid #51D55A; color: #d1fae5; box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25); }
@@ -1978,7 +2115,7 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <dd id="inv-info-location">—</dd>
                     </div>
                     <div class="pos-info-field">
-                        <dt>Current Stock</dt>
+                        <dt>Total Stock</dt>
                         <dd id="inv-info-stock">—</dd>
                     </div>
                     <div class="pos-info-field">
@@ -1990,14 +2127,43 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         <dd id="inv-info-reorder">—</dd>
                     </div>
                     <div class="pos-info-field">
-                        <dt>Expiration Date</dt>
+                        <dt>Nearest Expiry</dt>
                         <dd id="inv-info-expiry">—</dd>
                     </div>
                     <div class="pos-info-field">
-                        <dt>Batch Number</dt>
+                        <dt>Batch Count</dt>
                         <dd id="inv-info-batch">—</dd>
                     </div>
-                    <?php if ($TXN_MODE === 'in'): ?>
+                </dl>
+
+                <?php if ($TXN_MODE === 'in'): ?>
+                <!-- ── Existing Batches Panel ──────────────────────────── -->
+                <div id="inv-existing-batches-wrap" style="display:none;">
+                    <div class="pos-batches-panel">
+                        <div class="pos-batches-panel-header">
+                            <span class="pos-batches-panel-title">📦 Existing Batches in Stock</span>
+                            <span class="pos-batches-panel-count" id="inv-batches-count">0 batches</span>
+                        </div>
+                        <div id="inv-batches-list"></div>
+                    </div>
+                </div>
+
+                <!-- ── Receive Mode: New batch vs merge ─────────────────── -->
+                <div id="inv-receive-mode-wrap" style="display:none;">
+                    <p style="font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:#9aa6d1; font-weight:700; margin-bottom:6px;">How to receive</p>
+                    <div class="pos-receive-mode-selector">
+                        <button type="button" class="pos-receive-mode-btn active" id="inv-mode-new-batch" onclick="setReceiveMode('new')">
+                            ✦ New Batch
+                        </button>
+                        <button type="button" class="pos-receive-mode-btn" id="inv-mode-merge" onclick="setReceiveMode('merge')">
+                            ⇄ Merge Into Existing
+                        </button>
+                    </div>
+                    <p id="inv-receive-mode-hint" style="font-size:11px; color:#9aa6d1; line-height:1.45; margin-top:4px;">Creates a new batch row with its own expiry date. Select a batch above to merge instead.</p>
+                </div>
+
+                <!-- ── Receive input fields ─────────────────────────────── -->
+                <div class="pos-info-grid" id="inv-receive-fields">
                     <div class="pos-info-field full-width">
                         <dt>Batch Number (this receive)</dt>
                         <dd>
@@ -2011,13 +2177,16 @@ renderLayoutStart($TXN_PAGE_TITLE, $role, $_SESSION['Username']);
                         </dd>
                     </div>
                     <div class="pos-info-field full-width">
-                        <dt>Receive Expiry Date</dt>
+                        <dt style="display:flex; align-items:center; justify-content:space-between;">
+                            <span>Expiry Date <span id="inv-expiry-required-star" style="color:#f87171; display:none;">*</span></span>
+                            <span id="inv-expiry-merge-hint" style="font-size:9px; color:#51D55A; font-weight:600; display:none;">Will merge with selected batch</span>
+                        </dt>
                         <dd>
                             <input type="date" id="inv-receive-expiry" class="premium-input w-full" style="height:38px; font-size:13px;">
                         </dd>
                     </div>
-                    <?php endif; ?>
-                </dl>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

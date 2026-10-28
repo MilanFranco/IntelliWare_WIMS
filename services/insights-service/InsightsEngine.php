@@ -805,17 +805,19 @@ class InsightsEngine
             });
         }
 
-        // Optimized Expiry Risk query
+        // Optimized Expiry Risk query (Per Batch)
         $expSql = "
             SELECT 
                 p.product_id, 
                 p.product_name, 
                 p.category AS category_name, 
-                b.quantity, 
+                b.batch_id,
+                b.batch_number,
+                b.qty AS quantity, 
                 b.expiry_date,
                 DATEDIFF(b.expiry_date, CURDATE()) AS days_until_expiry,
                 COALESCE(t.monthly_sales, 0) AS monthly_sales
-            FROM inventory_batches b
+            FROM product_batches b
             JOIN products p ON b.product_id = p.product_id
             LEFT JOIN (
                 SELECT product_id, SUM(quantity) AS monthly_sales
@@ -823,7 +825,7 @@ class InsightsEngine
                 WHERE transaction_type = 'stock_out'
                 GROUP BY product_id
             ) t ON p.product_id = t.product_id
-            WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.quantity > 0
+            WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.qty > 0 AND p.archived = 0
             ORDER BY days_until_expiry ASC
             LIMIT 100
         ";

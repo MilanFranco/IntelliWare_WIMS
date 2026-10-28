@@ -184,22 +184,24 @@ function getSupplierPerformance($conn) {
 }
 
 function getExpiryRiskAnalysis($conn) {
-    $query = "SELECT p.product_id, p.product_name, p.category AS category_name, b.quantity, b.expiry_date,
+    $query = "SELECT p.product_id, p.product_name, p.category AS category_name, b.batch_id, b.batch_number, b.qty AS quantity, b.expiry_date,
         DATEDIFF(b.expiry_date, CURDATE()) AS days_until_expiry,
         (SELECT SUM(quantity) FROM transactions WHERE product_id = p.product_id AND transaction_type = 'stock_out') AS monthly_sales
-        FROM inventory_batches b
+        FROM product_batches b
         JOIN products p ON b.product_id = p.product_id
-        WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.quantity > 0 AND p.archived = 0
+        WHERE b.expiry_date IS NOT NULL AND b.expiry_date > CURDATE() AND b.qty > 0 AND p.archived = 0
         ORDER BY days_until_expiry ASC";
     $result = $conn->query($query);
     $expiryRisks = [];
-    while ($row = $result->fetch_assoc()) {
-        if ($row['days_until_expiry'] <= 30) { $row['expiry_risk'] = 'high'; } 
-        elseif ($row['days_until_expiry'] <= 90) { $row['expiry_risk'] = 'medium'; } 
-        else { $row['expiry_risk'] = 'low'; }
-        $daily_sales = $row['monthly_sales'] / 30;
-        $row['sell_through_days'] = $daily_sales > 0 ? round($row['quantity'] / $daily_sales, 1) : 999;
-        $expiryRisks[] = $row;
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            if ($row['days_until_expiry'] <= 30) { $row['expiry_risk'] = 'high'; } 
+            elseif ($row['days_until_expiry'] <= 90) { $row['expiry_risk'] = 'medium'; } 
+            else { $row['expiry_risk'] = 'low'; }
+            $daily_sales = ((float)$row['monthly_sales']) / 30;
+            $row['sell_through_days'] = $daily_sales > 0 ? round(((int)$row['quantity']) / $daily_sales, 1) : 999;
+            $expiryRisks[] = $row;
+        }
     }
     return $expiryRisks;
 }
@@ -646,6 +648,26 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
 .card [style*="color: #9aa6d1"],
 .card [style*="color:#9aa6d1"] {
     color: var(--insights-text-muted) !important;
+}
+
+[data-theme="light"] .accuracy-stat-lbl {
+    color: #334155 !important;
+    font-weight: 700 !important;
+}
+[data-theme="light"] .accuracy-stat-val.accuracy-stat-green {
+    color: #15803D !important;
+}
+[data-theme="light"] .accuracy-stat-val.accuracy-stat-red {
+    color: #B91C1C !important;
+}
+[data-theme="light"] .accuracy-stat-val.accuracy-stat-muted {
+    color: #1E293B !important;
+}
+[data-theme="light"] .accuracy-stat-card {
+    border: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .section-heading-icon {
+    color: #0F172A !important;
 }
 
 .metric-card {
@@ -2866,20 +2888,20 @@ h1, h2, h3, .product-title { color: var(--insights-heading); font-weight: 600; }
         </div>
         <?php if ($hasMlModel && $accuracyTrend['current'] !== null): ?>
         <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(81,213,90,0.1); border-radius: 6px; text-align: center;">
-                <div style="font-size: 18px; font-weight: 700; color: #51D55A;"><?php echo number_format($accuracyTrend['current'], 1); ?>%</div>
-                <div style="font-size: 10px; color: #9aa6d1;">Accuracy</div>
+            <div class="accuracy-stat-card" style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(81,213,90,0.1); border-radius: 6px; text-align: center;">
+                <div class="accuracy-stat-val accuracy-stat-green" style="font-size: 18px; font-weight: 700; color: #51D55A;"><?php echo number_format($accuracyTrend['current'], 1); ?>%</div>
+                <div class="accuracy-stat-lbl" style="font-size: 11px; font-weight: 600; color: #9aa6d1;">Accuracy</div>
             </div>
-            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(239,68,68,0.1); border-radius: 6px; text-align: center;">
-                <div style="font-size: 18px; font-weight: 700; color: #ef4444;"><?php echo number_format($accuracyTrend['error_rate'], 1); ?>%</div>
-                <div style="font-size: 10px; color: #9aa6d1;">Error Rate</div>
+            <div class="accuracy-stat-card" style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(239,68,68,0.1); border-radius: 6px; text-align: center;">
+                <div class="accuracy-stat-val accuracy-stat-red" style="font-size: 18px; font-weight: 700; color: #ef4444;"><?php echo number_format($accuracyTrend['error_rate'], 1); ?>%</div>
+                <div class="accuracy-stat-lbl" style="font-size: 11px; font-weight: 600; color: #9aa6d1;">Error Rate</div>
             </div>
             <?php if ($accuracyTrend['change'] !== null): ?>
-            <div style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(59,130,246,0.1); border-radius: 6px; text-align: center;">
-                <div style="font-size: 18px; font-weight: 700; color: <?php echo $accuracyTrend['direction'] === 'improved' ? '#51D55A' : ($accuracyTrend['direction'] === 'declined' ? '#ef4444' : '#9aa6d1'); ?>;">
+            <div class="accuracy-stat-card" style="flex: 1; min-width: 80px; padding: 8px 10px; background: rgba(59,130,246,0.1); border-radius: 6px; text-align: center;">
+                <div class="accuracy-stat-val <?php echo $accuracyTrend['direction'] === 'improved' ? 'accuracy-stat-green' : ($accuracyTrend['direction'] === 'declined' ? 'accuracy-stat-red' : 'accuracy-stat-muted'); ?>" style="font-size: 18px; font-weight: 700; color: <?php echo $accuracyTrend['direction'] === 'improved' ? '#51D55A' : ($accuracyTrend['direction'] === 'declined' ? '#ef4444' : '#9aa6d1'); ?>;">
                     <?php echo ($accuracyTrend['change'] >= 0 ? '+' : '') . number_format($accuracyTrend['change'], 1); ?>%
                 </div>
-                <div style="font-size: 10px; color: #9aa6d1;">vs Previous</div>
+                <div class="accuracy-stat-lbl" style="font-size: 11px; font-weight: 600; color: #9aa6d1;">vs Previous</div>
             </div>
             <?php endif; ?>
         </div>
@@ -3351,10 +3373,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const chartTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 if (typeof Chart !== 'undefined') {
-    Chart.defaults.color = chartTheme === 'light' ? '#64748b' : '#9aa6d1';
-    Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)';
+    Chart.defaults.color = chartTheme === 'light' ? '#0F172A' : '#9aa6d1';
+    Chart.defaults.borderColor = chartTheme === 'light' ? 'rgba(148, 163, 184, 0.25)' : 'rgba(42, 68, 132, 0.3)';
     Chart.defaults.font.family = "'Onest', sans-serif";
     Chart.defaults.font.size = 12;
+}
+
+function getChartThemeColors() {
+    if (window.IWTheme && typeof window.IWTheme.chartColors === 'function') {
+        const c = window.IWTheme.chartColors();
+        return {
+            isLight: document.documentElement.getAttribute('data-theme') === 'light',
+            text: c.text || '#0F172A',
+            muted: c.muted || '#475569',
+            grid: c.grid || 'rgba(148, 163, 184, 0.25)',
+            border: c.border || 'rgba(148, 163, 184, 0.3)',
+            radarGrid: c.radarGrid || 'rgba(148, 163, 184, 0.35)',
+            pointLabel: c.pointLabel || '#0F172A'
+        };
+    }
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return {
+        isLight: isLight,
+        text: isLight ? '#0F172A' : '#E3E3E3',
+        muted: isLight ? '#475569' : '#9aa6d1',
+        grid: isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(42, 68, 132, 0.3)',
+        border: isLight ? 'rgba(148, 163, 184, 0.3)' : 'rgba(42, 68, 132, 0.3)',
+        radarGrid: isLight ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)',
+        pointLabel: isLight ? '#0F172A' : '#E3E3E3'
+    };
 }
 
 let categoriesLabels = <?php echo json_encode(array_column($categoryPerformance, 'category_name')); ?>;
@@ -3947,6 +3994,7 @@ function renderCategoryChart() {
         window.categoryChartInstance = null;
     }
 
+    const c = getChartThemeColors();
     window.categoryChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -3964,8 +4012,8 @@ function renderCategoryChart() {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
+                x: { grid: { display: false }, ticks: { color: c.text } }
             },
             plugins: { legend: { display: false } }
         }
@@ -3983,6 +4031,7 @@ function renderSalesTrendChart() {
 
     const dates = salesTrendsData.map(trend => trend.sale_date);
     const quantities = salesTrendsData.map(trend => trend.total_quantity_sold);
+    const c = getChartThemeColors();
 
     window.trendChartInstance = new Chart(ctx, {
         type: 'line',
@@ -4002,7 +4051,7 @@ function renderSalesTrendChart() {
                 borderWidth: 2,
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: '#0B1120',
+                pointBackgroundColor: c.isLight ? '#FFFFFF' : '#0B1120',
                 pointBorderColor: '#51D55A'
             }]
         },
@@ -4010,8 +4059,8 @@ function renderSalesTrendChart() {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#9aa6d1' } }
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
+                x: { grid: { display: false }, ticks: { color: c.muted } }
             },
             plugins: { legend: { display: false } }
         }
@@ -4038,6 +4087,8 @@ function renderSalesForecastChart() {
         historicalVals = salesTrendsData.map(t => t.total_quantity_sold);
         forecastVals = historicalVals.map(() => null);
     }
+
+    const c = getChartThemeColors();
 
     window.salesForecastChartInstance = new Chart(ctx, {
         type: 'line',
@@ -4071,10 +4122,10 @@ function renderSalesForecastChart() {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
                 x: { grid: { display: false }, ticks: { display: false, maxTicksLimit: 10 } }
             },
-            plugins: { legend: { labels: { color: '#E3E3E3' } } }
+            plugins: { legend: { labels: { color: c.text } } }
         }
     });
 }
@@ -4135,6 +4186,8 @@ function renderDemandHeatmapChart(customData) {
         return '#10b981'; // Steady safe inventory
     });
 
+    const c = getChartThemeColors();
+
     window.demandHeatmapChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -4155,19 +4208,19 @@ function renderDemandHeatmapChart(customData) {
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(42, 68, 132, 0.3)' },
-                    ticks: { color: '#E3E3E3', font: { family: 'Onest', size: 11 } },
-                    title: { display: true, text: 'Projected 30-Day Demand (Units)', color: '#9AA6D1', font: { size: 11 } }
+                    grid: { color: c.grid },
+                    ticks: { color: c.text, font: { family: 'Onest', size: 11, weight: '600' } },
+                    title: { display: true, text: 'Projected 30-Day Demand (Units)', color: c.muted, font: { size: 11, weight: '600' } }
                 },
                 y: {
                     grid: { display: false },
-                    ticks: { color: '#E3E3E3', font: { family: 'Onest', size: 11, weight: '500' } }
+                    ticks: { color: c.text, font: { family: 'Onest', size: 11, weight: '600' } }
                 }
             },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    backgroundColor: c.isLight ? 'rgba(15, 23, 42, 0.95)' : 'rgba(15, 23, 42, 0.95)',
                     titleColor: '#F8FAFC',
                     titleFont: { size: 13, weight: 'bold', family: 'Onest' },
                     bodyColor: '#CBD5E1',
@@ -4211,6 +4264,8 @@ function renderDepletionTrendChart() {
         window.depletionTrendChartInstance = null;
     }
 
+    const c = getChartThemeColors();
+
     window.depletionTrendChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -4239,10 +4294,10 @@ function renderDepletionTrendChart() {
             maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
+                x: { grid: { display: false }, ticks: { color: c.text } }
             },
-            plugins: { legend: { labels: { color: '#E3E3E3' } } }
+            plugins: { legend: { labels: { color: c.text } } }
         }
     });
 }
@@ -4256,6 +4311,8 @@ function renderReorderFrequencyChart() {
         window.reorderFrequencyChartInstance.destroy();
         window.reorderFrequencyChartInstance = null;
     }
+
+    const c = getChartThemeColors();
 
     window.reorderFrequencyChartInstance = new Chart(ctx, {
         type: 'line',
@@ -4288,10 +4345,10 @@ function renderReorderFrequencyChart() {
             maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#E3E3E3' } }
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
+                x: { grid: { display: false }, ticks: { color: c.text } }
             },
-            plugins: { legend: { labels: { color: '#E3E3E3' } } }
+            plugins: { legend: { labels: { color: c.text } } }
         }
     });
 }
@@ -4306,6 +4363,8 @@ function renderSeasonalChart() {
         window.seasonalChartInstance.destroy();
         window.seasonalChartInstance = null;
     }
+
+    const c = getChartThemeColors();
 
     window.seasonalChartInstance = new Chart(ctx, {
         type: 'line',
@@ -4349,10 +4408,10 @@ function renderSeasonalChart() {
             responsive: true, maintainAspectRatio: false,
             animation: { duration: 350 },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(42, 68, 132, 0.3)' }, ticks: { color: '#E3E3E3' } },
-                x: { grid: { display: false }, ticks: { color: '#E3E3E3', font: { size: 9 }, maxRotation: 45 } }
+                y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.text } },
+                x: { grid: { display: false }, ticks: { color: c.text, font: { size: 9, weight: '600' }, maxRotation: 45 } }
             },
-            plugins: { legend: { labels: { color: '#E3E3E3', font: { size: 10 } } } }
+            plugins: { legend: { labels: { color: c.text, font: { size: 10, weight: '600' } } } }
         }
     });
 }
@@ -4369,6 +4428,7 @@ function renderAccuracyChart() {
     }
     const segLabels = Object.keys(segmentAccuracy);
     const segValues = Object.values(segmentAccuracy);
+    const c = getChartThemeColors();
 
     window.accuracyChartInstance = new Chart(ctx, {
         type: 'radar',
@@ -4388,9 +4448,9 @@ function renderAccuracyChart() {
             animation: { duration: 350 },
             scales: {
                 r: {
-                    angleLines: { color: 'rgba(42, 68, 132, 0.3)' },
-                    grid: { color: 'rgba(42, 68, 132, 0.3)' },
-                    pointLabels: { color: '#E3E3E3', font: { size: 11 } },
+                    angleLines: { color: c.grid },
+                    grid: { color: c.radarGrid },
+                    pointLabels: { color: c.pointLabel, font: { size: 11, weight: '700' } },
                     ticks: { display: false, backdropColor: 'transparent' },
                     min: 0, max: 100
                 }
@@ -4413,6 +4473,21 @@ function renderAllForecastCharts() {
     });
 }
 window.renderAllForecastCharts = renderAllForecastCharts;
+
+// Re-render all charts on theme toggle
+document.addEventListener('themechange', function() {
+    if (typeof renderAllForecastCharts === 'function') {
+        renderAllForecastCharts();
+    }
+    const catTab = document.querySelector('.tab[data-tab="category-performance"]');
+    if (catTab && catTab.classList.contains('active') && typeof renderCategoryChart === 'function') {
+        renderCategoryChart();
+    }
+    const trendTab = document.querySelector('.tab[data-tab="sales-trends"]');
+    if (trendTab && trendTab.classList.contains('active') && typeof renderSalesTrendChart === 'function') {
+        renderSalesTrendChart();
+    }
+});
 
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {

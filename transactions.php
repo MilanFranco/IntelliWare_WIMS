@@ -360,7 +360,8 @@ renderLayoutStart('Stock Transactions', $role, $_SESSION['Username']);
     .btn-scan:hover { border-color: #51D55A; color: #51D55A; }
 
     /* Toast Notification CSS — Unified Color-Coded */
-    #toast-container { visibility: hidden; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 13px 24px; border-radius: 12px; font-family: 'Onest', sans-serif; font-size: 14px; font-weight: 500; z-index: 100005; display: flex; gap: 10px; align-items: center; opacity: 0; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+    #toast-container { visibility: hidden; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); padding: 10px 22px; border-radius: 9999px; font-family: 'Onest', sans-serif; font-size: 13.5px; font-weight: 600; z-index: 100005; display: inline-flex; flex-direction: row; flex-wrap: nowrap; white-space: nowrap; gap: 10px; align-items: center; justify-content: center; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); width: auto; max-width: min(92vw, 680px); }
+    #toast-message { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #toast-container.show { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast-container.success { background-color: rgba(6, 44, 28, 0.96); border: 1.5px solid #51D55A; color: #d1fae5; box-shadow: 0 10px 30px rgba(81, 213, 90, 0.25); }
     #toast-container.error { background-color: rgba(45, 12, 18, 0.96); border: 1.5px solid #ef4444; color: #fee2e2; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25); }

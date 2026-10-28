@@ -2,7 +2,7 @@
 /**
  * src/services/NotificationService.php
  *
- * Central Notification Orchestrator for IntelliWare WIMS.
+ * Central Notification Orchestrator for IntelliWare IMS.
  * Handles:
  * - Real-time threshold crossing detection:
  *     * Low Stock: Drops from > reorder_point to <= reorder_point (> 0)

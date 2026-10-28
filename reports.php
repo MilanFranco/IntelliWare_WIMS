@@ -1,11 +1,12 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) session_start();
 if (!isset($_SESSION['Username'])) { header('Location: signin.php'); exit(); }
 $role = $_SESSION['Role'] ?? 'staff';
 if (!in_array($role, ['admin','manager'])) { header('Location: dash_staff.php'); exit(); }
 
 require_once 'src/layout.php';
 require_once 'config/db.php';
+require_once 'includes/report_document.php';
 
 // --- 1. DATA FETCHING LOGIC ---
 
@@ -59,17 +60,22 @@ if (count($mainWhereConditions) > 0) {
 // Fetch products
 $items = [];
 $productQuery = "SELECT 
-    product_id as id, 
-    CONCAT('P-', LPAD(product_id, 4, '0')) as sku, 
-    product_name as name, 
-    category, 
-    quantity as qty, 
-    unit as uom, 
-    reorder_point,
-    created_at
-FROM products 
+    p.product_id as id, 
+    CONCAT('P-', LPAD(p.product_id, 4, '0')) as sku, 
+    p.product_name as name, 
+    p.category, 
+    p.quantity as qty, 
+    p.unit as uom, 
+    p.reorder_point,
+    COALESCE(NULLIF(TRIM(p.supplier),''), 'No supplier') as supplier,
+    COALESCE(p.location,'') as location,
+    COALESCE(p.price, 0) as price,
+    (SELECT COUNT(*) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) as batch_count,
+    (SELECT MIN(b.expiry_date) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) as nearest_expiry,
+    p.created_at
+FROM products p 
 $mainWhereClause 
-ORDER BY category, product_name";
+ORDER BY p.category, p.product_name";
 
 if ($stmt = $conn->prepare($productQuery)) {
     if (count($mainParams) > 0) {
@@ -93,6 +99,169 @@ if ($resultCat) {
     while ($row = $resultCat->fetch_assoc()) {
         $allCategories[] = $row['category'];
     }
+}
+
+// Fetch unique suppliers (for Reorder Report filter)
+$allSuppliers = [];
+$suppQuery = "SELECT DISTINCT supplier FROM products WHERE supplier IS NOT NULL AND supplier != '' AND archived = 0 ORDER BY supplier";
+$suppResult = $conn->query($suppQuery);
+if ($suppResult) {
+    while ($row = $suppResult->fetch_assoc()) {
+        $allSuppliers[] = trim($row['supplier']);
+    }
+}
+
+// --- REORDER REPORT DATASET & FILTERS ---
+$rrViewActive = (isset($_GET['view']) && $_GET['view'] === 'reorder');
+$rrCritical   = isset($_GET['rr_critical']) ? (int)$_GET['rr_critical'] : 1;
+$rrReorder    = isset($_GET['rr_reorder'])  ? (int)$_GET['rr_reorder']  : 1;
+if (isset($_GET['rr_submitted'])) {
+    $rrCritical = !empty($_GET['rr_critical']) ? 1 : 0;
+    $rrReorder  = !empty($_GET['rr_reorder'])  ? 1 : 0;
+}
+$rrSupplier   = isset($_GET['rr_supplier']) ? trim($_GET['rr_supplier']) : '';
+$rrCategory   = isset($_GET['rr_category']) ? trim($_GET['rr_category']) : '';
+$rrSort       = isset($_GET['rr_sort'])     ? trim($_GET['rr_sort'])     : 'lowest_stock';
+
+// Build prepared statement for Reorder items
+// For direct CSV export, apply GET filters if specified; for HTML page rendering, fetch all low stock items so client live filtering has the complete dataset.
+$isReorderExport = (isset($_GET['export']) && $_GET['export'] === 'reorder_csv');
+
+$rrWhereConditions = ['p.archived = 0', 'p.quantity <= p.reorder_point'];
+$rrParams = [];
+$rrTypes  = '';
+
+if ($isReorderExport) {
+    if ($rrSupplier !== '') {
+        if ($rrSupplier === 'No supplier') {
+            $rrWhereConditions[] = "(p.supplier IS NULL OR TRIM(p.supplier) = '')";
+        } else {
+            $rrWhereConditions[] = "p.supplier = ?";
+            $rrParams[] = $rrSupplier;
+            $rrTypes .= 's';
+        }
+    }
+
+    if ($rrCategory !== '') {
+        $rrWhereConditions[] = "p.category = ?";
+        $rrParams[] = $rrCategory;
+        $rrTypes .= 's';
+    }
+}
+
+$rrSortClause = ($rrSort === 'name_asc')
+    ? "COALESCE(NULLIF(TRIM(p.supplier),''), 'No supplier') ASC, p.product_name ASC"
+    : "COALESCE(NULLIF(TRIM(p.supplier),''), 'No supplier') ASC, p.quantity ASC, p.product_name ASC";
+
+$rrQuery = "SELECT
+    p.product_id as id,
+    CONCAT('P-', LPAD(p.product_id, 4, '0')) as sku,
+    p.product_name as name,
+    p.category,
+    p.quantity as qty,
+    p.unit as uom,
+    p.reorder_point,
+    COALESCE(NULLIF(TRIM(p.supplier),''), 'No supplier') as supplier,
+    COALESCE(p.location,'') as location,
+    COALESCE(p.price, 0) as price,
+    (SELECT COUNT(*) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) as batch_count,
+    (SELECT MIN(b.expiry_date) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) as nearest_expiry
+FROM products p
+WHERE " . implode(' AND ', $rrWhereConditions) . "
+ORDER BY $rrSortClause";
+
+$rawReorderItems = [];
+if ($stmt = $conn->prepare($rrQuery)) {
+    if (!empty($rrParams)) {
+        $stmt->bind_param($rrTypes, ...$rrParams);
+    }
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $qty = (float)$row['qty'];
+            $rp  = (float)$row['reorder_point'];
+            // Critical: total stock = 0 OR total stock <= 50% of reorder point
+            $isCritical = ($qty <= 0 || ($rp > 0 && $qty <= (0.5 * $rp)) || ($rp == 0 && $qty <= 0));
+            $row['reorder_status'] = $isCritical ? 'critical' : 'reorder';
+            $rawReorderItems[] = $row;
+        }
+    }
+    $stmt->close();
+}
+
+// Filter dataset according to selected status chips
+$reorderItems = [];
+$reorderCriticalCount = 0;
+$reorderLowCount = 0;
+foreach ($rawReorderItems as $ri) {
+    if ($ri['reorder_status'] === 'critical') {
+        $reorderCriticalCount++;
+    } else {
+        $reorderLowCount++;
+    }
+
+    if ($isReorderExport) {
+        if ($ri['reorder_status'] === 'critical' && $rrCritical) $reorderItems[] = $ri;
+        if ($ri['reorder_status'] !== 'critical' && $rrReorder)  $reorderItems[] = $ri;
+    } else {
+        $reorderItems[] = $ri;
+    }
+}
+
+// Group in PHP by supplier
+$reorderBySupplier = [];
+foreach ($reorderItems as $ri) {
+    $sup = $ri['supplier'];
+    if (!isset($reorderBySupplier[$sup])) {
+        $reorderBySupplier[$sup] = [
+            'supplier' => $sup,
+            'items'    => [],
+            'critical' => 0,
+            'low'      => 0
+        ];
+    }
+    $reorderBySupplier[$sup]['items'][] = $ri;
+    if ($ri['reorder_status'] === 'critical') {
+        $reorderBySupplier[$sup]['critical']++;
+    } else {
+        $reorderBySupplier[$sup]['low']++;
+    }
+}
+
+// Summary cards metrics for Reorder Report
+$rrTotalItemsToRestock = count($reorderItems);
+$rrTotalCriticalItems  = $reorderCriticalCount;
+$rrTotalReorderItems   = $reorderLowCount;
+$rrSuppliersAffectedCount = count($reorderBySupplier);
+
+// Handle server-side CSV export if requested
+if (isset($_GET['export']) && $_GET['export'] === 'reorder_csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=IntelliWare_Reorder_Report_' . date('Y-m-d') . '.csv');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['SKU', 'Name', 'Category', 'Supplier', 'Location', 'Total Stock', 'Unit', 'Batches', 'Nearest Expiry', 'Price', 'Reorder Point', 'Status']);
+    foreach ($reorderItems as $item) {
+        $bCount = (int)$item['batch_count'];
+        $bText  = $bCount > 0 ? $bCount . ' batch' . ($bCount > 1 ? 'es' : '') : 'No batches';
+        $expText = $item['nearest_expiry'] ? date('M d, Y', strtotime($item['nearest_expiry'])) : 'No Expiry';
+        fputcsv($out, [
+            $item['sku'],
+            $item['name'],
+            $item['category'],
+            $item['supplier'],
+            $item['location'],
+            $item['qty'],
+            $item['uom'] ?: 'pcs',
+            $bText,
+            $expText,
+            number_format((float)$item['price'], 2),
+            $item['reorder_point'],
+            strtoupper($item['reorder_status'])
+        ]);
+    }
+    fclose($out);
+    exit();
 }
 
 // --- 2. DATA PROCESSING ---
@@ -430,25 +599,342 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
         box-shadow: 0 1px 3px rgba(16, 24, 43, 0.08) !important;
     }
 
+    /* ── Reorder Report Section ─────────────────────────────────── */
+    .rr-filter-grid {
+        display: grid;
+        grid-template-columns: minmax(190px, 1.2fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(160px, 1.1fr) auto;
+        gap: 16px;
+        align-items: end;
+    }
+    @media (max-width: 1024px) {
+        .rr-filter-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    @media (max-width: 640px) {
+        .rr-filter-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .rr-filter-col {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+    .rr-filter-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 16px;
+        height: 16px;
+        margin-bottom: 8px;
+        color: #9aa6d1;
+        font-family: 'Onest', sans-serif;
+        white-space: nowrap;
+    }
+    [data-theme="light"] .rr-filter-label {
+        color: #475569 !important;
+    }
+    .rr-filter-btn-col {
+        display: flex;
+        align-items: flex-end;
+    }
+    .rr-btn-generate {
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    /* Status Toggles */
+    .reorder-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 38px;
+        padding: 0 14px;
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: 'Onest', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        border: 1.5px solid transparent;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        white-space: nowrap;
+    }
+    .reorder-chip .chip-check {
+        display: none;
+    }
+    .reorder-chip.active .chip-check {
+        display: inline-block;
+    }
+
+    /* Dark mode active */
+    .reorder-chip.critical.active {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border-color: #ef4444;
+        box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+    }
+    .reorder-chip.reorder.active {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+        border-color: #f59e0b;
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+    }
+
+    /* Dark mode off (outlined / muted) */
+    .reorder-chip:not(.active) {
+        background: transparent !important;
+        color: #64748b !important;
+        border-color: rgba(71, 85, 105, 0.5) !important;
+        box-shadow: none !important;
+        opacity: 0.75;
+    }
+    .reorder-chip:not(.active):hover {
+        border-color: rgba(148, 163, 184, 0.6) !important;
+        color: #94a3b8 !important;
+        opacity: 1;
+    }
+
+    /* Light mode active */
+    [data-theme="light"] .reorder-chip.critical.active {
+        background: #FEE2E2 !important;
+        color: #991B1B !important;
+        border-color: #EF4444 !important;
+        box-shadow: 0 1px 3px rgba(185, 28, 28, 0.15) !important;
+    }
+    [data-theme="light"] .reorder-chip.reorder.active {
+        background: #FEF3C7 !important;
+        color: #92400E !important;
+        border-color: #F59E0B !important;
+        box-shadow: 0 1px 3px rgba(180, 83, 9, 0.15) !important;
+    }
+
+    /* Light mode off (outlined / muted) */
+    [data-theme="light"] .reorder-chip:not(.active) {
+        background: #FFFFFF !important;
+        color: #94A3B8 !important;
+        border-color: #CBD5E1 !important;
+        box-shadow: none !important;
+        opacity: 0.8 !important;
+    }
+    [data-theme="light"] .reorder-chip:not(.active):hover {
+        border-color: #94A3B8 !important;
+        color: #64748B !important;
+        opacity: 1 !important;
+    }
+
+    /* Results Header Strip */
+    .rr-results-header {
+        border-bottom: 1px solid rgba(42, 68, 132, 0.4);
+        background: rgba(19, 39, 91, 0.25);
+    }
+    [data-theme="light"] .rr-results-header {
+        background: #FFFFFF !important;
+        border-bottom-color: #E2E8F0 !important;
+    }
+    [data-theme="light"] #rrResultsMeta {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #rrResultsMeta strong {
+        color: #0F172A !important;
+    }
+
+    /* Action Buttons in Results Header (Print & Export CSV) */
+    .rr-hdr-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 36px;
+        padding: 0 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        font-family: 'Onest', sans-serif;
+        cursor: pointer;
+        background: rgba(81, 213, 90, 0.1);
+        color: #51D55A;
+        border: 1px solid rgba(81, 213, 90, 0.35);
+        transition: all 0.2s ease;
+        user-select: none;
+        white-space: nowrap;
+    }
+    .rr-hdr-btn:hover {
+        background: rgba(81, 213, 90, 0.2);
+        border-color: #51D55A;
+        transform: translateY(-1px);
+    }
+    [data-theme="light"] .rr-hdr-btn {
+        background: #F0FDF4 !important;
+        color: #15803D !important;
+        border: 1px solid #86EFAC !important;
+        box-shadow: 0 1px 2px rgba(21, 128, 61, 0.05) !important;
+    }
+    [data-theme="light"] .rr-hdr-btn:hover {
+        background: #DCFCE7 !important;
+        border-color: #4ADE80 !important;
+        color: #166534 !important;
+        box-shadow: 0 2px 4px rgba(21, 128, 61, 0.12) !important;
+    }
+
+    /* Supplier Group Header Row */
+    tr.rr-group-header td {
+        background: rgba(19, 39, 91, 0.65) !important;
+        padding: 11px 16px;
+        border-top: 1px solid rgba(42, 68, 132, 0.5) !important;
+        border-bottom: 1px solid rgba(42, 68, 132, 0.5) !important;
+    }
+    .rr-supplier-name {
+        font-weight: 700;
+        font-size: 14px;
+        color: #93c5fd;
+        font-family: 'Onest', sans-serif;
+    }
+    .rr-supplier-meta {
+        font-size: 12px;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="light"] #reportReorderView tr.rr-group-header td {
+        background: #EFF6FF !important;
+        border-top-color: #DBEAFE !important;
+        border-bottom-color: #DBEAFE !important;
+    }
+    [data-theme="light"] #reportReorderView .rr-supplier-name {
+        color: #1E3A8A !important;
+    }
+
+    /* Total Stock Progress Bar */
+    .rr-stock-bar-track {
+        width: 56px;
+        height: 4px;
+        border-radius: 9999px;
+        background: rgba(148, 163, 184, 0.25);
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    [data-theme="light"] .rr-stock-bar-track {
+        background: #E2E8F0 !important;
+    }
+    .rr-stock-bar {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s ease;
+    }
+
+    /* Table Column Wrap / Nowrap Control (Audit & Reorder Tables) */
+    #rrMainTable th:not(.rr-col-name),
+    #rrMainTable td:not(.rr-col-name),
+    #reportTableView table.premium-table th:not(.rr-col-name),
+    #reportTableView table.premium-table td:not(.rr-col-name) {
+        white-space: nowrap !important;
+    }
+    #rrMainTable th.rr-col-name,
+    #rrMainTable td.rr-col-name,
+    #reportTableView table.premium-table th.rr-col-name,
+    #reportTableView table.premium-table td.rr-col-name {
+        min-width: 200px;
+        max-width: 320px;
+        white-space: normal !important;
+        word-break: break-word;
+    }
+
+    /* Row Hover Highlight */
+    #rrMainTable tr.rr-item-row td,
+    #reportTableView table.premium-table tbody tr td {
+        transition: background-color 0.15s ease-in-out;
+    }
+    #rrMainTable tr.rr-item-row:hover td,
+    #reportTableView table.premium-table tbody tr:hover td {
+        background-color: rgba(30, 58, 138, 0.22) !important;
+    }
+    [data-theme="light"] #rrMainTable tr.rr-item-row:hover td,
+    [data-theme="light"] #reportTableView table.premium-table tbody tr:hover td {
+        background-color: #F8FAFC !important;
+    }
+
+    /* Light Mode Summary Cards Icon Tiles */
+    [data-theme="light"] #reorderSummaryCards .tile-restock {
+        background: #EFF6FF !important;
+        border-color: #BFDBFE !important;
+        color: #2563EB !important;
+    }
+    [data-theme="light"] #reorderSummaryCards .tile-critical {
+        background: #FEF2F2 !important;
+        border-color: #FECACA !important;
+        color: #DC2626 !important;
+    }
+    [data-theme="light"] #reorderSummaryCards .tile-reorder {
+        background: #FFFBEB !important;
+        border-color: #FDE68A !important;
+        color: #D97706 !important;
+    }
+    [data-theme="light"] #reorderSummaryCards .tile-suppliers {
+        background: #ECFDF5 !important;
+        border-color: #A7F3D0 !important;
+        color: #059669 !important;
+    }
+
     /* Light Mode Column Borders */
     [data-theme="light"] .stock-explorer-col.border-r {
         border-right-color: #D0DFF2 !important;
     }
 
-    /* Light Mode Detailed Audit Table Elements */
-    [data-theme="light"] #reportTableView .product-title-text {
+    /* Light Mode Table Elements (Detailed Audit & Reorder Tables) */
+    .stock-num {
+        font-weight: 700;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: #F1F5F9;
+        transition: color 0.15s ease;
+    }
+    .stock-unit {
+        color: #9aa6d1;
+        font-size: 12px;
+        font-weight: 400;
+        font-family: 'Onest', sans-serif;
+    }
+    [data-theme="light"] .stock-num,
+    [data-theme="light"] #reportTableView .stock-num,
+    [data-theme="light"] #rrMainTable .stock-num {
         color: #0F172A !important;
     }
-    [data-theme="light"] #reportTableView .product-sku-text {
+    [data-theme="light"] .stock-unit,
+    [data-theme="light"] #reportTableView .stock-unit,
+    [data-theme="light"] #rrMainTable .stock-unit {
+        color: #475569 !important;
+    }
+    [data-theme="light"] #reportTableView .product-title-text,
+    [data-theme="light"] #reportReorderView .product-title-text {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] #reportTableView .product-sku-text,
+    [data-theme="light"] #reportReorderView .product-sku-text {
         color: #64748B !important;
     }
-    [data-theme="light"] #reportTableView .table-cat-badge {
+    [data-theme="light"] #reportTableView .table-cat-badge,
+    [data-theme="light"] #reportReorderView .table-cat-badge {
         background: #EFF6FF !important;
         border-color: #BFDBFE !important;
         color: #1E3A8A !important;
     }
     [data-theme="light"] #reportTablePagination {
         border-top-color: #D6E2F2 !important;
+    }
+    [data-theme="light"] #reorderEmptyState .text-white {
+        color: #0F172A !important;
+    }
+    [data-theme="light"] #reorderEmptyState .text-\[\#9aa6d1\] {
+        color: #64748B !important;
+    }
+    [data-theme="light"] #rrFilterForm label,
+    [data-theme="light"] #rrFilterForm span.text-\[\#9aa6d1\] {
+        color: #475569 !important;
+    }
+    [data-theme="light"] #rrFilterSummary {
+        color: #64748B !important;
     }
 
     /* Mobile / Tablet Horizontal Scroll for Explorer (< 1024px) */
@@ -478,66 +964,6 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     }
 
     .print-only { display: none !important; }
-
-    @media print {
-        header, nav, aside, .sidebar, #sidebar, .iw-sidebar,
-        .premium-sidebar, #toast-container, form,
-        .no-print, button, .action-buttons,
-        .browser-btn, #itemList, #statusList, #reportCatChart,
-        #itemPanelMeta, #statusPanelMeta, .premium-card:has(form),
-        .premium-card:has(#reportCatChart) {
-            display: none !important;
-        }
-        .print-only { display: block !important; }
-        
-        body, .main-content, .layout-container, main {
-            background: #ffffff !important;
-            color: #0f172a !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            font-family: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-        }
-
-        .printable-report-table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            margin-top: 15px !important;
-            font-size: 10px !important;
-        }
-        .printable-report-table th {
-            background-color: #13275B !important;
-            color: #ffffff !important;
-            font-weight: 700 !important;
-            text-align: left !important;
-            padding: 6px 8px !important;
-            border: 1px solid #0f172a !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        .printable-report-table td {
-            padding: 5px 8px !important;
-            border: 1px solid #cbd5e1 !important;
-            color: #0f172a !important;
-        }
-        .printable-report-table tr:nth-child(even) td {
-            background-color: #f8fafc !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        .print-badge {
-            display: inline-block !important;
-            padding: 2px 6px !important;
-            border-radius: 4px !important;
-            font-size: 8.5px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        .print-badge.out { background: #fee2e2 !important; color: #b91c1c !important; border: 1px solid #f87171 !important; }
-        .print-badge.low { background: #fef3c7 !important; color: #b45309 !important; border: 1px solid #fbbf24 !important; }
-        .print-badge.good { background: #d1fae5 !important; color: #047857 !important; border: 1px solid #34d399 !important; }
-    }
 
     /* ── Page Hero Card ────────────────────────────────────────── */
     .page-hero-card {
@@ -575,6 +1001,8 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     [data-theme="light"] .page-hero-card strong { color: #0B1526 !important; }
 </style>
 
+<?php renderReportDocumentStyles(false); ?>
+
 <!-- Hero Page Header Banner -->
 <div class="page-hero-card mb-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -602,7 +1030,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
 </div>
 
-<div class="premium-card mb-6" style="overflow:visible;">
+<div id="topGenerateReportCard" class="premium-card mb-6 <?php echo $rrViewActive ? 'hidden' : ''; ?>" style="overflow:visible;">
     <div class="p-5 border-b border-[#2A4484]/50 flex justify-between items-center bg-[#13275B]/30">
         <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2">
             <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
@@ -662,7 +1090,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 no-print">
+<div id="defaultSummaryCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 no-print <?php echo $rrViewActive ? 'hidden' : ''; ?>">
     <div class="premium-card p-6 flex items-center justify-between group hover:border-blue-500/50 cursor-pointer transition-all <?php echo empty($statusFilter) ? 'border-blue-500/40' : ''; ?>" onclick="window.location.href='reports.php<?php echo $categoryFilter ? ('?category=' . urlencode($categoryFilter)) : ''; ?>'">
         <div>
             <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Total Products</div>
@@ -716,6 +1144,61 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
 </div>
 
+<!-- Reorder Report Summary Cards (4 Cards: Items to restock, Critical, Reorder, Suppliers affected) -->
+<div id="reorderSummaryCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 no-print <?php echo $rrViewActive ? '' : 'hidden'; ?>">
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-blue-500/50 transition-all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Items to Restock</div>
+            <div class="premium-metric">
+                <span id="cardValRestock" class="num text-3xl"><?php echo number_format($rrTotalItemsToRestock); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Products requiring replenishment</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 border border-blue-500/20 text-blue-500 dark:text-blue-400 tile-restock flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-red-500/50 transition-all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Critical</div>
+            <div class="premium-metric">
+                <span id="cardValCritical" class="num text-3xl" style="background: linear-gradient(135deg, #f87171 0%, #dc2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($rrTotalCriticalItems); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Stock &le; 50% reorder point or 0</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-red-500/10 dark:bg-red-500/15 border border-red-500/20 text-red-500 dark:text-red-400 tile-critical flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-amber-500/50 transition-all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Reorder</div>
+            <div class="premium-metric">
+                <span id="cardValReorder" class="num text-3xl" style="background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($rrTotalReorderItems); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Stock &le; reorder threshold</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 text-amber-500 dark:text-amber-400 tile-reorder flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+    </div>
+
+    <div class="premium-card p-6 flex items-center justify-between group hover:border-emerald-500/50 transition-all">
+        <div>
+            <div class="text-[#9aa6d1] text-xs font-onest uppercase tracking-wider mb-1">Suppliers Affected</div>
+            <div class="premium-metric">
+                <span id="cardValSuppliers" class="num text-3xl" style="background: linear-gradient(135deg, #51D55A 0%, #4BC052 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"><?php echo number_format($rrSuppliersAffectedCount); ?></span>
+            </div>
+            <div class="stat-card-sub text-xs text-[#9aa6d1] mt-1 font-onest">Vendors to place orders with</div>
+        </div>
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 dark:text-emerald-400 tile-suppliers flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+        </div>
+    </div>
+</div>
+
 <?php if (empty($items)): ?>
     <div class="premium-card p-12 text-center flex flex-col items-center justify-center">
         <div class="w-16 h-16 bg-[#13275B] rounded-full flex items-center justify-center mb-4 border border-[#2A4484]">
@@ -729,143 +1212,63 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     </div>
 <?php else: ?>
 
-    <!-- Printable Report (Active Only During Window.print()) -->
-    <div id="printableReportContainer" class="print-only" style="padding: 20px 0;">
-        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #13275B; padding-bottom: 12px; margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 14px;">
-                <img src="img/systemlogo.svg" alt="Logo" style="width: 52px; height: 52px;" />
-                <div>
-                    <div style="font-size: 19px; font-weight: 800; color: #13275B; letter-spacing: 0.5px;">INTELLIWARE</div>
-                    <div style="font-size: 10px; color: #64748b;">Intelligent Warehouse &amp; Inventory Management System</div>
-                    <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">OFFICIAL INVENTORY &amp; AUDIT REPORT</div>
-                </div>
-            </div>
-            <div style="text-align: right; font-size: 10px; color: #64748b;">
-                <div style="display: inline-block; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; font-weight: 700; font-size: 8.5px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; margin-bottom: 4px;">Active Audit</div>
-                <div><strong>REF:</strong> IW-RPT-<?php echo date('Ymd-His'); ?></div>
-                <div>Classification: Internal Warehouse Audit</div>
-            </div>
-        </div>
-
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; font-size: 11px;">
-            <div>
-                <div style="color: #64748b; font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Audit Generated By</div>
-                <div style="font-weight: bold; color: #0f172a; margin-top: 2px;"><?php echo htmlspecialchars($generatedBy); ?> (<?php echo htmlspecialchars($generatedRole); ?>)</div>
-                <div style="color: #64748b; font-size: 10px; margin-top: 2px;"><?php echo htmlspecialchars($generatedAt); ?></div>
-            </div>
-            <div>
-                <div style="color: #64748b; font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Report Scope &amp; Parameters</div>
-                <div style="margin-top: 2px;"><strong>Category:</strong> <?php echo $categoryFilter ? htmlspecialchars($categoryFilter) : 'All Categories'; ?></div>
-                <div style="margin-top: 2px;"><strong>Status:</strong> <?php echo $statusFilter ? ucfirst(htmlspecialchars($statusFilter)) : 'All Statuses'; ?></div>
-            </div>
-            <div>
-                <div style="color: #64748b; font-size: 8.5px; font-weight: bold; text-transform: uppercase;">Audit Reconciliation</div>
-                <div style="margin-top: 2px;"><strong>Products:</strong> <?php echo number_format($totalItemsFiltered); ?> (<?php echo number_format($totalUnits); ?> Total Units)</div>
-                <div style="margin-top: 2px;">Good: <?php echo $goodStockCount; ?> | Low: <?php echo $lowStockCount; ?> | Out: <?php echo $outOfStockCount; ?></div>
-            </div>
-        </div>
-
-        <!-- 5 KPI Tiles on Paper -->
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px;">
-            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #475569; text-transform: uppercase;">Total Products</div>
-                <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px;"><?php echo number_format($totalItemsFiltered); ?></div>
-                <div style="font-size: 7.5px; color: #64748b;">Unique SKUs</div>
-            </div>
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #059669; text-transform: uppercase;">Total Units</div>
-                <div style="font-size: 14px; font-weight: 800; color: #059669; margin-top: 2px;"><?php echo number_format($totalUnits); ?></div>
-                <div style="font-size: 7.5px; color: #047857;">In Warehouse</div>
-            </div>
-            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #16a34a; text-transform: uppercase;">Good Stock</div>
-                <div style="font-size: 14px; font-weight: 800; color: #16a34a; margin-top: 2px;"><?php echo number_format($goodStockCount); ?></div>
-                <div style="font-size: 7.5px; color: #15803d;">Optimal Level</div>
-            </div>
-            <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #b45309; text-transform: uppercase;">Low Stock</div>
-                <div style="font-size: 14px; font-weight: 800; color: #d97706; margin-top: 2px;"><?php echo number_format($lowStockCount); ?></div>
-                <div style="font-size: 7.5px; color: #b45309;">Reorder Soon</div>
-            </div>
-            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px; text-align: center;">
-                <div style="font-size: 8px; font-weight: bold; color: #dc2626; text-transform: uppercase;">Out of Stock</div>
-                <div style="font-size: 14px; font-weight: 800; color: #dc2626; margin-top: 2px;"><?php echo number_format($outOfStockCount); ?></div>
-                <div style="font-size: 7.5px; color: #b91c1c;">Depleted</div>
-            </div>
-        </div>
-
-        <table class="printable-report-table">
-            <thead>
-                <tr>
-                    <th style="width: 12%;">SKU</th>
-                    <th style="width: 32%;">Product Name</th>
-                    <th style="width: 20%;">Category</th>
-                    <th style="width: 10%; text-align: right;">Stock Qty</th>
-                    <th style="width: 8%; text-align: center;">Unit</th>
-                    <th style="width: 8%; text-align: right;">Reorder</th>
-                    <th style="width: 10%; text-align: center;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($items as $pi): ?>
-                <tr>
-                    <td style="font-family: monospace; font-weight: bold;"><?php echo htmlspecialchars($pi['sku']); ?></td>
-                    <td style="font-weight: 600;"><?php echo htmlspecialchars($pi['name']); ?></td>
-                    <td><?php echo htmlspecialchars($pi['category'] ?: 'Uncategorized'); ?></td>
-                    <td style="text-align: right; font-weight: bold;"><?php echo number_format($pi['qty']); ?></td>
-                    <td style="text-align: center; color: #64748b;"><?php echo htmlspecialchars($pi['uom'] ?: 'pcs'); ?></td>
-                    <td style="text-align: right; color: #64748b;"><?php echo number_format($pi['reorder_point'] ?: 10); ?></td>
-                    <td style="text-align: center;">
-                        <span class="print-badge <?php echo $pi['status']; ?>">
-                            <?php echo $pi['status_label']; ?>
-                        </span>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
-        <!-- Sign-off / Signature section -->
-        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; page-break-inside: avoid;">
-            <div>
-                <div style="font-size: 8.5px; font-weight: bold; color: #64748b; text-transform: uppercase;">Audit Prepared By</div>
-                <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 2px;"><?php echo htmlspecialchars($generatedBy); ?> (<?php echo htmlspecialchars($generatedRole); ?>)</div>
-                <div style="margin-top: 28px; border-bottom: 1px solid #cbd5e1; width: 85%;"></div>
-                <div style="font-size: 8px; color: #94a3b8; margin-top: 3px;">Authorized Signature &amp; Stamp</div>
-            </div>
-            <div>
-                <div style="font-size: 8.5px; font-weight: bold; color: #64748b; text-transform: uppercase;">Verified &amp; Approved By</div>
-                <div style="font-size: 11px; font-weight: 700; color: #0f172a; margin-top: 2px;">Warehouse Supervisor / Operations Control</div>
-                <div style="margin-top: 28px; border-bottom: 1px solid #cbd5e1; width: 85%;"></div>
-                <div style="font-size: 8px; color: #94a3b8; margin-top: 3px;">Authorized Signature &amp; Date</div>
-            </div>
-        </div>
-
-        <div style="margin-top: 22px; border-top: 1px solid #e2e8f0; padding-top: 8px; display: flex; justify-content: space-between; font-size: 8.5px; color: #94a3b8;">
-            <div>IntelliWare WIMS • Confidential Inventory Audit Document</div>
-            <div>Generated on <?php echo date('Y-m-d H:i:s'); ?></div>
-        </div>
-    </div>
+    <!-- Printable Report (Universal Document Layout - Active Only During Window.print()) -->
+    <?php
+    renderReportDocument([
+        'title' => 'OFFICIAL INVENTORY & AUDIT REPORT',
+        'subtitle' => 'Intelligent Warehouse & Inventory Management System',
+        'tag' => 'IMS',
+        'badge' => 'Active Audit',
+        'badge_bg' => '#f0fdf4',
+        'badge_border' => '#bbf7d0',
+        'badge_color' => '#16a34a',
+        'ref' => 'IW-RPT-' . date('Ymd-His'),
+        'classification' => 'Classification: Internal Warehouse Audit',
+        'generated_by' => $generatedBy,
+        'generated_role' => $generatedRole,
+        'generated_at' => $generatedAt,
+        'prep_head' => 'Audit Generated By',
+        'scope_line1' => '<strong>Category:</strong> ' . ($categoryFilter ? htmlspecialchars($categoryFilter) : 'All Categories'),
+        'scope_line2' => '<strong>Status:</strong> ' . ($statusFilter ? ucfirst(htmlspecialchars($statusFilter)) : 'All Statuses'),
+        'recon_head' => 'Audit Reconciliation',
+        'recon_line1' => '<strong>Products:</strong> ' . number_format($totalItemsFiltered) . ' (' . number_format($totalUnits) . ' Total Units)',
+        'recon_line2' => 'Good: ' . $goodStockCount . ' | Low: ' . $lowStockCount . ' | Out: ' . $outOfStockCount,
+        'kpi_tiles' => [
+            ['label' => 'Total Products', 'value' => number_format($totalItemsFiltered), 'sub' => 'Unique SKUs', 'bg' => '#f1f5f9', 'border' => '#cbd5e1', 'val_color' => '#0f172a', 'lbl_color' => '#475569', 'sub_color' => '#64748b'],
+            ['label' => 'Total Units', 'value' => number_format($totalUnits), 'sub' => 'In Warehouse', 'bg' => '#ecfdf5', 'border' => '#a7f3d0', 'val_color' => '#059669', 'lbl_color' => '#059669', 'sub_color' => '#047857'],
+            ['label' => 'Good Stock', 'value' => number_format($goodStockCount), 'sub' => 'Optimal Level', 'bg' => '#f0fdf4', 'border' => '#bbf7d0', 'val_color' => '#16a34a', 'lbl_color' => '#16a34a', 'sub_color' => '#15803d'],
+            ['label' => 'Low Stock', 'value' => number_format($lowStockCount), 'sub' => 'Reorder Soon', 'bg' => '#fef3c7', 'border' => '#fde68a', 'val_color' => '#d97706', 'lbl_color' => '#b45309', 'sub_color' => '#b45309'],
+            ['label' => 'Out of Stock', 'value' => number_format($outOfStockCount), 'sub' => 'Depleted', 'bg' => '#fef2f2', 'border' => '#fecaca', 'val_color' => '#dc2626', 'lbl_color' => '#dc2626', 'sub_color' => '#b91c1c'],
+        ],
+        'items' => $items,
+        'table_type' => 'reports_audit',
+        'is_print_only' => true,
+        'footer_text' => 'IntelliWare IMS • Confidential Inventory Audit Document',
+        'show_signatures' => true
+    ]);
+    ?>
 
     <!-- Stock Explorer Card -->
     <div class="premium-card mb-6">
         <div class="p-5 border-b border-[#2A4484]/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#13275B]/30 stock-explorer-header text-left">
             <div class="text-left w-full sm:w-auto">
                 <h3 class="font-onest font-semibold text-lg text-white flex items-center gap-2 text-left justify-start">
-                    <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                    <span>Stock Explorer</span>
+                    <span id="stockExplorerTitle">Stock Explorer</span>
                 </h3>
-                <p class="text-xs text-[#9aa6d1] mt-1 text-left">Showing <?php echo number_format($totalItemsFiltered); ?> items based on current filters.</p>
+                <p id="stockExplorerSubtitle" class="text-xs text-[#9aa6d1] mt-1 text-left">
+                    <?php echo $rrViewActive ? 'Generate a restock report from current stock levels.' : 'Showing ' . number_format($totalItemsFiltered) . ' items based on current filters.'; ?>
+                </p>
             </div>
             <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto w-full sm:w-auto justify-start sm:justify-end">
                 <div class="report-view-toggle-wrap">
-                    <button type="button" id="tabExplorerBtn" onclick="switchReportView('explorer')" class="report-view-tab active" title="Interactive 3-Column Explorer">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                    <button type="button" id="tabExplorerBtn" onclick="switchReportView('explorer')" class="report-view-tab <?php echo !$rrViewActive ? 'active' : ''; ?>" title="Interactive 3-Column Explorer">
                         <span>Interactive Explorer</span>
                     </button>
                     <button type="button" id="tabTableBtn" onclick="switchReportView('table')" class="report-view-tab" title="Detailed Audit Table View">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         <span>Detailed Audit Table</span>
+                    </button>
+                    <button type="button" id="tabReorderBtn" onclick="switchReportView('reorder')" class="report-view-tab <?php echo $rrViewActive ? 'active' : ''; ?>" title="Reorder Report — Critical &amp; Low Stock">
+                        <span>Reorder Report</span>
                     </button>
                 </div>
             </div>
@@ -939,6 +1342,31 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             </div>
         </div>
 
+        <?php
+        // Universal Table Header (Used across Detailed Audit & Reorder Report tables)
+        if (!function_exists('renderUniversalReportTableHeader')) {
+            function renderUniversalReportTableHeader() {
+        ?>
+            <thead>
+                <tr>
+                    <th style="width:70px;">SKU</th>
+                    <th class="rr-col-name" style="min-width:200px;">Name</th>
+                    <th>Category</th>
+                    <th>Supplier</th>
+                    <th>Location</th>
+                    <th>Total Stock</th>
+                    <th style="min-width:140px;">Batches / Expiry</th>
+                    <th>Price</th>
+                    <th>Unit</th>
+                    <th style="text-align:right;">Reorder</th>
+                    <th style="text-align:center;">Status</th>
+                </tr>
+            </thead>
+        <?php
+            }
+        }
+        ?>
+
         <!-- Detailed Audit Table Container -->
         <div id="reportTableView" class="hidden">
             <div class="mobile-scroll-hint lg:hidden px-6 pt-3 pb-0 text-xs text-[#9aa6d1] flex items-center gap-1.5">
@@ -947,24 +1375,19 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
             </div>
             <div class="p-4 sm:p-6">
                 <div class="iw-table-scroll" style="overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; width: 100% !important; max-width: 100% !important; display: block !important;">
-                    <table class="premium-table w-full text-left" style="min-width: 780px;">
-                        <thead>
-                            <tr>
-                                <th style="width: 50px;">#</th>
-                                <th>Product Details</th>
-                                <th>SKU</th>
-                                <th>Category</th>
-                                <th style="text-align: right;">Quantity</th>
-                                <th style="text-align: right;">Reorder Point</th>
-                                <th style="text-align: center;">Stock Status</th>
-                            </tr>
-                        </thead>
+                    <table class="premium-table w-full text-left" id="auditMainTable" style="min-width: 1050px;">
+                        <?php renderUniversalReportTableHeader(); ?>
                         <tbody id="reportTableBody">
                             <?php 
-                            $tblIdx = 1;
                             foreach ($items as $it): 
-                                $itQty = (int)($it['qty'] ?? 0);
-                                $itReorder = (int)($it['reorder_point'] ?? 10);
+                                $itQty        = (int)($it['qty'] ?? 0);
+                                $itReorder    = (int)($it['reorder_point'] ?? 10);
+                                $itPrice      = number_format((float)($it['price'] ?? 0), 2);
+                                $itBatchCount = (int)($it['batch_count'] ?? 0);
+                                $itNearestExp = $it['nearest_expiry'] ?? null;
+                                $itBatchText  = $itBatchCount > 0 ? $itBatchCount . ' batch' . ($itBatchCount > 1 ? 'es' : '') : 'No batches';
+                                $itExpText    = $itNearestExp ? 'Exp: ' . date('M j, Y', strtotime($itNearestExp)) : 'No Expiry';
+                                
                                 $badgeCls = 'good';
                                 $badgeTxt = 'IN STOCK';
                                 if ($itQty <= 0) {
@@ -974,32 +1397,50 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                                     $badgeCls = 'low';
                                     $badgeTxt = 'LOW STOCK';
                                 }
+
+                                if ($itQty <= 0) {
+                                    $itBarWidth = 0;
+                                    $itBarColor = '#EF4444';
+                                } elseif ($itReorder > 0) {
+                                    $itBarWidth = min(100, max(0, round(($itQty / $itReorder) * 100)));
+                                    $itBarColor = ($itQty <= ($itReorder * 0.5)) ? '#EF4444' : '#F59E0B';
+                                } else {
+                                    $itBarWidth = 100;
+                                    $itBarColor = '#10B981';
+                                }
                             ?>
-                            <tr>
-                                <td class="font-mono text-xs opacity-60"><?php echo $tblIdx++; ?></td>
+                            <tr class="hover:bg-[#1D387B]/40 dark:hover:bg-[#1D387B]/40 transition-colors">
                                 <td>
-                                    <div class="product-title-text font-semibold text-white"><?php echo htmlspecialchars($it['name']); ?></div>
+                                    <span class="product-sku-text font-mono text-xs"><?php echo htmlspecialchars($it['sku']); ?></span>
+                                </td>
+                                <td class="rr-col-name">
+                                    <div class="product-title-text font-semibold text-sm leading-snug"><?php echo htmlspecialchars($it['name']); ?></div>
                                 </td>
                                 <td>
-                                    <span class="product-sku-text font-mono text-xs text-[#9aa6d1]"><?php echo htmlspecialchars($it['sku']); ?></span>
-                                </td>
-                                <td>
-                                    <span class="table-cat-badge text-xs px-2.5 py-1 rounded-md bg-[#13275B]/60 border border-[#2A4484]/40 text-[#9aa6d1]">
+                                    <span class="table-cat-badge text-xs px-2.5 py-1 rounded-md bg-[#13275B]/60 border border-[#2A4484]/40 text-[#9aa6d1] whitespace-nowrap">
                                         <?php echo htmlspecialchars($it['category'] ?: 'Uncategorized'); ?>
                                     </span>
                                 </td>
-                                <td style="text-align: right;">
-                                    <span class="font-mono font-bold text-sm <?php echo $badgeCls === 'out' ? 'text-red-400' : ($badgeCls === 'low' ? 'text-amber-400' : 'text-[#51D55A]'); ?>">
-                                        <?php echo number_format($itQty); ?>
-                                    </span>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($it['supplier'] ?: 'No supplier'); ?></span></td>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($it['location'] ?: '—'); ?></span></td>
+                                <td>
+                                    <div class="flex items-baseline gap-1 font-mono font-bold text-sm">
+                                        <span class="stock-num"><?php echo number_format($itQty); ?></span>
+                                        <span class="stock-unit text-xs font-normal font-sans"><?php echo htmlspecialchars($it['uom'] ?: 'piece'); ?></span>
+                                    </div>
+                                    <div class="rr-stock-bar-track" style="width:56px; height:4px;">
+                                        <div class="rr-stock-bar" style="width: <?php echo $itBarWidth; ?>%; background-color: <?php echo $itBarColor; ?>;"></div>
+                                    </div>
                                 </td>
-                                <td style="text-align: right;">
-                                    <span class="product-sku-text font-mono text-xs text-[#9aa6d1]"><?php echo number_format($itReorder); ?></span>
+                                <td>
+                                    <div class="text-xs font-medium"><?php echo $itBatchText; ?></div>
+                                    <div class="text-[11px] opacity-75 font-onest"><?php echo $itExpText; ?></div>
                                 </td>
-                                <td style="text-align: center;">
-                                    <span class="status-badge <?php echo $badgeCls; ?>">
-                                        <?php echo $badgeTxt; ?>
-                                    </span>
+                                <td><span class="font-mono text-xs">&#8369;<?php echo $itPrice; ?></span></td>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($it['uom'] ?: 'piece'); ?></span></td>
+                                <td style="text-align:right;"><span class="font-mono text-xs"><?php echo number_format($itReorder); ?></span></td>
+                                <td style="text-align:center;">
+                                    <span class="status-badge <?php echo $badgeCls; ?>"><?php echo $badgeTxt; ?></span>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -1008,6 +1449,216 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                 </div>
             </div>
             <div class="pagination-container p-3 sm:p-4 border-t border-[#2A4484]/50 flex flex-col md:flex-row justify-between items-center gap-3 sm:gap-4 flex-wrap no-print" id="reportTablePagination"></div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             REORDER REPORT VIEW (INSIDE PREMIUM-CARD)
+        ══════════════════════════════════════════════════════════ -->
+        <div id="reportReorderView" class="<?php echo $rrViewActive ? '' : 'hidden'; ?>">
+
+            <!-- Filter Bar Form (Single Row Grid) -->
+            <form id="rrFilterForm" method="GET" action="reports.php" onsubmit="generateReorderReport(event); return false;" class="p-5 border-b border-[#2A4484]/50 bg-[#13275B]/30 no-print">
+                <input type="hidden" name="view" value="reorder">
+                <input type="hidden" name="rr_submitted" value="1">
+                <input type="hidden" name="rr_critical" id="input_rr_critical" value="<?php echo $rrCritical; ?>">
+                <input type="hidden" name="rr_reorder" id="input_rr_reorder" value="<?php echo $rrReorder; ?>">
+
+                <div class="rr-filter-grid">
+                    <!-- 1. Stock Status Toggles -->
+                    <div class="rr-filter-col">
+                        <label class="rr-filter-label">Stock status</label>
+                        <div class="rr-filter-control h-[42px] flex items-center gap-2">
+                            <button type="button" id="chipCritical" class="reorder-chip critical <?php echo $rrCritical ? 'active' : ''; ?>" onclick="toggleReorderChip('critical')">
+                                <svg class="chip-check w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                <span>CRITICAL</span>
+                            </button>
+                            <button type="button" id="chipReorder" class="reorder-chip reorder <?php echo $rrReorder ? 'active' : ''; ?>" onclick="toggleReorderChip('reorder')">
+                                <svg class="chip-check w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                <span>REORDER</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 2. Supplier Dropdown -->
+                    <div class="rr-filter-col">
+                        <label class="rr-filter-label" for="rr_supplier">Supplier</label>
+                        <div class="rr-filter-control">
+                            <select id="rr_supplier" name="rr_supplier" class="premium-input inventory-select h-[42px] w-full text-xs cursor-pointer" onchange="applyReorderFiltersClient()">
+                                <option value="">All suppliers</option>
+                                <?php foreach ($allSuppliers as $sup): ?>
+                                    <option value="<?php echo htmlspecialchars($sup); ?>" <?php echo $rrSupplier === $sup ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($sup); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                                <option value="No supplier" <?php echo $rrSupplier === 'No supplier' ? 'selected' : ''; ?>>No supplier</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 3. Category Dropdown -->
+                    <div class="rr-filter-col">
+                        <label class="rr-filter-label" for="rr_category">Category</label>
+                        <div class="rr-filter-control">
+                            <select id="rr_category" name="rr_category" class="premium-input inventory-select h-[42px] w-full text-xs cursor-pointer" onchange="applyReorderFiltersClient()">
+                                <option value="">All Categories</option>
+                                <?php foreach ($allCategories as $cat): ?>
+                                    <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $rrCategory === $cat ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($cat); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 4. Sort within Supplier Dropdown -->
+                    <div class="rr-filter-col">
+                        <label class="rr-filter-label" for="rr_sort">Sort within supplier</label>
+                        <div class="rr-filter-control">
+                            <select id="rr_sort" name="rr_sort" class="premium-input inventory-select h-[42px] w-full text-xs cursor-pointer" onchange="applyReorderFiltersClient()">
+                                <option value="lowest_stock" <?php echo $rrSort === 'lowest_stock' ? 'selected' : ''; ?>>Lowest stock first</option>
+                                <option value="name_asc" <?php echo $rrSort === 'name_asc' ? 'selected' : ''; ?>>Name A–Z</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 5. Generate Report Button (Auto Width) -->
+                    <div class="rr-filter-btn-col">
+                        <button type="button" id="btnGenerateReorderReport" onclick="generateReorderReport(event)" class="premium-button rr-btn-generate h-[42px] px-5 text-xs font-semibold rounded-xl inline-flex items-center justify-center gap-2 whitespace-nowrap transition-all duration-200">
+                            <svg id="btnGenerateIcon" class="w-3.5 h-3.5 shrink-0 transition-transform duration-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span id="btnGenerateText">Generate report</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Results Header Strip -->
+            <div class="rr-results-header flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3.5 border-b border-[#2A4484]/40 bg-[#13275B]/20">
+                <div id="rrResultsMeta" class="text-xs sm:text-sm text-[#9aa6d1] font-onest flex items-center flex-wrap gap-1 transition-all duration-300">
+                    <strong id="rrMetaCount" class="font-bold text-white dark:text-white"><?php echo $rrTotalItemsToRestock; ?> items across <?php echo $rrSuppliersAffectedCount; ?> suppliers</strong>
+                    <span id="rrMetaTime">&nbsp;&middot;&nbsp;Generated <?php echo date('M j, Y, g:i A'); ?> &middot; grouped by supplier</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="printReorderReport()" class="rr-hdr-btn" title="Print Reorder Report">
+                        <span>Print</span>
+                    </button>
+                    <button type="button" onclick="exportReorderCSV()" class="rr-hdr-btn" title="Export CSV">
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container (Universal .premium-table) -->
+            <div class="p-4 sm:p-6">
+                <div class="iw-table-scroll" id="rrTableScroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch; width:100% !important; max-width:100% !important; display:block !important;">
+                    <table class="premium-table w-full text-left" id="rrMainTable" style="min-width:1050px;">
+                        <?php renderUniversalReportTableHeader(); ?>
+                        <tbody id="rrTableBody">
+                        <?php
+                        foreach ($reorderBySupplier as $supName => $supGroup):
+                            $supCrit  = $supGroup['critical'];
+                            $supLow   = $supGroup['low'];
+                            $supTotal = count($supGroup['items']);
+                            $supDataAttrs = 'data-supplier="' . htmlspecialchars($supName, ENT_QUOTES) . '"';
+                        ?>
+                            <!-- Supplier Group Header -->
+                            <tr class="rr-group-header" <?php echo $supDataAttrs; ?>>
+                                <td colspan="11">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><path d="M9 22v-4h6v4"></path><path d="M8 6h.01"></path><path d="M16 6h.01"></path><path d="M12 6h.01"></path><path d="M12 10h.01"></path><path d="M12 14h.01"></path><path d="M16 10h.01"></path><path d="M16 14h.01"></path><path d="M8 10h.01"></path><path d="M8 14h.01"></path></svg>
+                                            <span class="rr-supplier-name"><?php echo htmlspecialchars($supName); ?></span>
+                                        </div>
+                                        <div class="rr-supplier-meta flex items-center gap-2 font-onest">
+                                            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium"><?php echo $supTotal; ?> item<?php echo $supTotal !== 1 ? 's' : ''; ?></span>
+                                            <?php if ($supCrit > 0): ?>
+                                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"><?php echo $supCrit; ?> critical</span>
+                                            <?php endif; ?>
+                                            <?php if ($supLow > 0): ?>
+                                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"><?php echo $supLow; ?> reorder</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php foreach ($supGroup['items'] as $ri):
+                                $rQty   = (int)$ri['qty'];
+                                $rRp    = (int)($ri['reorder_point'] ?? 0);
+                                $rCrit  = ($ri['reorder_status'] === 'critical');
+                                $badgeCls = $rCrit ? 'out' : 'low';
+                                $badgeTxt = $rCrit ? 'CRITICAL' : 'REORDER';
+                                $batchCount = (int)($ri['batch_count'] ?? 0);
+                                $nearestExp = $ri['nearest_expiry'] ?? null;
+                                $batchText  = $batchCount > 0 ? $batchCount . ' batch' . ($batchCount > 1 ? 'es' : '') : 'No batches';
+                                $expText    = $nearestExp ? 'Exp: ' . date('M j, Y', strtotime($nearestExp)) : 'No Expiry';
+                                $price      = number_format((float)($ri['price'] ?? 0), 2);
+                                
+                                if ($rQty <= 0) {
+                                    $stockBarWidth = 0;
+                                } else if ($rRp > 0) {
+                                    $stockBarWidth = min(100, max(0, round(($rQty / $rRp) * 100)));
+                                } else {
+                                    $stockBarWidth = 0;
+                                }
+                                $barColor = $rCrit ? '#EF4444' : '#F59E0B';
+
+                                $dataAttrs  = 'data-supplier="' . htmlspecialchars($ri['supplier'], ENT_QUOTES) . '"'
+                                            . ' data-category="' . htmlspecialchars($ri['category'] ?? '', ENT_QUOTES) . '"'
+                                            . ' data-status="' . ($rCrit ? 'critical' : 'reorder') . '"'
+                                            . ' data-qty="' . $rQty . '"'
+                                            . ' data-rp="' . $rRp . '"'
+                                            . ' data-name="' . htmlspecialchars($ri['name'], ENT_QUOTES) . '"';
+                            ?>
+                            <tr class="rr-item-row" <?php echo $dataAttrs; ?>>
+                                <td>
+                                    <span class="product-sku-text font-mono text-xs"><?php echo htmlspecialchars($ri['sku']); ?></span>
+                                </td>
+                                <td class="rr-col-name">
+                                    <div class="product-title-text font-semibold text-sm leading-snug"><?php echo htmlspecialchars($ri['name']); ?></div>
+                                </td>
+                                <td>
+                                    <span class="table-cat-badge text-xs px-2.5 py-1 rounded-md bg-[#13275B]/60 border border-[#2A4484]/40 text-[#9aa6d1] whitespace-nowrap">
+                                        <?php echo htmlspecialchars($ri['category'] ?: 'Uncategorized'); ?>
+                                    </span>
+                                </td>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($ri['supplier']); ?></span></td>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($ri['location'] ?: '—'); ?></span></td>
+                                <td>
+                                    <div class="flex items-baseline gap-1 font-mono font-bold text-sm">
+                                        <span class="stock-num"><?php echo number_format($rQty); ?></span>
+                                        <span class="stock-unit text-xs font-normal font-sans"><?php echo htmlspecialchars($ri['uom'] ?: 'piece'); ?></span>
+                                    </div>
+                                    <div class="rr-stock-bar-track" style="width:56px; height:4px;">
+                                        <div class="rr-stock-bar" style="width: <?php echo $stockBarWidth; ?>%; background-color: <?php echo $barColor; ?>;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="text-xs font-medium"><?php echo $batchText; ?></div>
+                                    <div class="text-[11px] opacity-75 font-onest"><?php echo $expText; ?></div>
+                                </td>
+                                <td><span class="font-mono text-xs">&#8369;<?php echo $price; ?></span></td>
+                                <td><span class="text-xs"><?php echo htmlspecialchars($ri['uom'] ?: 'piece'); ?></span></td>
+                                <td style="text-align:right;"><span class="font-mono text-xs"><?php echo number_format($rRp); ?></span></td>
+                                <td style="text-align:center;">
+                                    <span class="status-badge <?php echo $badgeCls; ?>"><?php echo $badgeTxt; ?></span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <!-- Empty State -->
+                    <div id="reorderEmptyState" class="flex-col items-center justify-center py-12 text-center <?php echo empty($reorderItems) ? 'flex' : 'hidden'; ?>">
+                        <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-3 text-emerald-500">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        </div>
+                        <div class="font-semibold text-base text-white mb-1">Nothing to restock</div>
+                        <div class="text-xs text-[#9aa6d1]">All items have adequate inventory or no products match the current filters.</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1044,6 +1695,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
   const goodCount = <?php echo (int)$goodStockCount; ?>;
   const lowCount = <?php echo (int)$lowStockCount; ?>;
   const outCount = <?php echo (int)$outOfStockCount; ?>;
+  const reorderItems = <?php echo json_encode($reorderItems); ?>;
   
   // Chart Init
   (function(){
@@ -1169,35 +1821,546 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
     }
   }
 
-  // View Mode Switching (Interactive Explorer vs Detailed Audit Table)
+  // View Mode Switching (Explorer / Audit Table / Reorder Report)
   function switchReportView(mode) {
-    const explorerView = document.getElementById('reportExplorerView');
-    const tableView = document.getElementById('reportTableView');
+    const explorerView   = document.getElementById('reportExplorerView');
+    const tableView      = document.getElementById('reportTableView');
+    const reorderView    = document.getElementById('reportReorderView');
     const tabExplorerBtn = document.getElementById('tabExplorerBtn');
-    const tabTableBtn = document.getElementById('tabTableBtn');
+    const tabTableBtn    = document.getElementById('tabTableBtn');
+    const tabReorderBtn  = document.getElementById('tabReorderBtn');
+    const defCards       = document.getElementById('defaultSummaryCards');
+    const rrCards        = document.getElementById('reorderSummaryCards');
+    const topFilterCard  = document.getElementById('topGenerateReportCard');
+    const mainTitle      = document.getElementById('stockExplorerTitle');
+    const subTitle       = document.getElementById('stockExplorerSubtitle');
 
-    if (!explorerView || !tableView) return;
+    // Hide all, deactivate all tabs
+    [explorerView, tableView, reorderView].forEach(v => v && v.classList.add('hidden'));
+    [tabExplorerBtn, tabTableBtn, tabReorderBtn].forEach(b => b && b.classList.remove('active'));
 
     if (mode === 'table') {
-      explorerView.classList.add('hidden');
-      tableView.classList.remove('hidden');
-      if (tabExplorerBtn) tabExplorerBtn.classList.remove('active');
-      if (tabTableBtn) tabTableBtn.classList.add('active');
+      tableView && tableView.classList.remove('hidden');
+      tabTableBtn && tabTableBtn.classList.add('active');
+      defCards && defCards.classList.remove('hidden');
+      rrCards && rrCards.classList.add('hidden');
+      topFilterCard && topFilterCard.classList.remove('hidden');
+      if (mainTitle) mainTitle.textContent = 'Detailed Audit Table';
+      if (subTitle) subTitle.textContent = 'Showing ' + items.length + ' items based on current filters.';
       renderAuditPagination(auditPage);
+    } else if (mode === 'reorder') {
+      reorderView && reorderView.classList.remove('hidden');
+      tabReorderBtn && tabReorderBtn.classList.add('active');
+      defCards && defCards.classList.add('hidden');
+      rrCards && rrCards.classList.remove('hidden');
+      topFilterCard && topFilterCard.classList.add('hidden');
+      if (mainTitle) mainTitle.textContent = 'Reorder Report';
+      if (subTitle) subTitle.textContent = 'Generate a restock report from current stock levels.';
+      applyReorderFiltersClient();
     } else {
-      tableView.classList.add('hidden');
-      explorerView.classList.remove('hidden');
-      if (tabExplorerBtn) tabExplorerBtn.classList.add('active');
-      if (tabTableBtn) tabTableBtn.classList.remove('active');
+      explorerView && explorerView.classList.remove('hidden');
+      tabExplorerBtn && tabExplorerBtn.classList.add('active');
+      defCards && defCards.classList.remove('hidden');
+      rrCards && rrCards.classList.add('hidden');
+      topFilterCard && topFilterCard.classList.remove('hidden');
+      if (mainTitle) mainTitle.textContent = 'Stock Explorer';
+      if (subTitle) subTitle.textContent = 'Showing ' + items.length + ' items based on current filters.';
     }
   }
 
-  // Initialize Detailed Audit Table pagination on load
+  // ── Reorder Report Client-Side Filter & Live Update ──────────────
+  const reorderChipState = {
+    critical: <?php echo $rrCritical ? 'true' : 'false'; ?>,
+    reorder: <?php echo $rrReorder ? 'true' : 'false'; ?>
+  };
+
+  function toggleReorderChip(type) {
+    reorderChipState[type] = !reorderChipState[type];
+    const chip = document.getElementById(type === 'critical' ? 'chipCritical' : 'chipReorder');
+    if (chip) chip.classList.toggle('active', reorderChipState[type]);
+    const input = document.getElementById(type === 'critical' ? 'input_rr_critical' : 'input_rr_reorder');
+    if (input) input.value = reorderChipState[type] ? '1' : '0';
+    applyReorderFiltersClient();
+  }
+
+  function applyReorderFiltersClient() {
+    const supplierVal = (document.getElementById('rr_supplier') || {}).value || '';
+    const categoryVal = (document.getElementById('rr_category') || {}).value || '';
+    const sortVal     = (document.getElementById('rr_sort')     || {}).value || 'lowest_stock';
+
+    const tbody   = document.getElementById('rrTableBody');
+    const empty   = document.getElementById('reorderEmptyState');
+    if (!tbody) return { totalVisible: 0, totalSuppliers: 0, critVisible: 0, reorderVisible: 0 };
+
+    const allGroupHeaders = Array.from(tbody.querySelectorAll('tr.rr-group-header'));
+    const allItemRows     = Array.from(tbody.querySelectorAll('tr.rr-item-row'));
+
+    // Hide all rows initially
+    allGroupHeaders.forEach(h => h.style.display = 'none');
+    allItemRows.forEach(r => r.style.display = 'none');
+
+    const visibleBySupplier = {};
+    let totalCritVisible = 0;
+    let totalReorderVisible = 0;
+
+    allItemRows.forEach(row => {
+      const rowStatus   = row.dataset.status;
+      const rowSupplier = row.dataset.supplier || 'No supplier';
+      const rowCategory = row.dataset.category || '';
+      const rowQty      = parseInt(row.dataset.qty) || 0;
+      const rowName     = row.dataset.name || '';
+
+      if (rowStatus === 'critical' && !reorderChipState.critical) return;
+      if (rowStatus === 'reorder'  && !reorderChipState.reorder)  return;
+      if (supplierVal && rowSupplier !== supplierVal) return;
+      if (categoryVal && rowCategory !== categoryVal) return;
+
+      if (!visibleBySupplier[rowSupplier]) visibleBySupplier[rowSupplier] = [];
+      visibleBySupplier[rowSupplier].push({ row, qty: rowQty, name: rowName, status: rowStatus });
+
+      if (rowStatus === 'critical') totalCritVisible++;
+      else totalReorderVisible++;
+    });
+
+    let totalVisible = 0;
+    const sortedSuppliers = Object.keys(visibleBySupplier).sort();
+    sortedSuppliers.forEach(sup => {
+      const group = visibleBySupplier[sup];
+      group.sort((a, b) => {
+        if (sortVal === 'name_asc') return a.name.localeCompare(b.name);
+        return a.qty - b.qty;
+      });
+
+      let supCrit = 0;
+      let supLow  = 0;
+      group.forEach(g => {
+        g.row.style.display = '';
+        tbody.appendChild(g.row);
+        if (g.status === 'critical') supCrit++;
+        else supLow++;
+      });
+      totalVisible += group.length;
+
+      const header = allGroupHeaders.find(h => h.dataset.supplier === sup);
+      if (header) {
+        tbody.insertBefore(header, group[0].row);
+        header.style.display = '';
+        const metaSpan = header.querySelector('.rr-supplier-meta');
+        if (metaSpan) {
+          let pillsHtml = `<span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${group.length} item${group.length !== 1 ? 's' : ''}</span>`;
+          if (supCrit > 0) {
+            pillsHtml += `<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">${supCrit} critical</span>`;
+          }
+          if (supLow > 0) {
+            pillsHtml += `<span class="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">${supLow} reorder</span>`;
+          }
+          metaSpan.innerHTML = pillsHtml;
+        }
+      }
+    });
+
+    // Update 4 summary cards
+    const cardRestock   = document.getElementById('cardValRestock');
+    const cardCrit      = document.getElementById('cardValCritical');
+    const cardReorder   = document.getElementById('cardValReorder');
+    const cardSuppliers = document.getElementById('cardValSuppliers');
+    if (cardRestock)   cardRestock.textContent   = totalVisible;
+    if (cardCrit)      cardCrit.textContent      = totalCritVisible;
+    if (cardReorder)   cardReorder.textContent   = totalReorderVisible;
+    if (cardSuppliers) cardSuppliers.textContent = sortedSuppliers.length;
+
+    // Update results meta header
+    const metaCount = document.getElementById('rrMetaCount');
+    if (metaCount) {
+      metaCount.textContent = `${totalVisible} item${totalVisible !== 1 ? 's' : ''} across ${sortedSuppliers.length} supplier${sortedSuppliers.length !== 1 ? 's' : ''}`;
+    }
+
+    // Empty state
+    if (empty) {
+      if (totalVisible === 0) {
+        empty.classList.remove('hidden');
+        empty.classList.add('flex');
+      } else {
+        empty.classList.add('hidden');
+        empty.classList.remove('flex');
+      }
+    }
+
+    return {
+      totalVisible,
+      totalSuppliers: sortedSuppliers.length,
+      critVisible: totalCritVisible,
+      reorderVisible: totalReorderVisible
+    };
+  }
+
+  // ── Generate Reorder Report ───────────────────────────────────────
+  function generateReorderReport(e) {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+
+    const btn = document.getElementById('btnGenerateReorderReport');
+    const btnIcon = document.getElementById('btnGenerateIcon');
+    const btnText = document.getElementById('btnGenerateText');
+    const metaTime = document.getElementById('rrMetaTime');
+    const metaWrap = document.getElementById('rrResultsMeta');
+    const resultsHeader = document.querySelector('.rr-results-header');
+
+    // Button loading feedback
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('opacity-80');
+    }
+    if (btnIcon) {
+      btnIcon.classList.add('animate-spin');
+    }
+    if (btnText) {
+      btnText.textContent = 'Generating...';
+    }
+
+    // Apply client filters and get visible counts
+    const res = applyReorderFiltersClient();
+
+    // Format current timestamp (e.g. "Oct 27, 2026, 6:30 PM")
+    const now = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const month = months[now.getMonth()];
+    const day = now.getDate();
+    const year = now.getFullYear();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const timeFormatted = `${month} ${day}, ${year}, ${hours}:${minutes} ${ampm}`;
+
+    if (metaTime) {
+      metaTime.innerHTML = `&nbsp;&middot;&nbsp;Generated ${timeFormatted} &middot; grouped by supplier`;
+    }
+
+    // Gentle visual feedback pulse on results metadata
+    if (metaWrap) {
+      metaWrap.classList.add('ring-2', 'ring-blue-500/50', 'rounded-lg', 'px-2', 'py-1', 'bg-blue-500/10');
+      setTimeout(() => {
+        metaWrap.classList.remove('ring-2', 'ring-blue-500/50', 'rounded-lg', 'px-2', 'py-1', 'bg-blue-500/10');
+      }, 1200);
+    }
+
+    // Sync browser URL parameters without reloading
+    try {
+      const supplierVal = (document.getElementById('rr_supplier') || {}).value || '';
+      const categoryVal = (document.getElementById('rr_category') || {}).value || '';
+      const sortVal     = (document.getElementById('rr_sort')     || {}).value || 'lowest_stock';
+
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'reorder');
+      url.searchParams.set('rr_submitted', '1');
+      url.searchParams.set('rr_critical', reorderChipState.critical ? '1' : '0');
+      url.searchParams.set('rr_reorder', reorderChipState.reorder ? '1' : '0');
+      if (supplierVal) url.searchParams.set('rr_supplier', supplierVal);
+      else url.searchParams.delete('rr_supplier');
+      if (categoryVal) url.searchParams.set('rr_category', categoryVal);
+      else url.searchParams.delete('rr_category');
+      if (sortVal) url.searchParams.set('rr_sort', sortVal);
+      else url.searchParams.delete('rr_sort');
+
+      window.history.replaceState({ path: url.toString() }, '', url.toString());
+    } catch (err) {
+      // URL sync fallback
+    }
+
+    // Smooth scroll into results if needed
+    if (resultsHeader) {
+      const rect = resultsHeader.getBoundingClientRect();
+      if (rect.top < 0 || rect.top > window.innerHeight) {
+        resultsHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // Restore button after brief delay and show toast notification
+    setTimeout(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-80');
+      }
+      if (btnIcon) {
+        btnIcon.classList.remove('animate-spin');
+      }
+      if (btnText) {
+        btnText.textContent = 'Generate report';
+      }
+
+      const totalItems = res ? res.totalVisible : 0;
+      const totalSups  = res ? res.totalSuppliers : 0;
+      const msg = `Reorder report generated: ${totalItems} item${totalItems !== 1 ? 's' : ''} across ${totalSups} supplier${totalSups !== 1 ? 's' : ''}`;
+      if (typeof showToast === 'function') {
+        showToast(msg, 'success');
+      }
+    }, 250);
+  }
+
+  // ── Print Reorder Report (Reuses Universal Document #printableReportContainer) ──
+  function printReorderReport() {
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const elTitle    = document.getElementById('printDocTitle');
+    const elBadge    = document.getElementById('printDocBadge');
+    const elRef      = document.getElementById('printDocRef');
+    const elClass    = document.getElementById('printDocClass');
+    const elPrepHead = document.getElementById('printPrepHead');
+    const elScope1   = document.getElementById('printScopeLine1');
+    const elScope2   = document.getElementById('printScopeLine2');
+    const elReconHead= document.getElementById('printReconHead');
+    const elRecon1   = document.getElementById('printReconLine1');
+    const elRecon2   = document.getElementById('printReconLine2');
+    const elKpi      = document.getElementById('printKpiTiles');
+    const elThead    = document.getElementById('printableTableHead');
+    const elTbody    = document.getElementById('printableTableBody');
+    const elPrepBy   = document.getElementById('printPrepByTitle');
+    const elApprBy   = document.getElementById('printApprByRole');
+    const elFooter   = document.getElementById('printFooterDocText');
+
+    // Save general audit snapshot to restore after printing
+    const origSnapshot = {
+      title: elTitle?.innerHTML,
+      badge: elBadge?.outerHTML,
+      ref: elRef?.innerHTML,
+      docClass: elClass?.innerHTML,
+      prepHead: elPrepHead?.innerHTML,
+      scope1: elScope1?.innerHTML,
+      scope2: elScope2?.innerHTML,
+      reconHead: elReconHead?.innerHTML,
+      recon1: elRecon1?.innerHTML,
+      recon2: elRecon2?.innerHTML,
+      kpi: elKpi?.innerHTML,
+      kpiGrid: elKpi?.style.gridTemplateColumns,
+      thead: elThead?.innerHTML,
+      tbody: elTbody?.innerHTML,
+      prepBy: elPrepBy?.innerHTML,
+      apprBy: elApprBy?.innerHTML,
+      footer: elFooter?.innerHTML
+    };
+
+    // Gather visible items from active client filters
+    const tbody = document.getElementById('rrTableBody');
+    const allItemRows = tbody ? Array.from(tbody.querySelectorAll('tr.rr-item-row')).filter(r => r.style.display !== 'none') : [];
+    const grouped = {};
+    let totalCrit = 0;
+    let totalLow = 0;
+    allItemRows.forEach(row => {
+      const sup = row.dataset.supplier || 'No supplier';
+      if (!grouped[sup]) grouped[sup] = [];
+      grouped[sup].push(row);
+      if (row.dataset.status === 'critical') totalCrit++;
+      else totalLow++;
+    });
+
+    const supplierVal = (document.getElementById('rr_supplier') || {}).value || 'All Suppliers';
+    const categoryVal = (document.getElementById('rr_category') || {}).value || 'All Categories';
+    const statusText = (reorderChipState.critical && reorderChipState.reorder)
+      ? 'Critical & Reorder'
+      : (reorderChipState.critical ? 'Critical Only' : (reorderChipState.reorder ? 'Reorder Only' : 'None'));
+
+    const now = new Date();
+    const refCode = 'IW-RO-' + now.toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+    // 1. Header Branding & Badge
+    if (elTitle) elTitle.textContent = 'OFFICIAL REORDER & RESTOCK ADVISORY REPORT';
+    if (elBadge) {
+      elBadge.textContent = 'Restock Advisory';
+      elBadge.style.background = '#fef2f2';
+      elBadge.style.borderColor = '#fecaca';
+      elBadge.style.color = '#dc2626';
+    }
+    if (elRef) elRef.textContent = refCode;
+    if (elClass) elClass.textContent = 'Classification: Warehouse Stock Replenishment';
+
+    // 2. Parameters & Reconciliation Box
+    if (elPrepHead) elPrepHead.textContent = 'Advisory Generated By';
+    if (elScope1) elScope1.innerHTML = `<strong>Supplier:</strong> ${esc(supplierVal)}`;
+    if (elScope2) elScope2.innerHTML = `<strong>Category:</strong> ${esc(categoryVal)} &nbsp;|&nbsp; <strong>Status:</strong> ${esc(statusText)}`;
+    if (elReconHead) elReconHead.textContent = 'Restock Reconciliation';
+    if (elRecon1) elRecon1.innerHTML = `<strong>Items to Restock:</strong> ${allItemRows.length.toLocaleString()} items`;
+    if (elRecon2) elRecon2.innerHTML = `Critical: ${totalCrit} | Reorder: ${totalLow} | Suppliers: ${Object.keys(grouped).length}`;
+
+    // 3. 4 KPI Tiles
+    if (elKpi) {
+      elKpi.style.gridTemplateColumns = 'repeat(4, 1fr)';
+      elKpi.innerHTML = `
+        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: bold; color: #475569; text-transform: uppercase;">Items to Restock</div>
+            <div style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 2px;">${allItemRows.length.toLocaleString()}</div>
+            <div style="font-size: 7.5px; color: #64748b;">Replenishment Required</div>
+        </div>
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: bold; color: #dc2626; text-transform: uppercase;">Critical Stock</div>
+            <div style="font-size: 14px; font-weight: 800; color: #dc2626; margin-top: 2px;">${totalCrit.toLocaleString()}</div>
+            <div style="font-size: 7.5px; color: #b91c1c;">Stock &le; 50% Reorder Pt</div>
+        </div>
+        <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: bold; color: #b45309; text-transform: uppercase;">Reorder Stock</div>
+            <div style="font-size: 14px; font-weight: 800; color: #d97706; margin-top: 2px;">${totalLow.toLocaleString()}</div>
+            <div style="font-size: 7.5px; color: #b45309;">Stock &le; Reorder Threshold</div>
+        </div>
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: bold; color: #16a34a; text-transform: uppercase;">Suppliers Affected</div>
+            <div style="font-size: 14px; font-weight: 800; color: #16a34a; margin-top: 2px;">${Object.keys(grouped).length.toLocaleString()}</div>
+            <div style="font-size: 7.5px; color: #15803d;">Vendors to Contact</div>
+        </div>
+      `;
+    }
+
+    // 4. Table Headers & Rows
+    if (elThead) {
+      elThead.innerHTML = `
+        <tr>
+            <th style="width: 10%;">SKU</th>
+            <th style="width: 25%;">Product Name</th>
+            <th style="width: 13%;">Category</th>
+            <th style="width: 15%;">Supplier</th>
+            <th style="width: 9%; text-align: right;">Total Stock</th>
+            <th style="width: 6%; text-align: center;">Unit</th>
+            <th style="width: 13%;">Batches / Expiry</th>
+            <th style="width: 9%; text-align: right;">Reorder</th>
+            <th style="width: 10%; text-align: center;">Status</th>
+        </tr>
+      `;
+    }
+    if (elTbody) {
+      let tbodyHtml = '';
+      const sortedSups = Object.keys(grouped).sort();
+      sortedSups.forEach(sup => {
+        const rows = grouped[sup];
+        const sCrit = rows.filter(r => r.dataset.status === 'critical').length;
+        const sLow  = rows.length - sCrit;
+        tbodyHtml += `
+          <tr style="background: #f0f7ff; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+            <td colspan="9" style="font-weight: 700; background: #f0f7ff; color: #1e40af; border: 1px solid #cbd5e1; padding: 6px 8px;">
+              ${esc(sup)} &bull; ${rows.length} item${rows.length !== 1 ? 's' : ''} (${sCrit} critical, ${sLow} reorder)
+            </td>
+          </tr>
+        `;
+        rows.forEach(r => {
+          const cells = Array.from(r.querySelectorAll('td'));
+          const sku    = cells[0]?.textContent.trim() || '';
+          const name   = cells[1]?.querySelector('.product-title-text')?.textContent.trim() || cells[1]?.textContent.trim() || '';
+          const cat    = cells[2]?.querySelector('.table-cat-badge')?.textContent.trim() || cells[2]?.textContent.trim() || '';
+          const supName= cells[3]?.textContent.trim() || '';
+          const qty    = cells[5]?.querySelector('.stock-num')?.textContent.trim() || cells[5]?.querySelector('.font-mono')?.textContent.trim() || '';
+          const unit   = cells[8]?.textContent.trim() || 'piece';
+          const batchExp = cells[6]?.textContent.trim().replace(/\\s+/g, ' ') || '';
+          const rp     = cells[9]?.textContent.trim() || '';
+          const isCrit = r.dataset.status === 'critical';
+          const badgeClass = isCrit ? 'out' : 'low';
+          const badgeLabel = isCrit ? 'CRITICAL' : 'REORDER';
+
+          tbodyHtml += `
+            <tr>
+              <td style="font-family: monospace; font-weight: bold;">${esc(sku)}</td>
+              <td style="font-weight: 600;">${esc(name)}</td>
+              <td>${esc(cat)}</td>
+              <td>${esc(supName)}</td>
+              <td style="text-align: right; font-weight: bold;">${esc(qty)}</td>
+              <td style="text-align: center; color: #64748b;">${esc(unit)}</td>
+              <td style="font-size: 9px;">${esc(batchExp)}</td>
+              <td style="text-align: right; color: #64748b;">${esc(rp)}</td>
+              <td style="text-align: center;">
+                <span class="print-badge ${badgeClass}">${badgeLabel}</span>
+              </td>
+            </tr>
+          `;
+        });
+      });
+      if (allItemRows.length === 0) {
+        tbodyHtml = `<tr><td colspan="9" style="text-align:center; padding:20px; color:#64748b;">No items match the active filters.</td></tr>`;
+      }
+      elTbody.innerHTML = tbodyHtml;
+    }
+
+    // 5. Sign-off & Footer
+    if (elPrepBy) elPrepBy.textContent = 'Advisory Prepared By';
+    if (elApprBy) elApprBy.textContent = 'Warehouse Supervisor / Procurement Control';
+    if (elFooter) elFooter.textContent = 'IntelliWare IMS • Confidential Stock Replenishment Advisory Document';
+
+    // 6. Print Document
+    window.print();
+
+    // 7. Restore original General Inventory Audit snapshot
+    const restoreOriginal = () => {
+      if (elTitle && origSnapshot.title !== undefined) elTitle.innerHTML = origSnapshot.title;
+      if (elBadge && origSnapshot.badge !== undefined) elBadge.outerHTML = origSnapshot.badge;
+      if (elRef && origSnapshot.ref !== undefined) elRef.innerHTML = origSnapshot.ref;
+      if (elClass && origSnapshot.docClass !== undefined) elClass.innerHTML = origSnapshot.docClass;
+      if (elPrepHead && origSnapshot.prepHead !== undefined) elPrepHead.innerHTML = origSnapshot.prepHead;
+      if (elScope1 && origSnapshot.scope1 !== undefined) elScope1.innerHTML = origSnapshot.scope1;
+      if (elScope2 && origSnapshot.scope2 !== undefined) elScope2.innerHTML = origSnapshot.scope2;
+      if (elReconHead && origSnapshot.reconHead !== undefined) elReconHead.innerHTML = origSnapshot.reconHead;
+      if (elRecon1 && origSnapshot.recon1 !== undefined) elRecon1.innerHTML = origSnapshot.recon1;
+      if (elRecon2 && origSnapshot.recon2 !== undefined) elRecon2.innerHTML = origSnapshot.recon2;
+      if (elKpi && origSnapshot.kpi !== undefined) {
+        elKpi.innerHTML = origSnapshot.kpi;
+        elKpi.style.gridTemplateColumns = origSnapshot.kpiGrid || 'repeat(5, 1fr)';
+      }
+      if (elThead && origSnapshot.thead !== undefined) elThead.innerHTML = origSnapshot.thead;
+      if (elTbody && origSnapshot.tbody !== undefined) elTbody.innerHTML = origSnapshot.tbody;
+      if (elPrepBy && origSnapshot.prepBy !== undefined) elPrepBy.innerHTML = origSnapshot.prepBy;
+      if (elApprBy && origSnapshot.apprBy !== undefined) elApprBy.innerHTML = origSnapshot.apprBy;
+      if (elFooter && origSnapshot.footer !== undefined) elFooter.innerHTML = origSnapshot.footer;
+    };
+
+    window.addEventListener('afterprint', restoreOriginal, { once: true });
+    setTimeout(restoreOriginal, 2000);
+  }
+
+  // ── Export CSV ────────────────────────────────────────────────────
+  function exportReorderCSV() {
+    const rows = Array.from(document.querySelectorAll('#rrTableBody tr.rr-item-row')).filter(r => r.style.display !== 'none');
+    if (rows.length === 0) {
+      if (typeof showToast === 'function') showToast('No data to export', 'warning');
+      else alert('No data to export');
+      return;
+    }
+    const headers = ['SKU','Name','Category','Supplier','Location','Total Stock','Unit','Batches','Nearest Expiry','Price','Reorder Point','Status'];
+    const csvRows = [headers.join(',')];
+    rows.forEach(row => {
+      const cells = Array.from(row.querySelectorAll('td'));
+      const sku    = cells[0]?.textContent.trim()   || '';
+      const name   = cells[1]?.querySelector('.product-title-text')?.textContent.trim() || cells[1]?.textContent.trim() || '';
+      const cat    = cells[2]?.textContent.trim()   || '';
+      const sup    = cells[3]?.textContent.trim()   || '';
+      const loc    = cells[4]?.textContent.trim()   || '';
+      const qty    = cells[5]?.querySelector('.stock-num')?.textContent.trim() || cells[5]?.querySelector('.font-bold')?.textContent.trim() || cells[5]?.textContent.trim() || '';
+      const unit   = cells[8]?.textContent.trim()   || '';
+      const batch  = cells[6]?.querySelector('div')?.textContent.trim() || '';
+      const exp    = cells[6]?.querySelectorAll('div')[1]?.textContent.trim().replace('Exp: ','') || '';
+      const price  = cells[7]?.textContent.trim().replace('₱','').replace(/,/g,'') || '';
+      const rp     = cells[9]?.textContent.trim().replace(/,/g,'') || '';
+      const status = cells[10]?.querySelector('.status-badge')?.textContent.trim() || cells[10]?.textContent.trim() || '';
+      csvRows.push([sku,name,cat,sup,loc,qty,unit,batch,exp,price,rp,status].map(v => `"${v.replace(/"/g,'""')}"`).join(','));
+    });
+    const blob = new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `IntelliWare_Reorder_Report_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    if (typeof showToast === 'function') showToast('Reorder CSV exported!', 'success');
+  }
+
+  // Initialize pagination & tab on load
   document.addEventListener('DOMContentLoaded', function() {
     renderAuditPagination(1);
+    <?php if ($rrViewActive): ?>
+    switchReportView('reorder');
+    <?php endif; ?>
   });
   if (document.readyState !== 'loading') {
     renderAuditPagination(1);
+    <?php if ($rrViewActive): ?>
+    switchReportView('reorder');
+    <?php endif; ?>
   }
 
   // Interaction Logic
@@ -1614,7 +2777,7 @@ renderLayoutStart('Reports', $role, $_SESSION['Username'], ($lowStockCount + $ou
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(7.5);
                 doc.setTextColor(100, 116, 139);
-                doc.text("INTELLIWARE WIMS • OFFICIAL INVENTORY & AUDIT REPORT", 14, 8);
+                doc.text("INTELLIWARE IMS • OFFICIAL INVENTORY & AUDIT REPORT", 14, 8);
 
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(7);

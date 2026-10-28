@@ -36,6 +36,7 @@ desktop.ini
 logs/*.txt
 tmp/
 *.tmp
+scratch/
 
 # Uploads (product images & TM models — upload manually via SFTP)
 # NOTE: Keep tm_models tracked so the AI scanner works after git clone

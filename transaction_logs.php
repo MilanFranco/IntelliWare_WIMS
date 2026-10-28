@@ -295,6 +295,75 @@ html { scroll-behavior: smooth; }
 [data-theme="light"] .txnacc-row         { border-color: var(--iw-border) !important; }
 [data-theme="light"] .txnacc-remarks-row { color: var(--iw-text-muted) !important; }
 
+[data-theme="light"] .txn-source-manual,
+[data-theme="light"] .text-slate-300 {
+    background-color: #E2E8F0 !important;
+    color: #0F172A !important;
+    border-color: #CBD5E1 !important;
+    font-weight: 600 !important;
+}
+[data-theme="light"] .txn-source-ai,
+[data-theme="light"] .text-purple-300 {
+    background-color: #EDE9FE !important;
+    color: #6D28D9 !important;
+    border-color: #DDD6FE !important;
+    font-weight: 600 !important;
+}
+[data-theme="light"] .txn-badge-stock-in,
+[data-theme="light"] #mainLogTable .bg-emerald-500\/10,
+[data-theme="light"] .bg-emerald-500\/10 {
+    background-color: #DCFCE7 !important;
+    color: #15803D !important;
+    border-color: #86EFAC !important;
+    font-weight: 700 !important;
+}
+[data-theme="light"] .txn-badge-stock-in svg {
+    stroke: #15803D !important;
+}
+[data-theme="light"] .txn-badge-stock-out,
+[data-theme="light"] #mainLogTable .bg-red-500\/10,
+[data-theme="light"] .bg-red-500\/10 {
+    background-color: #FEE2E2 !important;
+    color: #B91C1C !important;
+    border-color: #FCA5A5 !important;
+    font-weight: 700 !important;
+}
+[data-theme="light"] .txn-badge-stock-out svg {
+    stroke: #B91C1C !important;
+}
+[data-theme="light"] #mainLogTable thead th {
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    font-weight: 700 !important;
+    border-bottom: 2px solid #CBD5E1 !important;
+}
+[data-theme="light"] #mainLogTable tbody tr:hover td {
+    background-color: #EBF3FC !important;
+}
+[data-theme="light"] #mainLogTable td {
+    border-bottom-color: #E2E8F0 !important;
+}
+[data-theme="light"] #mainLogTable .font-medium.text-\[\#E3E3E3\],
+[data-theme="light"] #mainLogTable .font-mono.font-semibold.text-\[\#E3E3E3\],
+[data-theme="light"] #mainLogTable td.font-medium,
+[data-theme="light"] #mainLogTable td.font-semibold {
+    color: #0F172A !important;
+}
+[data-theme="light"] #mainLogTable .text-\[\#9aa6d1\] {
+    color: #334155 !important;
+}
+[data-theme="light"] #mainLogTable td {
+    color: #1E293B !important;
+}
+[data-theme="light"] #logSearch {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    border-color: #CBD5E1 !important;
+}
+[data-theme="light"] #logSearch::placeholder {
+    color: #64748B !important;
+}
+
     /* ── Page Hero Card ────────────────────────────────────────── */
     .page-hero-card {
         background: linear-gradient(135deg, rgba(29, 56, 123, 0.92) 0%, rgba(18, 39, 91, 0.96) 100%);
@@ -500,9 +569,9 @@ html { scroll-behavior: smooth; }
                             </td>
                             <td class="p-3 text-center">
                                 <?php if($trans['transaction_type'] === 'stock_in'): ?>
-                                    <span class="px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IN</span>
+                                    <span class="txn-badge-stock-in px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">IN</span>
                                 <?php else: ?>
-                                    <span class="px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">OUT</span>
+                                    <span class="txn-badge-stock-out px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">OUT</span>
                                 <?php endif; ?>
                             </td>
                             <td class="p-3 text-center font-mono text-[#E3E3E3]">
@@ -578,12 +647,12 @@ html { scroll-behavior: smooth; }
                         <td class="text-sm text-[#9aa6d1]"><?php echo htmlspecialchars($trans['category'] ?? '-'); ?></td>
                         <td>
                             <?php if($trans['transaction_type'] === 'stock_in'): ?>
-                                <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <span class="txn-badge-stock-in inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
                                     STOCK IN
                                 </span>
                             <?php else: ?>
-                                <span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                                <span class="txn-badge-stock-out inline-flex items-center px-2 py-1 rounded text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
                                     STOCK OUT
                                 </span>
@@ -593,11 +662,11 @@ html { scroll-behavior: smooth; }
                             <?php
                             $src = $trans['transaction_source'] ?? 'manual';
                             if ($src === 'ai_scan'): ?>
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                                <span class="txn-source-badge txn-source-ai inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
                                     AI Scan
                                 </span>
                             <?php else: ?>
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
+                                <span class="txn-source-badge txn-source-manual inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/15 text-slate-300 border border-slate-500/30">
                                     Manual
                                 </span>
                             <?php endif; ?>

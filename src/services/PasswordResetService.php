@@ -2,7 +2,7 @@
 /**
  * src/services/PasswordResetService.php
  *
- * Secure Password Reset & Email Verification Service for IntelliWare WIMS.
+ * Secure Password Reset & Email Verification Service for IntelliWare IMS.
  * Handles token generation, OTP generation, HTML email dispatch,
  * verification, and password updates.
  */
@@ -160,13 +160,13 @@ class PasswordResetService
         $subject = "IntelliWare - Password Reset Code: {$otp}";
         $htmlBody = self::renderResetEmailHtml($fullName, $user['username'], $otp, $directResetUrl);
         $plainText = "Hello {$fullName},\n\n"
-            . "A request has been made to reset the password for your IntelliWare WIMS account (@{$user['username']}).\n\n"
+            . "A request has been made to reset the password for your IntelliWare IMS account (@{$user['username']}).\n\n"
             . "Your 6-digit verification code is: {$otp}\n\n"
             . "Or click the direct reset link below to choose a new password:\n"
             . "{$directResetUrl}\n\n"
             . "This code and link will expire in 15 minutes.\n"
             . "If you did not request this password reset, please ignore this email.\n\n"
-            . "— IntelliWare WIMS Support Team";
+            . "— IntelliWare IMS Support Team";
 
         // Dispatch Email via PHPMailer / EmailService
         $sendResult = EmailService::sendCustomEmail($conn, $targetEmail, $subject, $htmlBody, $plainText, 'Password Reset');
@@ -410,8 +410,8 @@ class PasswordResetService
                 <tr>
                   <td align="center">
                     <img src="cid:intelliware_logo" alt="IntelliWare" style="height:38px; max-width:180px; margin-bottom:8px; display:block;" onerror="this.style.display=\'none\'">
-                    <h1 style="margin:0; font-size:20px; font-weight:700; color:#51D55A; letter-spacing:0.5px;">IntelliWare WIMS</h1>
-                    <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Warehouse Inventory Management System</p>
+                    <h1 style="margin:0; font-size:20px; font-weight:700; color:#51D55A; letter-spacing:0.5px;">IntelliWare IMS</h1>
+                    <p style="margin:4px 0 0 0; font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Inventory Management System</p>
                   </td>
                 </tr>
               </table>
@@ -470,7 +470,7 @@ class PasswordResetService
           <!-- Footer -->
           <tr>
             <td style="background-color:#0d1527; padding:16px 30px; text-align:center; border-top:1px solid #1a2542; font-size:11px; color:#64748b;">
-              © ' . date('Y') . ' IntelliWare WIMS. Automated security notification.
+              © ' . date('Y') . ' IntelliWare IMS. Automated security notification.
             </td>
           </tr>
         </table>

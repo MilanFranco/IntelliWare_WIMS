@@ -450,16 +450,25 @@ renderLayoutStart($pageTitle, $role, $username, $lowStockCount);
         border: 1.5px solid rgba(81, 213, 90, 0.3);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        padding: 13px 22px;
-        border-radius: 12px;
+        padding: 10px 22px;
+        border-radius: 9999px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-        display: flex;
+        display: inline-flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        white-space: nowrap;
         align-items: center;
         gap: 12px;
-        min-width: 320px;
-        max-width: 90vw;
+        min-width: 0;
+        max-width: min(92vw, 680px);
         color: #fff;
         font-family: 'Onest', sans-serif;
+        font-size: 13.5px;
+    }
+    .toast-box span, .toast-box p {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .toast-box.confirm { border-color: #f87171; }
     

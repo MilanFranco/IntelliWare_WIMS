@@ -103,10 +103,11 @@
     function chartColors() {
         var isLight = getTheme() === 'light';
         return {
-            text: isLight ? '#334155' : '#E3E3E3',
-            muted: isLight ? '#64748b' : '#9aa6d1',
-            grid: isLight ? 'rgba(148, 163, 184, 0.35)' : 'rgba(42, 68, 132, 0.3)',
-            border: isLight ? 'rgba(148, 163, 184, 0.3)' : 'rgba(42, 68, 132, 0.3)'
+            text: isLight ? '#0F172A' : '#E3E3E3',
+            muted: isLight ? '#475569' : '#9aa6d1',
+            grid: isLight ? 'rgba(148, 163, 184, 0.25)' : 'rgba(42, 68, 132, 0.3)',
+            border: isLight ? 'rgba(148, 163, 184, 0.3)' : 'rgba(42, 68, 132, 0.3)',
+            pointLabel: isLight ? '#0F172A' : '#E3E3E3'
         };
     }
 
@@ -116,7 +117,7 @@
         }
 
         var colors = chartColors();
-        Chart.defaults.color = colors.muted;
+        Chart.defaults.color = colors.text;
         Chart.defaults.borderColor = colors.grid;
         Chart.defaults.font.family = "'Onest', sans-serif";
     }
@@ -143,6 +144,15 @@
             }
             if (scale.border) {
                 scale.border.color = colors.border;
+            }
+            if (scale.title) {
+                scale.title.color = colors.muted;
+            }
+            if (scale.pointLabels) {
+                scale.pointLabels.color = colors.pointLabel;
+            }
+            if (scale.angleLines) {
+                scale.angleLines.color = colors.grid;
             }
         });
 

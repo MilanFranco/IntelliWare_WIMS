@@ -2,7 +2,7 @@
 /**
  * reset_password.php
  *
- * Direct email link gateway for IntelliWare WIMS password resets.
+ * Direct email link gateway for IntelliWare IMS password resets.
  * Validates the email token and routes users directly to the password set screen.
  */
 

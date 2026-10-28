@@ -470,29 +470,31 @@ body.auth-page::before,
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    padding: 12px 22px;
-    border-radius: 12px;
+    padding: 10px 22px;
+    border-radius: 9999px;
     font-family: 'Onest', sans-serif;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13.5px;
+    font-weight: 600;
     z-index: 100005;
-    display: flex;
-    align-items: center;
+    display: inline-flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: center !important;
     gap: 10px;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     pointer-events: auto;
-    width: max-content;
-    max-width: min(90vw, 550px);
+    width: auto !important;
+    max-width: min(92vw, 680px) !important;
     height: auto !important;
-    max-height: 120px !important;
-    white-space: normal;
-    word-break: break-word;
+    white-space: nowrap !important;
     color: #ffffff;
+    box-sizing: border-box;
 }
 
 #toast-container.show {
@@ -580,6 +582,11 @@ body.auth-page::before,
     max-width: 20px !important;
     max-height: 20px !important;
     flex-shrink: 0 !important;
+    line-height: 1 !important;
+}
+
+#toast-icon:empty {
+    display: none !important;
 }
 
 #toast-icon svg {
@@ -594,10 +601,14 @@ body.auth-page::before,
 }
 
 #toast-message {
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 13.5px;
+    line-height: 1.25;
     color: inherit;
-    flex: 1;
+    flex: 0 1 auto;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100%;
 }
 
 #toast-container:has(.toast-box) {
@@ -1421,7 +1432,7 @@ body {
 }
 
 /* ============================================================
-   RESPONSIVE DESIGN — IntelliWare WIMS
+   RESPONSIVE DESIGN — IntelliWare IMS
    Breakpoints: mobile < 640px | tablet 640-1023px | desktop 1024px+
    ============================================================ */
 

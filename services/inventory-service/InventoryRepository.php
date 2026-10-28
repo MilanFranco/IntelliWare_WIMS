@@ -99,7 +99,14 @@ class InventoryRepository
                 p.price,
                 p.shelf_life,
                 p.archived,
-                (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS next_expiry
+                p.created_at,
+                COALESCE(
+                    (SELECT MAX(pb.received_at) FROM product_batches pb WHERE pb.product_id = p.product_id),
+                    (SELECT MAX(t.transaction_date) FROM transactions t WHERE t.product_id = p.product_id AND t.transaction_type = 'stock_in'),
+                    p.created_at
+                ) AS date_received,
+                (SELECT MIN(b.expiry_date) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) AS next_expiry,
+                (SELECT COUNT(*) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) AS batch_count
             FROM products p
             {$whereSql}
             ORDER BY p.product_id DESC
@@ -121,6 +128,7 @@ class InventoryRepository
             $row['reorder_point'] = (int)$row['reorder_point'];
             $row['price'] = (float)$row['price'];
             $row['archived'] = (int)$row['archived'];
+            $row['batch_count'] = (int)($row['batch_count'] ?? 0);
             $items[] = $row;
         }
         $stmt->close();
@@ -157,7 +165,14 @@ class InventoryRepository
                 p.price,
                 p.shelf_life,
                 p.archived,
-                (SELECT MIN(b.expiry_date) FROM inventory_batches b WHERE b.product_id = p.product_id AND b.quantity > 0) AS next_expiry
+                p.created_at,
+                COALESCE(
+                    (SELECT MAX(pb.received_at) FROM product_batches pb WHERE pb.product_id = p.product_id),
+                    (SELECT MAX(t.transaction_date) FROM transactions t WHERE t.product_id = p.product_id AND t.transaction_type = 'stock_in'),
+                    p.created_at
+                ) AS date_received,
+                (SELECT MIN(b.expiry_date) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) AS next_expiry,
+                (SELECT COUNT(*) FROM product_batches b WHERE b.product_id = p.product_id AND b.qty > 0) AS batch_count
             FROM products p
             WHERE p.product_id = ?
             LIMIT 1
@@ -172,20 +187,37 @@ class InventoryRepository
             return null;
         }
 
-        // Fetch active batches
+        // Fetch active batches from product_batches
         $batchStmt = $this->conn->prepare("
-            SELECT batch_id, batch_number, quantity, expiry_date, date_received
-            FROM inventory_batches
-            WHERE product_id = ? AND quantity > 0
-            ORDER BY expiry_date ASC, batch_id ASC
+            SELECT batch_id, batch_number, qty AS quantity, expiry_date, received_at AS date_received
+            FROM product_batches
+            WHERE product_id = ? AND qty > 0
+            ORDER BY (expiry_date >= CURDATE()) DESC, expiry_date ASC, batch_id ASC
         ");
         $batchStmt->bind_param('i', $productId);
         $batchStmt->execute();
         $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $batchStmt->close();
 
+        if (empty($batches)) {
+            // Fallback to inventory_batches
+            $ibStmt = $this->conn->prepare("
+                SELECT batch_id, batch_number, quantity, expiry_date, date_received
+                FROM inventory_batches
+                WHERE product_id = ? AND quantity > 0
+                ORDER BY expiry_date ASC, batch_id ASC
+            ");
+            if ($ibStmt) {
+                $ibStmt->bind_param('i', $productId);
+                $ibStmt->execute();
+                $batches = $ibStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $ibStmt->close();
+            }
+        }
+
         $product['id'] = (int)$product['id'];
         $product['qty'] = (int)$product['qty'];
+        $product['batch_count'] = count($batches);
         $product['batches'] = $batches;
 
         return $product;

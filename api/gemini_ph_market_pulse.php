@@ -237,7 +237,7 @@ $geminiModelUsed = '';
 $isAiLive = false;
 
 if (!empty($apiKey)) {
-    $prompt = "You are a Chief Retail Analyst and Philippine FMCG Market Intelligence Expert for IntelliWare WIMS (Warehouse Inventory Management System).
+    $prompt = "You are a Chief Retail Analyst and Philippine FMCG Market Intelligence Expert for IntelliWare IMS (Inventory Management System).
 Analyze real consumer purchasing behavior, daily Filipino cravings, cultural moments, household cash flow, and supermarket demand for this specific day and context:
 
 Target Date: {$formattedDate} ({$dayOfWeek})

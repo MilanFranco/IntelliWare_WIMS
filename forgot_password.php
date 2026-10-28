@@ -2,7 +2,7 @@
 /**
  * forgot_password.php
  *
- * Password Reset Page for IntelliWare WIMS.
+ * Password Reset Page for IntelliWare IMS.
  * 3-Step Seamless Password Recovery Flow:
  *   Step 1: Enter registered email -> Send Verification Code
  *   Step 2: Enter 6-digit code -> Confirm Code
